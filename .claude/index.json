@@ -1,0 +1,49 @@
+{
+  "project": "cQuant",
+  "description": "AI工具项目 - 量化/计算工具",
+  "scanned_at": "2026-05-11T11:18:07+08:00",
+  "scanner_version": "adaptive-v1",
+  "truncated": false,
+  "coverage": {
+    "estimated_total_files": 0,
+    "scanned_files": 0,
+    "coverage_percent": 100,
+    "note": "项目目录为空，无源文件可扫描。已生成初始文档骨架供后续开发使用。"
+  },
+  "ignore_rules": {
+    "source": "defaults (no .gitignore found)",
+    "patterns": [
+      "node_modules/**",
+      ".git/**",
+      ".github/**",
+      "dist/**",
+      "build/**",
+      ".next/**",
+      "__pycache__/**",
+      "*.lock",
+      "*.log",
+      "*.bin",
+      "*.pdf",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.gif",
+      "*.mp4",
+      "*.zip",
+      "*.tar",
+      "*.gz"
+    ]
+  },
+  "modules": [],
+  "gaps": {
+    "missing_entry_point": true,
+    "missing_interfaces": true,
+    "missing_data_models": true,
+    "missing_tests": true,
+    "missing_config": true,
+    "missing_readme": true,
+    "priority_scan_on_next_run": []
+  },
+  "root_claude_md": "CLAUDE.md",
+  "module_claude_mds": []
+}

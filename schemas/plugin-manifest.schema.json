@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PluginManifest",
+  "description": "cQuant plugin manifest schema",
+  "type": "object",
+  "required": ["name", "version", "capabilities", "entrypoints"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique stable plugin identifier",
+      "pattern": "^[a-z0-9][a-z0-9-_]*$"
+    },
+    "version": {
+      "type": "string",
+      "description": "SemVer version string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+.*$"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "data_connector", "factor", "strategy", "model_trainer",
+          "metric", "broker_adapter", "sentiment_agent",
+          "risk_policy", "position_sizer", "risk_metric",
+          "news_connector", "event_detector", "post_backtest_analyzer",
+          "llm_provider", "advisor_tool",
+          "knowledge_loader", "knowledge_processor",
+          "embedding_provider", "knowledge_search_strategy",
+          "market_calendar_provider"
+        ]
+      },
+      "minItems": 1
+    },
+    "entrypoints": {
+      "type": "object",
+      "description": "Map of capability → 'module:callable'",
+      "additionalProperties": { "type": "string", "pattern": "^.+:.+$" }
+    },
+    "markets": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["CN", "US", "HK", "CRYPTO"] }
+    },
+    "asset_classes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "compatibility": {
+      "type": "object",
+      "description": "Compatibility constraints, e.g. {'cquant': '>=0.1.0'}",
+      "additionalProperties": { "type": "string" }
+    },
+    "description": { "type": "string" },
+    "author": { "type": "string" },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,113 @@
+"""cquant.portfolio_opt.cost_aware — Portfolio optimizer with transaction cost awareness."""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+import numpy as np
+from scipy.optimize import minimize
+
+from cquant.portfolio_opt.base import OptimizationResult, PortfolioOptimizer
+
+logger = logging.getLogger(__name__)
+
+
+class CostAwareOptimizer(PortfolioOptimizer):
+    """Mean-variance optimizer with transaction cost penalty.
+
+    Adds a turnover penalty to the objective function to discourage
+    large portfolio changes that would incur high trading costs.
+
+    Usage::
+
+        optimizer = CostAwareOptimizer(cost_rate=0.001, turnover_penalty=0.0005)
+        result = optimizer.optimize(
+            expected_returns=returns,
+            covariance=cov,
+            constraints={"current_weights": {"A": 0.3, "B": 0.4, "C": 0.3}},
+        )
+    """
+
+    def __init__(
+        self,
+        risk_free_rate: float = 0.0,
+        long_only: bool = True,
+        cost_rate: float = 0.001,
+        turnover_penalty: float = 0.0005,
+    ) -> None:
+        self._risk_free_rate = risk_free_rate
+        self._long_only = long_only
+        self._cost_rate = cost_rate
+        self._turnover_penalty = turnover_penalty
+
+    def optimize(
+        self,
+        expected_returns: dict[str, float],
+        covariance: dict[str, dict[str, float]],
+        constraints: dict[str, Any] | None = None,
+    ) -> OptimizationResult:
+        if not expected_returns:
+            return OptimizationResult(weights={})
+
+        assets, mu, sigma = self._to_arrays(expected_returns, covariance)
+        n = len(assets)
+
+        current = (constraints or {}).get("current_weights", {})
+        w_current = np.array([current.get(a, 0.0) for a in assets])
+
+        max_weight = (constraints or {}).get("max_weight", 1.0)
+        min_weight = (constraints or {}).get("min_weight", 0.0)
+
+        if self._long_only:
+            bounds = [(min_weight, max_weight) for _ in range(n)]
+        else:
+            bounds = [(-max_weight, max_weight) for _ in range(n)]
+
+        eq_constraint = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
+
+        def objective(w: np.ndarray) -> float:
+            port_return = np.dot(w, mu)
+            port_vol = np.sqrt(np.dot(w, np.dot(sigma, w)))
+            sharpe = -(port_return - self._risk_free_rate) / max(port_vol, 1e-10)
+
+            turnover = np.sum(np.abs(w - w_current))
+            cost = self._cost_rate * turnover
+            penalty = self._turnover_penalty * turnover ** 2
+
+            return sharpe + cost + penalty
+
+        w0 = np.ones(n) / n
+
+        result = minimize(
+            objective,
+            w0,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=[eq_constraint],
+            options={"maxiter": 1000, "ftol": 1e-10},
+        )
+
+        if not result.success:
+            logger.warning("Cost-aware optimization did not converge: %s", result.message)
+
+        optimal_weights = result.x
+        port_return = float(np.dot(optimal_weights, mu))
+        port_vol = float(np.sqrt(np.dot(optimal_weights, np.dot(sigma, optimal_weights))))
+        sharpe = (port_return - self._risk_free_rate) / port_vol if port_vol > 0 else 0.0
+        turnover = float(np.sum(np.abs(optimal_weights - w_current)))
+
+        weights_dict = {assets[i]: float(optimal_weights[i]) for i in range(n)}
+
+        return OptimizationResult(
+            weights=weights_dict,
+            expected_return=port_return,
+            expected_volatility=port_vol,
+            sharpe_ratio=sharpe,
+            metadata={
+                "optimizer": "cost_aware",
+                "success": result.success,
+                "turnover": turnover,
+                "transaction_cost": self._cost_rate * turnover,
+            },
+        )

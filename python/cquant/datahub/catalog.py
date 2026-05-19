@@ -1,0 +1,163 @@
+"""cquant.datahub.catalog — DuckDB-backed dataset catalog.
+
+Manages dataset registration, version lineage, and SQL query access
+over the Bronze / Silver / Gold layers.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import duckdb
+import polars as pl
+
+from cquant.core.errors import CatalogError
+
+logger = logging.getLogger(__name__)
+
+_DDL_FILES = [
+    "sql/duckdb/bronze.sql",
+    "sql/duckdb/silver.sql",
+    "sql/duckdb/news.sql",
+    "sql/duckdb/analysis.sql",
+    "sql/duckdb/gold.sql",
+    "sql/duckdb/knowledge.sql",
+    "sql/duckdb/meta.sql",
+]
+
+
+class Catalog:
+    """DuckDB catalog for the cQuant data lake.
+
+    Usage::
+
+        catalog = Catalog("data/catalog.duckdb")
+        catalog.initialize()          # Run DDL on first use
+        catalog.query("SELECT COUNT(*) FROM silver_prices_1d")
+    """
+
+    def __init__(
+        self,
+        db_path: str | Path = "data/catalog.duckdb",
+        repo_root: str | Path | None = None,
+    ) -> None:
+        self._db_path = Path(db_path)
+        self._repo_root = Path(repo_root) if repo_root else Path.cwd()
+        self._conn: duckdb.DuckDBPyConnection | None = None
+
+    def _get_conn(self) -> duckdb.DuckDBPyConnection:
+        if self._conn is None:
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._conn = duckdb.connect(str(self._db_path))
+        return self._conn
+
+    def initialize(self) -> None:
+        """Execute all DDL scripts to create tables if they do not exist."""
+        conn = self._get_conn()
+        for ddl_file in _DDL_FILES:
+            path = self._repo_root / ddl_file
+            if not path.exists():
+                logger.warning("DDL file not found, skipping: %s", path)
+                continue
+            sql = path.read_text(encoding="utf-8")
+            # Execute statement by statement (DuckDB does not support multi-statement
+            # execute in all versions)
+            for stmt in _split_statements(sql):
+                try:
+                    conn.execute(stmt)
+                except Exception as exc:
+                    raise CatalogError(f"DDL failed in {ddl_file}: {exc}\n\n{stmt}") from exc
+        logger.info("Catalog initialized at %s", self._db_path)
+
+    def query(self, sql: str, params: list[Any] | None = None) -> pl.DataFrame:
+        """Execute *sql* and return the result as a Polars DataFrame."""
+        conn = self._get_conn()
+        try:
+            rel = conn.execute(sql, params or [])
+            return rel.pl()
+        except Exception as exc:
+            raise CatalogError(f"Query failed: {exc}\n\nSQL: {sql}") from exc
+
+    def execute(self, sql: str, params: list[Any] | None = None) -> None:
+        """Execute a non-SELECT statement (INSERT, UPDATE, DELETE)."""
+        conn = self._get_conn()
+        try:
+            conn.execute(sql, params or [])
+        except Exception as exc:
+            raise CatalogError(f"Execute failed: {exc}\n\nSQL: {sql}") from exc
+
+    def register_dataset(
+        self,
+        dataset_name: str,
+        frequency: str,
+        start_date: str,
+        end_date: str,
+        asset_count: int,
+        row_count: int,
+        storage_uri: str,
+        source: str,
+        data_for_hash: bytes | None = None,
+    ) -> str:
+        """Register a new dataset version and return the version_id."""
+        version_id = str(uuid.uuid4())
+        content_hash = hashlib.sha256(data_for_hash).hexdigest() if data_for_hash else ""
+        now = datetime.now(tz=timezone.utc).isoformat()
+
+        # Mark previous current version as non-current
+        self.execute(
+            """
+            UPDATE silver_dataset_versions
+            SET is_current = FALSE
+            WHERE dataset_name = ? AND is_current = TRUE
+            """,
+            [dataset_name],
+        )
+
+        self.execute(
+            """
+            INSERT INTO silver_dataset_versions
+                (version_id, dataset_name, frequency, start_date, end_date,
+                 asset_count, row_count, storage_uri, content_hash, source, created_at, is_current)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+            """,
+            [
+                version_id, dataset_name, frequency, start_date, end_date,
+                asset_count, row_count, storage_uri, content_hash, source, now,
+            ],
+        )
+        return version_id
+
+    def close(self) -> None:
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
+
+    def __enter__(self) -> "Catalog":
+        return self
+
+    def __exit__(self, *_: Any) -> None:
+        self.close()
+
+
+def _split_statements(sql: str) -> list[str]:
+    """Split a SQL string into individual statements.
+
+    Strips single-line (--) comments and dot-commands (.read) before splitting
+    on semicolons, so that comment text never ends up in an executed statement.
+    """
+    import re
+    # Remove single-line comments (-- ...) and dot-commands (.foo)
+    no_comments = re.sub(r"(--[^\n]*)", "", sql)
+    no_comments = re.sub(r"^\s*\.[^\n]*$", "", no_comments, flags=re.MULTILINE)
+
+    statements = []
+    for raw in no_comments.split(";"):
+        stmt = raw.strip()
+        if stmt:
+            statements.append(stmt + ";")
+    return statements

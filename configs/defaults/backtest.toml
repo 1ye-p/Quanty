@@ -1,0 +1,71 @@
+# backtest.toml — Default backtest engine and cost model configuration.
+# CostModel is shared between backtest_vector (Python) and backtest_event (Rust).
+# These values are the defaults for CN A-share markets; override per run.
+
+[engine]
+default = "vector"          # "vector" | "event"
+base_currency = "CNY"
+initial_cash = 1_000_000.0
+bar_frequency = "1d"
+fill_policy = "next_bar_open"
+allow_short = false         # A-share: no naked short selling by default
+allow_fractional = false
+max_gross_leverage = 1.0
+rebalance_schedule = "1d"
+
+[portfolio]
+position_sizing = "target_weight"
+cash_reserve_ratio = 0.01
+benchmark = "000300.SH"     # CSI 300
+
+# ── Cost model ────────────────────────────────────────────────────────────────
+# Applies to BOTH engines; Python CostModel and Rust costs.rs must stay in parity.
+
+[costs.commission]
+# Bilateral: charged on both buy and sell sides.
+model = "pct"               # "pct" | "bps" | "fixed"
+rate = 0.0003               # 0.03% = 万分之三 (typical retail brokerage)
+minimum_per_order = 5.0     # CNY; orders below this threshold pay the minimum
+
+[costs.stamp_duty]
+# A-share stamp duty: levied ONLY on the sell side.
+enabled = true
+rate = 0.001                # 0.1% = 千分之一
+side = "sell_only"          # "sell_only" | "both" | "none"
+# Set side = "none" for HK/US markets where stamp duty rules differ.
+
+[costs.slippage]
+model = "pct"               # "pct" | "tick"
+rate = 0.0001               # 0.01% = 万分之一
+# For event engine only: max fraction of bar volume consumed by a single order.
+max_volume_share = 0.05
+
+[costs.borrow]
+enabled = false
+annualized_rate = 0.003     # 0.3% p.a. (placeholder for margin/stock borrow)
+
+# ── Market presets (override above with these sections) ───────────────────────
+
+[market_presets.CN]
+# A-share defaults (already captured in the sections above)
+base_currency = "CNY"
+stamp_duty_side = "sell_only"
+stamp_duty_rate = 0.001
+commission_rate = 0.0003
+commission_minimum = 5.0
+allow_short = false
+
+[market_presets.US]
+base_currency = "USD"
+stamp_duty_side = "none"
+commission_rate = 0.0001    # ~$0.01/share model mapped to 0.01% of notional
+commission_minimum = 1.0
+allow_short = true
+
+[market_presets.HK]
+base_currency = "HKD"
+stamp_duty_side = "both"
+stamp_duty_rate = 0.0013    # HK stamp duty 0.1% + levy ≈ 0.13%
+commission_rate = 0.0003
+commission_minimum = 50.0   # HKD
+allow_short = true

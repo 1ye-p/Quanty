@@ -1,0 +1,117 @@
+# market_calendar.toml — Default market calendar and trading rules configuration.
+
+[default]
+calendar = "SSE"            # Default exchange: Shanghai Stock Exchange
+timezone = "Asia/Shanghai"
+data_timezone = "UTC"
+trading_days_per_year = 243 # CN A-share typical
+
+# ── Exchange calendars ────────────────────────────────────────────────────────
+
+[exchanges.SSE]
+# Shanghai Stock Exchange (A-shares)
+name = "Shanghai Stock Exchange"
+mic = "XSHG"
+timezone = "Asia/Shanghai"
+currency = "CNY"
+settlement_lag_days = 1     # T+1
+lot_size = 100              # Standard board: 100 shares per lot
+min_lot_size = 1            # Star Market / ChiNext allows 1-share lots at IPO
+session_open = "09:30"
+session_close = "15:00"
+noon_break_start = "11:30"
+noon_break_end = "13:00"
+data_source = "tushare"     # Primary calendar source
+
+[exchanges.SZSE]
+# Shenzhen Stock Exchange (A-shares)
+name = "Shenzhen Stock Exchange"
+mic = "XSHE"
+timezone = "Asia/Shanghai"
+currency = "CNY"
+settlement_lag_days = 1
+lot_size = 100
+session_open = "09:30"
+session_close = "15:00"
+noon_break_start = "11:30"
+noon_break_end = "13:00"
+data_source = "tushare"
+
+[exchanges.HKEX]
+# Hong Kong Stock Exchange
+name = "Hong Kong Stock Exchange"
+mic = "XHKG"
+timezone = "Asia/Hong_Kong"
+currency = "HKD"
+settlement_lag_days = 2     # T+2
+lot_size = 0                # Variable per stock (set from instrument master)
+session_open = "09:30"
+session_close = "16:00"
+noon_break_start = "12:00"
+noon_break_end = "13:00"
+data_source = "akshare"
+
+[exchanges.NYSE]
+# New York Stock Exchange
+name = "New York Stock Exchange"
+mic = "XNYS"
+timezone = "America/New_York"
+currency = "USD"
+settlement_lag_days = 2     # T+2 (Reg T)
+lot_size = 1
+session_open = "09:30"
+session_close = "16:00"
+data_source = "yfinance"
+
+[exchanges.NASDAQ]
+# NASDAQ
+name = "NASDAQ"
+mic = "XNAS"
+timezone = "America/New_York"
+currency = "USD"
+settlement_lag_days = 2
+lot_size = 1
+session_open = "09:30"
+session_close = "16:00"
+data_source = "yfinance"
+
+# ── CN A-share price limit rules ──────────────────────────────────────────────
+
+[price_limits.CN_normal]
+# Standard A-share board (non-ST)
+daily_limit_up_pct = 0.10
+daily_limit_down_pct = 0.10
+
+[price_limits.CN_st]
+# Special Treatment (ST) and *ST stocks
+daily_limit_up_pct = 0.05
+daily_limit_down_pct = 0.05
+
+[price_limits.CN_registration_based]
+# ChiNext (创业板) and Star Market (科创板) — registration-based reform
+daily_limit_up_pct = 0.20
+daily_limit_down_pct = 0.20
+
+[price_limits.CN_ipo_first_5_days]
+# IPO first 5 trading days: no price limit on main boards (post-2023 reform)
+daily_limit_up_pct = 9999.0  # Effectively unlimited
+daily_limit_down_pct = 9999.0
+
+# ── Suspension handling ───────────────────────────────────────────────────────
+
+[suspension]
+# When a stock is suspended, how should the backtest handle it?
+price_source = "last_close"     # Use last valid close price
+signal_policy = "zero"          # Set signal/weight to 0 for suspended stocks
+fill_policy = "skip"            # No fills allowed on suspended days
+
+# ── Adjustment factors ────────────────────────────────────────────────────────
+
+[adjustments]
+default_method = "forward"      # "forward" | "backward" | "none"
+# Both adjusted and raw prices are retained in Silver layer.
+store_raw = true
+store_adjusted = true
+dividend_adjustment = true
+split_adjustment = true
+data_source = "tushare"         # adj_factor endpoint

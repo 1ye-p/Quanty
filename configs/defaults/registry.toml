@@ -1,0 +1,18 @@
+# registry.toml — Plugin registry configuration.
+
+[discovery]
+paths = ["plugins/builtin", "configs/plugins"]
+allow_remote = false
+
+[capabilities]
+# Registered capability types (stable contracts)
+types = [
+  "data_connector", "factor", "strategy", "model_trainer",
+  "metric", "broker_adapter", "sentiment_agent",
+  "risk_policy", "position_sizer", "risk_metric",
+  "news_connector", "event_detector", "post_backtest_analyzer",
+  "llm_provider", "advisor_tool",
+  "knowledge_loader", "knowledge_processor",
+  "embedding_provider", "knowledge_search_strategy",
+  "market_calendar_provider",
+]

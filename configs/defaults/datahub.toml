@@ -1,0 +1,44 @@
+# datahub.toml — Default data ingestion and catalog configuration.
+
+[catalog]
+db_path = "data/catalog.duckdb"
+lake_root = "data/lake"         # Parquet lake root
+bronze_path = "data/lake/bronze"
+silver_path = "data/lake/silver"
+gold_path = "data/lake/gold"
+
+[ingestion]
+default_frequency = "1d"
+max_retries = 3
+retry_delay_seconds = 5
+batch_size = 100                # Symbols per API batch call
+
+[connectors.akshare]
+enabled = true
+priority = 1
+markets = ["CN"]
+default_frequency = "1d"
+
+[connectors.tushare]
+enabled = true
+priority = 2
+markets = ["CN"]
+token_env_var = "TUSHARE_TOKEN"
+default_frequency = "1d"
+
+[connectors.yfinance]
+enabled = true
+priority = 1
+markets = ["US", "HK"]
+default_frequency = "1d"
+
+[connectors.tdx_duckdb]
+enabled = false
+priority = 3
+markets = ["CN"]
+db_path = ""                    # Set to local tdx2db DuckDB path
+
+[connectors.csv_parquet]
+enabled = true
+priority = 99
+markets = ["CN", "US", "HK"]

@@ -1,0 +1,473 @@
+/**
+ * cQuant API client.
+ * All functions throw on non-OK responses (TanStack Query will catch these).
+ */
+
+const BASE = '/api/v1'
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    ...init,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail ?? `HTTP ${res.status}`)
+  }
+  return res.json() as Promise<T>
+}
+
+// ── Datasets ──────────────────────────────────────────────────────────────────
+
+export interface DatasetVersion {
+  version_id: string
+  dataset_name: string
+  frequency: string
+  start_date: string
+  end_date: string
+  asset_count: number | null
+  row_count: number | null
+  source: string
+  created_at: string
+  is_current: boolean
+}
+
+export const datasetsApi = {
+  list: (limit = 50) =>
+    request<{ items: DatasetVersion[]; total: number }>(`/datasets?limit=${limit}`),
+  get: (id: string) => request<DatasetVersion>(`/datasets/${id}`),
+}
+
+// ── Backtests ─────────────────────────────────────────────────────────────────
+
+export interface BacktestRun {
+  run_id: string
+  engine: string
+  strategy_id: string
+  dataset_version: string
+  started_at: string
+  completed_at: string | null
+  status: string
+  metrics?: {
+    total_return: number
+    annualized_return: number
+    annualized_volatility: number
+    sharpe_ratio: number
+    sortino_ratio: number
+    max_drawdown: number
+    calmar_ratio: number
+    win_rate: number
+    profit_factor: number
+    var_95: number
+    cvar_95: number
+    beta: number | null
+    total_trades: number
+    trading_days: number
+  }
+}
+
+export interface BacktestFill {
+  trade_date: string
+  asset_id: string
+  side: string
+  qty: number
+  price: number
+  notional: number
+  commission: number
+  stamp_duty: number
+  slippage: number
+  total_cost: number
+}
+
+export const backtestsApi = {
+  list: (limit = 50) =>
+    request<{ items: BacktestRun[]; total: number }>(`/backtests?limit=${limit}`),
+  get: (id: string) => request<BacktestRun>(`/backtests/${id}`),
+  getAnalysis: (id: string) => request<Record<string, unknown>>(`/backtests/${id}/analysis`),
+  getRisk: (id: string, limit = 20) =>
+    request<{ items: Record<string, unknown>[]; total: number }>(
+      `/backtests/${id}/risk?limit=${limit}`,
+    ),
+  create: (body: {
+    strategy_id: string
+    dataset_version: string
+    start_date: string
+    end_date: string
+    top_n?: number
+    sort_factor?: string
+    feature_set_version?: string
+  }) => request<{ run_id: string; strategy_id: string; status: string }>('/backtests', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }),
+  getFills: (id: string, limit = 200) =>
+    request<{ items: BacktestFill[]; total: number }>(
+      `/backtests/${id}/fills?limit=${limit}`,
+    ),
+}
+
+// ── Knowledge base ────────────────────────────────────────────────────────────
+
+export interface KnowledgeDoc {
+  doc_id: string
+  title: string
+  source_name: string
+  logical_type: string
+  language: string
+  ingested_at: string
+}
+
+export interface SearchHit {
+  doc_id: string
+  title: string
+  source_name: string
+  logical_type: string
+  score: number
+  headline: string
+}
+
+export interface SearchResponse {
+  hits: SearchHit[]
+  total_found: number
+  latency_ms: number
+}
+
+export const knowledgeApi = {
+  list: (logicalType?: string, limit = 100) => {
+    const params = new URLSearchParams({ limit: String(limit) })
+    if (logicalType) params.set('logical_type', logicalType)
+    return request<{ items: KnowledgeDoc[]; total: number }>(`/knowledge/docs?${params}`)
+  },
+  get: (id: string) => request<KnowledgeDoc>(`/knowledge/docs/${id}`),
+  search: (text: string, topK = 10) =>
+    request<SearchResponse>('/knowledge/search', {
+      method: 'POST',
+      body: JSON.stringify({ text, top_k: topK }),
+    }),
+  ingest: (body: { uri: string; logical_type?: string; source_name?: string; title?: string }) =>
+    request('/knowledge/ingest', { method: 'POST', body: JSON.stringify(body) }),
+}
+
+// ── AI Advisor ────────────────────────────────────────────────────────────────
+
+export interface ChatResponse {
+  response: string
+  session_id: string
+  artifacts: string[]
+}
+
+export const advisorApi = {
+  chat: (message: string, sessionId?: string) =>
+    request<ChatResponse>('/advisor/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, session_id: sessionId ?? '' }),
+    }),
+  report: (subject: string, sessionId?: string) =>
+    request<{ report: string; session_id: string; artifacts: string[] }>('/advisor/report', {
+      method: 'POST',
+      body: JSON.stringify({ subject, session_id: sessionId ?? '' }),
+    }),
+}
+
+// ── News ──────────────────────────────────────────────────────────────────────
+
+export interface NewsEvent {
+  event_id: string
+  source: string
+  headline: string
+  published_at: string
+  available_at: string
+  asset_ids_mentioned: string[]
+  sentiment_score: number | null
+  event_type: string
+  language: string
+}
+
+export interface NewsStats {
+  total_events: number
+  source_counts: Record<string, number>
+  event_type_counts: Record<string, number>
+  avg_sentiment: number | null
+}
+
+export const newsApi = {
+  list: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params) : ''
+    return request<{ items: NewsEvent[]; total: number }>(`/news/events${qs}`)
+  },
+  get: (id: string) => request<NewsEvent & { body?: string }>(`/news/events/${id}`),
+  stats: () => request<NewsStats>('/news/stats'),
+}
+
+// ── Strategies ────────────────────────────────────────────────────────────────
+
+export interface StrategyConfig {
+  strategy_id: string
+  config_format: string
+  config_text: string
+  parsed_config?: Record<string, unknown>
+  universe_id?: string
+  created_at: string
+  updated_at: string
+}
+
+export const strategiesApi = {
+  list: () => request<{ items: StrategyConfig[]; total: number }>('/strategies'),
+  get: (id: string) => request<StrategyConfig>(`/strategies/${id}`),
+  create: (body: { strategy_id: string; config_text: string; config_format?: string }) =>
+    request('/strategies', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: { config_text: string; config_format?: string }) =>
+    request(`/strategies/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: (id: string) =>
+    request(`/strategies/${id}`, { method: 'DELETE' }),
+}
+
+// ── ML ────────────────────────────────────────────────────────────────────────
+
+export interface MLExperiment {
+  run_id: string
+  experiment_name?: string
+  trainer_name: string
+  status: string
+  metrics: Record<string, number>
+  params: Record<string, string>
+  started_at?: string | number
+  artifact_uri?: string
+}
+
+export interface MLJob {
+  job_id: string
+  trainer_name: string
+  feature_set_version: string
+  target_name: string
+  status: string
+  mlflow_run_id?: string
+  submitted_at: string
+  completed_at?: string
+  error_text?: string
+}
+
+export const mlApi = {
+  experiments: (limit = 50) =>
+    request<{ items: MLExperiment[]; total: number; source: string }>(
+      `/ml/experiments?limit=${limit}`,
+    ),
+  experiment: (id: string) => request<MLExperiment>(`/ml/experiments/${id}`),
+  featureImportance: (id: string) =>
+    request<{ items: { feature: string; importance: number }[]; total: number }>(
+      `/ml/experiments/${id}/feature-importance`,
+    ),
+  submitJob: (body: {
+    trainer: string
+    feature_set_version: string
+    target_name?: string
+    params?: Record<string, unknown>
+  }) => request<{ job_id: string; status: string }>('/ml/jobs', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }),
+  jobStatus: (id: string) => request<MLJob>(`/ml/jobs/${id}`),
+}
+
+// ── Live ──────────────────────────────────────────────────────────────────────
+
+export interface LiveStrategy {
+  strategy_id: string
+  last_run_id: string
+  last_update: string
+  status: string
+}
+
+export const liveApi = {
+  strategies: () => request<{ items: LiveStrategy[]; total: number; display_mode: string }>('/live/strategies'),
+  pnl: (id: string, params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params) : ''
+    return request<{ strategy_id: string; run_id: string; series: Record<string, unknown>[]; display_mode: string }>(
+      `/live/strategies/${id}/pnl${qs}`,
+    )
+  },
+  positions: (id: string) =>
+    request<{ items: Record<string, unknown>[]; display_mode: string }>(`/live/strategies/${id}/positions`),
+  risk: (id: string) =>
+    request<{ latest_snapshot: Record<string, unknown> | null; history: Record<string, unknown>[]; display_mode: string }>(
+      `/live/strategies/${id}/risk`,
+    ),
+}
+
+// ── Factors (extended) ────────────────────────────────────────────────────────
+
+export interface FactorDefinition { name: string; description: string; tags: string[] }
+export interface ICPoint { trade_date: string; ic: number }
+export interface ICJob { job_id: string; status: string; series_json?: ICPoint[]; summary_json?: Record<string, number> }
+
+export const factorAnalyticsApi = {
+  definitions: () => request<{ items: FactorDefinition[]; total: number }>('/factors/definitions'),
+  computeIC: (body: { factor_name: string; feature_set_version: string; horizon_days?: number }) =>
+    request<{ job_id: string; status: string }>('/factors/analytics/compute', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  icJob: (jobId: string) => request<ICJob>(`/factors/analytics/${jobId}`),
+}
+
+// ── Backtests (extended) ──────────────────────────────────────────────────────
+
+export const backtestExtApi = {
+  tearsheet: (id: string) => request<Record<string, unknown>>(`/backtests/${id}/tearsheet`),
+  validationWindows: (id: string) =>
+    request<{ walk_forward: Record<string, unknown>[]; cpcv: Record<string, unknown>[] }>(
+      `/backtests/${id}/validation-windows`,
+    ),
+  multipleTesting: (id: string) =>
+    request<Record<string, Record<string, unknown>>>(`/backtests/${id}/multiple-testing`),
+}
+
+// ── Advisor (extended) ────────────────────────────────────────────────────────
+
+export const advisorExtApi = {
+  session: (id: string) =>
+    request<{ session_id: string; turn_count: number; history: Record<string, unknown>[] }>(
+      `/advisor/sessions/${id}`,
+    ),
+  sessionAgents: (id: string) =>
+    request<{ items: { agent_role: string; content: string; artifacts: string[] }[] }>(
+      `/advisor/sessions/${id}/agents`,
+    ),
+  streamUrl: (message: string, sessionId?: string) => {
+    const params = new URLSearchParams({ message })
+    if (sessionId) params.set('session_id', sessionId)
+    return `/api/v1/advisor/stream?${params}`
+  },
+}
+
+// ── Trading ───────────────────────────────────────────────────────────────────
+
+export interface TradeOrder {
+  order_id: string
+  asset_id: string
+  side: string
+  qty: number
+  order_type: string
+  status: string
+  filled_qty: number
+  filled_price: number
+  commission: number
+  stamp_duty: number
+  slippage: number
+  total_cost: number
+  reject_reason: string
+  submitted_at: string | null
+  filled_at: string | null
+}
+
+export interface TradePosition {
+  asset_id: string
+  qty: number
+  avg_cost: number
+  market_value: number
+  unrealized_pnl: number
+  realized_pnl: number
+}
+
+export interface TradeAccount {
+  broker: string
+  cash: number
+  nav: number
+  gross_exposure: number
+  net_exposure: number
+  realized_pnl: number
+  unrealized_pnl: number
+  positions_count: number
+}
+
+export interface TradePnL {
+  broker: string
+  nav: number
+  realized_pnl: number
+  unrealized_pnl: number
+  total_pnl: number
+  return_pct: number
+}
+
+export const tradingApi = {
+  account: (broker = 'paper') =>
+    request<TradeAccount>(`/trading/account?broker=${broker}`),
+
+  placeOrder: (body: {
+    asset_id: string
+    side: string
+    qty: number
+    order_type?: string
+    limit_price?: number
+    broker?: string
+  }) =>
+    request<TradeOrder>('/trading/order', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  cancelOrder: (orderId: string, broker = 'paper') =>
+    request<TradeOrder>(`/trading/order/${orderId}?broker=${broker}`, {
+      method: 'DELETE',
+    }),
+
+  orders: (broker = 'paper', status?: string) => {
+    const params = new URLSearchParams({ broker })
+    if (status) params.set('status', status)
+    return request<{ items: TradeOrder[]; total: number }>(`/trading/orders?${params}`)
+  },
+
+  positions: (broker = 'paper') =>
+    request<{ items: TradePosition[]; total: number }>(`/trading/positions?broker=${broker}`),
+
+  fills: (broker = 'paper') =>
+    request<{ items: TradeOrder[]; total: number }>(`/trading/fills?broker=${broker}`),
+
+  pnl: (broker = 'paper') =>
+    request<TradePnL>(`/trading/pnl?broker=${broker}`),
+}
+
+// ── Real-time Quotes ──────────────────────────────────────────────────────────
+
+export interface RealtimeQuote {
+  asset_id: string
+  symbol: string
+  price: number
+  open: number
+  high: number
+  low: number
+  close: number
+  prev_close: number
+  volume: number
+  amount: number
+  bid1: number
+  ask1: number
+  bid1_vol: number
+  ask1_vol: number
+  change: number
+  change_pct: number
+  timestamp: string
+}
+
+export const realtimeApi = {
+  quote: (symbol: string) =>
+    request<RealtimeQuote>(`/live/quote/${symbol}`),
+
+  quotes: (symbols: string[]) =>
+    request<{ items: Record<string, RealtimeQuote>; count: number; timestamp: string }>(
+      `/live/quotes?symbols=${symbols.join(',')}`,
+    ),
+
+  market: (limit = 20) =>
+    request<{ items: Record<string, RealtimeQuote>; count: number; timestamp: string }>(
+      `/live/market?limit=${limit}`,
+    ),
+
+  streamUrl: (symbols: string[], interval = 5) => {
+    const params = new URLSearchParams({
+      symbols: symbols.join(','),
+      interval: String(interval),
+    })
+    return `/api/v1/live/stream?${params}`
+  },
+}

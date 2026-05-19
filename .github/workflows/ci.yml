@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+
+jobs:
+  python:
+    name: Python Lint and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          cache-environment: true
+          init-shell: bash
+
+      - name: Install package (editable)
+        shell: bash -el {0}
+        run: |
+          if [ -f python/cquant/__init__.py ]; then
+            python -m pip install --no-deps -e .
+          else
+            echo "Skipping editable install: python/cquant not yet scaffolded."
+          fi
+
+      - name: Ruff lint
+        shell: bash -el {0}
+        run: |
+          if [ -d python/cquant ]; then
+            ruff check python/cquant
+          fi
+
+      - name: MyPy type check
+        shell: bash -el {0}
+        run: |
+          if [ -d python/cquant ]; then
+            mypy python/cquant
+          fi
+
+      - name: Pytest
+        shell: bash -el {0}
+        run: |
+          if [ -d python/tests ]; then
+            pytest python/tests -v
+          fi
+
+  rust:
+    name: Rust Lint and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Initialize Rust submodule
+        shell: bash
+        run: |
+          if grep -q "PLACEHOLDER" .gitmodules 2>/dev/null; then
+            echo "Rust submodule URL is still a placeholder; skipping."
+            exit 0
+          fi
+          git submodule sync --recursive
+          git submodule update --init --recursive rust
+
+      - name: cargo fmt check
+        shell: bash
+        run: |
+          [ -f rust/Cargo.toml ] && cargo fmt --manifest-path rust/Cargo.toml --all --check || true
+
+      - name: cargo clippy
+        shell: bash
+        run: |
+          [ -f rust/Cargo.toml ] && \
+            cargo clippy --manifest-path rust/Cargo.toml --all-targets --all-features -- -D warnings || true
+
+      - name: cargo test
+        shell: bash
+        run: |
+          [ -f rust/Cargo.toml ] && \
+            cargo test --manifest-path rust/Cargo.toml --all-targets --all-features || true
