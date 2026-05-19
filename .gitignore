@@ -1,0 +1,109 @@
+# ── OS / editors ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+build/
+dist/
+
+# ── Conda ─────────────────────────────────────────────────────────────────────
+.conda/
+conda-bld/
+
+# ── Rust / Maturin ────────────────────────────────────────────────────────────
+rust/target/
+*.so
+*.dylib
+*.dll
+*.whl
+
+# ── Logs / temp ───────────────────────────────────────────────────────────────
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── DuckDB runtime files ──────────────────────────────────────────────────────
+*.duckdb-wal
+*.duckdb-journal
+
+# ── Knowledge base data (raw ingested files & derived artifacts) ──────────────
+# Exclude data files ONLY under knowledge/ — never exclude tests/fixtures/
+knowledge/raw_ingested/
+knowledge/processed/
+knowledge/vector/
+knowledge/graph/snapshots/
+knowledge/graph/exports/
+knowledge/sync_state/
+knowledge/quarantine/
+knowledge/tmp/
+# Keep the catalog DuckDB itself out of git (it's a runtime artifact)
+knowledge/catalog/*.duckdb
+
+# ── Research outputs (top-level data directories) ─────────────────────────────
+data/
+lake/
+artifacts/
+runs/
+reports/
+exports/
+checkpoints/
+
+# ── Model binaries ────────────────────────────────────────────────────────────
+*.npz
+*.npy
+*.pkl
+*.joblib
+
+# ── Agent / tooling state ─────────────────────────────────────────────────────
+.omx/
+.superpowers/
+.claude/settings.local.json
+.claude/plan/
+openspec/
+
+# ── Local development context (AI planning docs, personal notes) ──────────────
+.context/
+docs/superpowers/
+
+# ── Raw market data (large binary / source files, not for version control) ─────
+tdx.db
+hsjday.zip
+vipdoc/
+
+# ── Frontend dependencies ─────────────────────────────────────────────────────
+web/node_modules/
+.claude/skills
