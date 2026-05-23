@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
 from cquant.backtest_vector.engine import BacktestResult
+
+logger = logging.getLogger(__name__)
 from cquant.bt_analyzer.cpcv import CPCVAnalyzer
 from cquant.bt_analyzer.models import AnalysisReport, AnalysisSpec, OverfitScore, ValidationWindow
 from cquant.bt_analyzer.multiple_testing import MultipleTestingCorrector
@@ -71,6 +74,48 @@ class AnalysisEngine:
             stability=all_stability,
         )
 
+        # Optional Brinson attribution
+        brinson_result = None
+        try:
+            if not result.positions.is_empty() and "target_weight" in result.positions.columns:
+                import polars as pl
+                from cquant.bt_analyzer.attribution import BrinsonAttribution
+
+                port_weights_df = (
+                    result.positions
+                    .group_by("asset_id")
+                    .agg(pl.col("target_weight").mean().alias("avg_weight"))
+                )
+                port_weights = dict(zip(
+                    port_weights_df["asset_id"].to_list(),
+                    port_weights_df["avg_weight"].to_list(),
+                ))
+
+                if port_weights:
+                    assets = list(port_weights.keys())
+                    bench_weights = {a: 1.0 / len(assets) for a in assets}
+
+                    prices_df = result.spec.prices.filter(
+                        (pl.col("asset_id").is_in(assets))
+                        & (pl.col("trade_date") >= result.spec.start_date)
+                        & (pl.col("trade_date") <= result.spec.end_date)
+                    )
+                    asset_returns = {}
+                    for a in assets:
+                        apx = prices_df.filter(pl.col("asset_id") == a).sort("trade_date")
+                        if len(apx) >= 2:
+                            asset_returns[a] = float(apx["close"][-1]) / float(apx["close"][0]) - 1
+
+                    if asset_returns:
+                        brinson_result = BrinsonAttribution().analyze(
+                            portfolio_weights=port_weights,
+                            benchmark_weights=bench_weights,
+                            portfolio_returns=asset_returns,
+                            benchmark_returns=asset_returns,
+                        )
+        except Exception as _exc:
+            logger.debug("Brinson attribution skipped: %s", _exc)
+
         return AnalysisReport(
             analysis_run_id=str(uuid.uuid4()),
             backtest_run_id=result.run_id,
@@ -83,6 +128,7 @@ class AnalysisEngine:
             multiple_testing_result=mt_result,
             stability_metrics=all_stability,
             summary=_build_summary(result.run_id, overfit, psr, dsr, wf_windows, cpcv_windows),
+            brinson_attribution=brinson_result,
             created_at=datetime.now(tz=timezone.utc),
         )
 

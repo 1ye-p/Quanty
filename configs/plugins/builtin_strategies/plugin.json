@@ -1,0 +1,13 @@
+{
+  "name": "builtin_strategies",
+  "version": "0.1.0",
+  "description": "Built-in cross-sectional and multi-factor strategy templates.",
+  "capabilities": ["strategy"],
+  "entrypoints": {
+    "strategy": "cquant.backtest_vector.strategies:MultiFactorStrategy"
+  },
+  "markets": ["CN", "US", "HK"],
+  "asset_classes": ["equity"],
+  "tags": ["multi_factor", "cross_sectional", "momentum"],
+  "author": "cQuant"
+}

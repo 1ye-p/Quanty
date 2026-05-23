@@ -49,6 +49,15 @@ class Factor(ABC):
         """Taxonomy tags, e.g. ['momentum', 'price']."""
         return []
 
+    @property
+    def lookback_days(self) -> int:
+        """Calendar days of historical data required before computation start.
+
+        Default 120 is sufficient for most 20-day rolling factors with buffer.
+        Override for factors with longer rolling windows.
+        """
+        return 120
+
     @abstractmethod
     def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
         """Compute the factor over *frame* and return a Series named after this factor.

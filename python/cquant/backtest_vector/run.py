@@ -162,6 +162,196 @@ class BacktestRunner:
             self._persist_pretrade_decisions(result, run_id)
         return run_id
 
+    def run_engine(
+        self,
+        strategy,
+        start_date,
+        end_date,
+        initial_cash=None,
+        dataset_version: str = "custom",
+        benchmark_asset_id: str = "",
+        risk_policies=None,
+        tags=None,
+    ) -> str:
+        """使用自定义策略运行回测并持久化结果。
+
+        与 ``run()`` 不同，此方法接受任意 ``Strategy`` 对象，
+        绕过内置的 ``StaticTopNStrategy`` 限制。
+
+        Parameters
+        ----------
+        strategy:
+            任意实现了 ``Strategy`` ABC 的策略实例。
+        start_date, end_date:
+            回测日期范围（``date`` 类型）。
+        initial_cash:
+            初始资金 ``Decimal``，默认从 backtest.toml 加载（100 万）。
+        dataset_version:
+            写入 ``gold_backtest_runs.dataset_version`` 的标识。
+        benchmark_asset_id:
+            基准资产 ID，用于计算 IR/TE/Alpha。
+        risk_policies:
+            可选的风控 Policy 列表。
+        tags:
+            额外标签 dict。
+
+        Returns
+        -------
+        回测运行 ID（``run_id``）。
+        """
+        from decimal import Decimal
+        from cquant.backtest_vector.engine import BacktestSpec
+        from cquant.core.toml_config import get_backtest_defaults
+
+        if initial_cash is None:
+            defaults = get_backtest_defaults()
+            initial_cash = Decimal(str(defaults.get("initial_cash", 1_000_000)))
+
+        self._catalog.initialize()
+
+        # 构建最小化 BacktestRunSpec 用于持久化（不实际用于策略构建）
+        persist_spec = BacktestRunSpec(
+            dataset_version=dataset_version,
+            strategy_id=strategy.strategy_id,
+            start_date=start_date,
+            end_date=end_date,
+            initial_cash=initial_cash,
+            tags=tags or {},
+        )
+
+        prices = self._load_prices(persist_spec)
+        if prices.is_empty():
+            raise ValueError(f"No price data for {start_date} to {end_date}")
+
+        cost_model = self._detect_cost_model(prices)
+
+        bt_spec = BacktestSpec(
+            strategy=strategy,
+            prices=prices,
+            start_date=start_date,
+            end_date=end_date,
+            initial_cash=initial_cash,
+            cost_model=cost_model,
+            risk_policies=risk_policies or [],
+            benchmark_asset_id=benchmark_asset_id,
+            tags=tags or {},
+        )
+
+        result = self._engine.run(bt_spec)
+        run_id = self._persist_run(result, persist_spec)
+        self._persist_signals(result, run_id, persist_spec)
+        self._persist_fills(result, run_id)
+        self._persist_positions(result, run_id)
+        self._persist_portfolio_snapshots(result, run_id)
+        self._persist_risk_snapshots(result, run_id)
+        if result.pretrade_decisions:
+            self._persist_pretrade_decisions(result, run_id)
+
+        logger.info("run_engine 完成: run_id=%s strategy=%s", run_id, strategy.strategy_id)
+        return run_id
+
+    def get_run_metrics(self, run_id: str) -> dict | None:
+        """从 DuckDB 和 JSON 文件加载指定回测运行的完整指标字典。
+
+        Parameters
+        ----------
+        run_id:
+            回测运行 ID（来自 ``gold_backtest_runs.run_id``）。
+
+        Returns
+        -------
+        包含所有持久化指标的字典，如果 run_id 不存在则返回 ``None``。
+        """
+        result = self._catalog.query(
+            "SELECT metrics_uri FROM gold_backtest_runs WHERE run_id = ?",
+            [run_id],
+        )
+        if result.is_empty():
+            return None
+
+        metrics_uri = result["metrics_uri"][0]
+        if not metrics_uri:
+            return None
+
+        metrics_path = Path(metrics_uri)
+        if not metrics_path.exists():
+            logger.warning("指标文件不存在：%s", metrics_path)
+            return None
+
+        return json.loads(metrics_path.read_text(encoding="utf-8"))
+
+    def list_runs(
+        self,
+        limit: int = 20,
+        strategy_id: str | None = None,
+    ) -> "pl.DataFrame":
+        """查询最近的回测运行历史。
+
+        Parameters
+        ----------
+        limit:
+            返回最多 N 条记录，按开始时间降序排列。
+        strategy_id:
+            按策略 ID 过滤，None 则返回所有策略的运行记录。
+
+        Returns
+        -------
+        包含 run_id、strategy_id、status、started_at 等字段的 DataFrame。
+        """
+        if strategy_id is not None:
+            return self._catalog.query(
+                """
+                SELECT run_id, engine, strategy_id, dataset_version,
+                       status, started_at, completed_at, tags
+                FROM gold_backtest_runs
+                WHERE strategy_id = ?
+                ORDER BY started_at DESC
+                LIMIT ?
+                """,
+                [strategy_id, limit],
+            )
+        return self._catalog.query(
+            """
+            SELECT run_id, engine, strategy_id, dataset_version,
+                   status, started_at, completed_at, tags
+            FROM gold_backtest_runs
+            ORDER BY started_at DESC
+            LIMIT ?
+            """,
+            [limit],
+        )
+
+    def compute_kelly_win_rates(
+        self,
+        run_id: str,
+        min_trades: int = 5,
+    ) -> dict[str, float]:
+        """从指定回测运行的成交记录计算 Kelly 历史胜率。
+
+        结果可直接传入 ``KellySizer`` 的 ``ctx.extra["win_rates"]`` 字段。
+
+        Parameters
+        ----------
+        run_id:
+            已完成回测运行的 ID。
+        min_trades:
+            计入结果的最小配对成交笔数。
+
+        Returns
+        -------
+        ``dict[asset_id, win_rate]``，空字典表示无成交记录或数据不足。
+        """
+        from cquant.ml_lab.win_rate_utils import compute_win_rates_from_fills
+
+        fills = self._catalog.query(
+            "SELECT asset_id, side, qty, price, trade_date, total_cost "
+            "FROM gold_fills WHERE run_id = ?",
+            [run_id],
+        )
+        if fills.is_empty():
+            return {}
+        return compute_win_rates_from_fills(fills, min_trades=min_trades)
+
     def _load_prices(self, spec: BacktestRunSpec) -> pl.DataFrame:
         df = self._catalog.query(
             """
@@ -222,6 +412,28 @@ class BacktestRunner:
                 return CostModel.for_hk()
         return CostModel.for_cn()
 
+    @staticmethod
+    def _compute_turnover(result) -> float | None:
+        """安全计算换手率，无 positions 数据时返回 None。"""
+        try:
+            from cquant.backtest_vector.metrics import compute_portfolio_turnover
+            if result.positions.is_empty():
+                return None
+            return compute_portfolio_turnover(result.positions)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _compute_hhi(result) -> float | None:
+        """安全计算 HHI，无 positions 数据时返回 None。"""
+        try:
+            from cquant.backtest_vector.metrics import compute_hhi
+            if result.positions.is_empty():
+                return None
+            return compute_hhi(result.positions)
+        except Exception:
+            return None
+
     def _persist_run(self, result, spec: BacktestRunSpec) -> str:
         """Write backtest run metadata to gold_backtest_runs."""
         metrics_dict = {
@@ -239,6 +451,11 @@ class BacktestRunner:
             "beta": result.metrics.beta,
             "total_trades": result.metrics.total_trades,
             "trading_days": result.metrics.trading_days,
+            "information_ratio": result.metrics.information_ratio,
+            "tracking_error": result.metrics.tracking_error,
+            "alpha": result.metrics.alpha,
+            "turnover_pct": self._compute_turnover(result),
+            "hhi": self._compute_hhi(result),
         }
 
         # Write metrics to a JSON artifact
@@ -364,15 +581,32 @@ class BacktestRunner:
             nav *= (1 + ret)
             peak_nav = max(peak_nav, nav)
 
+            # Compute actual positions data for this date
+            day_positions = pl.DataFrame()
+            if not result.positions.is_empty() and "trade_date" in result.positions.columns:
+                day_positions = result.positions.filter(
+                    pl.col("trade_date") == row["trade_date"]
+                )
+
+            if not day_positions.is_empty() and "target_weight" in day_positions.columns:
+                weights = day_positions["target_weight"].to_list()
+                gross_exp = sum(abs(w) for w in weights if w is not None) * nav
+                net_exp = sum(w for w in weights if w is not None) * nav
+                pos_count = sum(1 for w in weights if w is not None and abs(w) > 0.001)
+            else:
+                gross_exp = 0.0
+                net_exp = 0.0
+                pos_count = 0
+
             snapshots.append({
                 "snapshot_id": f"{run_id}_{row['trade_date']}",
                 "run_id": run_id,
                 "trade_date": row["trade_date"],
-                "cash": nav * 0.1,  # Simplified: 10% cash
+                "cash": max(0.0, nav - gross_exp),
                 "nav": nav,
-                "positions_count": 0,
-                "gross_exposure": nav * 0.9,
-                "net_exposure": nav * 0.9,
+                "positions_count": pos_count,
+                "gross_exposure": gross_exp,
+                "net_exposure": net_exp,
             })
 
         if not snapshots:

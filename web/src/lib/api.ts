@@ -11,8 +11,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail ?? `HTTP ${res.status}`)
+    const body = await res.json().catch(() => ({ detail: res.statusText }))
+    const message = body.detail ?? body.message ?? `HTTP ${res.status}`
+    const error = new Error(message)
+    ;(error as Error & { status?: number }).status = res.status
+    throw error
   }
   return res.json() as Promise<T>
 }
@@ -63,6 +66,13 @@ export interface BacktestRun {
     beta: number | null
     total_trades: number
     trading_days: number
+    information_ratio: number | null
+    tracking_error: number | null
+    alpha: number | null
+    omega_ratio: number | null
+    tail_ratio: number | null
+    turnover_pct: number | null
+    hhi: number | null
   }
 }
 
@@ -96,13 +106,22 @@ export const backtestsApi = {
     top_n?: number
     sort_factor?: string
     feature_set_version?: string
-  }) => request<{ run_id: string; strategy_id: string; status: string }>('/backtests', {
+  }) => request<{ job_id: string; strategy_id: string; status: string }>('/backtests', {
     method: 'POST',
     body: JSON.stringify(body),
   }),
   getFills: (id: string, limit = 200) =>
     request<{ items: BacktestFill[]; total: number }>(
       `/backtests/${id}/fills?limit=${limit}`,
+    ),
+  pollJob: (jobId: string) =>
+    request<{ job_id: string; status: string; run_id: string | null; error: string | null }>(
+      `/backtests/jobs/${jobId}`,
+    ),
+  triggerAnalysis: (id: string) =>
+    request<{ job_id: string; run_id: string; status: string }>(
+      `/backtests/${id}/analyze`,
+      { method: 'POST' },
     ),
 }
 
@@ -233,6 +252,7 @@ export interface MLExperiment {
   params: Record<string, string>
   started_at?: string | number
   artifact_uri?: string
+  model_id?: string
 }
 
 export interface MLJob {
@@ -298,7 +318,20 @@ export const liveApi = {
 
 export interface FactorDefinition { name: string; description: string; tags: string[] }
 export interface ICPoint { trade_date: string; ic: number }
-export interface ICJob { job_id: string; status: string; series_json?: ICPoint[]; summary_json?: Record<string, number> }
+export interface ICJob {
+  job_id: string
+  status: string
+  series_json?: ICPoint[]
+  summary_json?: {
+    mean_ic?: number
+    ir?: number
+    hit_rate?: number
+    observations?: number
+    rank_ic_decay?: { lag: number; ic: number }[]
+    quantile_returns?: { quantile: number; mean_return: number }[]
+    factor_turnover?: number
+  }
+}
 
 export const factorAnalyticsApi = {
   definitions: () => request<{ items: FactorDefinition[]; total: number }>('/factors/definitions'),

@@ -67,7 +67,12 @@ class FactorMaterializer:
             universe_id=spec.universe_id,
             dataset_version=spec.dataset_version,
         )
-        feature_set = self._pipeline.run(prices, pipeline_spec)
+
+        # Load fundamentals for the period into ctx.extra
+        fundamentals = self._load_fundamentals(spec)
+        extra = {"fundamentals": fundamentals} if not fundamentals.is_empty() else {}
+
+        feature_set = self._pipeline.run(prices, pipeline_spec, extra=extra)
 
         if feature_set.data.is_empty():
             raise FactorComputeError("Feature pipeline returned empty result")
@@ -80,11 +85,19 @@ class FactorMaterializer:
         return feature_set.version_id
 
     def _load_prices(self, spec: FactorMaterializationSpec) -> pl.DataFrame:
-        """Load price data from silver_prices_1d."""
-        # Load extra days before start_date for factor lookback windows
+        """Load price data from silver_prices_1d with dynamic lookback."""
         from datetime import timedelta
 
-        lookback_start = spec.start_date - timedelta(days=90)
+        # Compute max lookback needed across all requested factors
+        max_lookback = 120  # safe default
+        for factor_name in spec.factor_names:
+            try:
+                factor = self._registry.get(factor_name)
+                max_lookback = max(max_lookback, factor.lookback_days)
+            except KeyError:
+                pass
+
+        lookback_start = spec.start_date - timedelta(days=max_lookback)
 
         df = self._catalog.query(
             """
@@ -99,12 +112,32 @@ class FactorMaterializer:
         if df.is_empty():
             return df
 
-        # Cast trade_date to date type if needed
         if df["trade_date"].dtype == pl.Utf8:
             df = df.with_columns(pl.col("trade_date").str.to_date())
         elif df["trade_date"].dtype != pl.Date:
             df = df.with_columns(pl.col("trade_date").cast(pl.Date))
 
+        return df
+
+    def _load_fundamentals(self, spec: FactorMaterializationSpec) -> pl.DataFrame:
+        """Load latest fundamental values per asset as of spec.end_date."""
+        try:
+            df = self._catalog.query(
+                """
+                SELECT DISTINCT ON (asset_id)
+                    asset_id, report_date, pe_ttm, pb, ps_ttm, ev_ebitda,
+                    dividend_yield, roe, roa, gross_margin, net_margin,
+                    revenue_growth_yoy, earnings_growth_yoy, market_cap,
+                    total_assets, total_debt
+                FROM silver_fundamentals
+                WHERE report_date <= ?
+                ORDER BY asset_id, report_date DESC
+                """,
+                [spec.end_date.isoformat()],
+            )
+        except Exception as exc:
+            logger.warning("Could not load silver_fundamentals: %s", exc)
+            return pl.DataFrame()
         return df
 
     def _write_factor_values(self, feature_set) -> None:

@@ -107,3 +107,6 @@ vipdoc/
 # ── Frontend dependencies ─────────────────────────────────────────────────────
 web/node_modules/
 .claude/skills
+
+# ── MLflow tracking artifacts ─────────────────────────────────────────────────
+mlruns/

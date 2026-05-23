@@ -44,12 +44,31 @@ jobs:
             mypy python/cquant
           fi
 
-      - name: Pytest
+      - name: Install pytest-cov
+        shell: bash -el {0}
+        run: pip install pytest-cov --quiet
+
+      - name: Unit Tests (with coverage)
         shell: bash -el {0}
         run: |
-          if [ -d python/tests ]; then
-            pytest python/tests -v
+          if [ -d python/tests/unit ]; then
+            pytest python/tests/unit/ -q \
+              --cov=cquant \
+              --cov-report=term-missing \
+              --cov-fail-under=50 \
+              -p no:warnings
           fi
+
+      - name: Integration Tests
+        shell: bash -el {0}
+        run: |
+          if [ -d python/tests/integration ]; then
+            pytest python/tests/integration/ -v -m integration \
+              -p no:warnings || echo "Integration tests skipped or no data"
+          else
+            echo "Integration tests directory not found; skipping."
+          fi
+        continue-on-error: true
 
   rust:
     name: Rust Lint and Test

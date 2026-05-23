@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from typing import Any
+from datetime import date, datetime, timezone
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from cquant.bt_analyzer.attribution import BrinsonResult
 
 
 @dataclass
@@ -69,4 +72,5 @@ class AnalysisReport:
     multiple_testing_result: dict[str, Any]
     stability_metrics: dict[str, float]
     summary: str                                       # Human-readable, consumable by ai_advisor
-    created_at: datetime
+    brinson_attribution: "BrinsonResult | None" = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))

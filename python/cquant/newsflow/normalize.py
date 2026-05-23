@@ -11,6 +11,7 @@ from typing import Any, Iterable, Mapping
 import polars as pl
 
 from cquant.newsflow.connectors.base import RawNewsEnvelope, ensure_utc
+from cquant.newsflow.sentiment import score_sentiment
 
 NEWS_EVENT_SCHEMA: dict[str, pl.DataType] = {
     "event_id": pl.Utf8,
@@ -79,7 +80,7 @@ class NewsNormalizer:
             "ingested_at": ingested_at,
             "asset_ids_mentioned": _extract_asset_ids(headline),
             "event_type": _event_type(env.source, p),
-            "sentiment_score": None,
+            "sentiment_score": score_sentiment(headline, _language(headline, body)),
             "language": _language(headline, body),
             "region": _region(env.source),
             "dedupe_key": dedupe_key,

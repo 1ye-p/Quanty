@@ -1,0 +1,13 @@
+{
+  "name": "builtin_factors",
+  "version": "0.1.0",
+  "description": "Built-in price, volume, momentum, volatility, and fundamental factors.",
+  "capabilities": ["factor"],
+  "entrypoints": {
+    "factor": "cquant.factorlab.factors:BUILTIN_FACTORS"
+  },
+  "markets": ["CN", "US", "HK"],
+  "asset_classes": ["equity"],
+  "tags": ["momentum", "volatility", "value", "quality", "growth", "size"],
+  "author": "cQuant"
+}

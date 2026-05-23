@@ -42,3 +42,28 @@ def get_kb_service() -> KnowledgeBaseService:
 
 CatalogDep = Annotated[Catalog, Depends(get_catalog)]
 KBServiceDep = Annotated[KnowledgeBaseService, Depends(get_kb_service)]
+
+import os
+
+from fastapi import HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def verify_api_key(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> None:
+    """Verify Bearer token against CQUANT_API_KEY env var.
+
+    Auth is disabled (dev mode) when CQUANT_API_KEY is not set.
+    """
+    api_key = os.environ.get("CQUANT_API_KEY", "")
+    if not api_key:
+        return  # dev mode — no auth required
+    if credentials is None or credentials.credentials != api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key. Use Authorization: Bearer <key>",
+            headers={"WWW-Authenticate": "Bearer"},
+        )

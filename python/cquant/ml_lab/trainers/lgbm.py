@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from cquant.datahub.catalog import Catalog
 
 import polars as pl
 
@@ -94,3 +97,47 @@ class LGBMTrainer(Trainer):
         booster = lgb.Booster(model_file=model_artifact.model_path)
         predictions = booster.predict(frame_to_matrix(features, model_artifact.feature_names))
         return pl.Series(name="prediction", values=predictions)
+
+    def predict_and_persist(
+        self,
+        features: pl.DataFrame,
+        model_artifact: ModelArtifact,
+        catalog: "Catalog",
+        horizon: str = "5d",
+    ) -> pl.Series:
+        """Generate predictions and write them to gold_predictions.
+
+        Returns the predictions Series for immediate use.
+        """
+        from cquant.ml_lab.base import persist_predictions
+
+        predictions = self.predict(features, model_artifact)
+        persist_predictions(model_artifact, features, predictions, catalog, horizon)
+        return predictions
+
+    def feature_importance(
+        self,
+        model_artifact: ModelArtifact,
+        importance_type: str = "gain",
+    ) -> dict[str, float]:
+        """Return feature importance scores from the trained LightGBM model.
+
+        Parameters
+        ----------
+        model_artifact:
+            Trained model artifact with ``model_path`` and ``feature_names``.
+        importance_type:
+            ``"gain"`` (default) — total gain of all splits using the feature.
+            ``"split"`` — number of times the feature is used in splits.
+
+        Returns
+        -------
+        ``dict[feature_name, importance_score]``
+        """
+        lgb = _lightgbm()
+        booster = lgb.Booster(model_file=model_artifact.model_path)
+        importances = booster.feature_importance(importance_type=importance_type)
+        return {
+            feature: float(score)
+            for feature, score in zip(model_artifact.feature_names, importances)
+        }

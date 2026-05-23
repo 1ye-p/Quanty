@@ -104,9 +104,10 @@ class KellySizer(PositionSizer):
             strength = row.get("strength", 1.0)
             confidence = row.get("confidence", 1.0)
 
-            # Estimate win probability from confidence (simplified)
-            # In practice, this would use historical return distribution
-            p = min(max(confidence, 0.1), 0.9)  # Bound between 10% and 90%
+            # Use real historical win rate if available; fall back to confidence proxy
+            win_rates: dict[str, float] = getattr(ctx, "extra", {}).get("win_rates", {})
+            raw_win_rate = win_rates.get(asset_id, confidence)
+            p = min(max(raw_win_rate, 0.05), 0.95)  # Clip to (5%, 95%)
             q = 1 - p
 
             # Estimate odds from signal strength and real volatility

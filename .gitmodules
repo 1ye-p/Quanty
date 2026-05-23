@@ -2,3 +2,6 @@
 	path = rust
 	url = git@github.com:1ye-p/quant-rust.git
 	branch = main
+[submodule "lib/vibe-trading"]
+	path = lib/vibe-trading
+	url = https://github.com/HKUDS/Vibe-Trading.git

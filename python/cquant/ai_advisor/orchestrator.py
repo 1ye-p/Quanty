@@ -12,6 +12,7 @@ from cquant.ai_advisor.agents import (
     AgentRole, AgentTurn,
     DebateAgent, ExecutionAgent, ReportWriterAgent, ResearchAgent, RiskAgent,
 )
+from cquant.ai_advisor.router import IntentRouter
 from cquant.ai_advisor.context import RAGContext
 from cquant.ai_advisor.policies import SafetyPolicy
 from cquant.ai_advisor.providers import LLMProvider
@@ -72,6 +73,7 @@ class AdvisorOrchestrator:
             if agents is not None
             else self._default_agents()
         )
+        self._router = IntentRouter()
         self._check_required_agents()
 
     # ── Public API ─────────────────────────────────────────────────────────────
@@ -86,13 +88,11 @@ class AdvisorOrchestrator:
         research = await self._agents["research"].act(base, session.history)
         specialist_turns.append(research)
 
-        if _is_risk_related(user_message):
-            risk = await self._agents["risk"].act(base, session.history + specialist_turns)
-            specialist_turns.append(risk)
-
-        if _is_execution_related(user_message):
-            exec_ = await self._agents["execution"].act(base, session.history + specialist_turns)
-            specialist_turns.append(exec_)
+        intent = self._router.classify(user_message)
+        for role in intent.required_roles:
+            if role in self._agents:
+                turn = await self._agents[role].act(base, session.history + specialist_turns)
+                specialist_turns.append(turn)
 
         debate = await self._agents["debate"].act(
             _debate_ctx(user_message, specialist_turns),
@@ -229,15 +229,3 @@ def _collect_artifacts(turns: Iterable[AgentTurn]) -> list[str]:
                 out.append(a)
     return out
 
-
-def _is_risk_related(text: str) -> bool:
-    keywords = {"risk", "drawdown", "leverage", "exposure", "var", "cvar",
-                "beta", "overfit", "psr", "dsr"}
-    lower = text.lower()
-    return any(kw in lower for kw in keywords)
-
-
-def _is_execution_related(text: str) -> bool:
-    lower = text.lower()
-    phrases = {"run status", "job status", "queue", "backtest run", "analysis run", "offline run"}
-    return "run_id" in lower or any(p in lower for p in phrases)

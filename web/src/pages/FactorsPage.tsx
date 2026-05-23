@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { factorAnalyticsApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
-import { useJobPoller } from '@/hooks/useJobPoller'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 
 export function FactorsPage() {
   const [selectedFactor, setSelectedFactor] = useState<string | null>(null)
@@ -29,11 +28,14 @@ export function FactorsPage() {
     onSuccess: (data) => setActiveJobId(data.job_id),
   })
 
-  const { data: jobResult } = useJobPoller({
+  const { data: jobResult } = useQuery({
     queryKey: extendedQueryKeys.factorAnalytics.icJob(activeJobId ?? ''),
     queryFn: () => factorAnalyticsApi.icJob(activeJobId!),
-    isDone: (d) => d.status === 'done' || d.status === 'error',
     enabled: !!activeJobId,
+    refetchInterval: (query) => {
+      const d = query.state.data
+      return d && (d.status === 'done' || d.status === 'error') ? false : 2000
+    },
   })
 
   const icSeries = jobResult?.status === 'done' ? (jobResult.series_json ?? []) : []
@@ -43,6 +45,29 @@ export function FactorsPage() {
     <div>
       <h1 className="page-title">Alpha 因子研究</h1>
       <p className="page-subtitle">浏览内置因子、计算 IC/IR 时间序列</p>
+
+      {/* 流程步骤提示 */}
+      <div className="flex items-center gap-2 mb-5 p-3 bg-blue-50 rounded-lg border border-blue-100">
+        {[
+          { n: 1, label: '选择 Feature Set 版本', done: !!featureSetVersion },
+          { n: 2, label: '选择要分析的因子', done: !!selectedFactor },
+          { n: 3, label: '点击"计算 IC 分析"', done: icSeries.length > 0 },
+        ].map((step, idx, arr) => (
+          <div key={step.n} className="flex items-center gap-2">
+            <div className={`flex items-center gap-1.5 text-sm font-medium ${
+              step.done ? 'text-green-700' : idx === arr.filter(s => s.done).length ? 'text-blue-700' : 'text-gray-400'
+            }`}>
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                step.done ? 'bg-green-600 text-white' : idx === arr.filter(s => s.done).length ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
+              }`}>
+                {step.done ? '✓' : step.n}
+              </span>
+              {step.label}
+            </div>
+            {idx < arr.length - 1 && <span className="text-gray-300">→</span>}
+          </div>
+        ))}
+      </div>
 
       <div className="flex gap-3 mb-6">
         <select
@@ -131,6 +156,50 @@ export function FactorsPage() {
                 <Line type="monotone" dataKey="ic" stroke="#4f63d2" dot={false} strokeWidth={1.5} />
               </LineChart>
             </ResponsiveContainer>
+          )}
+
+          {icSummary?.rank_ic_decay && icSummary.rank_ic_decay.length > 0 && (
+            <div className="card mt-4">
+              <h3 className="font-semibold text-gray-800 mb-3 text-sm">Rank IC 衰减（lag 1-10）</h3>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={icSummary.rank_ic_decay} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="lag" tick={{ fontSize: 11 }} label={{ value: 'Lag', position: 'insideRight', fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v: unknown) => (v as number).toFixed(4)} />
+                  <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="ic" stroke="#3b82f6" dot={{ r: 3 }} strokeWidth={2} name="IC" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {icSummary?.quantile_returns && icSummary.quantile_returns.length > 0 && (
+            <div className="card mt-4">
+              <h3 className="font-semibold text-gray-800 mb-3 text-sm">分层收益图（5 分组）</h3>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={icSummary.quantile_returns} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="quantile" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `Q${v}`} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v * 100).toFixed(1)}%`} />
+                  <Tooltip formatter={(v: unknown) => `${((v as number) * 100).toFixed(3)}%`} />
+                  <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                  <Bar dataKey="mean_return" name="平均收益" radius={[3, 3, 0, 0]}>
+                    {icSummary.quantile_returns.map((entry) => (
+                      <Cell key={entry.quantile} fill={entry.mean_return >= 0 ? '#22c55e' : '#ef4444'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {icSummary?.factor_turnover != null && (
+            <div className="card mt-4">
+              <div className="text-sm text-gray-500 mb-1">因子换手率（Top 20%）</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {(icSummary.factor_turnover * 100).toFixed(1)}%
+              </div>
+              <div className="text-xs text-gray-400 mt-1">平均每日顶部资产替换比例</div>
+            </div>
           )}
         </div>
       )}

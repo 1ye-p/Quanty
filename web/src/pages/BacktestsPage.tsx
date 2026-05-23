@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { backtestsApi, backtestExtApi, type BacktestFill } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
-import { useJobPoller } from '@/hooks/useJobPoller'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { PnLChart, type PnLDataPoint } from '@/components/charts/PnLChart'
 import {
@@ -11,6 +10,40 @@ import {
 } from 'recharts'
 
 type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills'
+
+/** 将 JSON 对象导出为 .json 文件下载 */
+function downloadJson(data: unknown, filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+/** 将对象数组转为 CSV 并触发下载 */
+function downloadCsv(rows: Record<string, unknown>[], filename: string) {
+  if (rows.length === 0) return
+  const headers = Object.keys(rows[0])
+  const lines = [
+    headers.join(','),
+    ...rows.map(row =>
+      headers.map(h => {
+        const v = row[h]
+        const s = v === null || v === undefined ? '' : String(v)
+        return s.includes(',') ? `"${s}"` : s
+      }).join(','),
+    ),
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 function MetricCard({ label, value, sub, warn = false }: {
   label: string; value: string | number; sub?: string; warn?: boolean
@@ -49,11 +82,13 @@ export function BacktestsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('overview')
 
-  const { data, isLoading, error } = useJobPoller({
+  const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.backtests.list(50),
     queryFn: () => backtestsApi.list(50),
-    isDone: (d) => !d.items.some(r => r.status === 'running' || r.status === 'pending'),
-    interval: 5000,
+    refetchInterval: (query) => {
+      const d = query.state.data
+      return d && !d.items.some(r => r.status === 'running' || r.status === 'pending') ? false : 5000
+    },
   })
 
   const { data: detail } = useQuery({
@@ -195,36 +230,104 @@ export function BacktestsPage() {
             <div className="space-y-4">
               {/* Metrics cards */}
               {detail?.metrics && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <MetricCard
-                    label="总收益"
-                    value={`${(detail.metrics.total_return * 100).toFixed(1)}%`}
-                    warn={detail.metrics.total_return < 0}
-                  />
-                  <MetricCard
-                    label="年化收益"
-                    value={`${(detail.metrics.annualized_return * 100).toFixed(1)}%`}
-                    warn={detail.metrics.annualized_return < 0}
-                  />
-                  <MetricCard
-                    label="Sharpe"
-                    value={detail.metrics.sharpe_ratio.toFixed(3)}
-                    warn={detail.metrics.sharpe_ratio < 0}
-                  />
-                  <MetricCard
-                    label="最大回撤"
-                    value={`${(detail.metrics.max_drawdown * 100).toFixed(1)}%`}
-                    warn={detail.metrics.max_drawdown < -0.2}
-                  />
-                  <MetricCard
-                    label="胜率"
-                    value={`${(detail.metrics.win_rate * 100).toFixed(1)}%`}
-                  />
-                  <MetricCard
-                    label="交易次数"
-                    value={String(detail.metrics.total_trades)}
-                  />
-                </div>
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <MetricCard
+                      label="总收益"
+                      value={`${(detail.metrics.total_return * 100).toFixed(1)}%`}
+                      warn={detail.metrics.total_return < 0}
+                    />
+                    <MetricCard
+                      label="年化收益"
+                      value={`${(detail.metrics.annualized_return * 100).toFixed(1)}%`}
+                      warn={detail.metrics.annualized_return < 0}
+                    />
+                    <MetricCard
+                      label="Sharpe"
+                      value={detail.metrics.sharpe_ratio.toFixed(3)}
+                      warn={detail.metrics.sharpe_ratio < 0}
+                    />
+                    <MetricCard
+                      label="最大回撤"
+                      value={`${(detail.metrics.max_drawdown * 100).toFixed(1)}%`}
+                      warn={detail.metrics.max_drawdown < -0.2}
+                    />
+                    <MetricCard
+                      label="胜率"
+                      value={`${(detail.metrics.win_rate * 100).toFixed(1)}%`}
+                    />
+                    <MetricCard
+                      label="交易次数"
+                      value={String(detail.metrics.total_trades)}
+                    />
+                  </div>
+
+                  {/* 主动管理指标（有值才显示）*/}
+                  {(
+                    detail.metrics.information_ratio != null ||
+                    detail.metrics.omega_ratio != null ||
+                    detail.metrics.tail_ratio != null
+                  ) && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                      <MetricCard
+                        label="信息比率"
+                        value={detail.metrics.information_ratio != null
+                          ? detail.metrics.information_ratio.toFixed(3)
+                          : '—'}
+                        sub="IR（需基准）"
+                        warn={detail.metrics.information_ratio != null && detail.metrics.information_ratio < 0}
+                      />
+                      <MetricCard
+                        label="跟踪误差"
+                        value={detail.metrics.tracking_error != null
+                          ? `${(detail.metrics.tracking_error * 100).toFixed(2)}%`
+                          : '—'}
+                        sub="TE（年化）"
+                      />
+                      <MetricCard
+                        label="Alpha"
+                        value={detail.metrics.alpha != null
+                          ? `${(detail.metrics.alpha * 100).toFixed(2)}%`
+                          : '—'}
+                        sub="Jensen's α"
+                        warn={detail.metrics.alpha != null && detail.metrics.alpha < 0}
+                      />
+                      <MetricCard
+                        label="Omega Ratio"
+                        value={detail.metrics.omega_ratio != null
+                          ? detail.metrics.omega_ratio.toFixed(3)
+                          : '—'}
+                        warn={detail.metrics.omega_ratio != null && detail.metrics.omega_ratio < 1}
+                      />
+                      <MetricCard
+                        label="Tail Ratio"
+                        value={detail.metrics.tail_ratio != null
+                          ? detail.metrics.tail_ratio.toFixed(3)
+                          : '—'}
+                      />
+                      <MetricCard
+                        label="换手率"
+                        value={detail.metrics.turnover_pct != null
+                          ? `${(detail.metrics.turnover_pct * 100).toFixed(1)}%`
+                          : '—'}
+                        sub="单边均值"
+                      />
+                    </div>
+                  )}
+
+                  {/* 导出指标按钮 */}
+                  <div className="flex justify-end">
+                    <button
+                      className="btn-secondary text-sm"
+                      onClick={() => downloadJson(
+                        detail.metrics,
+                        `metrics_${selectedId?.slice(0, 8) ?? 'backtest'}.json`,
+                      )}
+                    >
+                      导出指标 JSON
+                    </button>
+                  </div>
+                </>
               )}
 
               {/* Analysis summary */}
@@ -349,10 +452,26 @@ export function BacktestsPage() {
                 </div>
               )}
 
-              {!validationData && !multipleTestData && (
-                <div className="text-center text-gray-400 py-8">
-                  <div className="text-3xl mb-2">🔍</div>
-                  <div>需要先运行 <code className="bg-gray-100 px-1 rounded">AnalysisEngine</code> 生成验证数据</div>
+              {!analysis && !validationData && !multipleTestData && selectedId && (
+                <div className="card text-center py-12">
+                  <div className="text-4xl mb-3">🔬</div>
+                  <div className="text-gray-500 mb-4">暂无过拟合分析数据</div>
+                  <button
+                    className="btn-primary"
+                    onClick={async () => {
+                      try {
+                        await backtestsApi.triggerAnalysis(selectedId)
+                        const { toast } = await import('sonner')
+                        toast.info('分析任务已提交，约 30 秒后刷新查看结果')
+                      } catch (e) {
+                        const { toast } = await import('sonner')
+                        toast.error(`触发分析失败：${(e as Error).message}`)
+                      }
+                    }}
+                  >
+                    运行过拟合分析
+                  </button>
+                  <p className="text-xs text-gray-400 mt-2">分析包含 PSR/DSR/CPCV 过拟合检测</p>
                 </div>
               )}
             </div>
@@ -360,8 +479,27 @@ export function BacktestsPage() {
 
           {/* Fills Tab */}
           {tab === 'fills' && (
-            <div className="card p-0 overflow-hidden">
-              <table className="w-full">
+            <div className="space-y-3">
+              {/* 导出 CSV 按钮 */}
+              {fillsData && fillsData.items.length > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">
+                    共 {fillsData.total} 条成交记录
+                  </span>
+                  <button
+                    className="btn-secondary text-sm"
+                    onClick={() => downloadCsv(
+                      (fillsData.items as unknown) as Record<string, unknown>[],
+                      `fills_${selectedId?.slice(0, 8) ?? 'backtest'}.csv`,
+                    )}
+                  >
+                    导出 CSV
+                  </button>
+                </div>
+              )}
+
+              <div className="card p-0 overflow-hidden">
+                <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
                     {['日期', '资产', '方向', '数量', '价格', '金额', '费用'].map(h => (
@@ -390,6 +528,7 @@ export function BacktestsPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>

@@ -33,6 +33,7 @@ from cquant.core.enums import EngineType, RiskDecisionType
 from cquant.core.types import OrderIntent, RiskDecision, RiskSnapshot
 
 if TYPE_CHECKING:
+    from cquant.portfolio_opt.base import PortfolioOptimizer
     from cquant.riskguard.policies.base import RiskPolicy
     from cquant.riskguard.sizers.base import PositionSizer
 
@@ -56,6 +57,7 @@ class BacktestSpec:
     universe_id: str = ""
     features: pl.DataFrame | None = None
     tags: dict = field(default_factory=dict)
+    optimizer: "PortfolioOptimizer | None" = None
 
 
 @dataclass
@@ -74,6 +76,40 @@ class BacktestResult:
     completed_at: datetime | None = None
     error: str | None = None
     pretrade_decisions: list[dict] = field(default_factory=list)
+
+    def to_summary_dict(self) -> dict:
+        """返回回测结果的核心指标摘要字典。
+
+        Returns
+        -------
+        dict
+            包含 run_id、strategy_id 和所有 BacktestMetrics 字段的字典。
+        """
+        m = self.metrics
+        return {
+            "run_id": self.run_id,
+            "strategy_id": self.strategy_id,
+            "total_return": m.total_return,
+            "annualized_return": m.annualized_return,
+            "annualized_volatility": m.annualized_volatility,
+            "sharpe_ratio": m.sharpe_ratio,
+            "sortino_ratio": m.sortino_ratio,
+            "max_drawdown": m.max_drawdown,
+            "calmar_ratio": m.calmar_ratio,
+            "win_rate": m.win_rate,
+            "profit_factor": m.profit_factor,
+            "var_95": m.var_95,
+            "cvar_95": m.cvar_95,
+            "beta": m.beta,
+            "information_ratio": m.information_ratio,
+            "tracking_error": m.tracking_error,
+            "alpha": m.alpha,
+            "omega_ratio": m.omega_ratio,
+            "tail_ratio": m.tail_ratio,
+            "total_trades": m.total_trades,
+            "trading_days": m.trading_days,
+            "error": self.error,
+        }
 
 
 class VectorBacktestEngine:
@@ -141,6 +177,11 @@ class VectorBacktestEngine:
         committed_weights: dict[str, float] = {}
         daily_returns: list[float] = []
 
+        # High-water mark NAV for accurate drawdown calculation
+        _peak_nav = float(spec.initial_cash)
+        _current_nav = float(spec.initial_cash)
+        _current_drawdown = 0.0
+
         for i, td in enumerate(trade_dates):
             ctx = StrategyContext(
                 as_of_date=td,
@@ -169,6 +210,23 @@ class VectorBacktestEngine:
                 n = len(active_assets)
                 weights_dict = {aid: 1.0 / n for aid in active_assets} if n else {}
 
+            # Apply portfolio optimizer if set (overrides sizer weights)
+            if spec.optimizer is not None and weights_dict:
+                try:
+                    # Signal strengths as proxy expected returns
+                    expected_returns = {k: float(v) * 0.10 for k, v in weights_dict.items()}
+                    # Diagonal covariance: each asset gets uniform variance
+                    _var = (0.20 ** 2) / 252  # daily variance from 20% annual vol
+                    covariance = {
+                        a: {b: _var if a == b else 0.0 for b in weights_dict}
+                        for a in weights_dict
+                    }
+                    opt_result = spec.optimizer.optimize(expected_returns, covariance)
+                    if opt_result.weights:
+                        weights_dict = opt_result.weights
+                except Exception as _exc:
+                    logger.debug("Optimizer skipped for %s: %s", td, _exc)
+
             # Apply risk policies if configured
             if spec.risk_policies and weights_dict:
                 # Build positions from previously committed weights
@@ -180,6 +238,7 @@ class VectorBacktestEngine:
                     weights_dict, spec, td, prices,
                     accumulated_positions=accumulated_pos,
                     daily_returns=daily_returns,
+                    current_drawdown=_current_drawdown,
                 )
                 pretrade_decisions.extend(decisions)
 
@@ -188,6 +247,40 @@ class VectorBacktestEngine:
                 # Estimate return from weight change (simplified)
                 # Real return is computed later from fill simulator NAV
                 committed_weights = weights_dict.copy()
+
+            # Estimate current NAV using committed weights and today's prices
+            if committed_weights:
+                day_prices_map: dict[str, float] = {}
+                prev_prices_map: dict[str, float] = {}
+                for aid in committed_weights:
+                    dp = prices.filter(
+                        (pl.col("trade_date") == td) & (pl.col("asset_id") == aid)
+                    )
+                    if not dp.is_empty():
+                        day_prices_map[aid] = float(dp["close"].item())
+                    if i > 0:
+                        prev_td = trade_dates[i - 1]
+                        pp = prices.filter(
+                            (pl.col("trade_date") == prev_td) & (pl.col("asset_id") == aid)
+                        )
+                        if not pp.is_empty():
+                            prev_prices_map[aid] = float(pp["close"].item())
+
+                # Compute weighted return for the day
+                day_ret = 0.0
+                if i > 0:
+                    for aid, w in committed_weights.items():
+                        p_cur = day_prices_map.get(aid)
+                        p_prev = prev_prices_map.get(aid)
+                        if p_cur and p_prev and p_prev > 0:
+                            day_ret += w * (p_cur - p_prev) / p_prev
+                    daily_returns.append(day_ret)
+                    _current_nav *= (1 + day_ret)
+
+            # 更新高水位 NAV 和当前回撤
+            if _current_nav > _peak_nav:
+                _peak_nav = _current_nav
+            _current_drawdown = float((_current_nav - _peak_nav) / _peak_nav) if _peak_nav > 0 else 0.0
 
             # NEXT-BAR EXECUTION: signal on day T, execute on day T+1
             if i + 1 < len(trade_dates):
@@ -211,9 +304,33 @@ class VectorBacktestEngine:
         # Compute portfolio returns from fill simulator NAV
         port_returns = self._compute_returns_from_nav(snapshots_df, spec)
 
+        # Compute benchmark returns if a benchmark asset is specified
+        benchmark_returns = None
+        if spec.benchmark_asset_id:
+            bm_prices = spec.prices.filter(
+                (pl.col("asset_id") == spec.benchmark_asset_id)
+                & (pl.col("trade_date") >= spec.start_date)
+                & (pl.col("trade_date") <= spec.end_date)
+            ).sort("trade_date")
+            if not bm_prices.is_empty():
+                bm_rets = (
+                    bm_prices
+                    .with_columns(
+                        pl.col("close").log().diff().alias("_bm_ret")
+                    )
+                    .drop_nulls("_bm_ret")
+                )
+                if not bm_rets.is_empty():
+                    benchmark_returns = bm_rets["_bm_ret"]
+
+        # 计算真实成交笔数
+        total_fills = len(fills_df) if not fills_df.is_empty() else 0
+
         metrics = compute_metrics(
             port_returns["portfolio_return"],
             risk_free_rate=0.0,
+            benchmark_returns=benchmark_returns,
+            total_fills=total_fills,
         )
 
         completed_at = datetime.now(tz=timezone.utc)
@@ -240,6 +357,7 @@ class VectorBacktestEngine:
         prices: pl.DataFrame,
         accumulated_positions: pl.DataFrame | None = None,
         daily_returns: list[float] | None = None,
+        current_drawdown: float = 0.0,
     ) -> tuple[dict[str, float], list[dict]]:
         """Apply risk policies to target weights. Returns adjusted weights and decisions.
 
@@ -270,9 +388,11 @@ class VectorBacktestEngine:
         # Build risk context with real positions
         ctx = self._build_risk_context(trade_date, current_positions, spec.initial_cash)
 
-        # Compute real drawdown from daily returns so far
-        drawdown = 0.0
-        if daily_returns:
+        # Use the accurate drawdown passed from _run_impl (tracked via _peak_nav)
+        # Fall back to computing from daily_returns if current_drawdown is default 0.0
+        # and daily_returns are available (backward compatibility)
+        drawdown = current_drawdown
+        if drawdown == 0.0 and daily_returns:
             cum = 1.0
             peak = 1.0
             for r in daily_returns:
@@ -321,7 +441,7 @@ class VectorBacktestEngine:
 
             for policy in spec.risk_policies:
                 # Get price for this asset
-                decision = policy.evaluate(candidate, snapshot, ctx, price=price)
+                decision = policy.evaluate(candidate, snapshot, ctx)
                 all_reasons.extend(decision.reasons)
                 all_policies.extend(decision.policy_names)
 

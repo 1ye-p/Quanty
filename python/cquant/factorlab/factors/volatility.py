@@ -21,6 +21,10 @@ class _VolNd(Factor):
     def tags(self) -> list[str]:
         return ["volatility", "risk"]
 
+    @property
+    def lookback_days(self) -> int:
+        return max(120, int(self._n * 1.55) + 30)
+
     def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
         return (
             frame.sort(["asset_id", "trade_date"])

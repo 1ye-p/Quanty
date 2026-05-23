@@ -1,6 +1,8 @@
 """Unit tests for cquant.ai_advisor."""
 
 import asyncio
+import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -177,3 +179,77 @@ class TestSafetyPolicyExtended:
             "Based on the factor analysis, the momentum signal is strong."
         )
         assert safe
+
+
+# ── SessionStore Tests ────────────────────────────────────────────────────────
+
+
+class TestSessionStore:
+    def setup_method(self) -> None:
+        from cquant.ai_advisor.session_store import SessionStore
+        from cquant.ai_advisor.orchestrator import AdvisorSession
+        from cquant.ai_advisor.agents.base import AgentTurn
+
+        self._tmp = tempfile.mkdtemp()
+        self.store = SessionStore(Path(self._tmp) / "test_sessions.db")
+        self.SessionStore = SessionStore
+        self.AdvisorSession = AdvisorSession
+        self.AgentTurn = AgentTurn
+
+    def teardown_method(self) -> None:
+        import shutil
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+    def test_save_and_load_empty_session(self) -> None:
+        session = self.AdvisorSession(session_id="s1")
+        self.store.save(session)
+        loaded = self.store.load("s1")
+        assert loaded is not None
+        assert loaded.session_id == "s1"
+        assert loaded.history == []
+
+    def test_save_and_load_with_history(self) -> None:
+        session = self.AdvisorSession(session_id="s2")
+        session.history = [self.AgentTurn(role="user", content="hello")]
+        self.store.save(session)
+        loaded = self.store.load("s2")
+        assert loaded is not None
+        assert len(loaded.history) == 1
+        assert loaded.history[0].role == "user"
+        assert loaded.history[0].content == "hello"
+
+    def test_load_nonexistent_returns_none(self) -> None:
+        result = self.store.load("nonexistent-id")
+        assert result is None
+
+    def test_delete_removes_session(self) -> None:
+        session = self.AdvisorSession(session_id="s3")
+        self.store.save(session)
+        self.store.delete("s3")
+        assert self.store.load("s3") is None
+
+    def test_list_sessions_order(self) -> None:
+        import time
+        s1 = self.AdvisorSession(session_id="a")
+        s2 = self.AdvisorSession(session_id="b")
+        self.store.save(s1)
+        time.sleep(0.01)
+        self.store.save(s2)
+        ids = self.store.list_sessions()
+        assert ids[0] == "b"   # most recently updated first
+        assert "a" in ids
+
+    def test_upsert_preserves_created_at(self) -> None:
+        session = self.AdvisorSession(session_id="s4")
+        self.store.save(session)
+        import sqlite3
+        with sqlite3.connect(str(self.store.db_path)) as conn:
+            row1 = conn.execute(
+                "SELECT created_at FROM advisor_sessions WHERE session_id = 's4'"
+            ).fetchone()
+        self.store.save(session)  # second save = UPDATE
+        with sqlite3.connect(str(self.store.db_path)) as conn:
+            row2 = conn.execute(
+                "SELECT created_at FROM advisor_sessions WHERE session_id = 's4'"
+            ).fetchone()
+        assert row1[0] == row2[0]   # created_at unchanged

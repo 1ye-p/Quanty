@@ -73,7 +73,9 @@ class SilverNormalizer:
             logger.warning("Unknown source %r; attempting generic normalization.", batch.source)
             df = self._normalize_generic(df, batch)
 
-        return self._ensure_required_columns(df)
+        df = self._ensure_required_columns(df)
+        df = self._clean_data_quality(df)
+        return df
 
     # ── Source-specific normalizers ────────────────────────────────────────────
 
@@ -155,6 +157,73 @@ class SilverNormalizer:
             )
 
         return df.sort(["asset_id", "trade_date"]) if "asset_id" in df.columns else df
+
+    def _clean_data_quality(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Filter obviously invalid price/volume data.
+
+        Removes:
+        - Rows with zero or negative close prices
+        Clips:
+        - Negative volumes to 0
+        """
+        # Remove rows with zero or negative close prices
+        if "close" in df.columns:
+            initial_len = len(df)
+            df = df.filter(pl.col("close") > 0)
+            removed = initial_len - len(df)
+            if removed > 0:
+                logger.warning(
+                    "Removed %d rows with non-positive close price", removed
+                )
+
+        # Clip negative volumes to 0
+        if "volume" in df.columns:
+            df = df.with_columns(
+                pl.col("volume").clip(lower_bound=0)
+            )
+
+        # 检测 adj_close 与 close 之间的异常跳空（adj_factor 突变信号）
+        if "adj_close" in df.columns and "close" in df.columns:
+            try:
+                check_df = (
+                    df.sort(["asset_id", "trade_date"])
+                    .with_columns([
+                        pl.col("adj_close").log().diff().over("asset_id").alias("_adj_ret"),
+                        pl.col("close").log().diff().over("asset_id").alias("_raw_ret"),
+                    ])
+                )
+                suspicious = check_df.filter(
+                    (pl.col("_adj_ret").abs() > 0.30)
+                    & (pl.col("_raw_ret").abs() < 0.10)
+                )
+                if not suspicious.is_empty():
+                    logger.warning(
+                        "检测到 %d 行疑似 adj_close 跳空异常（adj_factor 可能因除权/复权突变），"
+                        "请检查相关 asset_id 和日期。",
+                        len(suspicious),
+                    )
+            except Exception:
+                pass  # 检测失败时静默忽略，不影响正常数据处理
+
+        # ── Winsorize: 裁剪 adj_close 单日涨跌幅超过 ±50% 的异常行 ────────────
+        # 日涨跌 > ±50% 几乎必然是复权数据错误或非连续交易日对比，直接删除
+        if "adj_close" in df.columns and len(df) > 1:
+            df_with_ret = df.sort(["asset_id", "trade_date"]).with_columns(
+                (pl.col("adj_close") / pl.col("adj_close").shift(1).over("asset_id") - 1.0)
+                .alias("_daily_ret_chk")
+            )
+            extreme_mask = df_with_ret["_daily_ret_chk"].abs() > 0.5
+            n_extreme = int(extreme_mask.sum())
+            if n_extreme > 0:
+                logger.warning(
+                    "Winsorize: 检测到 %d 行 adj_close 单日涨跌幅超过 ±50%%，已删除。",
+                    n_extreme,
+                )
+                df = df_with_ret.filter(
+                    pl.col("_daily_ret_chk").is_null() | (pl.col("_daily_ret_chk").abs() <= 0.5)
+                ).drop("_daily_ret_chk")
+
+        return df
 
 
 def _tushare_to_asset_id(ts_code: str) -> str:

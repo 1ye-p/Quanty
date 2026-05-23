@@ -54,14 +54,30 @@ class VolParitySizer(PositionSizer):
             pl.col("volatility").fill_null(pl.col("volatility").mean()).clip(lower_bound=1e-9)
         )
 
-        longs = merged.filter(pl.col("direction") != "short") if not self._allow_short \
-            else merged.filter(pl.col("direction") == "long")
+        if not self._allow_short:
+            # Long-only mode: treat all non-short signals as longs
+            longs = merged.filter(pl.col("direction") != "short")
+            shorts = pl.DataFrame()
+        else:
+            # Long/short mode: separate by direction
+            longs = merged.filter(pl.col("direction") == "long")
+            shorts = merged.filter(pl.col("direction") == "short")
 
-        total_inv_vol = (1.0 / longs["volatility"]).sum()
         weights: dict[str, float] = {}
-        if total_inv_vol > 0:
+
+        # Long weights: inverse-vol normalized
+        long_scale = 0.5 if (self._allow_short and not shorts.is_empty()) else 1.0
+        total_inv_vol_long = float((1.0 / longs["volatility"]).sum()) if not longs.is_empty() else 0.0
+        if total_inv_vol_long > 0:
             for row in longs.iter_rows(named=True):
-                weights[row["asset_id"]] = (1.0 / row["volatility"]) / total_inv_vol
+                weights[row["asset_id"]] = (1.0 / row["volatility"]) / total_inv_vol_long * long_scale
+
+        # Short weights: negative inverse-vol normalized
+        if self._allow_short and not shorts.is_empty():
+            total_inv_vol_short = float((1.0 / shorts["volatility"]).sum())
+            if total_inv_vol_short > 0:
+                for row in shorts.iter_rows(named=True):
+                    weights[row["asset_id"]] = -(1.0 / row["volatility"]) / total_inv_vol_short * 0.5
 
         return TargetWeights(
             strategy_id="",

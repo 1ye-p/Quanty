@@ -7,7 +7,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
+
+if TYPE_CHECKING:
+    from cquant.datahub.catalog import Catalog
 
 import numpy as np
 import polars as pl
@@ -113,3 +116,64 @@ def build_model_id(config: dict[str, Any], trainer_name: str) -> str:
     """Return a stable or random model identifier."""
     configured = config.get("model_id")
     return str(configured) if configured else f"{trainer_name}-{uuid.uuid4()}"
+
+
+def persist_predictions(
+    artifact: "ModelArtifact",
+    features: "pl.DataFrame",
+    predictions: "pl.Series",
+    catalog: "Catalog",
+    horizon: str = "5d",
+) -> None:
+    """Write model predictions to gold_predictions DuckDB table.
+
+    Parameters
+    ----------
+    artifact:
+        The model artifact whose ``model_id`` and ``target_name`` are used as keys.
+    features:
+        Feature DataFrame used for prediction. Must contain ``asset_id`` and ``trade_date``.
+    predictions:
+        Float predictions series with the same length as *features*.
+    catalog:
+        Open Catalog connection.
+    horizon:
+        Prediction horizon label, e.g. ``'5d'``.
+    """
+    import polars as pl
+
+    if "trade_date" not in features.columns:
+        raise ValueError("features must contain 'trade_date' column to persist predictions")
+    if "asset_id" not in features.columns:
+        raise ValueError("features must contain 'asset_id' column to persist predictions")
+
+    pred_df = (
+        features.select(["asset_id", "trade_date"])
+        .with_columns([
+            pl.lit(artifact.model_id).alias("model_version"),
+            predictions.alias("prediction"),
+            pl.lit(horizon).alias("horizon"),
+            pl.lit(artifact.target_name).alias("label_name"),
+            pl.lit(None).cast(pl.Float64).alias("confidence"),
+        ])
+        .select([
+            "model_version", "trade_date", "asset_id",
+            "prediction", "horizon", "label_name", "confidence",
+        ])
+    )
+
+    conn = catalog._get_conn()
+    stage = "_predictions_stage"
+    conn.register(stage, pred_df.to_arrow())
+    try:
+        conn.execute(f"""
+            INSERT OR REPLACE INTO gold_predictions
+                (model_version, trade_date, asset_id, prediction, horizon, label_name, confidence)
+            SELECT model_version, trade_date, asset_id, prediction, horizon, label_name, confidence
+            FROM {stage}
+        """)
+    finally:
+        try:
+            conn.unregister(stage)
+        except Exception:
+            pass

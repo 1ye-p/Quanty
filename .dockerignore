@@ -1,0 +1,25 @@
+# .dockerignore
+.git/
+.gitmodules
+.github/
+.claude/
+node_modules/
+web/node_modules/
+web/dist/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+data/
+*.duckdb
+*.db
+*.log
+docs/
+rust/target/
+*.egg-info/
+dist/
+build/
+.env
+.env.*

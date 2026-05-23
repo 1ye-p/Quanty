@@ -32,21 +32,33 @@ else
   git submodule update --init --recursive rust
 fi
 
-# ── 3. Editable install ───────────────────────────────────────────────────────
+# ── 3. Vibe-Trading submodule ─────────────────────────────────────────────────
+if [ -d lib/vibe-trading/agent ] || [ -f lib/vibe-trading/.git ]; then
+  echo "Vibe-Trading submodule found, updating..."
+  git submodule update --remote lib/vibe-trading 2>/dev/null || true
+else
+  echo "Initializing Vibe-Trading submodule..."
+  git submodule update --init lib/vibe-trading 2>/dev/null || \
+    echo "  → Skipping: lib/vibe-trading submodule not configured."
+fi
+# Install Vibe-Trading minimal dependencies
+conda run -n cQuanty pip install langgraph langchain-openai --quiet 2>/dev/null || true
+
+# ── 4. Editable install ───────────────────────────────────────────────────────
 if [ -f python/cquant/__init__.py ]; then
   python -m pip install --no-deps -e .
 else
   echo "Skipping editable install: python/cquant/__init__.py not yet present."
 fi
 
-# ── 4. Rust wheel ─────────────────────────────────────────────────────────────
+# ── 5. Rust wheel ─────────────────────────────────────────────────────────────
 if [ -f rust/Cargo.toml ]; then
   bash scripts/build_rust.sh
 else
   echo "Skipping Rust wheel build: rust/Cargo.toml not present."
 fi
 
-# ── 5. Pre-commit hooks ───────────────────────────────────────────────────────
+# ── 6. Pre-commit hooks ───────────────────────────────────────────────────────
 if command -v pre-commit &>/dev/null && [ -f .pre-commit-config.yaml ]; then
   pre-commit install
 fi

@@ -43,14 +43,16 @@ from cquant.api_server.schemas.advisor import (
     AdvisorReportRequest,
     AdvisorReportResponse,
 )
+from cquant.ai_advisor.session_store import SessionStore
 from cquant.core.config import settings
 from cquant.knowledge_base.store.vector_lance import LanceVectorStore
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/advisor", tags=["advisor"])
 
-# In-memory session store (MVP; swap for Redis in production)
-_sessions: dict[str, AdvisorSession] = {}
+# SQLite-backed session store — survives API server restarts
+# Note: settings.db_path is a str, so wrap with Path()
+_store = SessionStore(Path(settings.db_path).parent / "advisor_sessions.db")
 
 # Singleton vector store — avoids re-opening the LanceDB index on every request
 _vector_store: LanceVectorStore | None = None
@@ -66,11 +68,19 @@ def _get_vector_store() -> LanceVectorStore:
     return _vector_store
 
 
-def _get_or_create_session(session_id: str) -> AdvisorSession:
-    if session_id and session_id in _sessions:
-        return _sessions[session_id]
+async def _get_or_create_session(session_id: str) -> AdvisorSession:
+    if session_id:
+        try:
+            existing = await asyncio.to_thread(_store.load, session_id)
+            if existing is not None:
+                return existing
+        except Exception as exc:
+            logger.warning("Failed to load session %s: %s", session_id, exc)
     session = AdvisorSession()
-    _sessions[session.session_id] = session
+    try:
+        await asyncio.to_thread(_store.save, session)
+    except Exception as exc:
+        logger.warning("Failed to save new session %s: %s", session.session_id, exc)
     return session
 
 
@@ -115,13 +125,17 @@ async def advisor_chat(
     body: AdvisorChatRequest,
     orchestrator: OrchestratorDep,
 ) -> AdvisorChatResponse:
-    session = _get_or_create_session(body.session_id)
+    session = await _get_or_create_session(body.session_id)
     try:
         response_text = await orchestrator.chat(body.message, session)
     except Exception as exc:
         logger.exception("Advisor chat failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"Advisor error: {exc}")
     _trim_session(session)
+    try:
+        await asyncio.to_thread(_store.save, session)
+    except Exception as exc:
+        logger.warning("Failed to persist session %s: %s", session.session_id, exc)
     return AdvisorChatResponse(
         response=response_text,
         session_id=session.session_id,
@@ -134,13 +148,17 @@ async def advisor_report(
     body: AdvisorReportRequest,
     orchestrator: OrchestratorDep,
 ) -> AdvisorReportResponse:
-    session = _get_or_create_session(body.session_id)
+    session = await _get_or_create_session(body.session_id)
     try:
         report_text = await orchestrator.generate_report(body.subject, session)
     except Exception as exc:
         logger.exception("Advisor report failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"Report error: {exc}")
     _trim_session(session)
+    try:
+        await asyncio.to_thread(_store.save, session)
+    except Exception as exc:
+        logger.warning("Failed to persist session %s: %s", session.session_id, exc)
     return AdvisorReportResponse(
         report=report_text,
         session_id=session.session_id,
@@ -148,15 +166,22 @@ async def advisor_report(
     )
 
 
+@router.get("/sessions")
+async def list_sessions() -> dict:
+    """Return all session IDs ordered by most-recently updated."""
+    session_ids = await asyncio.to_thread(_store.list_sessions)
+    return {"items": session_ids, "total": len(session_ids)}
+
+
 @router.delete("/sessions/{session_id}")
 async def clear_session(session_id: str) -> dict:
-    _sessions.pop(session_id, None)
+    await asyncio.to_thread(_store.delete, session_id)
     return {"status": "cleared", "session_id": session_id}
 
 
 @router.get("/sessions/{session_id}")
 async def get_advisor_session(session_id: str) -> dict:
-    session = _sessions.get(session_id)
+    session = await asyncio.to_thread(_store.load, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
     return {
@@ -171,7 +196,7 @@ async def get_advisor_session(session_id: str) -> dict:
 
 @router.get("/sessions/{session_id}/agents")
 async def get_session_agents(session_id: str) -> dict:
-    session = _sessions.get(session_id)
+    session = await asyncio.to_thread(_store.load, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
     agent_roles = {"research", "risk", "debate", "execution", "report_writer"}
@@ -197,7 +222,7 @@ async def advisor_stream(
 
     async def event_generator():
         try:
-            session = _get_or_create_session(session_id)
+            session = await _get_or_create_session(session_id)
             yield emit("session_started", {"session_id": session.session_id, "message": message[:100]})
 
             provider = _build_provider()
@@ -252,6 +277,10 @@ async def advisor_stream(
 
             session.history.extend([r_turn, risk_turn, debate_turn, AgentTurn(role="assistant", content=final)])
             _trim_session(session)
+            try:
+                await asyncio.to_thread(_store.save, session)
+            except Exception as exc:
+                logger.warning("Failed to persist session %s: %s", session.session_id, exc)
             yield emit("done", {"session_id": session.session_id})
 
         except Exception as exc:

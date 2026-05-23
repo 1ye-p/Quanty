@@ -6,9 +6,11 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Any
 
 import polars as pl
 
+from cquant.factorlab.dag import DAGPipeline
 from cquant.factorlab.factor import Factor, FactorContext, FactorRegistry
 
 logger = logging.getLogger(__name__)
@@ -40,30 +42,35 @@ class FeatureSetVersion:
 class FeaturePipeline:
     """Executes a set of factors over a price DataFrame and returns tidy output.
 
-    Usage::
-
-        registry = FactorRegistry()
-        for f in BUILTIN_FACTORS:
-            registry.register(f)
-
-        pipeline = FeaturePipeline(registry)
-        spec = PipelineSpec(
-            factor_names=["ret_20d", "vol_20d", "zscore_close_60d"],
-            start_date=date(2023, 1, 1),
-            end_date=date(2026, 1, 1),
-        )
-        result = pipeline.run(prices_df, spec)
+    Uses DAGPipeline internally so factors that declare ``dependencies`` are
+    automatically executed after their required factors are computed.
     """
 
     def __init__(self, registry: FactorRegistry) -> None:
         self._registry = registry
 
-    def run(self, prices: pl.DataFrame, spec: PipelineSpec) -> FeatureSetVersion:
-        """Compute all factors in *spec* over *prices* and return a FeatureSetVersion."""
+    def run(
+        self,
+        prices: pl.DataFrame,
+        spec: PipelineSpec,
+        extra: dict[str, Any] | None = None,
+    ) -> FeatureSetVersion:
+        """Compute all factors in *spec* over *prices* and return a FeatureSetVersion.
+
+        Parameters
+        ----------
+        prices:
+            Silver OHLCV DataFrame.
+        spec:
+            Which factors to compute and over what date range.
+        extra:
+            Optional dict injected into ``FactorContext.extra`` (e.g. ``{"fundamentals": df}``).
+        """
         ctx = FactorContext(
             as_of_date=spec.end_date,
             frequency=spec.frequency,
             universe_id=spec.universe_id,
+            extra=extra or {},
         )
 
         # Filter to the requested date range
@@ -72,23 +79,32 @@ class FeaturePipeline:
             & (pl.col("trade_date") <= spec.end_date)
         )
 
-        result = windowed.select(["asset_id", "trade_date"])
-        failed: list[str] = []
-
-        for factor_name in spec.factor_names:
+        # Resolve factor instances; track any not found in registry
+        factors: list[Factor] = []
+        missing: list[str] = []
+        for name in spec.factor_names:
             try:
-                factor = self._registry.get(factor_name)
-                series = factor.safe_compute(windowed, ctx)
-                result = result.with_columns(series.alias(factor_name))
-            except Exception as exc:
-                logger.error("Factor %s failed: %s", factor_name, exc)
-                failed.append(factor_name)
-                result = result.with_columns(
-                    pl.lit(None).cast(pl.Float64).alias(factor_name)
-                )
+                factors.append(self._registry.get(name))
+            except KeyError:
+                logger.warning("Factor '%s' not in registry — will produce null column", name)
+                missing.append(name)
 
-        if failed:
-            logger.warning("Factors with errors: %s", failed)
+        # Execute via DAGPipeline (handles dependency ordering)
+        if factors:
+            dag = DAGPipeline(factors, strict=False)
+            enriched = dag.run(windowed, ctx)
+        else:
+            enriched = windowed
+
+        # Build result: keep id cols + requested factor columns only
+        id_cols = ["asset_id", "trade_date"]
+        available_factors = [n for n in spec.factor_names if n in enriched.columns]
+        result = enriched.select(id_cols + available_factors)
+
+        # Add null columns for factors missing from registry
+        for name in missing:
+            if name not in result.columns:
+                result = result.with_columns(pl.lit(None).cast(pl.Float64).alias(name))
 
         version_id = str(uuid.uuid4())
         return FeatureSetVersion(

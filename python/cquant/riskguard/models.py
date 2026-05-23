@@ -33,6 +33,7 @@ class RiskContext:
     current_snapshot: RiskSnapshot | None = None
     factor_exposure: dict[str, float] = field(default_factory=dict)
     sector_exposure: dict[str, float] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)  # Policy-specific extra context
 
 
 @dataclass(frozen=True)
@@ -58,3 +59,4 @@ class SizingContext:
     return_covariance: pl.DataFrame | None = None   # Asset covariance matrix
     volatility: pl.DataFrame | None = None          # [asset_id, volatility]
     constraints: dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)

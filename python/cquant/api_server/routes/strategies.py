@@ -46,6 +46,7 @@ async def list_strategies(catalog: CatalogDep) -> dict:
 
 @router.post("", status_code=201)
 async def create_strategy(body: StrategyCreateBody, catalog: CatalogDep) -> dict:
+    """创建新策略配置，strategy_id 须唯一；已存在时返回 409。"""
     now = datetime.now(tz=timezone.utc).isoformat()
     parsed = _parse_config(body.config_text, body.config_format)
 
@@ -84,6 +85,7 @@ async def get_strategy(strategy_id: str, catalog: CatalogDep) -> dict:
 
 @router.put("/{strategy_id}")
 async def update_strategy(strategy_id: str, body: StrategyUpdateBody, catalog: CatalogDep) -> dict:
+    """更新现有策略配置。"""
     existing = catalog.query(
         "SELECT strategy_id FROM meta_strategy_configs WHERE strategy_id = ?",
         [strategy_id],
@@ -107,6 +109,7 @@ async def update_strategy(strategy_id: str, body: StrategyUpdateBody, catalog: C
 
 @router.delete("/{strategy_id}")
 async def delete_strategy(strategy_id: str, catalog: CatalogDep) -> dict:
+    """删除策略配置。已关联的回测历史不受影响。"""
     existing = catalog.query(
         "SELECT strategy_id FROM meta_strategy_configs WHERE strategy_id = ?",
         [strategy_id],

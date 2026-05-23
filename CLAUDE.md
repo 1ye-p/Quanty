@@ -1,7 +1,7 @@
 # cQuant — 项目文档
 
 > 初次扫描时间：2026-05-11T11:18:07+08:00
-> 当前状态：**Phase 1 完成**（环境初始化、core、market_calendar、datahub、factorlab、riskguard、backtest_vector、bt_analyzer、CLI）
+> 当前状态：**Phase 0-4 完成**（因子→ML→信号→优化→回测→风控→AI Advisor→MCP Server）
 
 ---
 
@@ -14,6 +14,21 @@
 | 2026-05-17 | Phase A | TDX 数据集成：TdxDuckDBConnector、批量摄取、silver 层数据（6,675 股票，3M+ 行） |
 | 2026-05-17 | Phase B | 研究增强：回测持久化、bt_analyzer 持久化、20 个因子、端到端验证 |
 | 2026-05-17 | Phase C | CLI 模块：cquant 命令行工具（ingest、bootstrap、factors、backtest、status） |
+| 2026-05-19 | Phase 1.5 | 关键修复：止损、回撤熔断、Sortino/VaR/CVaR/Beta、涨跌停动态、Kelly/TargetVol |
+| 2026-05-19 | Phase 2.0 | 基本面因子（30个）、因子评估、多因子策略、ML标签/预处理、杠杆/行业限制 |
+| 2026-05-19 | Phase 2.5 | PurgedKFold、MVO/BL Sizer、CompositeStrategy、DAGPipeline |
+| 2026-05-19 | Phase 3.0 | API Server 测试、Web build fix、Plugin manifests |
+| 2026-05-20 | Phase P0 | DAG引擎接入、动态lookback、silver_fundamentals、ML预测持久化、MLModelStrategy |
+| 2026-05-20 | Phase P1 | IR/TE/Alpha指标、HWM追踪、DrawdownBreaker分级、SectorLimit自动加载、因子评估扩展 |
+| 2026-05-20 | Phase P1b | CLI多数据源、PaperBroker风控、API认证、数据质量过滤、pyproject.toml依赖 |
+| 2026-05-20 | Phase P2 | 协方差估计器、ATR止损、时间止损、LightGBM特征重要性、会话持久化 |
+| 2026-05-20 | Phase P3 | 行业轮动/市场中性策略、benchmark指标接入、portfolio_opt集成、组合快照修复 |
+| 2026-05-22 | Phase 0 | Qlib 子模块集成：qlib_bridge 封装层（_compat、data_handler、evaluator、factor_set）+ Alpha158 因子（50 个 Polars 实现） |
+| 2026-05-22 | Phase 1 | UI Bug 修复：sonner Toast、ConfirmDialog、ErrorBoundary、策略表单校验、404 页面 |
+| 2026-05-22 | Phase 2 | 回测评估增强：异步回测（BackgroundTasks + job_id 轮询）、IR/TE/Alpha 展示、过拟合分析触发、CSV/JSON 导出 |
+| 2026-05-22 | Phase 3 | 因子研究+ML 打通：Rank IC 衰减图、分层收益图、换手率卡、FactorsPage/MLLabPage 流程步骤、创建策略跳转 |
+| 2026-05-22 | Phase 4 | AI Advisor 升级：SessionStore SQLite 持久化、FastMCP server（mcp_server）、IntentRouter 事件路由 |
+| 2026-05-22 | Phase 0-B | Vibe-Trading 集成：526 因子（qlib158+alpha101+gtja191）、引擎对比文档、Swarm 加载器（29 团队）、LLM 供应商适配器（14 供应商） |
 
 ---
 
@@ -47,6 +62,8 @@ cQuant/
 │   ├── bt_analyzer/         # 过拟合检测 (DSR/PSR/CPCV) [Phase 2]
 │   ├── knowledge_base/      # 研报/策略知识库 (RAG) [Phase 3]
 │   ├── ai_advisor/          # 多 Agent 研究助手 [Phase 3]
+│   ├── qlib_bridge/         # Qlib 封装层（bridge 接口，屏蔽直接 qlib 依赖）[Phase 0]
+│   ├── mcp_server/          # FastMCP 服务器（DuckDB + AKShare MCP 工具）[Phase 4]
 │   ├── registry/            # 插件发现与能力管理 [Phase 1]
 │   ├── api_server/          # FastAPI 服务 [Phase 3]
 │   └── cli/                 # 命令行工具 [Phase 1]
@@ -88,13 +105,16 @@ graph TD
 | `python/cquant/backtest_vector` | Python | 向量化回测 (vectorbt) | 1 | ✅ 完成 |
 | `python/cquant/bt_analyzer` | Python | 过拟合检测 (DSR/PSR/CPCV) | 1 | ✅ 完成 |
 | `python/cquant/cli` | Python | 命令行工具 | 1 | ✅ 完成 |
-| `python/cquant/registry` | Python | 插件发现与能力管理 | 1 | 待开发 |
-| `python/cquant/backtest_event` | Python+Rust | 事件驱动回测 | 2 | 未开始 |
-| `python/cquant/ml_lab` | Python | ML/DL/LLM/RL + MLflow | 2 | 未开始 |
-| `python/cquant/newsflow` | Python | 新闻接入、PIT 控制 | 2 | 未开始 |
-| `python/cquant/knowledge_base` | Python | 研报知识库 (RAG) | 3 | 未开始 |
-| `python/cquant/ai_advisor` | Python | 多 Agent 研究助手 | 3 | 未开始 |
-| `python/cquant/api_server` | Python | FastAPI 服务 | 3 | 未开始 |
+| `python/cquant/registry` | Python | 插件发现与能力管理 | 1 | ✅ 完成 |
+| `python/cquant/backtest_event` | Python+Rust | 事件驱动回测 | 2 | ⚠️ 框架完成 |
+| `python/cquant/ml_lab` | Python | ML训练流水线（标签/特征/LightGBM/XGBoost/Walk-Forward/MLflow） | 2 | ✅ 完成 |
+| `python/cquant/newsflow` | Python | 新闻摄取（东方财富/Sina/RSS）+ PIT控制 | 2 | ✅ 完成 |
+| `python/cquant/knowledge_base` | Python | RAG知识库（LanceDB/混合检索） | 3 | ✅ 完成 |
+| `python/cquant/ai_advisor` | Python | 多Agent研究助手 | 3 | ✅ 完成 |
+| `python/cquant/api_server` | Python | FastAPI服务（REST + SSE） | 3 | ✅ 完成 |
+| `python/cquant/portfolio_opt` | Python | 组合优化（MVO/风险平价/协方差估计） | 2 | ✅ 完成 |
+| `python/cquant/execution` | Python | 执行层（Paper Broker/QMT适配器） | 2 | ✅ 完成 |
+| `python/cquant/scheduler` | Python | 策略调度 + 健康检查 | 2 | ✅ 完成 |
 | `rust/crates/cquant-core` | Rust | 基础金融类型 | 2 | 未开始 |
 | `rust/crates/cquant-event-engine` | Rust | 市场回放、撮合 | 2 | 未开始 |
 | `rust/crates/cquant-portfolio` | Rust | 持仓、风控状态机 | 2 | 未开始 |

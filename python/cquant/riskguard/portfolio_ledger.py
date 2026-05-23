@@ -56,6 +56,7 @@ class PortfolioLedger:
         self._positions: dict[str, Position] = {}
         self._realized_pnl = 0.0
         self._trade_date: date | None = None
+        self._peak_nav: float = float(initial_cash)
 
     @property
     def cash(self) -> float:
@@ -64,6 +65,17 @@ class PortfolioLedger:
     @property
     def positions(self) -> dict[str, Position]:
         return self._positions.copy()
+
+    @property
+    def peak_nav(self) -> float:
+        """Historical peak NAV since inception."""
+        return self._peak_nav
+
+    def current_drawdown(self, current_nav: float) -> float:
+        """Drawdown from internal peak NAV (negative value, 0.0 at peak)."""
+        if self._peak_nav <= 0:
+            return 0.0
+        return (current_nav - self._peak_nav) / self._peak_nav
 
     def apply_fill(self, fill: dict) -> None:
         """Apply a fill to the ledger.
@@ -178,6 +190,9 @@ class PortfolioLedger:
 
         nav = self._cash + sum(pos.market_value for pos in self._positions.values())
         net_exposure = sum(pos.market_value for pos in self._positions.values())
+
+        # Auto-track high watermark
+        self._peak_nav = max(self._peak_nav, nav)
 
         return PortfolioState(
             trade_date=trade_date,

@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from cquant.core.enums import RiskDecisionType
 from cquant.core.types import OrderIntent, RiskDecision, RiskSnapshot
 from cquant.riskguard.models import RiskContext
 from cquant.riskguard.policies.base import RiskPolicy
+
+if TYPE_CHECKING:
+    from cquant.datahub.catalog import Catalog
 
 
 class SectorLimitPolicy(RiskPolicy):
@@ -26,6 +30,37 @@ class SectorLimitPolicy(RiskPolicy):
     ) -> None:
         self._max_pct = max_sector_pct
         self._sector_map = sector_map or {}
+
+    @classmethod
+    def from_catalog(
+        cls,
+        catalog: "Catalog",
+        max_sector_pct: float = 0.30,
+    ) -> "SectorLimitPolicy":
+        """Build a SectorLimitPolicy by loading industry mappings from silver_assets.
+
+        Parameters
+        ----------
+        catalog:
+            Open Catalog connection.
+        max_sector_pct:
+            Maximum weight per sector (default 30%).
+        """
+        try:
+            df = catalog.query(
+                "SELECT asset_id, industry FROM silver_assets WHERE industry IS NOT NULL"
+            )
+        except Exception:
+            df = __import__("polars").DataFrame()
+
+        if df.is_empty():
+            sector_map: dict[str, str] = {}
+        else:
+            sector_map = dict(
+                zip(df["asset_id"].to_list(), df["industry"].to_list())
+            )
+
+        return cls(max_sector_pct=max_sector_pct, sector_map=sector_map)
 
     @property
     def name(self) -> str:

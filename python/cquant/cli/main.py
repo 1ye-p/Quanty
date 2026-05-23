@@ -25,15 +25,51 @@ def cmd_ingest(args: argparse.Namespace) -> None:
     from cquant.datahub.ingest import MarketIngestionOrchestrator
 
     catalog = Catalog(args.catalog)
-    orchestrator = MarketIngestionOrchestrator(catalog, [])
 
     if args.source == "tdx":
+        orchestrator = MarketIngestionOrchestrator(catalog, [])
         version_id = orchestrator.ingest_bulk_tdx(
             db_path=args.tdx_db,
             start_date=date.fromisoformat(args.start),
             end_date=date.fromisoformat(args.end),
             chunk_days=args.chunk_days,
         )
+        print(f"Ingestion complete: version_id={version_id}")
+    elif args.source in ("akshare", "tushare", "yfinance"):
+        import os
+        from cquant.core.enums import Frequency, Market
+        from cquant.datahub.ingest import IngestionSpec
+
+        if not args.symbols:
+            print(
+                f"Error: --symbols is required for --source {args.source}. "
+                "Example: --symbols 'SSE:600036,SSE:000001'",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
+
+        if args.source == "akshare":
+            from cquant.datahub.connectors.akshare_connector import AKShareConnector
+            connector = AKShareConnector()
+        elif args.source == "tushare":
+            from cquant.datahub.connectors.tushare_connector import TushareConnector
+            token = args.token or os.environ.get("TUSHARE_TOKEN", "")
+            connector = TushareConnector(token=token)
+        else:  # yfinance
+            from cquant.datahub.connectors.yfinance_connector import YFinanceConnector
+            connector = YFinanceConnector()
+
+        orchestrator = MarketIngestionOrchestrator(catalog, [connector])
+        spec = IngestionSpec(
+            market=Market.CN,
+            symbols=symbols,
+            start_date=date.fromisoformat(args.start),
+            end_date=date.fromisoformat(args.end),
+            frequency=Frequency.D1,
+        )
+        version_id = orchestrator.ingest(spec)
         print(f"Ingestion complete: version_id={version_id}")
     else:
         print(f"Source '{args.source}' not yet supported", file=sys.stderr)
@@ -98,10 +134,28 @@ def cmd_factors(args: argparse.Namespace) -> None:
 
 def cmd_backtest(args: argparse.Namespace) -> None:
     """Handle 'backtest' command."""
+    from decimal import Decimal
+
     from cquant.backtest_vector.run import BacktestRunner, BacktestRunSpec
+    from cquant.core.toml_config import get_backtest_defaults
+
+    toml_defaults = get_backtest_defaults()
 
     catalog = Catalog(args.catalog)
     runner = BacktestRunner(catalog)
+
+    # initial_cash: 命令行 > TOML > 硬编码默认值 100 万
+    raw_cash = getattr(args, "initial_cash", None)
+    if raw_cash is not None:
+        initial_cash = Decimal(str(raw_cash))
+    else:
+        initial_cash = Decimal(str(toml_defaults.get("initial_cash", 1_000_000)))
+
+    # benchmark: 命令行 > TOML > 空字符串
+    benchmark_asset_id = (
+        getattr(args, "benchmark", None)
+        or toml_defaults.get("benchmark", "")
+    )
 
     spec = BacktestRunSpec(
         dataset_version=args.dataset_version,
@@ -111,6 +165,8 @@ def cmd_backtest(args: argparse.Namespace) -> None:
         feature_set_version=args.feature_set_version or "",
         top_n=args.top_n,
         sort_factor=args.sort_factor,
+        initial_cash=initial_cash,
+        benchmark_asset_id=benchmark_asset_id,
     )
 
     run_id = runner.run(spec)
@@ -466,8 +522,8 @@ def cmd_trade_orders(args: argparse.Namespace) -> None:
               f"{o.status.value:<15} {o.filled_qty:>8,} {o.filled_price:>10.2f}")
 
 
-def main() -> None:
-    """Main CLI entry point."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build and return the CLI argument parser."""
     parser = argparse.ArgumentParser(
         prog="cquant",
         description="cQuant: AI-powered quantitative analysis platform",
@@ -487,11 +543,26 @@ def main() -> None:
 
     # ingest command
     ingest_parser = subparsers.add_parser("ingest", help="Ingest market data")
-    ingest_parser.add_argument("--source", required=True, choices=["tdx"], help="Data source")
+    ingest_parser.add_argument(
+        "--source",
+        required=True,
+        choices=["tdx", "akshare", "tushare", "yfinance"],
+        help="Data source",
+    )
     ingest_parser.add_argument("--tdx-db", default="tdx.db", help="Path to TDX database")
     ingest_parser.add_argument("--start", required=True, help="Start date (YYYY-MM-DD)")
     ingest_parser.add_argument("--end", required=True, help="End date (YYYY-MM-DD)")
     ingest_parser.add_argument("--chunk-days", type=int, default=365, help="Chunk size in days")
+    ingest_parser.add_argument(
+        "--symbols",
+        default="",
+        help="Comma-separated symbols for non-TDX sources (e.g. 'SSE:600036,SSE:000001')",
+    )
+    ingest_parser.add_argument(
+        "--token",
+        default="",
+        help="API token for sources that require it (e.g. Tushare token)",
+    )
     ingest_parser.set_defaults(func=cmd_ingest)
 
     # bootstrap command
@@ -518,6 +589,19 @@ def main() -> None:
     backtest_parser.add_argument("--feature-set-version", help="Feature set version")
     backtest_parser.add_argument("--top-n", type=int, default=10, help="Top N assets")
     backtest_parser.add_argument("--sort-factor", default="ret_20d", help="Sort factor")
+    backtest_parser.add_argument(
+        "--initial-cash",
+        type=float,
+        default=None,
+        dest="initial_cash",
+        help="初始资金（默认从 backtest.toml 加载，不设置则使用 100 万）",
+    )
+    backtest_parser.add_argument(
+        "--benchmark",
+        type=str,
+        default=None,
+        help="基准指数 asset_id（默认从 backtest.toml 的 portfolio.benchmark 加载）",
+    )
     backtest_parser.set_defaults(func=cmd_backtest)
 
     # analyze command
@@ -587,6 +671,12 @@ def main() -> None:
     trade_orders.add_argument("--status", help="Filter by status (pending/filled/cancelled/rejected)")
     trade_orders.set_defaults(func=cmd_trade_orders)
 
+    return parser
+
+
+def main() -> None:
+    """Main CLI entry point."""
+    parser = build_parser()
     args = parser.parse_args()
 
     if not args.command:

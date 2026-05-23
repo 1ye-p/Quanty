@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { strategiesApi, backtestsApi, datasetsApi } from '@/lib/api'
 import { queryKeys, extendedQueryKeys } from '@/lib/queryKeys'
 import Editor from '@monaco-editor/react'
+import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 const DEFAULT_CONFIG = JSON.stringify({
   strategy_id: "my_strategy",
@@ -129,22 +131,53 @@ function BacktestRunModal({
 
 export function StrategiesPage() {
   const qc = useQueryClient()
+  const location = useLocation()
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const [configText, setConfigText] = useState(DEFAULT_CONFIG)
   const [newId, setNewId] = useState('')
   const [backtestStrategyId, setBacktestStrategyId] = useState<string | null>(null)
   const [backtestConfigText, setBacktestConfigText] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [configError, setConfigError] = useState<string | null>(null)
+  const [strategyIdError, setStrategyIdError] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: extendedQueryKeys.strategies.list(),
     queryFn: strategiesApi.list,
   })
 
+  useEffect(() => {
+    const prefill = (location.state as { prefill?: { strategy_id?: string; config?: string } } | null)?.prefill
+    if (prefill) {
+      if (prefill.strategy_id) setNewId(prefill.strategy_id)
+      if (prefill.config) setConfigText(prefill.config)
+      setEditingId('new')
+    }
+  }, [location.state])
+
+  function validateConfig(text: string): string | null {
+    if (!text.trim()) return null
+    try {
+      JSON.parse(text)
+      return null
+    } catch (e) {
+      return `JSON 格式错误：${(e as Error).message}`
+    }
+  }
+
   const createMutation = useMutation({
     mutationFn: () => strategiesApi.create({ strategy_id: newId, config_text: configText }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: extendedQueryKeys.strategies.list() })
       setEditingId(null)
+    },
+    onError: (err: Error) => {
+      const msg = err.message
+      if (msg.includes('409') || msg.toLowerCase().includes('already exists') || msg.includes('已存在')) {
+        setStrategyIdError('策略 ID 已存在，请使用其他名称')
+      } else {
+        toast.error(`保存失败：${msg}`)
+      }
     },
   })
 
@@ -158,7 +191,15 @@ export function StrategiesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => strategiesApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: extendedQueryKeys.strategies.list() }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: extendedQueryKeys.strategies.list() })
+      toast.success('策略已删除')
+      setDeleteTarget(null)
+    },
+    onError: (err: Error) => {
+      toast.error(`删除失败：${err.message}`)
+      setDeleteTarget(null)
+    },
   })
 
   function openEdit(item: { strategy_id: string; config_text: string }) {
@@ -196,8 +237,14 @@ export function StrategiesPage() {
                   className="input"
                   placeholder="策略 ID（唯一标识符）"
                   value={newId}
-                  onChange={e => setNewId(e.target.value)}
+                  onChange={e => {
+                    setNewId(e.target.value)
+                    setStrategyIdError(null)
+                  }}
                 />
+                {strategyIdError && (
+                  <p className="mt-1 text-xs text-red-600">{strategyIdError}</p>
+                )}
               </div>
             )}
             <div className="flex-1 overflow-hidden">
@@ -205,15 +252,27 @@ export function StrategiesPage() {
                 height="400px"
                 language="json"
                 value={configText}
-                onChange={v => setConfigText(v ?? '')}
+                onChange={v => {
+                  const value = v ?? ''
+                  setConfigText(value)
+                  setConfigError(validateConfig(value))
+                }}
                 options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false }}
               />
+              {configError && (
+                <p className="mt-1 px-4 text-xs text-red-600">{configError}</p>
+              )}
             </div>
             <div className="flex justify-end gap-2 p-4 border-t">
               <button className="btn-secondary" onClick={() => setEditingId(null)}>取消</button>
               <button
                 className="btn-primary"
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={
+                  (editingId === 'new' && !newId.trim()) ||
+                  configError !== null ||
+                  createMutation.isPending ||
+                  updateMutation.isPending
+                }
                 onClick={() => {
                   if (editingId === 'new') createMutation.mutate()
                   else updateMutation.mutate(editingId)
@@ -245,7 +304,7 @@ export function StrategiesPage() {
                 <button className="btn-secondary text-xs px-3 py-1" onClick={() => openEdit(s)}>编辑</button>
                 <button
                   className="btn-danger text-xs px-3 py-1"
-                  onClick={() => { if (confirm(`删除 ${s.strategy_id}?`)) deleteMutation.mutate(s.strategy_id) }}
+                  onClick={() => setDeleteTarget(s.strategy_id)}
                 >删除</button>
               </div>
             </div>
@@ -260,6 +319,18 @@ export function StrategiesPage() {
           onClose={() => setBacktestStrategyId(null)}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title="确认删除策略"
+        message={`确定删除策略 "${deleteTarget}"？此操作不可撤销。`}
+        confirmLabel="删除"
+        variant="danger"
+        onConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate(deleteTarget)
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

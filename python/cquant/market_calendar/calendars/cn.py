@@ -7,8 +7,10 @@ For offline / test use, a minimal built-in holiday set covers 2020-2027.
 
 from __future__ import annotations
 
+import bisect
 import logging
-from datetime import date
+from datetime import date, timedelta
+from functools import cached_property
 
 from cquant.core.enums import Exchange
 from cquant.market_calendar.calendars.base import TradingCalendar
@@ -107,6 +109,61 @@ class CNCalendar(TradingCalendar):
         logger.info("CNCalendar: loaded %d trading days from Tushare", len(trade_cal))
         self._trading_days_cache: frozenset[date] = trading_set
         self._use_cache = True
+        # Invalidate _sorted_trading_days cache so next access uses Tushare data
+        self.__dict__.pop("_sorted_trading_days", None)
+
+    @cached_property
+    def _sorted_trading_days(self) -> list[date]:
+        """Pre-built sorted trading day list (2005-2035) for O(log N) bisect queries.
+
+        When Tushare data is loaded (_use_cache=True), uses the authoritative frozenset.
+        Otherwise builds from the built-in holiday set (test/offline use).
+        First access is O(T) where T ≈ 7300 trading days; subsequent accesses are O(1).
+        """
+        if getattr(self, "_use_cache", False):
+            return sorted(self._trading_days_cache)
+
+        # Build from built-in holiday list: iterate 2005-01-01 to 2035-12-31
+        _start = date(2005, 1, 1)
+        _end = date(2035, 12, 31)
+        result: list[date] = []
+        current = _start
+        while current <= _end:
+            if current.weekday() < 5 and current not in self._holidays:
+                result.append(current)
+            current += timedelta(days=1)
+        return result
+
+    def trading_days(self, start: date, end: date) -> list[date]:
+        """Return trading days in [start, end] using binary search. O(log N + k)."""
+        days = self._sorted_trading_days
+        lo = bisect.bisect_left(days, start)
+        hi = bisect.bisect_right(days, end)
+        return days[lo:hi]
+
+    def next_trading_day(self, d: date, n: int = 1) -> date:
+        """Return n-th trading day strictly after d using binary search. O(log N)."""
+        if n < 1:
+            raise ValueError("n must be >= 1")
+        days = self._sorted_trading_days
+        idx = bisect.bisect_right(days, d) + n - 1
+        if idx >= len(days):
+            raise ValueError(
+                f"No {n}-th trading day after {d}: would exceed calendar range 2035-12-31."
+            )
+        return days[idx]
+
+    def prev_trading_day(self, d: date, n: int = 1) -> date:
+        """Return n-th trading day strictly before d using binary search. O(log N)."""
+        if n < 1:
+            raise ValueError("n must be >= 1")
+        days = self._sorted_trading_days
+        idx = bisect.bisect_left(days, d) - n
+        if idx < 0:
+            raise ValueError(
+                f"No {n}-th trading day before {d}: would go before calendar range 2005-01-01."
+            )
+        return days[idx]
 
     def is_trading_day(self, d: date) -> bool:  # type: ignore[override]
         if hasattr(self, "_use_cache") and self._use_cache:

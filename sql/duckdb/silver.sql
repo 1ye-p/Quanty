@@ -90,3 +90,29 @@ CREATE TABLE IF NOT EXISTS silver_dataset_versions (
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     is_current        BOOLEAN DEFAULT TRUE
 );
+
+-- ── Fundamental data ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS silver_fundamentals (
+    asset_id            VARCHAR NOT NULL,
+    report_date         DATE NOT NULL,          -- Period end date (e.g., 2024-12-31)
+    pe_ttm              DOUBLE,
+    pb                  DOUBLE,
+    ps_ttm              DOUBLE,
+    ev_ebitda           DOUBLE,
+    dividend_yield      DOUBLE,
+    roe                 DOUBLE,
+    roa                 DOUBLE,
+    gross_margin        DOUBLE,
+    net_margin          DOUBLE,
+    revenue_growth_yoy  DOUBLE,
+    earnings_growth_yoy DOUBLE,
+    market_cap          DOUBLE,
+    total_assets        DOUBLE,
+    total_debt          DOUBLE,
+    source              VARCHAR DEFAULT 'tushare',
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (asset_id, report_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_silver_fundamentals_asset
+    ON silver_fundamentals (asset_id, report_date DESC);

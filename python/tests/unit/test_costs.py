@@ -24,8 +24,8 @@ class TestCNCostModel:
         assert self.model.commission(Decimal("10000")) == Decimal("5.00")
 
     def test_stamp_duty_on_sell(self) -> None:
-        # 100,000 CNY × 0.1% = 100 CNY
-        assert self.model.stamp_duty(Decimal("100000"), is_sell=True) == Decimal("100.00")
+        # 100,000 CNY × 0.05% = 50 CNY (2023-08-28 起减半)
+        assert self.model.stamp_duty(Decimal("100000"), is_sell=True) == Decimal("50.00")
 
     def test_no_stamp_duty_on_buy(self) -> None:
         # A-share: no stamp duty on buy
@@ -33,9 +33,9 @@ class TestCNCostModel:
 
     def test_total_cost_sell(self) -> None:
         # commission(100k) + stamp_duty(100k) + slippage(100k)
-        # = 30 + 100 + 10 = 140
+        # = 30 + 50 + 10 = 90
         total = self.model.total_cost(Decimal("100000"), is_sell=True)
-        assert total == Decimal("140.00")
+        assert total == Decimal("90.00")
 
     def test_total_cost_buy(self) -> None:
         # commission(100k) + 0 + slippage(100k) = 30 + 10 = 40

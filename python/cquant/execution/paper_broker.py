@@ -9,9 +9,13 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from cquant.backtest_vector.costs import CostModel
 from cquant.execution.broker import Account, Broker, Order, OrderStatus, Position
+
+if TYPE_CHECKING:
+    from cquant.riskguard.policies.base import RiskPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +38,8 @@ class PaperBroker(Broker):
         self,
         initial_cash: float = 1_000_000,
         cost_model: CostModel | None = None,
+        risk_policies: list["RiskPolicy"] | None = None,
+        max_volume_pct: float = 0.0,
     ) -> None:
         self._cash = initial_cash
         self._initial_cash = initial_cash
@@ -42,6 +48,60 @@ class PaperBroker(Broker):
         self._orders: dict[str, Order] = {}
         self._prices: dict[str, float] = {}
         self._realized_pnl = 0.0
+        self._risk_policies: list["RiskPolicy"] = risk_policies or []
+        self._volumes: dict[str, float] = {}
+        self._max_volume_pct = max_volume_pct
+
+    def _get_nav(self) -> float:
+        """Compute current NAV (cash + market value of positions)."""
+        market_value = sum(pos.market_value for pos in self._positions.values())
+        return self._cash + market_value
+
+    def _run_pre_trade_checks(self, order: Order) -> str | None:
+        """Run all registered RiskPolicy checks. Returns rejection reason string or None if approved."""
+        if not self._risk_policies:
+            return None
+
+        from datetime import date as _date
+        from decimal import Decimal as _D
+        import polars as pl
+        from cquant.core.types import OrderIntent, RiskSnapshot
+        from cquant.core.enums import RiskDecisionType, OrderSide, OrderType
+        from cquant.riskguard.models import RiskContext
+
+        nav = self._get_nav()
+        candidate = OrderIntent(
+            asset_id=order.asset_id,
+            side=OrderSide(order.side),
+            requested_qty=_D(str(order.qty)),
+            limit_price=_D(str(order.limit_price)) if order.limit_price is not None else None,
+            strategy_id=order.strategy_id or "paper_broker",
+        )
+
+        snapshot = RiskSnapshot(
+            snapshot_ts=datetime.now(tz=timezone.utc),
+            strategy_id="paper_broker",
+            gross_leverage=1.0,
+            net_leverage=1.0,
+            beta=None,
+            drawdown=0.0,
+            var_95=None,
+            cvar_95=None,
+            sector_exposure={},
+            factor_exposure={},
+        )
+        ctx = RiskContext(
+            as_of_date=_date.today(),
+            portfolio_nav=_D(str(max(nav, 0.01))),
+            current_positions=pl.DataFrame(),
+        )
+
+        for policy in self._risk_policies:
+            decision = policy.evaluate(candidate, snapshot, ctx)
+            if decision.decision == RiskDecisionType.REJECTED:
+                reasons = "; ".join(decision.reasons) if decision.reasons else f"Rejected by {policy.name}"
+                return reasons
+        return None
 
     def submit_order(self, order: Order) -> Order:
         """Submit an order for immediate execution.
@@ -67,6 +127,15 @@ class PaperBroker(Broker):
         if order.status != OrderStatus.PENDING:
             order.status = OrderStatus.REJECTED
             order.reject_reason = f"Invalid order status: {order.status}"
+            order.rejected_at = datetime.now(tz=timezone.utc)
+            self._orders[order.order_id] = order
+            return order
+
+        # Pre-trade risk checks
+        rejection_reason = self._run_pre_trade_checks(order)
+        if rejection_reason:
+            order.status = OrderStatus.REJECTED
+            order.reject_reason = rejection_reason
             order.rejected_at = datetime.now(tz=timezone.utc)
             self._orders[order.order_id] = order
             return order
@@ -151,11 +220,26 @@ class PaperBroker(Broker):
         """Update market prices for position valuation."""
         self._prices.update(prices)
 
+    def update_volumes(self, volumes: dict[str, float]) -> None:
+        """更新各股票的日均成交量（用于量价参与率约束）。"""
+        self._volumes.update(volumes)
+
     def _execute_buy(self, order: Order, price: float) -> Order:
         """Execute a buy order."""
         from decimal import Decimal
 
-        notional = order.qty * price
+        # 量价参与率约束：限制成交量不超过日均量的 max_volume_pct
+        actual_qty = order.qty
+        if self._max_volume_pct > 0:
+            adv = self._volumes.get(order.asset_id, 0.0)
+            if adv > 0:
+                max_qty = int(adv * self._max_volume_pct)
+                max_qty = (max_qty // 100) * 100  # 取整到手数
+                if max_qty < 100:
+                    max_qty = 100  # 至少允许一手
+                actual_qty = min(order.qty, max_qty)
+
+        notional = actual_qty * price
         commission = float(self._cost_model.commission(Decimal(str(notional))))
         stamp_duty = float(self._cost_model.stamp_duty(Decimal(str(notional)), is_sell=False))
         slippage = float(self._cost_model.slippage(Decimal(str(notional))))
@@ -172,7 +256,7 @@ class PaperBroker(Broker):
 
         # Execute
         self._cash -= required
-        order.filled_qty = order.qty
+        order.filled_qty = actual_qty
         order.filled_price = price
         order.commission = commission
         order.stamp_duty = stamp_duty
@@ -185,17 +269,17 @@ class PaperBroker(Broker):
         if order.asset_id in self._positions:
             pos = self._positions[order.asset_id]
             total_cost_basis = pos.avg_cost * pos.qty + notional + total_cost
-            pos.qty += order.qty
+            pos.qty += actual_qty
             pos.avg_cost = total_cost_basis / pos.qty if pos.qty > 0 else 0
         else:
             self._positions[order.asset_id] = Position(
                 asset_id=order.asset_id,
-                qty=order.qty,
-                avg_cost=(notional + total_cost) / order.qty,
+                qty=actual_qty,
+                avg_cost=(notional + total_cost) / actual_qty,
             )
 
         self._orders[order.order_id] = order
-        logger.info("Filled buy: %s x%d @ %.2f (cost: %.2f)", order.asset_id, order.qty, price, total_cost)
+        logger.info("Filled buy: %s x%d @ %.2f (cost: %.2f)", order.asset_id, actual_qty, price, total_cost)
         return order
 
     def _execute_sell(self, order: Order, price: float) -> Order:

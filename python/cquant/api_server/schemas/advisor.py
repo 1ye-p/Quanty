@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class AdvisorChatRequest(BaseModel):
-    message: str
-    session_id: str = ""        # Provide to continue a previous session
+    message: str = Field(
+        ...,
+        description="用户问题或研究请求",
+        example="分析动量因子在 2024 年的表现",
+    )
+    session_id: str = Field(
+        default="",
+        description="会话 ID（首次传空字符串）",
+        example="",
+    )
 
 
 class AdvisorChatResponse(BaseModel):
@@ -17,8 +25,12 @@ class AdvisorChatResponse(BaseModel):
 
 
 class AdvisorReportRequest(BaseModel):
-    subject: str
-    session_id: str = ""
+    subject: str = Field(
+        ...,
+        description="报告主题",
+        example="沪深300成分股 2024 年价值因子轮动报告",
+    )
+    session_id: str = Field(default="", description="会话 ID")
 
 
 class AdvisorReportResponse(BaseModel):

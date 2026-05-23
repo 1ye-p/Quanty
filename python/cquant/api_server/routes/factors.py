@@ -104,6 +104,8 @@ def _compute_ic(job_id: str, body: ICComputeBody, catalog: CatalogDep) -> None:
     """Background task: compute IC series for a factor."""
     import polars as pl
     import json
+    import numpy as np
+    from collections import defaultdict
 
     try:
         catalog.execute(
@@ -149,19 +151,84 @@ def _compute_ic(job_id: str, body: ICComputeBody, catalog: CatalogDep) -> None:
                 continue
             f_rank = group["value"].rank().to_numpy()
             r_rank = group[ret_name].rank().to_numpy()
-            import numpy as np
             ic = float(np.corrcoef(f_rank, r_rank)[0, 1]) if len(f_rank) > 1 else 0.0
             series.append({"trade_date": str(dt[0]), "ic": round(ic, 6)})
 
         series.sort(key=lambda x: x["trade_date"])
         ic_values = [s["ic"] for s in series]
-        import numpy as np
         summary = {
             "mean_ic": round(float(np.mean(ic_values)), 6) if ic_values else 0.0,
             "ir": round(float(np.mean(ic_values) / (np.std(ic_values) + 1e-12)), 4) if ic_values else 0.0,
             "hit_rate": round(float(sum(1 for v in ic_values if v > 0) / max(len(ic_values), 1)), 4),
             "observations": len(ic_values),
         }
+
+        # ── Rank IC decay（lag 1-10）──────────────────────────────
+        sorted_dates = sorted(merged["trade_date"].unique().to_list())
+        date_map: dict = {dt[0]: grp for dt, grp in merged.group_by("trade_date")}
+        rank_ic_decay = []
+        for lag in range(1, 11):
+            decay_ics = []
+            for i in range(len(sorted_dates) - lag):
+                date_t = sorted_dates[i]
+                date_tlag = sorted_dates[i + lag]
+                factor_t = date_map[date_t].select(["asset_id", "value"])
+                ret_tlag = date_map.get(date_tlag, pl.DataFrame()).select(["asset_id", ret_name])
+                joined = factor_t.join(ret_tlag, on="asset_id", how="inner")
+                if joined.height < 5:
+                    continue
+                f_arr = joined["value"].rank().to_numpy()
+                r_arr = joined[ret_name].rank().to_numpy()
+                ic_val = float(np.corrcoef(f_arr, r_arr)[0, 1])
+                if not np.isnan(ic_val):
+                    decay_ics.append(ic_val)
+            rank_ic_decay.append({
+                "lag": lag,
+                "ic": round(float(np.mean(decay_ics)), 6) if decay_ics else 0.0,
+            })
+
+        # ── Quantile returns（5 分组）────────────────────────────
+        q_buckets: dict[int, list[float]] = defaultdict(list)
+        for dt in sorted_dates:
+            group = date_map[dt]
+            if group.height < 10:
+                continue
+            sorted_g = group.sort("value")
+            n = len(sorted_g)
+            q_size = n // 5
+            for q in range(5):
+                start_idx = q * q_size
+                end_idx = (q + 1) * q_size if q < 4 else n
+                sliced = sorted_g.slice(start_idx, end_idx - start_idx)
+                _m = sliced[ret_name].mean()
+                mean_ret = float(_m) if _m is not None else 0.0
+                q_buckets[q + 1].append(mean_ret)
+        quantile_returns = [
+            {"quantile": q, "mean_return": round(float(np.mean(vals)), 6)}
+            for q, vals in sorted(q_buckets.items())
+        ]
+
+        # ── Factor turnover（Top 20%）────────────────────────────
+        top_n_assets = max(1, int(0.2 * merged["asset_id"].n_unique()))
+        turnovers: list[float] = []
+        prev_top: set[str] = set()
+        for dt in sorted_dates:
+            today_top = set(
+                date_map[dt]
+                .sort("value", descending=True)
+                .head(top_n_assets)["asset_id"]
+                .to_list()
+            )
+            if prev_top:
+                overlap = len(today_top & prev_top)
+                turnovers.append(1.0 - overlap / max(len(today_top), 1))
+            prev_top = today_top
+        factor_turnover = round(float(np.mean(turnovers)), 4) if turnovers else 0.0
+
+        # 追加到 summary
+        summary["rank_ic_decay"] = rank_ic_decay
+        summary["quantile_returns"] = quantile_returns
+        summary["factor_turnover"] = factor_turnover
 
         catalog.execute(
             "UPDATE meta_factor_analytics SET status = 'done', series_json = ?, summary_json = ?, completed_at = ? WHERE job_id = ?",

@@ -80,19 +80,24 @@ def create_app(
         )
 
     # ── Routers ────────────────────────────────────────────────────────────────
+    from fastapi import Depends
+    from cquant.api_server.deps import verify_api_key
+
+    _auth = [Depends(verify_api_key)]
+
     prefix = "/api/v1"
     app.include_router(health.router)
-    app.include_router(datasets.router, prefix=prefix)
-    app.include_router(factors.router, prefix=prefix)
-    app.include_router(backtests.router, prefix=prefix)
-    app.include_router(knowledge.router, prefix=prefix)
-    app.include_router(advisor.router, prefix=prefix)
-    app.include_router(plugins.router, prefix=prefix)
-    app.include_router(news.router, prefix=prefix)
-    app.include_router(strategies.router, prefix=prefix)
-    app.include_router(ml.router, prefix=prefix)
-    app.include_router(live.router, prefix=prefix)
-    app.include_router(trading.router, prefix=prefix)
+    app.include_router(datasets.router, prefix=prefix, dependencies=_auth)
+    app.include_router(factors.router, prefix=prefix, dependencies=_auth)
+    app.include_router(backtests.router, prefix=prefix, dependencies=_auth)
+    app.include_router(knowledge.router, prefix=prefix, dependencies=_auth)
+    app.include_router(advisor.router, prefix=prefix, dependencies=_auth)
+    app.include_router(plugins.router, prefix=prefix, dependencies=_auth)
+    app.include_router(news.router, prefix=prefix, dependencies=_auth)
+    app.include_router(strategies.router, prefix=prefix, dependencies=_auth)
+    app.include_router(ml.router, prefix=prefix, dependencies=_auth)
+    app.include_router(live.router, prefix=prefix, dependencies=_auth)
+    app.include_router(trading.router, prefix=prefix, dependencies=_auth)
 
     logger.info("cQuant API v%s ready — docs at /api/docs", _VERSION)
     return app

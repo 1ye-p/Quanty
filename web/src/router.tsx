@@ -1,5 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 import { OverviewPage } from '@/pages/OverviewPage'
 import { DatasetsPage } from '@/pages/DatasetsPage'
 import { BacktestsPage } from '@/pages/BacktestsPage'
@@ -15,7 +17,11 @@ import { TradingPage } from '@/pages/TradingPage'
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <AppLayout />,
+    element: (
+      <ErrorBoundary>
+        <AppLayout />
+      </ErrorBoundary>
+    ),
     children: [
       { index: true, element: <OverviewPage /> },
       { path: 'factors',    element: <FactorsPage /> },
@@ -29,5 +35,9 @@ export const router = createBrowserRouter([
       { path: 'knowledge',  element: <KnowledgePage /> },
       { path: 'advisor',    element: <AdvisorPage /> },
     ],
+  },
+  {
+    path: '*',
+    element: <NotFoundPage />,
   },
 ])

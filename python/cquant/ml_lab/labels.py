@@ -49,7 +49,9 @@ def forward_return_labels(
             .alias("__future_close"),
         )
         .with_columns(
-            ((pl.col("__future_close") / pl.col(price_col)) - 1.0).alias(output_col)
+            ((pl.col("__future_close") / pl.col(price_col)) - 1.0)
+            .clip(lower_bound=-0.5, upper_bound=0.5)
+            .alias(output_col)
         )
         .select("asset_id", "trade_date", output_col)
     )

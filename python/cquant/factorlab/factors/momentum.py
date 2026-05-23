@@ -21,11 +21,17 @@ class _ReturnNd(Factor):
     def tags(self) -> list[str]:
         return ["momentum", "price"]
 
+    @property
+    def lookback_days(self) -> int:
+        # 1 trading day ≈ 1.55 calendar days, plus 30-day safety buffer
+        return int(self._n * 1.55) + 30
+
     def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
         return (
             frame.sort(["asset_id", "trade_date"])
             .with_columns(
                 (pl.col("close") / pl.col("close").shift(self._n).over("asset_id") - 1)
+                .clip(lower_bound=-0.5, upper_bound=0.5)
                 .alias(self.name)
             )
         )[self.name]
@@ -71,6 +77,11 @@ class Momentum12_1(Factor):
     @property
     def tags(self) -> list[str]:
         return ["momentum", "price"]
+
+    @property
+    def lookback_days(self) -> int:
+        # Shifts by 252 trading days ≈ 390 + 30 buffer = 420 calendar days
+        return 420
 
     def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
         return (

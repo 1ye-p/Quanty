@@ -6,9 +6,10 @@ import asyncio
 import json
 import logging
 import pathlib
+import uuid
 from datetime import date
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from cquant.api_server.deps import CatalogDep
@@ -16,6 +17,9 @@ from cquant.api_server.deps import CatalogDep
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
+
+# 任务注册表（in-memory，进程级别）
+_JOB_REGISTRY: dict[str, dict] = {}
 
 
 class BacktestCreateBody(BaseModel):
@@ -43,8 +47,12 @@ def _load_metrics(path: pathlib.Path) -> dict:
 
 
 @router.post("", status_code=201)
-async def create_backtest(body: BacktestCreateBody, catalog: CatalogDep) -> dict:
-    """Trigger a backtest run for a strategy."""
+async def create_backtest(
+    body: BacktestCreateBody,
+    background_tasks: BackgroundTasks,
+    catalog: CatalogDep,
+) -> dict:
+    """触发回测，立即返回 job_id（后台异步执行）。"""
     # Look up strategy config to get top_n / sort_factor if not overridden
     strat_df = catalog.query(
         "SELECT parsed_config FROM meta_strategy_configs WHERE strategy_id = ?",
@@ -90,13 +98,31 @@ async def create_backtest(body: BacktestCreateBody, catalog: CatalogDep) -> dict
         tags=parsed.get("risk_limits", {}),
     )
 
-    try:
-        run_id = await asyncio.to_thread(_run_backtest, catalog, spec)
-    except Exception as e:
-        logger.exception("Backtest failed for strategy %s", body.strategy_id)
-        raise HTTPException(status_code=500, detail=f"Backtest failed: {e}")
+    job_id = str(uuid.uuid4())
+    _JOB_REGISTRY[job_id] = {"status": "running", "run_id": None, "error": None}
 
-    return {"run_id": run_id, "strategy_id": body.strategy_id, "status": "completed"}
+    def _run_job() -> None:
+        try:
+            run_id = _run_backtest(catalog, spec)
+            _JOB_REGISTRY[job_id].update({"status": "completed", "run_id": run_id})
+        except Exception as exc:
+            logger.exception("Backtest job %s failed", job_id)
+            _JOB_REGISTRY[job_id].update({"status": "failed", "error": str(exc)})
+
+    background_tasks.add_task(_run_job)
+    return {"job_id": job_id, "strategy_id": body.strategy_id, "status": "running"}
+
+
+@router.get("/jobs/{job_id}")
+async def get_job_status(job_id: str) -> dict:
+    """查询回测任务运行状态。
+
+    Returns {job_id, status: running|completed|failed, run_id: str|None, error: str|None}
+    """
+    job = _JOB_REGISTRY.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    return {"job_id": job_id, **job}
 
 
 @router.get("")
@@ -133,6 +159,43 @@ async def get_backtest(run_id: str, catalog: CatalogDep) -> dict:
         result["metrics"] = {}
 
     return result
+
+
+@router.post("/{run_id}/analyze")
+async def trigger_analysis(
+    run_id: str,
+    background_tasks: BackgroundTasks,
+    catalog: CatalogDep,
+) -> dict:
+    """触发指定回测的过拟合分析（后台异步执行）。
+
+    分析结果写入 gold_bt_analysis_runs。
+    通过 GET /backtests/{run_id}/analysis 查看结果。
+    """
+    # 验证回测存在且已完成
+    df = catalog.query(
+        "SELECT run_id, status FROM gold_backtest_runs WHERE run_id = ?", [run_id]
+    )
+    if df.is_empty():
+        raise HTTPException(status_code=404, detail=f"Backtest run '{run_id}' not found")
+    if df["status"][0] != "completed":
+        raise HTTPException(status_code=422, detail="Only completed backtests can be analyzed")
+
+    job_id = str(uuid.uuid4())
+    _JOB_REGISTRY[job_id] = {"status": "running", "run_id": None, "error": None}
+
+    def _run_analysis() -> None:
+        try:
+            from cquant.bt_analyzer.run import AnalysisRunner, AnalysisRunSpec
+            runner = AnalysisRunner(catalog)
+            analysis_id = runner.run(AnalysisRunSpec(backtest_run_id=run_id))
+            _JOB_REGISTRY[job_id].update({"status": "completed", "run_id": analysis_id})
+        except Exception as exc:
+            logger.exception("Analysis job %s failed", job_id)
+            _JOB_REGISTRY[job_id].update({"status": "failed", "error": str(exc)})
+
+    background_tasks.add_task(_run_analysis)
+    return {"job_id": job_id, "run_id": run_id, "status": "running"}
 
 
 @router.get("/{run_id}/analysis")

@@ -1,4 +1,4 @@
-"""Drawdown circuit breaker -- rejects new buys when portfolio drawdown exceeds threshold."""
+"""Drawdown circuit breaker — graduated position reduction when drawdown exceeds thresholds."""
 from __future__ import annotations
 
 from decimal import Decimal
@@ -10,17 +10,39 @@ from cquant.riskguard.policies.base import RiskPolicy
 
 
 class DrawdownBreakerPolicy(RiskPolicy):
-    """Rejects new buy orders when portfolio drawdown exceeds the configured threshold.
+    """Rejects or clips buy orders based on portfolio drawdown level.
 
-    Sell orders are always allowed -- reducing positions during drawdown is risk-reducing.
+    Supports both single-threshold (backward-compatible) and graduated multi-level mode.
+
+    Parameters
+    ----------
+    max_drawdown:
+        Single threshold (negative float). All buys rejected when drawdown <= this.
+        Ignored when ``levels`` is provided.
+    levels:
+        Graduated levels as a list of ``(drawdown_threshold, allowed_fraction)`` tuples.
+        - ``drawdown_threshold``: negative float (e.g., ``-0.05`` = 5% drawdown)
+        - ``allowed_fraction``: fraction of requested qty to approve (0.0 = reject, 1.0 = full)
+        Thresholds are checked from most severe (lowest value) to least severe.
+        Example: ``[(-0.10, 0.0), (-0.05, 0.5)]``
+            - At -10%+ drawdown: reject all buys
+            - At -5% to -10% drawdown: allow 50%
+            - Below -5%: allow 100%
+
+    Sell orders are always approved.
     """
 
-    def __init__(self, max_drawdown: float = -0.10) -> None:
-        """
-        Args:
-            max_drawdown: Maximum allowed drawdown as a negative float (e.g. -0.10 = -10%).
-                          When drawdown exceeds this, new buys are rejected.
-        """
+    def __init__(
+        self,
+        max_drawdown: float = -0.10,
+        levels: list[tuple[float, float]] | None = None,
+    ) -> None:
+        if levels is not None:
+            # Sort by threshold ascending (most severe first)
+            self._levels: list[tuple[float, float]] = sorted(levels, key=lambda x: x[0])
+        else:
+            # Backward-compatible single threshold
+            self._levels = [(max_drawdown, 0.0)]
         self._max_dd = max_drawdown
 
     @property
@@ -30,7 +52,7 @@ class DrawdownBreakerPolicy(RiskPolicy):
     def evaluate(
         self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext
     ) -> RiskDecision:
-        # Always allow sells -- they reduce risk
+        # Always allow sells
         if candidate.side == "sell":
             return RiskDecision(
                 decision=RiskDecisionType.APPROVED,
@@ -41,22 +63,60 @@ class DrawdownBreakerPolicy(RiskPolicy):
             )
 
         current_dd = snapshot.drawdown
-        if current_dd < self._max_dd:
+        original_qty = candidate.requested_qty
+
+        # Find the most severe threshold that is breached
+        applicable_fraction = 1.0
+        applicable_threshold = None
+        for threshold, fraction in self._levels:
+            if current_dd <= threshold:
+                applicable_fraction = fraction
+                applicable_threshold = threshold
+                break  # levels are sorted most-severe-first; stop at first match
+
+        if applicable_fraction >= 1.0:
+            return RiskDecision(
+                decision=RiskDecisionType.APPROVED,
+                original_qty=original_qty,
+                approved_qty=original_qty,
+                reasons=[],
+                policy_names=[self.name],
+            )
+
+        if applicable_fraction <= 0.0:
             return RiskDecision(
                 decision=RiskDecisionType.REJECTED,
-                original_qty=candidate.requested_qty,
+                original_qty=original_qty,
                 approved_qty=Decimal("0"),
                 reasons=[
-                    f"Drawdown {current_dd:.1%} exceeds threshold {self._max_dd:.1%}. "
-                    f"Buy orders suspended until drawdown recovers."
+                    f"Drawdown {current_dd:.1%} exceeds threshold "
+                    f"{applicable_threshold:.1%}. All buys suspended."
+                ],
+                policy_names=[self.name],
+            )
+
+        # Clip to allowed fraction (round down to lot of 100)
+        clipped_qty = int(int(original_qty) * applicable_fraction)
+        clipped_qty = (clipped_qty // 100) * 100
+        if clipped_qty <= 0:
+            return RiskDecision(
+                decision=RiskDecisionType.REJECTED,
+                original_qty=original_qty,
+                approved_qty=Decimal("0"),
+                reasons=[
+                    f"Drawdown {current_dd:.1%}: clipped qty rounds to 0 "
+                    f"(fraction {applicable_fraction:.0%})"
                 ],
                 policy_names=[self.name],
             )
 
         return RiskDecision(
-            decision=RiskDecisionType.APPROVED,
-            original_qty=candidate.requested_qty,
-            approved_qty=candidate.requested_qty,
-            reasons=[],
+            decision=RiskDecisionType.CLIPPED,
+            original_qty=original_qty,
+            approved_qty=Decimal(str(clipped_qty)),
+            reasons=[
+                f"Drawdown {current_dd:.1%} at level {applicable_threshold:.1%}: "
+                f"qty reduced to {applicable_fraction:.0%}"
+            ],
             policy_names=[self.name],
         )

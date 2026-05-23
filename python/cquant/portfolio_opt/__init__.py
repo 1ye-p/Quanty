@@ -6,7 +6,8 @@ Provides:
 - PortfolioOptimizer ABC: base interface
 """
 
+from cquant.portfolio_opt.covariance import CovarianceEstimator
 from cquant.portfolio_opt.mean_variance import MeanVarianceOptimizer
 from cquant.portfolio_opt.risk_parity import RiskParityOptimizer
 
-__all__ = ["MeanVarianceOptimizer", "RiskParityOptimizer"]
+__all__ = ["CovarianceEstimator", "MeanVarianceOptimizer", "RiskParityOptimizer"]

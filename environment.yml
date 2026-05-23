@@ -57,3 +57,7 @@ dependencies:
       # Type stubs
       - pandas-stubs
       - types-networkx
+
+      # Vibe-Trading agent dependencies
+      - langgraph>=0.2
+      - langchain-openai>=0.1

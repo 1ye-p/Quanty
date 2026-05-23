@@ -132,6 +132,67 @@ class Catalog:
         )
         return version_id
 
+    def get_data_quality_summary(
+        self, table: str = "silver_prices_1d"
+    ) -> dict:
+        """返回价格数据的质量诊断摘要。
+
+        Parameters
+        ----------
+        table:
+            要检查的表名，默认 ``"silver_prices_1d"``。
+
+        Returns
+        -------
+        包含以下键的字典：
+
+        - ``total_rows``: 总行数
+        - ``asset_count``: 资产数量
+        - ``date_range``: ``{"start": date, "end": date}``
+        - ``zero_close_count``: close <= 0 的异常行数
+        - ``suspended_count``: 停牌行数
+        """
+        try:
+            stats = self.query(f"""
+                SELECT
+                    COUNT(*) AS total_rows,
+                    COUNT(DISTINCT asset_id) AS asset_count,
+                    MIN(trade_date) AS start_date,
+                    MAX(trade_date) AS end_date,
+                    SUM(CASE WHEN close <= 0 THEN 1 ELSE 0 END) AS zero_close_count,
+                    SUM(CASE WHEN is_suspended THEN 1 ELSE 0 END) AS suspended_count
+                FROM {table}
+            """)
+        except Exception:
+            return {
+                "total_rows": 0,
+                "asset_count": 0,
+                "date_range": {"start": None, "end": None},
+                "zero_close_count": 0,
+                "suspended_count": 0,
+            }
+
+        if stats.is_empty():
+            return {
+                "total_rows": 0,
+                "asset_count": 0,
+                "date_range": {"start": None, "end": None},
+                "zero_close_count": 0,
+                "suspended_count": 0,
+            }
+
+        row = stats.row(0, named=True)
+        return {
+            "total_rows": int(row["total_rows"] or 0),
+            "asset_count": int(row["asset_count"] or 0),
+            "date_range": {
+                "start": row["start_date"],
+                "end": row["end_date"],
+            },
+            "zero_close_count": int(row["zero_close_count"] or 0),
+            "suspended_count": int(row["suspended_count"] or 0),
+        }
+
     def close(self) -> None:
         if self._conn is not None:
             self._conn.close()
