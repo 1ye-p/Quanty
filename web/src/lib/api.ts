@@ -291,8 +291,12 @@ export interface MLExperiment {
   metrics: Record<string, number>
   params: Record<string, string>
   started_at?: string | number
+  completed_at?: string | number
   artifact_uri?: string
   model_id?: string
+  target_name?: string
+  feature_set_version?: string
+  error_text?: string
 }
 
 export interface MLJob {

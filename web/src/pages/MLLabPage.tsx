@@ -39,6 +39,11 @@ export function MLLabPage() {
     return experiments.items.filter(r => compareRuns.includes(r.run_id))
   }, [experiments, compareRuns])
 
+  const selectedExperiment = useMemo(() => {
+    if (!selectedRun || !experiments?.items) return null
+    return experiments.items.find(r => r.run_id === selectedRun) ?? null
+  }, [selectedRun, experiments])
+
   const { data: versions } = useQuery({
     queryKey: ['ml', 'versions'],
     queryFn: () => factorAnalyticsApi.versions(),
@@ -267,7 +272,17 @@ export function MLLabPage() {
                     </td>
                     <td className="table-td font-mono text-xs">{r.run_id.slice(0, 8)}…</td>
                     <td className="table-td">{r.trainer_name || r.params?.trainer_name || '—'}</td>
-                    <td className="table-td"><StatusBadge status={r.status?.toLowerCase() ?? 'unknown'} /></td>
+                    <td className="table-td">
+                      <StatusBadge status={r.status?.toLowerCase() ?? 'unknown'} />
+                      {r.status === 'error' && r.error_text && (
+                        <span
+                          className="block text-xs text-red-500 mt-0.5 max-w-[180px] truncate"
+                          title={r.error_text}
+                        >
+                          {r.error_text.slice(0, 40)}
+                        </span>
+                      )}
+                    </td>
                     <td className="table-td">{r.metrics?.rmse?.toFixed(4) ?? '—'}</td>
                     <td className="table-td">{r.metrics?.sharpe?.toFixed(3) ?? '—'}</td>
                     <td className="table-td text-gray-400 text-xs">
@@ -319,6 +334,59 @@ export function MLLabPage() {
           </div>
         )}
       </div>
+
+      {/* Execution detail panel */}
+      {selectedExperiment && (
+        <div className="card mt-4">
+          <h3 className="font-semibold text-gray-800 mb-3">执行详情</h3>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-gray-500">状态</span>
+              <div><StatusBadge status={selectedExperiment.status?.toLowerCase() ?? 'unknown'} /></div>
+            </div>
+            <div>
+              <span className="text-gray-500">Trainer</span>
+              <div className="font-medium">{selectedExperiment.trainer_name || '—'}</div>
+            </div>
+            <div>
+              <span className="text-gray-500">Target</span>
+              <div className="font-medium">{selectedExperiment.target_name || '—'}</div>
+            </div>
+            <div>
+              <span className="text-gray-500">Feature Set</span>
+              <div className="font-medium font-mono text-xs">{selectedExperiment.feature_set_version || '—'}</div>
+            </div>
+            <div>
+              <span className="text-gray-500">开始时间</span>
+              <div>{selectedExperiment.started_at ? new Date(selectedExperiment.started_at).toLocaleString() : '—'}</div>
+            </div>
+            <div>
+              <span className="text-gray-500">完成时间</span>
+              <div>{selectedExperiment.completed_at ? new Date(selectedExperiment.completed_at).toLocaleString() : '—'}</div>
+            </div>
+          </div>
+
+          {/* Params */}
+          {selectedExperiment.params && Object.keys(selectedExperiment.params).length > 0 && (
+            <div className="mt-3">
+              <span className="text-sm text-gray-500">训练参数</span>
+              <pre className="mt-1 p-2 bg-gray-50 rounded text-xs overflow-x-auto max-h-40">
+                {JSON.stringify(selectedExperiment.params, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          {/* Error detail */}
+          {selectedExperiment.status === 'error' && selectedExperiment.error_text && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <span className="text-sm font-medium text-red-700">错误详情</span>
+              <pre className="mt-1 text-xs text-red-600 whitespace-pre-wrap">
+                {selectedExperiment.error_text}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Model comparison panel */}
       {comparedExperiments.length >= 2 && (

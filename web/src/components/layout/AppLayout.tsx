@@ -38,13 +38,13 @@ const NAV_GROUPS = [
 
 export function AppLayout() {
   return (
-    <div className="flex min-h-screen">
-      <nav className="w-56 bg-brand-600 text-gray-100 flex flex-col flex-shrink-0">
+    <div className="flex h-screen overflow-hidden">
+      <nav className="w-56 bg-brand-600 text-gray-100 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto">
         <Link to="/" className="text-white font-bold text-lg px-5 py-5 hover:text-blue-100 transition-colors">
           cQuant
         </Link>
 
-        <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-4">
+        <div className="flex-1 px-3 pb-4 space-y-4">
           {NAV_GROUPS.map(group => (
             <div key={group.label}>
               <div className="px-2 py-1 text-xs font-semibold text-blue-200 uppercase tracking-wider">

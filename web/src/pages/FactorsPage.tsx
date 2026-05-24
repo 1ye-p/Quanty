@@ -1,15 +1,19 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { factorAnalyticsApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 
 export function FactorsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedFactor, setSelectedFactor] = useState<string | null>(null)
   const [featureSetVersion, setFeatureSetVersion] = useState('')
   const [horizonDays, setHorizonDays] = useState(1)
-  const [activeJobId, setActiveJobId] = useState<string | null>(null)
-  const [matrixJobId, setMatrixJobId] = useState<string | null>(null)
+
+  const activeJobId = searchParams.get('ic_job')
+  const matrixJobId = searchParams.get('matrix_job')
+
   const [selectedFactors, setSelectedFactors] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<'mean_ic' | 'ir' | 'hit_rate'>('mean_ic')
 
@@ -26,7 +30,9 @@ export function FactorsPage() {
   const computeMutation = useMutation({
     mutationFn: (params: { factor_name: string; feature_set_version: string }) =>
       factorAnalyticsApi.computeIC({ ...params, horizon_days: horizonDays }),
-    onSuccess: (data) => setActiveJobId(data.job_id),
+    onSuccess: (data) => {
+      setSearchParams(prev => { prev.set('ic_job', data.job_id); return prev }, { replace: true })
+    },
   })
 
   const matrixMutation = useMutation({
@@ -36,7 +42,9 @@ export function FactorsPage() {
         feature_set_version: featureSetVersion,
         horizon_days: horizonDays,
       }),
-    onSuccess: (data) => setMatrixJobId(data.job_id),
+    onSuccess: (data) => {
+      setSearchParams(prev => { prev.set('matrix_job', data.job_id); return prev }, { replace: true })
+    },
   })
 
   const { data: matrixResult } = useQuery({
@@ -114,7 +122,7 @@ export function FactorsPage() {
             onClick={() => {
               const next = selectedFactor === f.name ? null : f.name
               setSelectedFactor(next)
-              if (next !== selectedFactor) setActiveJobId(null)   // reset stale IC results
+              if (next !== selectedFactor) setSearchParams(prev => { prev.delete('ic_job'); return prev }, { replace: true })
             }}
             className={`card cursor-pointer hover:shadow-md transition-shadow border-2 ${
               selectedFactor === f.name ? 'border-blue-500' : 'border-transparent'

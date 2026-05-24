@@ -375,6 +375,18 @@ class BacktestRunner:
         now = datetime.now(tz=timezone.utc).isoformat()
 
         conn = self._catalog._get_conn()
+
+        # Ensure walk-forward columns exist (migration for existing DBs)
+        for col_def in [
+            "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS is_walk_forward BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS n_folds INTEGER",
+            "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS aggregated_metrics_json JSON",
+        ]:
+            try:
+                conn.execute(col_def)
+            except Exception:
+                pass
+
         conn.execute(
             "INSERT INTO gold_backtest_runs "
             "(run_id, engine, strategy_id, dataset_version, started_at, completed_at, status, "
@@ -810,36 +822,29 @@ class BacktestRunner:
         if positions.is_empty():
             return
 
-        # positions contains [trade_date, asset_id, target_weight]
-        # Convert to signal format
-        signals_df = positions.select([
-            pl.lit(run_id).alias("signal_set_version"),
-            pl.lit(result.strategy_id).alias("strategy_id"),
-            pl.col("trade_date"),
-            pl.col("asset_id"),
-            pl.col("target_weight").alias("signal"),
-            pl.lit("long").alias("direction"),
-            pl.lit(1.0).alias("confidence"),
-            pl.col("target_weight"),
-        ])
-
         conn = self._catalog._get_conn()
-        stage = "_signals_stage"
-        conn.register(stage, signals_df.to_arrow())
+        rows = []
+        for row in positions.iter_rows(named=True):
+            rows.append((
+                run_id,
+                result.strategy_id,
+                str(row["trade_date"]),
+                row["asset_id"],
+                float(row.get("target_weight", 0) or 0),
+                "long",
+                1.0,
+                float(row.get("target_weight", 0) or 0),
+            ))
         try:
-            conn.execute("""
+            conn.executemany("""
                 INSERT OR REPLACE INTO gold_signals
                     (signal_set_version, strategy_id, trade_date, asset_id,
                      signal, direction, confidence, target_weight)
-                SELECT * FROM {stage}
-            """.format(stage=stage))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, rows)
+            logger.info("Persisted %d signals to gold_signals", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist signals: %s", exc)
-        finally:
-            try:
-                conn.unregister(stage)
-            except Exception:
-                pass
 
     def _persist_fills(self, result, run_id: str) -> None:
         """Write order fills to gold_fills."""
@@ -849,35 +854,33 @@ class BacktestRunner:
 
         import uuid as _uuid
 
-        # Add fill_id and run_id columns
-        fills_df = fills.with_columns([
-            pl.lit(run_id).alias("run_id"),
-            pl.Series("fill_id", [str(_uuid.uuid4()) for _ in range(len(fills))]),
-        ]).select([
-            "fill_id", "run_id", "trade_date", "asset_id", "side", "qty",
-            "price", "notional", "commission", "stamp_duty", "slippage", "total_cost",
-        ])
-
         conn = self._catalog._get_conn()
-        stage = "_fills_stage"
-        conn.register(stage, fills_df.to_arrow())
+        rows = []
+        for row in fills.iter_rows(named=True):
+            rows.append((
+                str(_uuid.uuid4()),
+                run_id,
+                str(row["trade_date"]),
+                row["asset_id"],
+                row["side"],
+                int(row["qty"]),
+                float(row["price"]),
+                float(row["notional"]),
+                float(row.get("commission", 0) or 0),
+                float(row.get("stamp_duty", 0) or 0),
+                float(row.get("slippage", 0) or 0),
+                float(row.get("total_cost", 0) or 0),
+            ))
         try:
-            conn.execute(f"""
+            conn.executemany("""
                 INSERT OR REPLACE INTO gold_fills
                     (fill_id, run_id, trade_date, asset_id, side, qty,
                      price, notional, commission, stamp_duty, slippage, total_cost)
-                SELECT fill_id, run_id, trade_date, asset_id, side, qty,
-                       price, notional, commission, stamp_duty, slippage, total_cost
-                FROM {stage}
-            """)
-            logger.info("Persisted %d fills to gold_fills", len(fills_df))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, rows)
+            logger.info("Persisted %d fills to gold_fills", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist fills: %s", exc)
-        finally:
-            try:
-                conn.unregister(stage)
-            except Exception:
-                pass
 
     def _persist_portfolio_snapshots(self, result, run_id: str) -> None:
         """Write portfolio snapshots to gold_portfolio_snapshots."""
@@ -926,27 +929,24 @@ class BacktestRunner:
         if not snapshots:
             return
 
-        snap_df = pl.DataFrame(snapshots)
         conn = self._catalog._get_conn()
-        stage = "_portfolio_snapshots_stage"
-        conn.register(stage, snap_df.to_arrow())
+        rows = []
+        for s in snapshots:
+            rows.append((
+                s["snapshot_id"], s["run_id"], str(s["trade_date"]),
+                s["cash"], s["nav"], s["positions_count"],
+                s["gross_exposure"], s["net_exposure"],
+            ))
         try:
-            conn.execute(f"""
+            conn.executemany("""
                 INSERT OR REPLACE INTO gold_portfolio_snapshots
                     (snapshot_id, run_id, trade_date, cash, nav,
                      positions_count, gross_exposure, net_exposure)
-                SELECT snapshot_id, run_id, trade_date, cash, nav,
-                       positions_count, gross_exposure, net_exposure
-                FROM {stage}
-            """)
-            logger.info("Persisted %d portfolio snapshots", len(snapshots))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, rows)
+            logger.info("Persisted %d portfolio snapshots", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist portfolio snapshots: %s", exc)
-        finally:
-            try:
-                conn.unregister(stage)
-            except Exception:
-                pass
 
     def _persist_positions(self, result, run_id: str) -> None:
         """Write portfolio positions to gold_risk_snapshots as point-in-time snapshots."""
@@ -996,22 +996,26 @@ class BacktestRunner:
         if not snapshots:
             return
 
-        snap_df = pl.DataFrame(snapshots)
         conn = self._catalog._get_conn()
-        stage = "_risk_snapshots_stage"
-        conn.register(stage, snap_df.to_arrow())
+        rows = []
+        for s in snapshots:
+            rows.append((
+                s["snapshot_id"], s["run_id"], s["snapshot_ts"],
+                s["strategy_id"], s["gross_leverage"], s["net_leverage"],
+                s["beta"], s["drawdown"], s["var_95"], s["cvar_95"],
+                s["sector_exposure"], s["factor_exposure"],
+            ))
         try:
-            conn.execute(f"""
+            conn.executemany("""
                 INSERT OR REPLACE INTO gold_risk_snapshots
-                SELECT * FROM {stage}
-            """)
+                    (snapshot_id, run_id, snapshot_ts, strategy_id,
+                     gross_leverage, net_leverage, beta, drawdown,
+                     var_95, cvar_95, sector_exposure, factor_exposure)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, rows)
+            logger.info("Persisted %d risk snapshots", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist risk snapshots: %s", exc)
-        finally:
-            try:
-                conn.unregister(stage)
-            except Exception:
-                pass
 
     def _persist_risk_snapshots(self, result, run_id: str) -> None:
         """Persist portfolio_returns as a Parquet artifact for tearsheet."""
@@ -1029,40 +1033,30 @@ class BacktestRunner:
         if not result.pretrade_decisions:
             return
 
-        # Pre-convert list fields to JSON strings before creating DataFrame
-        for d in result.pretrade_decisions:
-            d["reasons"] = json.dumps(d.get("reasons", []))
-            d["policy_names"] = json.dumps(d.get("policy_names", []))
-
-        decisions_df = pl.DataFrame(result.pretrade_decisions)
-        decisions_df = decisions_df.with_columns([
-            pl.lit(run_id).alias("run_id"),
-            pl.lit("vector").alias("engine"),
-        ]).select([
-            "decision_id", "run_id", "engine", "trade_date", "strategy_id",
-            "asset_id", "requested_qty", "approved_qty", "decision",
-            "reasons", "policy_names",
-        ])
-
         conn = self._catalog._get_conn()
-        stage = "_pretrade_decisions_stage"
-        conn.register(stage, decisions_df.to_arrow())
+        rows = []
+        for d in result.pretrade_decisions:
+            rows.append((
+                d.get("decision_id", str(uuid.uuid4())),
+                run_id,
+                "vector",
+                str(d["trade_date"]),
+                d["strategy_id"],
+                d["asset_id"],
+                d.get("requested_qty"),
+                d.get("approved_qty"),
+                d["decision"],
+                json.dumps(d.get("reasons", [])),
+                json.dumps(d.get("policy_names", [])),
+            ))
         try:
-            conn.execute(f"""
+            conn.executemany("""
                 INSERT OR REPLACE INTO gold_pretrade_decisions
                     (decision_id, run_id, engine, trade_date, strategy_id,
                      asset_id, requested_qty, approved_qty, decision,
                      reasons, policy_names)
-                SELECT decision_id, run_id, engine, trade_date, strategy_id,
-                       asset_id, requested_qty, approved_qty, decision,
-                       reasons, policy_names
-                FROM {stage}
-            """)
-            logger.info("Persisted %d pretrade decisions", len(decisions_df))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, rows)
+            logger.info("Persisted %d pretrade decisions", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist pretrade decisions: %s", exc)
-        finally:
-            try:
-                conn.unregister(stage)
-            except Exception:
-                pass

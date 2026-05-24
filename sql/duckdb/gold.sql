@@ -64,7 +64,10 @@ CREATE TABLE IF NOT EXISTS gold_backtest_runs (
     metrics_uri         VARCHAR,                 -- Path to metrics Parquet artifact
     tearsheet_uri       VARCHAR,
     error_message       VARCHAR,
-    tags                JSON
+    tags                JSON,
+    is_walk_forward     BOOLEAN DEFAULT FALSE,
+    n_folds             INTEGER,
+    aggregated_metrics_json JSON
 );
 
 -- ── Pre-trade risk decisions ───────────────────────────────────────────────────
