@@ -41,6 +41,16 @@ export const datasetsApi = {
   get: (id: string) => request<DatasetVersion>(`/datasets/${id}`),
 }
 
+// ── Walk-Forward Config ──────────────────────────────────────────────────────
+
+export interface WalkForwardConfig {
+  n_splits: number
+  gap_days: number
+  window_type: 'expanding' | 'sliding'
+  step_days?: number
+  purge_window: number
+}
+
 // ── Backtests ─────────────────────────────────────────────────────────────────
 
 export interface BacktestRun {
@@ -90,8 +100,8 @@ export interface BacktestFill {
 }
 
 export const backtestsApi = {
-  list: (limit = 50) =>
-    request<{ items: BacktestRun[]; total: number }>(`/backtests?limit=${limit}`),
+  list: (offset = 0, limit = 50) =>
+    request<{ items: BacktestRun[]; total: number }>(`/backtests?offset=${offset}&limit=${limit}`),
   get: (id: string) => request<BacktestRun>(`/backtests/${id}`),
   getAnalysis: (id: string) => request<Record<string, unknown>>(`/backtests/${id}/analysis`),
   getRisk: (id: string, limit = 20) =>
@@ -106,6 +116,21 @@ export const backtestsApi = {
     top_n?: number
     sort_factor?: string
     feature_set_version?: string
+    strategy_type?: string
+    model_version?: string
+    label_name?: string
+    train_end_date?: string
+    walk_forward?: WalkForwardConfig
+    eval_mode?: string
+    // MarketNeutral
+    short_n?: number
+    // SectorRotation
+    sector_map?: Record<string, string>
+    top_sectors?: number
+    top_n_per_sector?: number
+    // Combo
+    sub_strategy_configs?: Record<string, unknown>[]
+    combo_method?: string
   }) => request<{ job_id: string; strategy_id: string; status: string }>('/backtests', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -123,6 +148,21 @@ export const backtestsApi = {
       `/backtests/${id}/analyze`,
       { method: 'POST' },
     ),
+  getWalkForwardFolds: (id: string) =>
+    request<{
+      run_id: string
+      n_folds: number
+      folds: Array<{
+        fold_id: number
+        train_start: string
+        train_end: string
+        test_start: string
+        test_end: string
+        fold_run_id: string
+        metrics: Record<string, unknown>
+      }>
+      aggregated: Record<string, number>
+    }>(`/backtests/${id}/walk-forward-folds`),
 }
 
 // ── Knowledge base ────────────────────────────────────────────────────────────
@@ -282,6 +322,9 @@ export const mlApi = {
     feature_set_version: string
     target_name?: string
     params?: Record<string, unknown>
+    walk_forward?: WalkForwardConfig
+    train_ratio?: number
+    valid_ratio?: number
   }) => request<{ job_id: string; status: string }>('/ml/jobs', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -335,8 +378,17 @@ export interface ICJob {
 
 export const factorAnalyticsApi = {
   definitions: () => request<{ items: FactorDefinition[]; total: number }>('/factors/definitions'),
+  versions: () =>
+    request<{ items: Array<{ feature_set_version: string; start_date: string; end_date: string; row_count: number }> }>(
+      '/factors/versions',
+    ),
   computeIC: (body: { factor_name: string; feature_set_version: string; horizon_days?: number }) =>
     request<{ job_id: string; status: string }>('/factors/analytics/compute', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  computeICMatrix: (body: { factor_names: string[]; feature_set_version: string; horizon_days?: number }) =>
+    request<{ job_id: string; status: string }>('/factors/analytics/matrix', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
@@ -371,6 +423,108 @@ export const advisorExtApi = {
     if (sessionId) params.set('session_id', sessionId)
     return `/api/v1/advisor/stream?${params}`
   },
+}
+
+// ── Portfolio Optimization ─────────────────────────────────────────────────────
+
+export interface OptimizeRequest {
+  expected_returns: Record<string, number>
+  covariance: Record<string, Record<string, number>>
+  optimizer?: 'mean_variance' | 'risk_parity' | 'cost_aware'
+  constraints?: Record<string, unknown>
+  risk_free_rate?: number
+  long_only?: boolean
+  cost_rate?: number
+  turnover_penalty?: number
+  current_weights?: Record<string, number>
+}
+
+export interface OptimizeResult {
+  weights: Record<string, number>
+  expected_return: number
+  expected_volatility: number
+  sharpe_ratio: number
+  metadata: Record<string, unknown>
+}
+
+export interface CovarianceRequest {
+  asset_ids: string[]
+  as_of_date?: string
+  method?: 'historical' | 'ewma' | 'ledoit_wolf'
+  window?: number
+  halflife?: number
+}
+
+export interface CovarianceResult {
+  covariance: Record<string, Record<string, number>>
+  assets: string[]
+  method: string
+  as_of_date: string
+}
+
+export const optimizeApi = {
+  optimize: (body: OptimizeRequest) =>
+    request<OptimizeResult>('/optimize', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  covariance: (body: CovarianceRequest) =>
+    request<CovarianceResult>('/optimize/covariance', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+}
+
+// ── Risk Management ───────────────────────────────────────────────────────────
+
+export interface PolicyParam {
+  key: string
+  type: string
+  default: unknown
+  description: string
+}
+
+export interface PolicyInfo {
+  name: string
+  description: string
+  params: PolicyParam[]
+}
+
+export interface SizerInfo {
+  name: string
+  description: string
+  params: PolicyParam[]
+}
+
+export interface RiskCheckRequest {
+  policy_name: string
+  params?: Record<string, unknown>
+  asset_id: string
+  side: string
+  qty: number
+  price: number
+  nav?: number
+  cash?: number
+  positions?: Record<string, { qty?: number; avg_cost?: number; market_value?: number }>
+  drawdown?: number
+  as_of_date?: string
+}
+
+export interface RiskCheckResult {
+  decision: 'approved' | 'clipped' | 'rejected'
+  original_qty: number
+  approved_qty: number
+  reasons: string[]
+}
+
+export const riskApi = {
+  policies: () => request<PolicyInfo[]>('/risk/policies'),
+  sizers: () => request<SizerInfo[]>('/risk/sizers'),
+  check: (body: RiskCheckRequest) =>
+    request<RiskCheckResult>('/risk/check', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 }
 
 // ── Trading ───────────────────────────────────────────────────────────────────

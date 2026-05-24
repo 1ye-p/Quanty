@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useAdvisorStream } from '@/hooks/useAdvisorStream'
 import { advisorApi } from '@/lib/api'
+import { toast } from 'sonner'
 
 interface SessionEntry {
   id: string
@@ -90,6 +92,12 @@ export function AdvisorPage() {
   const pendingMessageRef = useRef<string>('')
 
   const { state: stream, start: startStream, reset: resetStream } = useAdvisorStream()
+
+  const reportMutation = useMutation({
+    mutationFn: () => advisorApi.report('生成投研报告', activeSessionId),
+    onSuccess: () => toast.success('报告已生成'),
+    onError: (err: Error) => toast.error(`报告生成失败：${err.message}`),
+  })
 
   const [chatHistory, setChatHistory] = useState<{ role: string; content: string }[]>([])
   const [chatLoading, setChatLoading] = useState(false)
@@ -183,6 +191,14 @@ export function AdvisorPage() {
                 Session: {activeSessionId.slice(0, 8)}…
               </span>
             )}
+            <button
+              onClick={() => reportMutation.mutate()}
+              disabled={reportMutation.isPending}
+              className="text-xs text-green-600 hover:text-green-700 font-medium px-2 py-1 rounded border border-green-300 hover:bg-green-50"
+              title="生成投研报告"
+            >
+              {reportMutation.isPending ? '生成中…' : '报告'}
+            </button>
             <button
               onClick={() => setUsePanel(!usePanel)}
               className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${

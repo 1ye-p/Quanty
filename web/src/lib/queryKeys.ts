@@ -8,7 +8,7 @@ export const queryKeys = {
   },
   backtests: {
     all: ['backtests'] as const,
-    list: (limit: number) => ['backtests', 'list', limit] as const,
+    list: (offset: number, limit: number) => ['backtests', 'list', offset, limit] as const,
     detail: (id: string) => ['backtests', id] as const,
     analysis: (id: string) => ['backtests', id, 'analysis'] as const,
     risk: (id: string) => ['backtests', id, 'risk'] as const,
@@ -16,6 +16,7 @@ export const queryKeys = {
     validationWindows: (id: string) => ['backtests', id, 'validation-windows'] as const,
     multipleTesting: (id: string) => ['backtests', id, 'multiple-testing'] as const,
     fills: (id: string) => ['backtests', id, 'fills'] as const,
+    walkForward: (id: string) => ['backtests', id, 'walk-forward-folds'] as const,
   },
   knowledge: {
     all: ['knowledge'] as const,
@@ -63,5 +64,9 @@ export const extendedQueryKeys = {
     quote: (symbol: string) => ['realtime', 'quote', symbol] as const,
     quotes: (symbols: string[]) => ['realtime', 'quotes', ...symbols] as const,
     market: (limit: number) => ['realtime', 'market', limit] as const,
+  },
+  risk: {
+    policies: () => ['risk', 'policies'] as const,
+    sizers: () => ['risk', 'sizers'] as const,
   },
 } as const

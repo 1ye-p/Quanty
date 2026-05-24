@@ -58,7 +58,7 @@ class TestMLPredictionPipeline:
             n_splits=2,
         )
         preds = cat.query(
-            "SELECT COUNT(*) as n FROM gold_predictions WHERE model_version = ?",
-            [model_id],
+            "SELECT COUNT(*) as n FROM gold_predictions WHERE model_version LIKE ?",
+            [f"{model_id}%"],
         )
         assert preds["n"][0] > 0

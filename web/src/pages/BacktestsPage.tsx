@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { backtestsApi, backtestExtApi, type BacktestFill } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -9,7 +10,7 @@ import {
   Cell, ReferenceLine
 } from 'recharts'
 
-type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills'
+type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills' | 'walkforward'
 
 /** 将 JSON 对象导出为 .json 文件下载 */
 function downloadJson(data: unknown, filename: string) {
@@ -57,6 +58,34 @@ function MetricCard({ label, value, sub, warn = false }: {
   )
 }
 
+function FoldMetricsCard({ folds }: { folds: Record<string, unknown>[] }) {
+  if (!folds || folds.length === 0) return null
+  return (
+    <div className="card">
+      <h3 className="font-semibold text-gray-800 mb-3">Walk-Forward Fold 指标</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {folds.map((fold, i) => {
+          const metrics = fold.metrics_json as Record<string, number> | null
+          const sharpe = metrics?.sharpe ?? 0
+          const ret = metrics?.total_return ?? 0
+          return (
+            <div key={i} className={`text-center p-3 rounded-lg ${sharpe > 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+              <div className="text-xs text-gray-500 mb-1">Fold {i + 1}</div>
+              <div className={`text-lg font-bold ${sharpe > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                {sharpe.toFixed(2)}
+              </div>
+              <div className="text-xs text-gray-400">Sharpe</div>
+              <div className={`text-sm mt-1 ${ret > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {(ret * 100).toFixed(1)}%
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function OverfitScore({ score }: { score: number }) {
   const pct = Math.round(score * 100)
   const color = score > 0.7 ? 'bg-red-500' : score > 0.4 ? 'bg-yellow-500' : 'bg-green-500'
@@ -79,12 +108,19 @@ function OverfitScore({ score }: { score: number }) {
 }
 
 export function BacktestsPage() {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [tab, setTab] = useState<Tab>('overview')
+  const [searchParams] = useSearchParams()
+  const initialRunId = searchParams.get('run_id')
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.backtests.list(50),
-    queryFn: () => backtestsApi.list(50),
+  const [selectedId, setSelectedId] = useState<string | null>(initialRunId)
+  const [tab, setTab] = useState<Tab>('overview')
+  const [page, setPage] = useState(0)
+  const pageSize = 20
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: queryKeys.backtests.list(page * pageSize, pageSize),
+    queryFn: () => backtestsApi.list(page * pageSize, pageSize),
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
     refetchInterval: (query) => {
       const d = query.state.data
       return d && !d.items.some(r => r.status === 'running' || r.status === 'pending') ? false : 5000
@@ -116,15 +152,31 @@ export function BacktestsPage() {
   })
 
   const { data: analysisData } = useQuery({
-    queryKey: ['backtests', selectedId, 'analysis-summary'],
+    queryKey: queryKeys.backtests.analysis(selectedId!),
     queryFn: () => backtestsApi.getAnalysis(selectedId!),
     enabled: !!selectedId,
+    staleTime: 60_000,
   })
 
   const { data: fillsData } = useQuery({
     queryKey: queryKeys.backtests.fills(selectedId!),
     queryFn: () => backtestsApi.getFills(selectedId!),
     enabled: !!selectedId && tab === 'fills',
+    staleTime: 60_000,
+  })
+
+  const { data: wfData } = useQuery({
+    queryKey: queryKeys.backtests.walkForward(selectedId!),
+    queryFn: () => backtestsApi.getWalkForwardFolds(selectedId!),
+    enabled: !!selectedId && tab === 'walkforward',
+    staleTime: 60_000,
+  })
+
+  const { data: riskData } = useQuery({
+    queryKey: queryKeys.backtests.risk(selectedId!),
+    queryFn: () => backtestsApi.getRisk(selectedId!, 20),
+    enabled: !!selectedId && tab === 'overview',
+    staleTime: 60_000,
   })
 
   // Snapshots from tearsheet
@@ -164,10 +216,8 @@ export function BacktestsPage() {
     { id: 'tearsheet', label: 'Tearsheet' },
     { id: 'overfitting', label: '过拟合分析' },
     { id: 'fills', label: '交易明细' },
+    { id: 'walkforward', label: 'Walk-Forward' },
   ]
-
-  if (isLoading) return <p className="text-gray-400">Loading…</p>
-  if (error) return <p className="text-red-500">Error: {(error as Error).message}</p>
 
   return (
     <div>
@@ -176,34 +226,64 @@ export function BacktestsPage() {
 
       {/* Run list */}
       <div className="card p-0 overflow-hidden mb-6">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              {['Run ID', '策略', '引擎', '状态', '开始', '结束'].map(h => (
-                <th key={h} className="table-th">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {!data?.items.length && (
-              <tr><td colSpan={6} className="table-td text-center text-gray-400 py-8">暂无回测记录</td></tr>
-            )}
-            {data?.items.map(r => (
-              <tr
-                key={r.run_id}
-                className={`table-row cursor-pointer ${selectedId === r.run_id ? 'bg-blue-50' : ''}`}
-                onClick={() => { setSelectedId(r.run_id); setTab('overview') }}
-              >
-                <td className="table-td font-mono text-xs">{r.run_id.slice(0, 8)}…</td>
-                <td className="table-td font-medium">{r.strategy_id}</td>
-                <td className="table-td text-gray-500">{r.engine}</td>
-                <td className="table-td"><StatusBadge status={r.status} /></td>
-                <td className="table-td text-gray-400">{r.started_at?.slice(0, 16) ?? '—'}</td>
-                <td className="table-td text-gray-400">{r.completed_at?.slice(0, 16) ?? '—'}</td>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600" />
+            <span className="ml-2 text-sm text-gray-500">加载中…</span>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                {['Run ID', '策略', '引擎', '状态', '开始', '结束'].map(h => (
+                  <th key={h} className="table-th">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {!data?.items.length && (
+                <tr><td colSpan={6} className="table-td text-center text-gray-400 py-8">
+                  {isFetching ? '加载中…' : '暂无回测记录'}
+                </td></tr>
+              )}
+              {data?.items.map(r => (
+                <tr
+                  key={r.run_id}
+                  className={`table-row cursor-pointer ${selectedId === r.run_id ? 'bg-blue-50' : ''}`}
+                  onClick={() => { setSelectedId(r.run_id); setTab('overview') }}
+                >
+                  <td className="table-td font-mono text-xs">{r.run_id.slice(0, 8)}…</td>
+                  <td className="table-td font-medium">{r.strategy_id}</td>
+                  <td className="table-td text-gray-500">{r.engine}</td>
+                  <td className="table-td"><StatusBadge status={r.status} /></td>
+                  <td className="table-td text-gray-400">{r.started_at?.slice(0, 16) ?? '—'}</td>
+                  <td className="table-td text-gray-400">{r.completed_at?.slice(0, 16) ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {/* Pagination */}
+        {data && data.total > pageSize && (
+          <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50 text-sm">
+            <span className="text-gray-500">共 {data.total} 条</span>
+            <div className="flex gap-2">
+              <button
+                className="px-3 py-1 rounded border bg-white hover:bg-gray-100 disabled:opacity-40"
+                disabled={page === 0}
+                onClick={() => setPage(p => p - 1)}
+              >上一页</button>
+              <span className="px-3 py-1 text-gray-600">
+                第 {page + 1} / {Math.ceil(data.total / pageSize)} 页
+              </span>
+              <button
+                className="px-3 py-1 rounded border bg-white hover:bg-gray-100 disabled:opacity-40"
+                disabled={(page + 1) * pageSize >= data.total}
+                onClick={() => setPage(p => p + 1)}
+              >下一页</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Detail panel */}
@@ -330,6 +410,19 @@ export function BacktestsPage() {
                 </>
               )}
 
+              {/* Risk snapshot */}
+              {riskData?.items?.[0] && (
+                <div className="card">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">最新风险快照</h3>
+                  <div className="grid grid-cols-4 gap-4">
+                    <MetricCard label="回撤" value={`${((riskData.items[0].drawdown as number ?? 0) * 100).toFixed(2)}%`} warn />
+                    <MetricCard label="杠杆" value={(riskData.items[0].gross_leverage as number ?? 0).toFixed(2)} />
+                    <MetricCard label="VaR 95%" value={`${((riskData.items[0].var_95 as number ?? 0) * 100).toFixed(2)}%`} />
+                    <MetricCard label="Beta" value={(riskData.items[0].beta as number ?? 0).toFixed(2)} />
+                  </div>
+                </div>
+              )}
+
               {/* Analysis summary */}
               {analysis && (
                 <div className="space-y-4">
@@ -391,6 +484,11 @@ export function BacktestsPage() {
                   <MetricCard label="PSR（概率夏普）" value={psr.toFixed(3)} sub="越接近1越显著" warn={psr < 0.5} />
                   <MetricCard label="DSR（修正夏普）" value={dsr.toFixed(3)} sub="多次试验修正后" warn={dsr < 0.5} />
                 </div>
+              )}
+
+              {/* Walk-forward fold metrics */}
+              {wfWindows.length > 0 && (
+                <FoldMetricsCard folds={wfWindows as Record<string, unknown>[]} />
               )}
 
               {/* Walk-forward Sharpe bar chart */}
@@ -530,6 +628,77 @@ export function BacktestsPage() {
               </table>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Walk-Forward Tab */}
+      {selectedId && tab === 'walkforward' && (
+        <div className="space-y-4">
+          {!wfData ? (
+            <p className="text-gray-400 text-sm">此回测不是 Walk-Forward 模式</p>
+          ) : (
+            <>
+              {/* Aggregated metrics */}
+              <div className="grid grid-cols-4 gap-4">
+                <MetricCard label="平均 Sharpe" value={(wfData.aggregated.avg_sharpe_ratio ?? 0).toFixed(3)} />
+                <MetricCard label="平均收益" value={`${((wfData.aggregated.avg_total_return ?? 0) * 100).toFixed(2)}%`} />
+                <MetricCard label="最大回撤" value={`${((wfData.aggregated.avg_max_drawdown ?? 0) * 100).toFixed(2)}%`} warn />
+                <MetricCard label="Fold 数" value={String(wfData.n_folds)} />
+              </div>
+
+              {/* Fold details table */}
+              <div className="card p-0 overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {['Fold', 'Train', 'OOS', 'Sharpe', '收益', '回撤', 'Win Rate'].map(h => (
+                        <th key={h} className="table-th">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {wfData.folds.map(fold => (
+                      <tr key={fold.fold_id} className="table-row">
+                        <td className="table-td font-mono">{fold.fold_id + 1}</td>
+                        <td className="table-td text-xs">{fold.train_start} ~ {fold.train_end}</td>
+                        <td className="table-td text-xs">{fold.test_start} ~ {fold.test_end}</td>
+                        <td className="table-td">{(fold.metrics?.sharpe_ratio as number)?.toFixed(3) ?? '—'}</td>
+                        <td className="table-td">{((fold.metrics?.total_return as number ?? 0) * 100).toFixed(2)}%</td>
+                        <td className="table-td text-red-600">{((fold.metrics?.max_drawdown as number ?? 0) * 100).toFixed(2)}%</td>
+                        <td className="table-td">{((fold.metrics?.win_rate as number ?? 0) * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Timeline visualization */}
+              <div className="card">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">时间线</h3>
+                <div className="relative h-20 bg-gray-100 rounded">
+                  {wfData.folds.map((fold, i) => {
+                    const allDates = wfData.folds.flatMap(f => [f.train_start, f.test_end])
+                    const minDate = new Date(allDates[0])
+                    const maxDate = new Date(allDates[allDates.length - 1])
+                    const totalMs = maxDate.getTime() - minDate.getTime()
+                    const pct = (d: string) => ((new Date(d).getTime() - minDate.getTime()) / totalMs * 100)
+                    return (
+                      <div key={i} className="absolute w-full" style={{ top: `${i * 25}%`, height: '22%' }}>
+                        <div className="absolute bg-blue-400 opacity-30 h-full rounded-l"
+                          style={{ left: `${pct(fold.train_start)}%`, width: `${pct(fold.train_end) - pct(fold.train_start)}%` }} />
+                        <div className="absolute bg-green-500 opacity-60 h-full rounded-r"
+                          style={{ left: `${pct(fold.test_start)}%`, width: `${pct(fold.test_end) - pct(fold.test_start)}%` }} />
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 bg-blue-400 opacity-30 rounded" />Train</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-500 opacity-60 rounded" />OOS</span>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

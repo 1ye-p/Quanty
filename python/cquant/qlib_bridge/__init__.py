@@ -8,13 +8,22 @@ from cquant.qlib_bridge._compat import QLIB_AVAILABLE, qlib_or_fallback, require
 
 
 def __getattr__(name: str):
-    """延迟导入 CQuantDataHandler 和 QlibEvaluator（避免循环导入）。"""
+    """延迟导入（避免循环导入）。"""
     if name == "CQuantDataHandler":
         from cquant.qlib_bridge.data_handler import CQuantDataHandler
         return CQuantDataHandler
     if name == "QlibEvaluator":
         from cquant.qlib_bridge.evaluator import QlibEvaluator
         return QlibEvaluator
+    if name == "RollingConfig":
+        from cquant.qlib_bridge.ml_rolling import RollingConfig
+        return RollingConfig
+    if name == "generate_rolling_splits":
+        from cquant.qlib_bridge.ml_rolling import generate_rolling_splits
+        return generate_rolling_splits
+    if name == "ensemble_fold_predictions":
+        from cquant.qlib_bridge.ml_rolling import ensemble_fold_predictions
+        return ensemble_fold_predictions
     raise AttributeError(f"module 'cquant.qlib_bridge' has no attribute {name!r}")
 
 
@@ -24,4 +33,7 @@ __all__ = [
     "require_qlib",
     "CQuantDataHandler",
     "QlibEvaluator",
+    "RollingConfig",
+    "generate_rolling_splits",
+    "ensemble_fold_predictions",
 ]

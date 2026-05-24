@@ -3,6 +3,27 @@ import { useQuery } from '@tanstack/react-query'
 import { newsApi, type NewsEvent } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 
+function NewsDetail({ eventId }: { eventId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: extendedQueryKeys.news.detail(eventId),
+    queryFn: () => newsApi.get(eventId),
+  })
+
+  if (isLoading) return <div className="text-gray-400 text-sm">加载详情中...</div>
+  if (!data) return <div className="text-red-500 text-sm">加载失败</div>
+
+  return (
+    <div className="space-y-2">
+      {data.body && (
+        <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{data.body}</div>
+      )}
+      {!data.body && (
+        <div className="text-xs text-gray-400">暂无正文内容</div>
+      )}
+    </div>
+  )
+}
+
 function SentimentDot({ score }: { score: number | null }) {
   if (score === null) return <span className="w-2 h-2 rounded-full bg-gray-300 inline-block" />
   if (score > 0.2) return <span className="w-2 h-2 rounded-full bg-green-400 inline-block" title={`情绪: ${score.toFixed(2)}`} />
@@ -95,9 +116,11 @@ export function NewsPage() {
               </div>
             </div>
             {expanded === item.event_id && (
-              <div className="mt-3 pt-3 border-t border-gray-100 text-sm text-gray-600">
-                event_id: <code className="text-xs bg-gray-100 px-1 rounded">{item.event_id}</code>
-                <div className="mt-1 text-xs text-gray-400">完整内容需通过 GET /api/v1/news/events/{'{event_id}'} 获取</div>
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <NewsDetail eventId={item.event_id} />
+                <div className="mt-2 text-xs text-gray-400">
+                  event_id: <code className="bg-gray-100 px-1 rounded">{item.event_id}</code>
+                </div>
               </div>
             )}
           </div>

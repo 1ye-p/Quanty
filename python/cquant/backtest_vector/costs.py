@@ -11,6 +11,7 @@ All rates are expressed as fractions (not basis points):
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
@@ -150,8 +151,7 @@ class CostModel:
         """
         if self.market_impact_rate == Decimal("0") or avg_daily_volume <= 0:
             return Decimal("0")
-        import math
-        participation = float(order_qty) / avg_daily_volume
+        participation = min(float(order_qty) / avg_daily_volume, 1.0)  # cap at 100%
         impact_rate = self.market_impact_rate * Decimal(str(math.sqrt(participation)))
         return (notional * impact_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 

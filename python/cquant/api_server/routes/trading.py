@@ -25,7 +25,8 @@ _paper_broker: PaperBroker | None = None
 def _get_paper_broker() -> PaperBroker:
     global _paper_broker
     if _paper_broker is None:
-        _paper_broker = PaperBroker(initial_cash=1_000_000)
+        from cquant.core.config import settings
+        _paper_broker = PaperBroker(initial_cash=settings.backtest.initial_cash)
     return _paper_broker
 
 
@@ -247,7 +248,7 @@ async def get_pnl(broker: str = "paper") -> dict[str, Any]:
         "realized_pnl": account.realized_pnl,
         "unrealized_pnl": account.unrealized_pnl,
         "total_pnl": account.realized_pnl + account.unrealized_pnl,
-        "return_pct": ((account.nav / 1_000_000) - 1) * 100 if account.nav > 0 else 0,
+        "return_pct": ((account.nav / broker_inst._initial_cash) - 1) * 100 if account.nav > 0 else 0,
     }
 
 

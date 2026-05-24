@@ -13,6 +13,12 @@ import polars as pl
 
 
 class BacktestMetrics(NamedTuple):
+    """Standard backtest performance metrics.
+
+    WARNING: New fields with defaults were added after the initial release.
+    Do NOT unpack positionally (e.g., `a, b, c, ... = compute_metrics(...)`).
+    Use attribute access instead: `m = compute_metrics(...); m.sharpe_ratio`.
+    """
     total_return: float
     annualized_return: float
     annualized_volatility: float

@@ -58,6 +58,7 @@ class BacktestSpec:
     features: pl.DataFrame | None = None
     tags: dict = field(default_factory=dict)
     optimizer: "PortfolioOptimizer | None" = None
+    extra: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -188,6 +189,7 @@ class VectorBacktestEngine:
                 universe_id=spec.universe_id,
                 features=spec.features,
                 prices=prices.filter(pl.col("trade_date") <= td),
+                extra=spec.extra,
             )
             signals = spec.strategy.generate_signals(ctx)
 
@@ -211,11 +213,12 @@ class VectorBacktestEngine:
                 weights_dict = {aid: 1.0 / n for aid in active_assets} if n else {}
 
             # Apply portfolio optimizer if set (overrides sizer weights)
+            # PLACEHOLDER: Uses proxy data (signal-scaled returns, uniform diagonal
+            # covariance). For real mean-variance optimization, replace with actual
+            # expected returns from ML predictions and covariance from CovarianceEstimator.
             if spec.optimizer is not None and weights_dict:
                 try:
-                    # Signal strengths as proxy expected returns
                     expected_returns = {k: float(v) * 0.10 for k, v in weights_dict.items()}
-                    # Diagonal covariance: each asset gets uniform variance
                     _var = (0.20 ** 2) / 252  # daily variance from 20% annual vol
                     covariance = {
                         a: {b: _var if a == b else 0.0 for b in weights_dict}

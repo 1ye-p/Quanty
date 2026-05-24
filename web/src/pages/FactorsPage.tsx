@@ -7,7 +7,11 @@ import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ReferenceL
 export function FactorsPage() {
   const [selectedFactor, setSelectedFactor] = useState<string | null>(null)
   const [featureSetVersion, setFeatureSetVersion] = useState('')
+  const [horizonDays, setHorizonDays] = useState(1)
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
+  const [matrixJobId, setMatrixJobId] = useState<string | null>(null)
+  const [selectedFactors, setSelectedFactors] = useState<string[]>([])
+  const [sortBy, setSortBy] = useState<'mean_ic' | 'ir' | 'hit_rate'>('mean_ic')
 
   const { data: defs, isLoading } = useQuery({
     queryKey: extendedQueryKeys.factorAnalytics.definitions(),
@@ -16,16 +20,33 @@ export function FactorsPage() {
 
   const { data: versions } = useQuery({
     queryKey: ["factors", "versions"],
-    queryFn: async () => {
-      const r = await fetch('/api/v1/factors/versions')
-      return r.json()
-    },
+    queryFn: () => factorAnalyticsApi.versions(),
   })
 
   const computeMutation = useMutation({
     mutationFn: (params: { factor_name: string; feature_set_version: string }) =>
-      factorAnalyticsApi.computeIC({ ...params, horizon_days: 1 }),
+      factorAnalyticsApi.computeIC({ ...params, horizon_days: horizonDays }),
     onSuccess: (data) => setActiveJobId(data.job_id),
+  })
+
+  const matrixMutation = useMutation({
+    mutationFn: () =>
+      factorAnalyticsApi.computeICMatrix({
+        factor_names: selectedFactors,
+        feature_set_version: featureSetVersion,
+        horizon_days: horizonDays,
+      }),
+    onSuccess: (data) => setMatrixJobId(data.job_id),
+  })
+
+  const { data: matrixResult } = useQuery({
+    queryKey: ['factors', 'matrix', matrixJobId ?? ''],
+    queryFn: () => factorAnalyticsApi.icJob(matrixJobId!),
+    enabled: !!matrixJobId,
+    refetchInterval: (query) => {
+      const d = query.state.data
+      return d && (d.status === 'done' || d.status === 'error') ? false : 2000
+    },
   })
 
   const { data: jobResult } = useQuery({
@@ -110,17 +131,168 @@ export function FactorsPage() {
         ))}
       </div>
 
+      {/* Multi-Factor IC Matrix */}
+      {defs?.items && defs.items.length > 0 && (
+        <div className="card mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-gray-900">多因子 IC 矩阵</h2>
+            <div className="flex items-center gap-3">
+              <button
+                className="text-xs text-blue-600 hover:underline"
+                onClick={() => setSelectedFactors(defs?.items?.map(f => f.name) ?? [])}
+              >
+                全选
+              </button>
+              <span className="text-xs text-gray-400">选择 ≥2 个因子</span>
+              <button
+                className="btn-primary text-sm"
+                disabled={selectedFactors.length < 2 || !featureSetVersion || matrixMutation.isPending}
+                onClick={() => matrixMutation.mutate()}
+              >
+                {matrixMutation.isPending ? '计算中…' : '计算 IC 矩阵'}
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {defs.items.map(f => (
+              <button
+                key={f.name}
+                className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                  selectedFactors.includes(f.name)
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                }`}
+                onClick={() => setSelectedFactors(prev =>
+                  prev.includes(f.name) ? prev.filter(n => n !== f.name) : [...prev, f.name]
+                )}
+              >
+                {f.name}
+              </button>
+            ))}
+          </div>
+
+          {matrixJobId && matrixResult?.status !== 'done' && matrixResult?.status !== 'error' && (
+            <p className="text-blue-500 text-sm">计算中… (job: {matrixJobId.slice(0, 8)})</p>
+          )}
+
+          {matrixResult?.status === 'error' && (
+            <p className="text-red-500 text-sm">{(matrixResult as unknown as { error_text?: string }).error_text}</p>
+          )}
+
+          {matrixResult?.status === 'done' && matrixResult.summary_json && (() => {
+            const summary = matrixResult.summary_json as unknown as {
+              factors: string[]
+              correlation: number[][]
+              factor_stats: Record<string, { mean_ic: number; ir: number; hit_rate: number }>
+              observations: number
+            }
+            return (
+              <div>
+                <div className="text-xs text-gray-400 mb-3">{summary.observations} 个交易日</div>
+                {/* Correlation heatmap as table */}
+                <div className="overflow-x-auto">
+                  <table className="text-xs">
+                    <thead>
+                      <tr>
+                        <th className="px-2 py-1"></th>
+                        {summary.factors.map(f => (
+                          <th key={f} className="px-2 py-1 font-medium text-gray-600 writing-mode-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{f}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summary.factors.map((rowFactor, i) => (
+                        <tr key={rowFactor}>
+                          <td className="px-2 py-1 font-medium text-gray-600 whitespace-nowrap">{rowFactor}</td>
+                          {summary.correlation[i].map((val, j) => {
+                            const absVal = Math.abs(val)
+                            const bg = val >= 0
+                              ? `rgba(34, 197, 94, ${absVal * 0.6})`
+                              : `rgba(239, 68, 68, ${absVal * 0.6})`
+                            return (
+                              <td key={j} className="px-2 py-1 text-center font-mono" style={{ backgroundColor: bg }}>
+                                {val.toFixed(2)}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Factor ranking table */}
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-700">因子排名</h3>
+                    <div className="flex gap-1">
+                      {(['mean_ic', 'ir', 'hit_rate'] as const).map(key => (
+                        <button
+                          key={key}
+                          className={`px-2 py-0.5 text-xs rounded ${sortBy === key ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:text-gray-600'}`}
+                          onClick={() => setSortBy(key)}
+                        >
+                          {key === 'mean_ic' ? 'Mean IC' : key === 'ir' ? 'IR' : 'Hit Rate'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="table-th w-8">#</th>
+                        <th className="table-th">因子</th>
+                        <th className="table-th">Mean IC</th>
+                        <th className="table-th">IR</th>
+                        <th className="table-th">Hit Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(summary.factor_stats)
+                        .sort(([, a], [, b]) => Math.abs(b[sortBy]) - Math.abs(a[sortBy]))
+                        .map(([fn, stats], idx) => (
+                          <tr key={fn} className="table-row">
+                            <td className="table-td text-gray-400">{idx + 1}</td>
+                            <td className="table-td font-medium">{fn}</td>
+                            <td className={`table-td font-mono ${Math.abs(stats.mean_ic) > 0.03 ? 'text-green-700 font-bold' : ''}`}>{stats.mean_ic.toFixed(4)}</td>
+                            <td className={`table-td font-mono ${Math.abs(stats.ir) > 0.5 ? 'text-green-700 font-bold' : ''}`}>{stats.ir.toFixed(4)}</td>
+                            <td className="table-td font-mono">{(stats.hit_rate * 100).toFixed(1)}%</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
       {selectedFactor && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900">IC 分析：{selectedFactor}</h2>
-            <button
-              onClick={() => computeMutation.mutate({ factor_name: selectedFactor, feature_set_version: featureSetVersion })}
-              disabled={!featureSetVersion || computeMutation.isPending}
-              className="btn-primary text-sm"
-            >
-              {computeMutation.isPending ? '提交中…' : '计算 IC/IR'}
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-500">Horizon</label>
+                <select
+                  className="input w-28"
+                  value={horizonDays}
+                  onChange={e => setHorizonDays(Number(e.target.value))}
+                >
+                  {[1, 2, 3, 5, 10, 20].map(d => (
+                    <option key={d} value={d}>{d} 天</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={() => computeMutation.mutate({ factor_name: selectedFactor, feature_set_version: featureSetVersion })}
+                disabled={!featureSetVersion || computeMutation.isPending}
+                className="btn-primary text-sm"
+              >
+                {computeMutation.isPending ? '提交中…' : '计算 IC/IR'}
+              </button>
+            </div>
           </div>
 
           {activeJobId && jobResult?.status !== 'done' && (

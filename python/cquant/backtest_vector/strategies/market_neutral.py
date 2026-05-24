@@ -1,10 +1,14 @@
 """Market-neutral strategy — long top-N, short bottom-N by factor rank."""
 from __future__ import annotations
 
+import logging
+
 import polars as pl
 
 from cquant.backtest_vector.strategy import Strategy, StrategyContext
 from cquant.core.types import SignalFrame
+
+logger = logging.getLogger(__name__)
 
 
 class MarketNeutralStrategy(Strategy):
@@ -62,6 +66,13 @@ class MarketNeutralStrategy(Strategy):
         long_set = set(longs["asset_id"].to_list())
         shorts = ranked.tail(self._short_n).filter(~pl.col("asset_id").is_in(long_set))
         short_n = len(shorts)
+
+        if short_n == 0 and len(ranked) > 0:
+            logger.debug(
+                "MarketNeutralStrategy '%s': insufficient assets for short leg "
+                "(have %d, need %d long + %d short). Degenerating to long-only.",
+                self._strategy_id, len(ranked), self._top_n, self._short_n,
+            )
 
         rows: list[dict] = []
         for asset in longs["asset_id"].to_list():

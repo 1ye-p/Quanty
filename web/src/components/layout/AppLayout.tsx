@@ -8,6 +8,8 @@ const NAV_GROUPS = [
       { to: '/strategies', label: '策略配置' },
       { to: '/ml',         label: '机器学习' },
       { to: '/backtests',  label: '回测评估' },
+      { to: '/optimize',   label: '组合优化' },
+      { to: '/risk',       label: '风控管理' },
     ],
   },
   {

@@ -26,6 +26,8 @@ from cquant.api_server.routes import (
     live,
     ml,
     news,
+    optimize,
+    risk,
     strategies,
     health,
     knowledge,
@@ -42,6 +44,11 @@ _DESCRIPTION = (
     "Provides access to market data, factor values, backtest results, "
     "the knowledge base, AI research advisor, and trading operations."
 )
+
+
+def _get_limiter_key(request: Request) -> str:
+    """Use client IP as rate limit key."""
+    return request.client.host if request.client else "unknown"
 
 
 def create_app(
@@ -69,6 +76,52 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # ── Rate Limiting ─────────────────────────────────────────────────────────
+    from slowapi import Limiter
+    from slowapi.errors import RateLimitExceeded
+
+    limiter = Limiter(key_func=_get_limiter_key, default_limits=["100/second"])
+    app.state.limiter = limiter
+
+    @app.exception_handler(RateLimitExceeded)
+    async def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Please slow down.", "code": "rate_limited"},
+        )
+
+    # Per-path rate limiting middleware: /trading/* at 10/s, others at 100/s (default)
+    import time
+    from collections import defaultdict
+
+    _request_counts: dict[str, list[float]] = defaultdict(list)
+    _TRADING_LIMIT = 10  # req/s
+    _DEFAULT_LIMIT = 100  # req/s
+
+    @app.middleware("http")
+    async def _rate_limit_middleware(request: Request, call_next):
+        client_ip = request.client.host if request.client else "unknown"
+        path = request.url.path
+        now = time.time()
+
+        is_trading = path.startswith("/api/v1/trading/")
+        limit = _TRADING_LIMIT if is_trading else _DEFAULT_LIMIT
+        window_key = f"{client_ip}:{'trading' if is_trading else 'default'}"
+
+        # Clean old entries (1-second window)
+        _request_counts[window_key] = [
+            t for t in _request_counts[window_key] if now - t < 1.0
+        ]
+
+        if len(_request_counts[window_key]) >= limit:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit exceeded. Please slow down.", "code": "rate_limited"},
+            )
+
+        _request_counts[window_key].append(now)
+        return await call_next(request)
 
     # ── Global exception handler ───────────────────────────────────────────────
     @app.exception_handler(Exception)
@@ -98,6 +151,8 @@ def create_app(
     app.include_router(ml.router, prefix=prefix, dependencies=_auth)
     app.include_router(live.router, prefix=prefix, dependencies=_auth)
     app.include_router(trading.router, prefix=prefix, dependencies=_auth)
+    app.include_router(optimize.router, prefix=prefix, dependencies=_auth)
+    app.include_router(risk.router, prefix=prefix, dependencies=_auth)
 
     logger.info("cQuant API v%s ready — docs at /api/docs", _VERSION)
     return app

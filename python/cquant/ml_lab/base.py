@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
@@ -118,12 +118,74 @@ def build_model_id(config: dict[str, Any], trainer_name: str) -> str:
     return str(configured) if configured else f"{trainer_name}-{uuid.uuid4()}"
 
 
+def persist_feature_importance(
+    artifact: "ModelArtifact",
+    importance: dict[str, float],
+    catalog: "Catalog",
+    job_id: str = "",
+) -> None:
+    """Write feature importance scores to meta_feature_importance DuckDB table.
+
+    Parameters
+    ----------
+    artifact:
+        The model artifact whose ``model_id`` and ``trainer_name`` are used as keys.
+    importance:
+        Dict of feature_name -> importance_score.
+    catalog:
+        Open Catalog connection.
+    job_id:
+        Optional ML job ID for traceability.
+    """
+    if not importance:
+        return
+
+    conn = catalog._get_conn()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS meta_feature_importance (
+            model_id      VARCHAR NOT NULL,
+            job_id        VARCHAR NOT NULL DEFAULT '',
+            trainer_name  VARCHAR NOT NULL,
+            feature_name  VARCHAR NOT NULL,
+            importance    DOUBLE NOT NULL,
+            created_at    TIMESTAMP NOT NULL,
+            PRIMARY KEY (model_id, feature_name)
+        )
+    """)
+
+    now = datetime.now(tz=timezone.utc).isoformat()
+    rows = [
+        (artifact.model_id, job_id, artifact.trainer_name, feat, score, now)
+        for feat, score in importance.items()
+    ]
+    stage_df = pl.DataFrame(
+        rows,
+        schema=["model_id", "job_id", "trainer_name", "feature_name", "importance", "created_at"],
+        orient="row",
+    )
+    stage = "_fi_stage"
+    conn.register(stage, stage_df.to_arrow())
+    try:
+        conn.execute(f"""
+            INSERT OR REPLACE INTO meta_feature_importance
+                (model_id, job_id, trainer_name, feature_name, importance, created_at)
+            SELECT model_id, job_id, trainer_name, feature_name, importance, created_at
+            FROM {stage}
+        """)
+    finally:
+        try:
+            conn.unregister(stage)
+        except Exception:
+            pass
+
+
 def persist_predictions(
     artifact: "ModelArtifact",
     features: "pl.DataFrame",
     predictions: "pl.Series",
     catalog: "Catalog",
     horizon: str = "5d",
+    fold_id: str | None = None,
 ) -> None:
     """Write model predictions to gold_predictions DuckDB table.
 
@@ -147,10 +209,12 @@ def persist_predictions(
     if "asset_id" not in features.columns:
         raise ValueError("features must contain 'asset_id' column to persist predictions")
 
+    model_version = f"{artifact.model_id}_{fold_id}" if fold_id else artifact.model_id
+
     pred_df = (
         features.select(["asset_id", "trade_date"])
         .with_columns([
-            pl.lit(artifact.model_id).alias("model_version"),
+            pl.lit(model_version).alias("model_version"),
             predictions.alias("prediction"),
             pl.lit(horizon).alias("horizon"),
             pl.lit(artifact.target_name).alias("label_name"),

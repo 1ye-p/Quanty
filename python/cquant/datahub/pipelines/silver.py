@@ -185,13 +185,10 @@ class SilverNormalizer:
         # 检测 adj_close 与 close 之间的异常跳空（adj_factor 突变信号）
         if "adj_close" in df.columns and "close" in df.columns:
             try:
-                check_df = (
-                    df.sort(["asset_id", "trade_date"])
-                    .with_columns([
-                        pl.col("adj_close").log().diff().over("asset_id").alias("_adj_ret"),
-                        pl.col("close").log().diff().over("asset_id").alias("_raw_ret"),
-                    ])
-                )
+                check_df = df.with_columns([
+                    pl.col("adj_close").log().diff().over("asset_id", order_by="trade_date").alias("_adj_ret"),
+                    pl.col("close").log().diff().over("asset_id", order_by="trade_date").alias("_raw_ret"),
+                ])
                 suspicious = check_df.filter(
                     (pl.col("_adj_ret").abs() > 0.30)
                     & (pl.col("_raw_ret").abs() < 0.10)
@@ -208,8 +205,8 @@ class SilverNormalizer:
         # ── Winsorize: 裁剪 adj_close 单日涨跌幅超过 ±50% 的异常行 ────────────
         # 日涨跌 > ±50% 几乎必然是复权数据错误或非连续交易日对比，直接删除
         if "adj_close" in df.columns and len(df) > 1:
-            df_with_ret = df.sort(["asset_id", "trade_date"]).with_columns(
-                (pl.col("adj_close") / pl.col("adj_close").shift(1).over("asset_id") - 1.0)
+            df_with_ret = df.with_columns(
+                (pl.col("adj_close") / pl.col("adj_close").shift(1).over("asset_id", order_by="trade_date") - 1.0)
                 .alias("_daily_ret_chk")
             )
             extreme_mask = df_with_ret["_daily_ret_chk"].abs() > 0.5

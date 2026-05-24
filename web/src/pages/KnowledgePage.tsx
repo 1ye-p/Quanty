@@ -1,11 +1,32 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { knowledgeApi, type SearchHit } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
+import { toast } from 'sonner'
 
 export function KnowledgePage() {
   const [searchText, setSearchText] = useState('')
   const [submitted, setSubmitted] = useState('')
+  const [ingestUri, setIngestUri] = useState('')
+  const [ingestTitle, setIngestTitle] = useState('')
+  const [ingestSource, setIngestSource] = useState('')
+  const qc = useQueryClient()
+
+  const ingestMutation = useMutation({
+    mutationFn: () => knowledgeApi.ingest({
+      uri: ingestUri,
+      title: ingestTitle || undefined,
+      source_name: ingestSource || undefined,
+    }),
+    onSuccess: () => {
+      toast.success('文档已导入并索引')
+      qc.invalidateQueries({ queryKey: queryKeys.knowledge.list() })
+      setIngestUri('')
+      setIngestTitle('')
+      setIngestSource('')
+    },
+    onError: (err: Error) => toast.error(`导入失败：${err.message}`),
+  })
 
   const { data: docs, isLoading } = useQuery({
     queryKey: queryKeys.knowledge.list(),
@@ -38,6 +59,34 @@ export function KnowledgePage() {
         />
         <button type="submit" className="btn-primary">搜索</button>
       </form>
+
+      {/* Ingest section */}
+      <div className="card mb-6">
+        <h2 className="font-semibold text-gray-800 mb-3">导入知识文档</h2>
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">文档路径/URL</label>
+            <input type="text" className="input w-full" placeholder="/path/to/file.pdf 或 https://..."
+              value={ingestUri} onChange={e => setIngestUri(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">标题（可选）</label>
+            <input type="text" className="input w-full" placeholder="文档标题"
+              value={ingestTitle} onChange={e => setIngestTitle(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">来源标签</label>
+            <input type="text" className="input w-full" placeholder="研报/策略/笔记"
+              value={ingestSource} onChange={e => setIngestSource(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button className="btn-primary" disabled={!ingestUri || ingestMutation.isPending}
+            onClick={() => ingestMutation.mutate()}>
+            {ingestMutation.isPending ? '导入中…' : '导入并索引'}
+          </button>
+        </div>
+      </div>
 
       {submitted && (
         <div className="mb-6">

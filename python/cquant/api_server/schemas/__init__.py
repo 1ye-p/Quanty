@@ -4,6 +4,7 @@ from cquant.api_server.schemas.common import (
     ErrorResponse,
     JobStatus,
     PaginatedResponse,
+    WalkForwardConfig,
 )
 from cquant.api_server.schemas.knowledge import (
     IngestRequestBody,
@@ -30,4 +31,5 @@ __all__ = [
     "PaginatedResponse",
     "SearchRequestBody",
     "SearchResponseBody",
+    "WalkForwardConfig",
 ]

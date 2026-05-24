@@ -36,13 +36,15 @@ def query_backtest_result(run_id: str) -> str:
     """
     try:
         con = _connect()
-        rows = con.execute(
-            "SELECT run_id, engine, strategy_id, dataset_version, "
-            "started_at, completed_at, status, metrics_uri, error_message "
-            "FROM gold_backtest_runs WHERE run_id = ? LIMIT 1",
-            [run_id],
-        ).fetchall()
-        con.close()
+        try:
+            rows = con.execute(
+                "SELECT run_id, engine, strategy_id, dataset_version, "
+                "started_at, completed_at, status, metrics_uri, error_message "
+                "FROM gold_backtest_runs WHERE run_id = ? LIMIT 1",
+                [run_id],
+            ).fetchall()
+        finally:
+            con.close()
     except Exception as exc:
         return json.dumps({"error": f"Database error: {exc}"})
 
@@ -65,25 +67,27 @@ def query_factor_ic(factor_name: str, feature_set_version: str = "") -> str:
     """
     try:
         con = _connect()
-        if feature_set_version:
-            rows = con.execute(
-                "SELECT job_id, factor_name, feature_set_version, status, "
-                "summary_json, created_at "
-                "FROM meta_factor_analytics "
-                "WHERE factor_name = ? AND feature_set_version = ? "
-                "ORDER BY created_at DESC LIMIT 1",
-                [factor_name, feature_set_version],
-            ).fetchall()
-        else:
-            rows = con.execute(
-                "SELECT job_id, factor_name, feature_set_version, status, "
-                "summary_json, created_at "
-                "FROM meta_factor_analytics "
-                "WHERE factor_name = ? "
-                "ORDER BY created_at DESC LIMIT 1",
-                [factor_name],
-            ).fetchall()
-        con.close()
+        try:
+            if feature_set_version:
+                rows = con.execute(
+                    "SELECT job_id, factor_name, feature_set_version, status, "
+                    "summary_json, created_at "
+                    "FROM meta_factor_analytics "
+                    "WHERE factor_name = ? AND feature_set_version = ? "
+                    "ORDER BY created_at DESC LIMIT 1",
+                    [factor_name, feature_set_version],
+                ).fetchall()
+            else:
+                rows = con.execute(
+                    "SELECT job_id, factor_name, feature_set_version, status, "
+                    "summary_json, created_at "
+                    "FROM meta_factor_analytics "
+                    "WHERE factor_name = ? "
+                    "ORDER BY created_at DESC LIMIT 1",
+                    [factor_name],
+                ).fetchall()
+        finally:
+            con.close()
     except Exception as exc:
         return json.dumps({"error": f"Database error: {exc}"})
 
@@ -92,7 +96,6 @@ def query_factor_ic(factor_name: str, feature_set_version: str = "") -> str:
 
     cols = ["job_id", "factor_name", "feature_set_version", "status", "summary_json", "created_at"]
     row = dict(zip(cols, rows[0]))
-    # summary_json is already a JSON string — parse it for readability
     if row.get("summary_json"):
         try:
             row["summary_json"] = json.loads(row["summary_json"])
@@ -114,23 +117,25 @@ def query_risk_snapshot(run_id: str = "", strategy_id: str = "") -> str:
 
     try:
         con = _connect()
-        if run_id:
-            rows = con.execute(
-                "SELECT run_id, snapshot_ts, strategy_id, gross_leverage, net_leverage, "
-                "beta, drawdown, var_95, cvar_95 "
-                "FROM gold_risk_snapshots WHERE run_id = ? "
-                "ORDER BY snapshot_ts DESC LIMIT 1",
-                [run_id],
-            ).fetchall()
-        else:
-            rows = con.execute(
-                "SELECT run_id, snapshot_ts, strategy_id, gross_leverage, net_leverage, "
-                "beta, drawdown, var_95, cvar_95 "
-                "FROM gold_risk_snapshots WHERE strategy_id = ? "
-                "ORDER BY snapshot_ts DESC LIMIT 1",
-                [strategy_id],
-            ).fetchall()
-        con.close()
+        try:
+            if run_id:
+                rows = con.execute(
+                    "SELECT run_id, snapshot_ts, strategy_id, gross_leverage, net_leverage, "
+                    "beta, drawdown, var_95, cvar_95 "
+                    "FROM gold_risk_snapshots WHERE run_id = ? "
+                    "ORDER BY snapshot_ts DESC LIMIT 1",
+                    [run_id],
+                ).fetchall()
+            else:
+                rows = con.execute(
+                    "SELECT run_id, snapshot_ts, strategy_id, gross_leverage, net_leverage, "
+                    "beta, drawdown, var_95, cvar_95 "
+                    "FROM gold_risk_snapshots WHERE strategy_id = ? "
+                    "ORDER BY snapshot_ts DESC LIMIT 1",
+                    [strategy_id],
+                ).fetchall()
+        finally:
+            con.close()
     except Exception as exc:
         return json.dumps({"error": f"Database error: {exc}"})
 

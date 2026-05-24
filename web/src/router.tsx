@@ -13,6 +13,8 @@ import { MLLabPage } from '@/pages/MLLabPage'
 import { NewsPage } from '@/pages/NewsPage'
 import { LivePage } from '@/pages/LivePage'
 import { TradingPage } from '@/pages/TradingPage'
+import { OptimizePage } from '@/pages/OptimizePage'
+import { RiskPage } from '@/pages/RiskPage'
 
 export const router = createBrowserRouter([
   {
@@ -31,6 +33,8 @@ export const router = createBrowserRouter([
       { path: 'live',       element: <LivePage /> },
       { path: 'trading',    element: <TradingPage /> },
       { path: 'news',       element: <NewsPage /> },
+      { path: 'optimize',   element: <OptimizePage /> },
+      { path: 'risk',       element: <RiskPage /> },
       { path: 'datasets',   element: <DatasetsPage /> },
       { path: 'knowledge',  element: <KnowledgePage /> },
       { path: 'advisor',    element: <AdvisorPage /> },

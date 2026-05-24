@@ -26,3 +26,12 @@ class PaginatedResponse(BaseModel, Generic[T]):
     total: int
     page: int = 1
     page_size: int = 20
+
+
+class WalkForwardConfig(BaseModel):
+    """Walk-forward rolling configuration for ML training and backtesting."""
+    n_splits: int = 3
+    gap_days: int = 5
+    window_type: str = "expanding"  # "expanding" | "sliding"
+    step_days: int | None = None
+    purge_window: int = 0

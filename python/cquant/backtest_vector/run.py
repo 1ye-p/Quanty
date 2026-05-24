@@ -43,6 +43,22 @@ class BacktestRunSpec:
     sort_factor: str = "ret_20d"
     tags: dict = field(default_factory=dict)
     risk_policies: list[RiskPolicy] = field(default_factory=list)
+    # ML strategy support
+    strategy_type: str = "StaticTopN"
+    model_version: str = ""
+    label_name: str = "ret_5d"
+    # Walk-forward / eval config
+    eval_mode: str | None = None  # "train" | "valid" | "test" | "all"
+    walk_forward: object | None = None  # WalkForwardConfig | None (avoid import cycle)
+    # MarketNeutral params
+    short_n: int = 10
+    # SectorRotation params
+    sector_map: dict[str, str] = field(default_factory=dict)
+    top_sectors: int = 3
+    top_n_per_sector: int = 3
+    # Combo params
+    sub_strategy_configs: list[dict] = field(default_factory=list)
+    combo_method: str = "equal_weight"
 
 
 class StaticTopNStrategy(Strategy):
@@ -128,15 +144,18 @@ class BacktestRunner:
     def run(self, spec: BacktestRunSpec) -> str:
         """Execute a backtest and persist results. Returns run_id."""
         self._catalog.initialize()
+        if spec.walk_forward:
+            return self._run_walk_forward(spec)
+        return self._run_single(spec)
 
+    def _run_single(self, spec: BacktestRunSpec) -> str:
+        """Run a single backtest (existing logic extracted)."""
         prices = self._load_prices(spec)
         if prices.is_empty():
             raise ValueError(f"No price data for {spec.start_date} to {spec.end_date}")
 
         features = self._load_features(spec)
         strategy = self._build_strategy(spec)
-
-        # Determine cost model based on asset_id patterns
         cost_model = self._detect_cost_model(prices)
 
         bt_spec = BacktestSpec(
@@ -149,6 +168,7 @@ class BacktestRunner:
             features=features,
             tags=spec.tags,
             risk_policies=spec.risk_policies,
+            extra={"catalog": self._catalog},
         )
 
         result = self._engine.run(bt_spec)
@@ -160,6 +180,229 @@ class BacktestRunner:
         self._persist_risk_snapshots(result, run_id)
         if result.pretrade_decisions:
             self._persist_pretrade_decisions(result, run_id)
+        return run_id
+
+    def _run_walk_forward(self, spec: BacktestRunSpec) -> str:
+        """Run walk-forward backtest: train on each fold, test on OOS."""
+        from dataclasses import replace
+
+        dates = self._get_trade_dates(spec)
+        if len(dates) < spec.walk_forward.n_splits + 1:
+            raise ValueError(
+                f"Not enough dates ({len(dates)}) for {spec.walk_forward.n_splits} splits"
+            )
+
+        splits = self._generate_splits_static(dates, spec.walk_forward)
+
+        fold_results = []
+        for i, (train_start, train_end, test_start, test_end) in enumerate(splits):
+            logger.info(
+                "Walk-forward fold %d: train=[%s, %s] test=[%s, %s]",
+                i, train_start, train_end, test_start, test_end,
+            )
+
+            model_id = self._train_fold_model(spec, train_start, train_end, i)
+
+            fold_spec = replace(
+                spec,
+                start_date=test_start,
+                end_date=test_end,
+                model_version=model_id,
+                eval_mode="test",
+                walk_forward=None,  # prevent recursion
+            )
+
+            fold_run_id = self._run_single(fold_spec)
+            fold_results.append({
+                "fold_id": i,
+                "train_start": train_start.isoformat(),
+                "train_end": train_end.isoformat(),
+                "test_start": test_start.isoformat(),
+                "test_end": test_end.isoformat(),
+                "run_id": fold_run_id,
+            })
+
+        aggregated = self._aggregate_fold_metrics(fold_results)
+        run_id = self._persist_walk_forward_result(spec, fold_results, aggregated)
+        return run_id
+
+    def _get_trade_dates(self, spec: BacktestRunSpec) -> list[date]:
+        """Get sorted unique trade dates for the spec's date range."""
+        df = self._catalog.query(
+            "SELECT DISTINCT trade_date FROM silver_prices_1d "
+            "WHERE trade_date >= ? AND trade_date <= ? ORDER BY trade_date",
+            [spec.start_date.isoformat(), spec.end_date.isoformat()],
+        )
+        if df.is_empty():
+            return []
+        return [d if isinstance(d, date) else date.fromisoformat(str(d))
+                for d in df["trade_date"].to_list()]
+
+    @staticmethod
+    def _generate_splits_static(
+        dates: list[date],
+        wf,  # WalkForwardConfig
+        min_train_size: int = 2,
+    ) -> list[tuple[date, date, date, date]]:
+        """Generate (train_start, train_end, test_start, test_end) tuples."""
+        n = len(dates)
+        n_splits = wf.n_splits
+        gap_days = wf.gap_days
+
+        if wf.window_type == "expanding":
+            test_size = max(1, (n - min_train_size) // n_splits)
+            splits = []
+            for i in range(n_splits):
+                test_end_idx = n - (n_splits - i) * test_size
+                test_start_idx = max(test_end_idx - test_size, min_train_size)
+                train_end_idx = test_start_idx - 1
+
+                if gap_days > 0 and train_end_idx > 0:
+                    train_end = dates[train_end_idx]
+                    gap_target = date.fromordinal(train_end.toordinal() + gap_days)
+                    for j in range(test_start_idx, n):
+                        if dates[j] >= gap_target:
+                            test_start_idx = j
+                            break
+
+                if test_start_idx >= n or train_end_idx < 0:
+                    continue
+
+                splits.append((
+                    dates[0],
+                    dates[train_end_idx],
+                    dates[test_start_idx],
+                    dates[min(test_start_idx + test_size, n - 1)],
+                ))
+            return splits
+        else:
+            train_size = max(min_train_size, n // (n_splits + 1))
+            test_size = max(1, (n - train_size) // n_splits)
+            splits = []
+            for i in range(n_splits):
+                train_start_idx = i * test_size
+                train_end_idx = train_start_idx + train_size - 1
+                test_start_idx = train_end_idx + 1
+
+                if gap_days > 0:
+                    train_end = dates[train_end_idx]
+                    gap_target = date.fromordinal(train_end.toordinal() + gap_days)
+                    for j in range(test_start_idx, n):
+                        if dates[j] >= gap_target:
+                            test_start_idx = j
+                            break
+
+                if test_start_idx >= n:
+                    continue
+
+                splits.append((
+                    dates[train_start_idx],
+                    dates[train_end_idx],
+                    dates[test_start_idx],
+                    dates[min(test_start_idx + test_size, n - 1)],
+                ))
+            return splits
+
+    def _train_fold_model(
+        self, spec: BacktestRunSpec, train_start: date, train_end: date, fold_id: int
+    ) -> str:
+        """Train a model for a walk-forward fold."""
+        from cquant.ml_lab.pipeline import run_ml_prediction_pipeline
+
+        features = self._load_features_for_range(spec, train_start, train_end)
+        if features.is_empty():
+            raise ValueError(f"No features for training period {train_start} to {train_end}")
+
+        model_id = run_ml_prediction_pipeline(
+            catalog=self._catalog,
+            features=features,
+            target_col=spec.label_name,
+            model_id_prefix=f"{spec.strategy_id}_fold{fold_id}",
+            n_splits=1,
+            gap_days=0,
+        )
+        return model_id
+
+    def _load_features_for_range(
+        self, spec: BacktestRunSpec, start: date, end: date
+    ) -> pl.DataFrame:
+        """Load factor values for a specific date range."""
+        if not spec.feature_set_version:
+            return pl.DataFrame()
+        df = self._catalog.query(
+            "SELECT asset_id, trade_date, factor_name, value "
+            "FROM gold_factor_values "
+            "WHERE feature_set_version = ? AND trade_date >= ? AND trade_date <= ?",
+            [spec.feature_set_version, start.isoformat(), end.isoformat()],
+        )
+        if df.is_empty():
+            return pl.DataFrame()
+        if df["trade_date"].dtype == pl.Utf8:
+            df = df.with_columns(pl.col("trade_date").str.to_date())
+        return df.pivot(
+            index=["asset_id", "trade_date"],
+            on="factor_name",
+            values="value",
+        )
+
+    def _aggregate_fold_metrics(self, fold_results: list[dict]) -> dict:
+        """Aggregate metrics across walk-forward folds."""
+        all_metrics = []
+        for fold in fold_results:
+            metrics = self.get_run_metrics(fold["run_id"])
+            if metrics:
+                all_metrics.append(metrics)
+
+        if not all_metrics:
+            return {}
+
+        keys = ["sharpe_ratio", "total_return", "max_drawdown", "win_rate", "calmar_ratio"]
+        aggregated = {}
+        for k in keys:
+            vals = [m.get(k, 0) for m in all_metrics if m.get(k) is not None]
+            if vals:
+                aggregated[f"avg_{k}"] = sum(vals) / len(vals)
+                aggregated[f"min_{k}"] = min(vals)
+                aggregated[f"max_{k}"] = max(vals)
+        aggregated["n_folds"] = len(all_metrics)
+        return aggregated
+
+    def _persist_walk_forward_result(
+        self, spec: BacktestRunSpec, fold_results: list[dict], aggregated: dict
+    ) -> str:
+        """Persist walk-forward result to gold_backtest_runs + gold_wf_folds."""
+        run_id = str(uuid.uuid4())
+        now = datetime.now(tz=timezone.utc).isoformat()
+
+        conn = self._catalog._get_conn()
+        conn.execute(
+            "INSERT INTO gold_backtest_runs "
+            "(run_id, engine, strategy_id, dataset_version, started_at, completed_at, status, "
+            " is_walk_forward, n_folds, aggregated_metrics_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?)",
+            [
+                run_id, "walk_forward", spec.strategy_id, spec.dataset_version,
+                now, now, True, len(fold_results), json.dumps(aggregated),
+            ],
+        )
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS gold_wf_folds (
+                run_id VARCHAR, fold_id INTEGER,
+                train_start VARCHAR, train_end VARCHAR,
+                test_start VARCHAR, test_end VARCHAR,
+                fold_run_id VARCHAR, PRIMARY KEY (run_id, fold_id)
+            )
+        """)
+        for fold in fold_results:
+            conn.execute(
+                "INSERT OR REPLACE INTO gold_wf_folds "
+                "(run_id, fold_id, train_start, train_end, test_start, test_end, fold_run_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [run_id, fold["fold_id"], fold["train_start"], fold["train_end"],
+                 fold["test_start"], fold["test_end"], fold["run_id"]],
+            )
+
         return run_id
 
     def run_engine(
@@ -394,11 +637,80 @@ class BacktestRunner:
         return wide
 
     def _build_strategy(self, spec: BacktestRunSpec) -> Strategy:
+        if spec.strategy_type == "MLModelStrategy":
+            if not spec.model_version:
+                raise ValueError(
+                    "model_version is required for MLModelStrategy. "
+                    "Please train a model in ML Lab first."
+                )
+            from cquant.backtest_vector.strategies.ml_strategy import MLModelStrategy
+            return MLModelStrategy(
+                strategy_id=spec.strategy_id,
+                model_version=spec.model_version,
+                top_n=spec.top_n,
+                label_name=spec.label_name,
+            )
+        if spec.strategy_type == "MultiFactor":
+            from cquant.backtest_vector.strategies.multi_factor import MultiFactorStrategy
+            return MultiFactorStrategy(
+                strategy_id=spec.strategy_id,
+                factor_weights={spec.sort_factor: 1.0},
+                top_n=spec.top_n,
+            )
+        if spec.strategy_type == "MarketNeutral":
+            from cquant.backtest_vector.strategies.market_neutral import MarketNeutralStrategy
+            return MarketNeutralStrategy(
+                strategy_id=spec.strategy_id,
+                factor_col=spec.sort_factor,
+                top_n=spec.top_n,
+                short_n=spec.short_n,
+            )
+        if spec.strategy_type == "SectorRotation":
+            from cquant.backtest_vector.strategies.sector_rotation import SectorRotationStrategy
+            return SectorRotationStrategy(
+                strategy_id=spec.strategy_id,
+                factor_col=spec.sort_factor,
+                sector_map=spec.sector_map or None,
+                top_sectors=spec.top_sectors,
+                top_n_per_sector=spec.top_n_per_sector,
+            )
+        if spec.strategy_type == "Combo":
+            from cquant.backtest_vector.strategies.combo import CompositeStrategy
+            sub_strategies = [
+                self._build_strategy_from_config(cfg, idx)
+                for idx, cfg in enumerate(spec.sub_strategy_configs)
+            ]
+            return CompositeStrategy(
+                strategy_id=spec.strategy_id,
+                strategies=sub_strategies,
+                method=spec.combo_method,
+            )
         return StaticTopNStrategy(
             strategy_id=spec.strategy_id,
             top_n=spec.top_n,
             sort_factor=spec.sort_factor,
         )
+
+    def _build_strategy_from_config(self, cfg: dict, idx: int) -> Strategy:
+        """Build a sub-strategy from a config dict (used by Combo)."""
+        stype = cfg.get("strategy_type", "StaticTopN")
+        sid = f"{cfg.get('strategy_id', 'sub')}_{idx}"
+        sub_spec = BacktestRunSpec(
+            dataset_version="",
+            strategy_id=sid,
+            start_date=date.today(),
+            end_date=date.today(),
+            strategy_type=stype,
+            top_n=cfg.get("top_n", 10),
+            sort_factor=cfg.get("sort_factor", "ret_20d"),
+            model_version=cfg.get("model_version", ""),
+            label_name=cfg.get("label_name", "ret_5d"),
+            short_n=cfg.get("short_n", 10),
+            sector_map=cfg.get("sector_map", {}),
+            top_sectors=cfg.get("top_sectors", 3),
+            top_n_per_sector=cfg.get("top_n_per_sector", 3),
+        )
+        return self._build_strategy(sub_spec)
 
     def _detect_cost_model(self, prices: pl.DataFrame) -> CostModel:
         """Detect cost model based on asset_id exchange prefix."""
@@ -420,7 +732,8 @@ class BacktestRunner:
             if result.positions.is_empty():
                 return None
             return compute_portfolio_turnover(result.positions)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Turnover computation failed: %s", exc)
             return None
 
     @staticmethod
@@ -431,7 +744,8 @@ class BacktestRunner:
             if result.positions.is_empty():
                 return None
             return compute_hhi(result.positions)
-        except Exception:
+        except Exception as exc:
+            logger.debug("HHI computation failed: %s", exc)
             return None
 
     def _persist_run(self, result, spec: BacktestRunSpec) -> str:

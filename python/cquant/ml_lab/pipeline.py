@@ -24,7 +24,12 @@ def run_ml_prediction_pipeline(
     gap_days: int = 5,
     horizon: str = "5d",
 ) -> str:
-    """训练 LightGBM 模型并将预测写入 gold_predictions。
+    """训练 LightGBM 模型并将每个 fold 的 OOS 预测写入 gold_predictions。
+
+    Walk-forward 训练流程：
+    1. 将数据按时间分割为 n_splits 个 fold
+    2. 对每个 fold：训练模型 → 只在 OOS 期间生成预测 → 持久化
+    3. 返回组合 model_id（MLModelStrategy 按前缀匹配所有 fold）
 
     参数
     ----
@@ -46,7 +51,8 @@ def run_ml_prediction_pipeline(
 
     返回
     ----
-    训练完成的 ModelArtifact.model_id（用于构建 MLModelStrategy）。
+    组合 model_id（格式：``"{prefix}_wf_{n_splits}folds"``）。
+    MLModelStrategy 使用此前缀查询所有 fold 的预测。
     """
     from cquant.ml_lab.trainers.lgbm import LGBMTrainer
     from cquant.ml_lab.walk_forward import WalkForwardValidator
@@ -60,28 +66,36 @@ def run_ml_prediction_pipeline(
     splits = wfv.split(features)
 
     trainer = LGBMTrainer()
-    artifact = None
+    composite_id = f"{model_id_prefix}_wf_{n_splits}folds"
 
     for i, (train_df, valid_df) in enumerate(splits):
-        logger.info("WalkForward 训练折 %d/%d，训练集 %d 行", i + 1, len(splits), len(train_df))
+        fold_id = f"fold{i}"
+        logger.info(
+            "WalkForward 训练折 %d/%d，训练集 %d 行，OOS %d 行",
+            i + 1, len(splits), len(train_df), len(valid_df),
+        )
+
         artifact = trainer.fit(
             train_df.drop_nulls([target_col]),
             valid_df.drop_nulls([target_col]),
             {
                 "target_name": target_col,
+                "model_id": composite_id,
                 "metadata": {"prefix": model_id_prefix, "fold": i},
             },
         )
 
-    if artifact is None:
-        raise ValueError("训练失败：WalkForward 未产出有效分割")
+        # 只在 OOS 期间生成预测，使用 fold_id 标识
+        trainer.predict_and_persist(
+            features=valid_df,
+            model_artifact=artifact,
+            catalog=catalog,
+            horizon=horizon,
+            fold_id=fold_id,
+        )
 
-    logger.info("生成预测并写入 gold_predictions，model_id=%s", artifact.model_id)
-    trainer.predict_and_persist(
-        features=features,
-        model_artifact=artifact,
-        catalog=catalog,
-        horizon=horizon,
+    logger.info(
+        "Walk-forward 训练完成，共 %d 个 fold，组合 model_id=%s",
+        len(splits), composite_id,
     )
-
-    return artifact.model_id
+    return composite_id

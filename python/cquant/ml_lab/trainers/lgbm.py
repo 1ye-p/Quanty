@@ -104,6 +104,7 @@ class LGBMTrainer(Trainer):
         model_artifact: ModelArtifact,
         catalog: "Catalog",
         horizon: str = "5d",
+        fold_id: str | None = None,
     ) -> pl.Series:
         """Generate predictions and write them to gold_predictions.
 
@@ -112,7 +113,7 @@ class LGBMTrainer(Trainer):
         from cquant.ml_lab.base import persist_predictions
 
         predictions = self.predict(features, model_artifact)
-        persist_predictions(model_artifact, features, predictions, catalog, horizon)
+        persist_predictions(model_artifact, features, predictions, catalog, horizon, fold_id=fold_id)
         return predictions
 
     def feature_importance(

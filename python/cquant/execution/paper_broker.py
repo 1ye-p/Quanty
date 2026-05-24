@@ -297,6 +297,16 @@ class PaperBroker(Broker):
 
         # Adjust qty if needed
         sell_qty = min(order.qty, pos.qty)
+
+        # Volume participation constraint (same as buy side)
+        if self._max_volume_pct > 0:
+            adv = self._volumes.get(order.asset_id, 0.0)
+            if adv > 0:
+                max_qty = int(adv * self._max_volume_pct)
+                max_qty = (max_qty // 100) * 100
+                if max_qty < 100:
+                    max_qty = 100
+                sell_qty = min(sell_qty, max_qty)
         notional = sell_qty * price
         commission = float(self._cost_model.commission(Decimal(str(notional))))
         stamp_duty = float(self._cost_model.stamp_duty(Decimal(str(notional)), is_sell=True))

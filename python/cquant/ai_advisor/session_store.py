@@ -57,14 +57,17 @@ class SessionStore:
     def _deserialize_history(history_json: str) -> list:
         from cquant.ai_advisor.agents.base import AgentTurn
         turns = json.loads(history_json)
-        return [
-            AgentTurn(
-                role=t["role"],
-                content=t["content"],
+        result = []
+        for t in turns:
+            if not isinstance(t, dict) or "role" not in t or "content" not in t:
+                logger.warning("Skipping malformed history entry: %s", t)
+                continue
+            result.append(AgentTurn(
+                role=str(t["role"]),
+                content=str(t["content"]),
                 artifacts=t.get("artifacts", []),
-            )
-            for t in turns
-        ]
+            ))
+        return result
 
     def save(self, session) -> None:
         """Persist *session* (INSERT or UPDATE)."""
@@ -92,9 +95,13 @@ class SessionStore:
             ).fetchone()
         if row is None:
             return None
-        session = AdvisorSession(session_id=session_id)
-        session.history = self._deserialize_history(row[0])
-        return session
+        try:
+            session = AdvisorSession(session_id=session_id)
+            session.history = self._deserialize_history(row[0])
+            return session
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            logger.error("Corrupted session data for %s: %s", session_id, exc)
+            return None
 
     def list_sessions(self) -> list[str]:
         """Return all session IDs ordered by most recently updated."""

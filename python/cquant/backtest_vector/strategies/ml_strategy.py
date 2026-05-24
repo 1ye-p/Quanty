@@ -62,12 +62,16 @@ class MLModelStrategy(Strategy):
             )
             return _empty_frame()
 
+        # Use LIKE for composite model_id (walk-forward folds: model_id_fold0, model_id_fold1, ...)
+        # Also works for single model_id (backward compatible)
+        model_pattern = f"{self._model_version}%"
+
         try:
             preds = catalog.query(
                 """
                 SELECT asset_id, prediction
                 FROM gold_predictions
-                WHERE model_version = ?
+                WHERE model_version LIKE ?
                   AND trade_date = ?
                   AND label_name = ?
                   AND prediction > ?
@@ -75,7 +79,7 @@ class MLModelStrategy(Strategy):
                 LIMIT ?
                 """,
                 [
-                    self._model_version,
+                    model_pattern,
                     ctx.as_of_date.isoformat(),
                     self._label_name,
                     self._min_prediction,

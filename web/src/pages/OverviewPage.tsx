@@ -39,8 +39,8 @@ export function OverviewPage() {
     queryFn: () => datasetsApi.list(5),
   })
   const { data: backtests } = useQuery({
-    queryKey: queryKeys.backtests.list(5),
-    queryFn: () => backtestsApi.list(5),
+    queryKey: queryKeys.backtests.list(0, 5),
+    queryFn: () => backtestsApi.list(0, 5),
   })
   const { data: knowledgeDocs } = useQuery({
     queryKey: queryKeys.knowledge.list(),
@@ -152,15 +152,13 @@ export function OverviewPage() {
       <div className="card bg-gradient-to-r from-brand-600 to-indigo-700 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-semibold text-lg">cQuant v0.1.0</div>
+            <div className="font-semibold text-lg">cQuant</div>
             <div className="text-blue-100 text-sm mt-1">
               后端 API · <span className="font-mono text-xs">localhost:8000/api/docs</span>
             </div>
           </div>
           <div className="text-right text-sm text-blue-100 space-y-0.5">
-            <div>✅ 35 个单元测试通过</div>
-            <div>✅ Phase 1+2+3 全部完成</div>
-            <div>🔒 无真实交易接口</div>
+            <div>🔒 仅限研究用途 · 不执行真实交易</div>
           </div>
         </div>
       </div>
