@@ -14,6 +14,10 @@ class _ReturnNd(Factor):
         self._n = n
 
     @property
+    def description(self) -> str:
+        return f"N 日收益率：(close_t / close_{self._n}d) - 1"
+
+    @property
     def name(self) -> str:
         return f"ret_{self._n}d"
 
@@ -69,6 +73,10 @@ class Return240d(_ReturnNd):
 
 class Momentum12_1(Factor):
     """12-month momentum excluding the most recent month (classic Jegadeesh-Titman)."""
+
+    @property
+    def description(self) -> str:
+        return "12 个月动量（剔除最近 1 个月），经典 Jegadeesh-Titman 因子"
 
     @property
     def name(self) -> str:

@@ -12,6 +12,10 @@ from cquant.factorlab.factor import Factor, FactorContext
 
 class _KbarBase(Factor):
     @property
+    def description(self) -> str:
+        return (self.__class__.__doc__ or "").strip().split("\n")[0]
+
+    @property
     def tags(self) -> list[str]:
         return ["alpha158", "kbar", "price"]
 

@@ -21,12 +21,40 @@ class _A158Ext(Factor):
     """Alpha158 扩展因子基类（新增，非原有）。"""
 
     @property
+    def description(self) -> str:
+        name = self.__class__.__name__
+        if name.startswith("MAX"):
+            return f"{name[3:]} 日最高价 / close"
+        if name.startswith("MIN"):
+            return f"{name[3:]} 日最低价 / close"
+        if name.startswith("ROC"):
+            return f"{name[3:]} 日 ROC（变动率）"
+        if name.startswith("MA"):
+            return f"{name[2:]} 日均线比值"
+        if name.startswith("STD"):
+            return f"{name[3:]} 日收盘价标准差 / close"
+        if name.startswith("RSV"):
+            return f"{name[3:]} 日 RSV（未成熟随机值）"
+        return (self.__class__.__doc__ or "").strip().split("\n")[0]
+
+    @property
     def tags(self) -> list[str]:
         return ["alpha158", "rolling", "price"]
 
 
 class _Vol(Factor):
     """Alpha158 成交量因子基类。"""
+
+    @property
+    def description(self) -> str:
+        name = self.__class__.__name__
+        if "VMA" in name:
+            return f"{self._n} 日成交量均线比值"
+        if "VSTD" in name:
+            return f"{self._n} 日成交量标准差"
+        if "VROC" in name:
+            return f"{self._n} 日成交量变动率"
+        return ""
 
     @property
     def tags(self) -> list[str]:

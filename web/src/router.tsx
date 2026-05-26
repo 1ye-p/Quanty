@@ -15,6 +15,7 @@ import { LivePage } from '@/pages/LivePage'
 import { TradingPage } from '@/pages/TradingPage'
 import { OptimizePage } from '@/pages/OptimizePage'
 import { RiskPage } from '@/pages/RiskPage'
+import { ScoringPage } from '@/pages/ScoringPage'
 
 export const router = createBrowserRouter([
   {
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       { path: 'news',       element: <NewsPage /> },
       { path: 'optimize',   element: <OptimizePage /> },
       { path: 'risk',       element: <RiskPage /> },
+      { path: 'scoring',    element: <ScoringPage /> },
       { path: 'datasets',   element: <DatasetsPage /> },
       { path: 'knowledge',  element: <KnowledgePage /> },
       { path: 'advisor',    element: <AdvisorPage /> },

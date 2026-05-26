@@ -6,8 +6,22 @@ import asyncio
 import json
 import logging
 import pathlib
+import re
 import uuid
 from datetime import date, datetime, timezone
+
+_ARTIFACTS_BASE = pathlib.Path("data/backtest_artifacts").resolve()
+_UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+
+
+def _safe_metrics_path(run_id: str) -> pathlib.Path | None:
+    """Return path to metrics file only if run_id is a valid UUID and resolves within base dir."""
+    if not _UUID_RE.match(run_id):
+        return None
+    p = (_ARTIFACTS_BASE / f"{run_id}.json").resolve()
+    if not str(p).startswith(str(_ARTIFACTS_BASE)):
+        return None
+    return p
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
@@ -39,6 +53,23 @@ def _ensure_job_table(catalog) -> None:
         catalog.execute(_JOB_DDL)
     except Exception as exc:
         logger.debug("_ensure_job_table: %s (likely already exists)", exc)
+
+
+_schema_ensured = False
+
+
+def _ensure_schema_extensions(catalog) -> None:
+    """Add optional columns to gold_backtest_runs (idempotent, runs once per process)."""
+    global _schema_ensured
+    if _schema_ensured:
+        return
+    try:
+        catalog.execute(
+            "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS benchmark_asset_id VARCHAR DEFAULT ''"
+        )
+    except Exception as exc:
+        logger.debug("_ensure_schema_extensions: %s", exc)
+    _schema_ensured = True
 
 
 def _save_job(catalog, job_id: str, job_type: str, status: str,
@@ -108,6 +139,14 @@ class BacktestCreateBody(BaseModel):
     # Combo params
     sub_strategy_configs: list[dict] = []
     combo_method: str = "equal_weight"
+    # CustomWeightStrategy params
+    custom_weights: dict[str, float] | None = None
+    # Universe filtering
+    universe_id: str = "all"
+    # Benchmark
+    benchmark_asset_id: str = ""
+    # Cross-sectional scoring integration
+    scoring_run_id: str = ""  # if set, use pre-computed scores as ranking signal
 
 
 def _run_backtest(catalog, spec):
@@ -159,6 +198,8 @@ async def create_backtest(
     top_n_per_sector = body.top_n_per_sector if body.top_n_per_sector != 3 else parsed.get("top_n_per_sector", 3)
     sub_strategy_configs = body.sub_strategy_configs or parsed.get("sub_strategy_configs", [])
     combo_method = body.combo_method if body.combo_method != "equal_weight" else parsed.get("combo_method", "equal_weight")
+    custom_weights = body.custom_weights or parsed.get("custom_weights", {}) or {}
+    universe_id = body.universe_id if body.universe_id != "all" else parsed.get("universe_id", "all")
 
     from cquant.backtest_vector.run import BacktestRunSpec
 
@@ -178,6 +219,53 @@ async def create_backtest(
                 logger.info("OOS split: adjusted start_date to %s (train_end_date=%s)", start, train_end)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=f"Invalid train_end_date format: {e}")
+
+    # Scoring run 校验 + 日期范围截断
+    scoring_date_warning: str = ""
+    if body.scoring_run_id:
+        try:
+            scoring_meta = catalog.query(
+                "SELECT start_date, end_date, status FROM meta_scoring_runs WHERE run_id = ?",
+                [body.scoring_run_id],
+            )
+            if scoring_meta.is_empty():
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"打分任务 '{body.scoring_run_id}' 不存在",
+                )
+            scoring_status = scoring_meta["status"][0]
+            if scoring_status != "completed":
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"打分任务 '{body.scoring_run_id}' 尚未完成（当前状态: {scoring_status}），"
+                           f"请等待打分完成后再提交回测",
+                )
+            s_start = str(scoring_meta["start_date"].item()).split()[0]
+            s_end = str(scoring_meta["end_date"].item()).split()[0]
+                bt_start = body.start_date
+                bt_end = body.end_date
+                effective_start = max(bt_start, s_start)
+                effective_end = min(bt_end, s_end)
+                if effective_start > effective_end:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"回测日期范围 ({bt_start}~{bt_end}) 与打分结果范围 ({s_start}~{s_end}) 无交集",
+                    )
+                if effective_start != bt_start or effective_end != bt_end:
+                    scoring_date_warning = (
+                        f"回测范围已截断为 {effective_start}~{effective_end}（受打分数据范围限制）"
+                    )
+                    body = body.model_copy(update={
+                        "start_date": effective_start,
+                        "end_date": effective_end,
+                    })
+                    # Re-parse start/end so BacktestRunSpec receives truncated dates
+                    start = date.fromisoformat(effective_start)
+                    end = date.fromisoformat(effective_end)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning("Failed to check scoring date range: %s", e)
 
     # Auto-detect feature_set_version if not provided
     feature_set_version = body.feature_set_version
@@ -209,8 +297,13 @@ async def create_backtest(
         top_n_per_sector=top_n_per_sector,
         sub_strategy_configs=sub_strategy_configs,
         combo_method=combo_method,
+        custom_weights=custom_weights,
+        universe_id=universe_id,
+        benchmark_asset_id=body.benchmark_asset_id,
+        scoring_run_id=body.scoring_run_id,
     )
 
+    _ensure_schema_extensions(catalog)
     _ensure_job_table(catalog)
     job_id = str(uuid.uuid4())
     _save_job(catalog, job_id, job_type="backtest", status="running")
@@ -224,7 +317,7 @@ async def create_backtest(
             _save_job(catalog, job_id, "backtest", "failed", error=f"Backtest failed: {str(exc)[:200]}")
 
     background_tasks.add_task(_run_job)
-    return {"job_id": job_id, "strategy_id": body.strategy_id, "status": "running"}
+    return {"job_id": job_id, "strategy_id": body.strategy_id, "status": "running", "warning": scoring_date_warning}
 
 
 @router.get("/jobs/{job_id}")
@@ -253,6 +346,69 @@ async def list_backtests(catalog: CatalogDep, offset: int = 0, limit: int = 50) 
     return {"items": df.to_dicts(), "total": total}
 
 
+@router.get("/compare")
+async def compare_backtests(run_ids: str, catalog: CatalogDep) -> dict:
+    """批量获取多个回测的关键指标和净值曲线，用于横向对比。
+
+    Args:
+        run_ids: 逗号分隔的 run_id，最多 6 个
+    """
+    ids = [r.strip() for r in run_ids.split(",") if r.strip()]
+    if not ids:
+        raise HTTPException(status_code=400, detail="run_ids 不能为空")
+    if len(ids) > 6:
+        raise HTTPException(status_code=400, detail="最多同时对比 6 个回测")
+
+    # 批量查询所有 run 的元数据 — 1 次 DB 查询
+    in_ph = ",".join(["?" for _ in ids])
+    runs_df = catalog.query(
+        f"SELECT run_id, strategy_id, engine, status, started_at, dataset_version "
+        f"FROM gold_backtest_runs WHERE run_id IN ({in_ph})",
+        ids,
+    )
+    runs_by_id = {r["run_id"]: r for r in runs_df.to_dicts()}
+
+    # 批量查询所有 run 的净值快照 — 1 次 DB 查询
+    snaps_df = catalog.query(
+        f"SELECT run_id, trade_date, nav FROM gold_portfolio_snapshots "
+        f"WHERE run_id IN ({in_ph}) ORDER BY run_id, trade_date",
+        ids,
+    )
+    snaps_by_run: dict[str, list[dict]] = {}
+    for row in snaps_df.to_dicts():
+        snaps_by_run.setdefault(row["run_id"], []).append(
+            {"date": str(row["trade_date"]), "nav": float(row["nav"])}
+        )
+
+    # 从磁盘加载指标（无法批量，但是纯 I/O）
+    results = []
+    for run_id in ids:
+        run_info = runs_by_id.get(run_id)
+        if not run_info:
+            continue
+
+        metrics: dict = {}
+        metrics_path = _safe_metrics_path(run_id)
+        if metrics_path and metrics_path.exists():
+            try:
+                metrics = json.loads(metrics_path.read_text())
+            except Exception:
+                pass
+
+        results.append({
+            "run_id": run_id,
+            "strategy_id": run_info.get("strategy_id", ""),
+            "engine": run_info.get("engine", ""),
+            "status": run_info.get("status", ""),
+            "started_at": str(run_info.get("started_at", "")),
+            "dataset_version": run_info.get("dataset_version", ""),
+            "metrics": metrics,
+            "nav_series": snaps_by_run.get(run_id, []),
+        })
+
+    return {"runs": results}
+
+
 @router.get("/{run_id}")
 async def get_backtest(run_id: str, catalog: CatalogDep) -> dict:
     """Get a specific backtest run with metrics."""
@@ -265,8 +421,8 @@ async def get_backtest(run_id: str, catalog: CatalogDep) -> dict:
     result = df.to_dicts()[0]
 
     # Load metrics from artifacts file (offload to thread to avoid blocking event loop)
-    metrics_path = pathlib.Path("data/backtest_artifacts") / f"{run_id}.json"
-    if metrics_path.exists():
+    metrics_path = _safe_metrics_path(run_id)
+    if metrics_path and metrics_path.exists():
         try:
             result["metrics"] = await asyncio.to_thread(_load_metrics, metrics_path)
         except (json.JSONDecodeError, OSError) as e:
@@ -369,12 +525,49 @@ async def get_tearsheet(run_id: str, catalog: CatalogDep) -> dict:
         [run_id],
     )
 
+    # Load benchmark NAV series
+    benchmark_nav: list[dict] = []
+    benchmark_asset_id = ""
+    try:
+        run_meta = catalog.query(
+            "SELECT benchmark_asset_id, started_at, completed_at "
+            "FROM gold_backtest_runs WHERE run_id = ?",
+            [run_id],
+        )
+        if not run_meta.is_empty():
+            row = run_meta.to_dicts()[0]
+            benchmark_asset_id = row.get("benchmark_asset_id") or ""
+            if benchmark_asset_id and not snapshots_df.is_empty():
+                dates = snapshots_df["trade_date"].to_list()
+                start_d = str(min(dates))
+                end_d = str(max(dates))
+                bm_df = catalog.query(
+                    "SELECT trade_date, close FROM silver_prices_1d "
+                    "WHERE asset_id = ? AND trade_date >= ? AND trade_date <= ? "
+                    "ORDER BY trade_date",
+                    [benchmark_asset_id, start_d, end_d],
+                )
+                if not bm_df.is_empty():
+                    first_close = float(bm_df["close"][0])
+                    if first_close > 0:
+                        benchmark_nav = [
+                            {
+                                "date": str(r["trade_date"]),
+                                "nav": float(r["close"]) / first_close,
+                            }
+                            for r in bm_df.to_dicts()
+                        ]
+    except Exception as e:
+        logger.warning("Failed to load benchmark NAV for %s: %s", run_id, e)
+
     return {
         "run": run_df.to_dicts()[0],
         "analysis": analysis,
         "risk_series": risk_df.to_dicts(),
         "snapshots": snapshots_df.to_dicts() if not snapshots_df.is_empty() else [],
         "note": "portfolio_returns are not yet persisted; use risk_series for PnL approximation",
+        "benchmark_asset_id": benchmark_asset_id,
+        "benchmark_nav": benchmark_nav,
     }
 
 
@@ -455,8 +648,8 @@ async def get_walk_forward_folds(run_id: str, catalog: CatalogDep) -> dict:
     folds = []
     for row in folds_df.to_dicts():
         fold_metrics = {}
-        metrics_path = pathlib.Path("data/backtest_artifacts") / f"{row['fold_run_id']}.json"
-        if metrics_path.exists():
+        metrics_path = _safe_metrics_path(row["fold_run_id"])
+        if metrics_path and metrics_path.exists():
             try:
                 fold_metrics = json.loads(metrics_path.read_text())
             except Exception:

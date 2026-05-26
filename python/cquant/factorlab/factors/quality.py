@@ -11,6 +11,10 @@ class ROE(FundamentalFactor):
     _column = "roe"
 
     @property
+    def description(self) -> str:
+        return "净资产收益率（Return on Equity）"
+
+    @property
     def name(self) -> str:
         return "roe"
 
@@ -25,6 +29,10 @@ class ROA(FundamentalFactor):
     _column = "roa"
 
     @property
+    def description(self) -> str:
+        return "总资产收益率（Return on Assets）"
+
+    @property
     def name(self) -> str:
         return "roa"
 
@@ -37,6 +45,10 @@ class GrossMargin(FundamentalFactor):
     """Gross profit margin."""
 
     _column = "gross_margin"
+
+    @property
+    def description(self) -> str:
+        return "毛利率（毛利润 / 营业收入）"
 
     @property
     def name(self) -> str:

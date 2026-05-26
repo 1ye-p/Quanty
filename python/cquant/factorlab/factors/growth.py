@@ -11,6 +11,10 @@ class RevenueGrowth(FundamentalFactor):
     _column = "revenue_growth_yoy"
 
     @property
+    def description(self) -> str:
+        return "营业收入同比增长率"
+
+    @property
     def name(self) -> str:
         return "revenue_growth_yoy"
 
@@ -23,6 +27,10 @@ class EarningsGrowth(FundamentalFactor):
     """Year-over-year earnings growth rate."""
 
     _column = "earnings_growth_yoy"
+
+    @property
+    def description(self) -> str:
+        return "净利润同比增长率"
 
     @property
     def name(self) -> str:

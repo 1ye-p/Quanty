@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { optimizeApi } from '@/lib/api'
 import type { OptimizeResult } from '@/lib/api'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
@@ -10,6 +11,8 @@ const COLORS = [
 ]
 
 export function OptimizePage() {
+  const navigate = useNavigate()
+
   // Covariance inputs
   const [assetIdsText, setAssetIdsText] = useState('')
   const [covMethod, setCovMethod] = useState<'historical' | 'ewma' | 'ledoit_wolf'>('historical')
@@ -252,6 +255,27 @@ export function OptimizePage() {
               </div>
             </div>
           </div>
+
+          <button
+            className="btn-secondary text-sm w-full mt-2"
+            onClick={() => {
+              const weights = optResult.weights as Record<string, number>
+              navigate('/strategies', {
+                state: {
+                  openBacktest: true,
+                  prefill: {
+                    strategy_id: `opt_${optimizer}_${Date.now().toString(36)}`,
+                    config: JSON.stringify({
+                      strategy_type: 'CustomWeightStrategy',
+                      custom_weights: weights,
+                    }, null, 2),
+                  },
+                },
+              })
+            }}
+          >
+            → 用这组权重运行回测
+          </button>
         </div>
       )}
     </div>

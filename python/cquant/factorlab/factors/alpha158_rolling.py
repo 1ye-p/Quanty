@@ -22,6 +22,10 @@ class _ROC(_RollingBase):
         self._n = n
 
     @property
+    def description(self) -> str:
+        return f"{self._n} 日 ROC（变动率指标）：close.shift({self._n}) / close"
+
+    @property
     def name(self) -> str:
         return f"ROC{self._n}"
 
@@ -64,6 +68,10 @@ class _MA(_RollingBase):
     """MA = rolling_mean(close, n) / close（n 天均价 / 当前价）"""
     def __init__(self, n: int) -> None:
         self._n = n
+
+    @property
+    def description(self) -> str:
+        return f"{self._n} 日均线比值：rolling_mean(close, {self._n}) / close"
 
     @property
     def name(self) -> str:
@@ -110,6 +118,10 @@ class _STD(_RollingBase):
         self._n = n
 
     @property
+    def description(self) -> str:
+        return f"{self._n} 日收盘价标准差 / close"
+
+    @property
     def name(self) -> str:
         return f"STD{self._n}"
 
@@ -154,6 +166,10 @@ class _MAX(_RollingBase):
         self._n = n
 
     @property
+    def description(self) -> str:
+        return f"{self._n} 日最高价 / close"
+
+    @property
     def name(self) -> str:
         return f"MAX{self._n}"
 
@@ -186,6 +202,10 @@ class _MIN(_RollingBase):
     """MIN = rolling_min(low, n) / close（n 天最低价 / 当前价）"""
     def __init__(self, n: int) -> None:
         self._n = n
+
+    @property
+    def description(self) -> str:
+        return f"{self._n} 日最低价 / close"
 
     @property
     def name(self) -> str:

@@ -11,6 +11,10 @@ class TurnoverRate20d(Factor):
     """20-day average turnover rate (volume / 20-day avg volume)."""
 
     @property
+    def description(self) -> str:
+        return "20 日平均换手率"
+
+    @property
     def name(self) -> str:
         return "turnover_rate_20d"
 
@@ -33,6 +37,10 @@ class TurnoverRate20d(Factor):
 
 class VolumeRatio5d(Factor):
     """5-day volume ratio (short-term vs 20-day average)."""
+
+    @property
+    def description(self) -> str:
+        return "5 日量比（短期成交量 / 20 日均量）"
 
     @property
     def name(self) -> str:
@@ -58,6 +66,10 @@ class VolumeRatio5d(Factor):
 
 class AmountRatio5d(Factor):
     """5-day amount ratio (short-term vs 20-day average)."""
+
+    @property
+    def description(self) -> str:
+        return "5 日额比（短期成交额 / 20 日均额）"
 
     @property
     def name(self) -> str:

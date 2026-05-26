@@ -1,0 +1,397 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { keepPreviousData } from '@tanstack/react-query'
+import { scoringApi, factorAnalyticsApi } from '@/lib/api'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+
+interface FactorWeightConfig {
+  factor_name: string
+  weight: number
+  direction: 'long' | 'short'
+}
+
+const PAGE_SIZE = 50
+
+export function ScoringPage() {
+  const [name, setName] = useState('momentum_value_v1')
+  const [featureSetVersion, setFeatureSetVersion] = useState('')
+  const [startDate, setStartDate] = useState('2024-01-01')
+  const [endDate, setEndDate] = useState('2025-06-30')
+  const [factors, setFactors] = useState<FactorWeightConfig[]>([
+    { factor_name: 'ret_20d', weight: 1.0, direction: 'long' },
+  ])
+  const [winsorize, setWinsorize] = useState<[number, number]>([0.01, 0.99])
+  const [fillNull, setFillNull] = useState('median')
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
+  const navigate = useNavigate()
+
+  const [page, setPage] = useState(0)
+  const [selectedDate, setSelectedDate] = useState('')
+
+  const { data: factorDefs } = useQuery({
+    queryKey: ['factors', 'definitions'],
+    queryFn: () => factorAnalyticsApi.definitions(),
+    staleTime: 300_000,
+  })
+
+  const runMutation = useMutation({
+    mutationFn: scoringApi.run,
+    onSuccess: (data) => setActiveRunId(data.run_id),
+  })
+
+  const { data: result } = useQuery({
+    queryKey: ['scoring', 'result', activeRunId, page, selectedDate],
+    queryFn: () => scoringApi.getResult(activeRunId!, page * PAGE_SIZE, PAGE_SIZE, selectedDate),
+    enabled: !!activeRunId,
+    refetchInterval: (query: any) => {
+      const status = query.state.data?.run?.status
+      return status === 'completed' || status === 'error' ? false : 3000
+    },
+    placeholderData: keepPreviousData,
+  })
+
+  const { data: snapshots } = useQuery({
+    queryKey: ['scoring', 'snapshots'],
+    queryFn: () => scoringApi.listSnapshots(),
+    staleTime: 30_000,
+  })
+
+  const addFactor = () => {
+    setFactors([...factors, { factor_name: '', weight: 1.0, direction: 'long' }])
+  }
+
+  const removeFactor = (idx: number) => {
+    setFactors(factors.filter((_, i) => i !== idx))
+  }
+
+  const updateFactor = (idx: number, field: keyof FactorWeightConfig, value: unknown) => {
+    const updated = [...factors]
+    updated[idx] = { ...updated[idx], [field]: value }
+    setFactors(updated)
+  }
+
+  const handleRun = () => {
+    runMutation.mutate({
+      name,
+      factors,
+      feature_set_version: featureSetVersion,
+      start_date: startDate,
+      end_date: endDate,
+      winsorize,
+      fill_null: fillNull,
+    })
+  }
+
+  function downloadCSV() {
+    if (!result?.results?.length) return
+    const headers = ['trade_date', 'asset_id', 'score', 'rank']
+    const rows = result.results.map(r =>
+      [r.trade_date, r.asset_id, r.score?.toFixed(6) ?? '', r.rank].join(',')
+    )
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `scoring_${activeRunId}_p${page + 1}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-gray-800">截面打分</h1>
+
+      {/* 配置区 */}
+      <div className="card">
+        <h2 className="font-semibold text-gray-800 mb-4">评分方案配置</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">方案名称</label>
+            <input value={name} onChange={e => setName(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Feature Set</label>
+            <input value={featureSetVersion} onChange={e => setFeatureSetVersion(e.target.value)}
+              placeholder="silver_v3" className="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">开始日期</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">结束日期</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+
+        {/* 因子权重表 */}
+        <div className="mt-4">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">因子权重</h3>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500 border-b">
+                <th className="py-2">因子</th>
+                <th className="py-2 w-24">权重</th>
+                <th className="py-2 w-28">方向</th>
+                <th className="py-2 w-16">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {factors.map((f, idx) => (
+                <tr key={idx} className="border-b">
+                  <td className="py-2">
+                    <select value={f.factor_name} onChange={e => updateFactor(idx, 'factor_name', e.target.value)}
+                      className="w-full border rounded px-2 py-1 text-sm">
+                      <option value="">选择因子</option>
+                      {factorDefs?.items?.map(fd => (
+                        <option key={fd.name} value={fd.name}>{fd.name} — {fd.description}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="py-2">
+                    <input type="number" value={f.weight} step={0.1}
+                      onChange={e => updateFactor(idx, 'weight', Number(e.target.value))}
+                      className="w-full border rounded px-2 py-1 text-sm" />
+                  </td>
+                  <td className="py-2">
+                    <select value={f.direction} onChange={e => updateFactor(idx, 'direction', e.target.value)}
+                      className="w-full border rounded px-2 py-1 text-sm">
+                      <option value="long">long (越大越好)</option>
+                      <option value="short">short (越小越好)</option>
+                    </select>
+                  </td>
+                  <td className="py-2">
+                    <button onClick={() => removeFactor(idx)} className="text-red-500 hover:text-red-700 text-sm">
+                      删除
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={addFactor} className="mt-2 text-sm text-brand-600 hover:text-brand-700">
+            + 添加因子
+          </button>
+        </div>
+
+        {/* 高级配置 */}
+        <details className="mt-4">
+          <summary className="text-sm text-gray-600 cursor-pointer">高级配置</summary>
+          <div className="grid grid-cols-3 gap-4 mt-2">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">缩尾下界</label>
+              <input type="number" value={winsorize[0]} step={0.01} min={0} max={0.5}
+                onChange={e => setWinsorize([Number(e.target.value), winsorize[1]])}
+                className="w-full border rounded px-2 py-1 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">缩尾上界</label>
+              <input type="number" value={winsorize[1]} step={0.01} min={0.5} max={1}
+                onChange={e => setWinsorize([winsorize[0], Number(e.target.value)])}
+                className="w-full border rounded px-2 py-1 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">缺失值填充</label>
+              <select value={fillNull} onChange={e => setFillNull(e.target.value)}
+                className="w-full border rounded px-2 py-1 text-sm">
+                <option value="median">中位数</option>
+                <option value="mean">均值</option>
+                <option value="zero">零</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        <button onClick={handleRun} disabled={runMutation.isPending}
+          className="mt-4 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 text-sm">
+          {runMutation.isPending ? '提交中...' : '执行打分'}
+        </button>
+      </div>
+
+      {/* 结果区 */}
+      {result && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-800">
+              打分结果
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                状态: <span className={result.run.status === 'completed' ? 'text-green-600' : result.run.status === 'error' ? 'text-red-500' : 'text-yellow-600'}>
+                  {result.run.status}
+                </span>
+              </span>
+            </h2>
+            <div className="flex items-center gap-2">
+              {result.available_dates && result.available_dates.length > 0 && (
+                <select
+                  value={selectedDate}
+                  onChange={e => { setSelectedDate(e.target.value); setPage(0) }}
+                  className="text-xs border rounded px-2 py-1"
+                >
+                  <option value="">全部日期</option>
+                  {result.available_dates.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={downloadCSV}
+                disabled={!result.results?.length}
+                className="btn-secondary text-xs disabled:opacity-40"
+              >
+                ↓ CSV（当前页）
+              </button>
+              {result?.run?.status === 'completed' && (
+                <button
+                  onClick={() => {
+                    navigate('/strategies', {
+                      state: {
+                        openBacktest: true,
+                        scoringRunId: activeRunId,
+                        scoringDateRange: {
+                          start: result.run.start_date,
+                          end: result.run.end_date,
+                        },
+                        prefill: {
+                          strategy_id: `scoring_${activeRunId?.slice(0, 8)}`,
+                          config: JSON.stringify({ strategy_type: 'StaticTopN', top_n: 20 }, null, 2),
+                        },
+                      },
+                    })
+                  }}
+                  className="btn-primary text-xs"
+                >
+                  → 运行回测
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 得分分布直方图 */}
+          {result.score_distribution && result.score_distribution.length > 0 && (
+            <div className="mb-4">
+              <h3 className="text-sm text-gray-600 mb-2">得分分布</h3>
+              <ResponsiveContainer width="100%" height={100}>
+                <BarChart data={result.score_distribution} margin={{ top: 0, right: 8, left: -30, bottom: 0 }}>
+                  <XAxis dataKey="breakpoint" tick={{ fontSize: 10 }}
+                    tickFormatter={(v: number) => v?.toFixed(2) ?? ''} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip
+                    formatter={(v: number) => [v, '资产数']}
+                    labelFormatter={(l: number) => `分数≈${l?.toFixed(2)}`}
+                  />
+                  <Bar dataKey="count" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {result.run.status === 'running' && (
+            <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              计算中，请稍候…
+            </div>
+          )}
+
+          {result.results && result.results.length > 0 && (
+            <>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b">
+                    <th className="py-2">Rank</th>
+                    <th className="py-2">Asset ID</th>
+                    <th className="py-2">Score</th>
+                    <th className="py-2">日期</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.results.map((r, idx) => (
+                    <tr key={`${r.asset_id}_${String(r.trade_date).slice(0,10)}_${idx}`} className="border-b hover:bg-gray-50">
+                      <td className="py-1.5 font-mono text-gray-700">{r.rank}</td>
+                      <td className="py-1.5 font-mono">{r.asset_id}</td>
+                      <td className="py-1.5 font-mono">{typeof r.score === 'number' ? r.score.toFixed(4) : '—'}</td>
+                      <td className="py-1.5 text-gray-500 text-xs">{String(r.trade_date).slice(0, 10)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {result.total > PAGE_SIZE && (
+                <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
+                  <span>共 {result.total} 条，第 {page + 1} / {Math.ceil(result.total / PAGE_SIZE)} 页</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPage(p => Math.max(0, p - 1))}
+                      disabled={page === 0}
+                      className="btn-secondary text-xs disabled:opacity-40"
+                    >
+                      ← 上一页
+                    </button>
+                    <button
+                      onClick={() => setPage(p => p + 1)}
+                      disabled={(page + 1) * PAGE_SIZE >= result.total}
+                      className="btn-secondary text-xs disabled:opacity-40"
+                    >
+                      下一页 →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 历史快照 */}
+      {snapshots && snapshots.items.length > 0 && (
+        <div className="card">
+          <h2 className="font-semibold text-gray-800 mb-4">历史打分记录</h2>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500 border-b">
+                <th className="py-2">名称</th>
+                <th className="py-2">Feature Set</th>
+                <th className="py-2">时间范围</th>
+                <th className="py-2">状态</th>
+                <th className="py-2">创建时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              {snapshots.items.map(s => (
+                <tr
+                  key={s.run_id}
+                  className={`border-b cursor-pointer transition-colors ${
+                    activeRunId === s.run_id
+                      ? 'bg-brand-50 border-l-4 border-l-brand-500'
+                      : 'hover:bg-gray-50'
+                  }`}
+                  onClick={() => {
+                    setActiveRunId(s.run_id)
+                    setPage(0)
+                    setSelectedDate('')
+                  }}
+                >
+                  <td className="py-2">{s.config_name}</td>
+                  <td className="py-2 font-mono text-xs">{s.feature_set_version}</td>
+                  <td className="py-2 text-xs">{s.start_date} ~ {s.end_date}</td>
+                  <td className="py-2">
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      s.status === 'completed' ? 'bg-green-100 text-green-700' :
+                      s.status === 'error' ? 'bg-red-100 text-red-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>{s.status}</span>
+                  </td>
+                  <td className="py-2 text-xs text-gray-500">{s.created_at}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}

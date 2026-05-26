@@ -35,3 +35,11 @@ class WalkForwardConfig(BaseModel):
     window_type: str = "expanding"  # "expanding" | "sliding"
     step_days: int | None = None
     purge_window: int = 0
+
+
+class UniverseCreateBody(BaseModel):
+    """自定义股票池创建请求。"""
+    name: str
+    asset_ids: list[str] = []
+    filter_type: str = "all"  # "all" | "exchange" | "custom"
+    filter_value: str = ""

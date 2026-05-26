@@ -10,6 +10,7 @@ const NAV_GROUPS = [
       { to: '/backtests',  label: '回测评估' },
       { to: '/optimize',   label: '组合优化' },
       { to: '/risk',       label: '风控管理' },
+      { to: '/scoring',    label: '截面打分' },
     ],
   },
   {

@@ -17,6 +17,36 @@ export function FactorsPage() {
   const [selectedFactors, setSelectedFactors] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<'mean_ic' | 'ir' | 'hit_rate'>('mean_ic')
 
+  // Quintile returns
+  const [showQuintile, setShowQuintile] = useState(false)
+  const { data: quintileData, isFetching: quintileFetching, refetch: refetchQuintile } = useQuery({
+    queryKey: ['factors', 'quintile', selectedFactor, featureSetVersion, horizonDays],
+    queryFn: () => factorAnalyticsApi.computeQuintiles({
+      factor_name: selectedFactor!,
+      feature_set_version: featureSetVersion,
+      horizon_days: horizonDays,
+    }),
+    enabled: false,
+  })
+
+  // Factor correlation heatmap
+  const [showCorrMap, setShowCorrMap] = useState(false)
+  const { data: corrMatrix, isFetching: corrFetching, refetch: refetchCorr } = useQuery({
+    queryKey: ['factors', 'correlation', selectedFactors, featureSetVersion],
+    queryFn: () => factorAnalyticsApi.computeFactorCorrelation({
+      factor_names: selectedFactors,
+      feature_set_version: featureSetVersion,
+    }),
+    enabled: false,
+  })
+
+  function corrColor(v: number | null): string {
+    if (v === null) return '#f3f4f6'
+    const abs = Math.abs(v)
+    if (v >= 0) return `oklch(${92 - abs * 45}% 0.12 250)`
+    return `oklch(${92 - abs * 45}% 0.12 25)`
+  }
+
   const { data: defs, isLoading } = useQuery({
     queryKey: extendedQueryKeys.factorAnalytics.definitions(),
     queryFn: factorAnalyticsApi.definitions,
@@ -273,6 +303,64 @@ export function FactorsPage() {
               </div>
             )
           })()}
+
+          {/* Factor Correlation Heatmap */}
+          {selectedFactors.length >= 2 && (
+            <div className="card mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-800">因子相关性矩阵</h3>
+                {!showCorrMap ? (
+                  <button className="btn-secondary text-xs" onClick={() => { setShowCorrMap(true); refetchCorr() }}>
+                    计算相关性
+                  </button>
+                ) : corrFetching ? (
+                  <span className="text-xs text-gray-400">计算中…</span>
+                ) : null}
+              </div>
+              {corrMatrix && corrMatrix.factors.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="text-xs border-collapse mx-auto">
+                    <thead>
+                      <tr>
+                        <th className="w-20" />
+                        {corrMatrix.factors.map(f => (
+                          <th key={f} className="p-1 text-center font-mono w-14 max-w-[56px] truncate" title={f}>
+                            {f.length > 7 ? f.slice(0, 7) + '…' : f}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {corrMatrix.factors.map(f1 => (
+                        <tr key={f1}>
+                          <td className="p-1 font-mono text-right pr-2 text-gray-600 max-w-[80px] truncate" title={f1}>
+                            {f1.length > 9 ? f1.slice(0, 9) + '…' : f1}
+                          </td>
+                          {corrMatrix.factors.map(f2 => {
+                            const cell = corrMatrix.matrix.find(c => c.factor_a === f1 && c.factor_b === f2)
+                            const v = cell?.correlation ?? null
+                            return (
+                              <td
+                                key={f2}
+                                style={{ background: corrColor(v), width: 52, height: 44 }}
+                                className="text-center border border-white/50 font-mono"
+                                title={`${f1} × ${f2}: ${v !== null ? v.toFixed(3) : 'N/A'}`}
+                              >
+                                {v !== null ? v.toFixed(2) : '—'}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="text-xs text-gray-400 mt-2 text-center">
+                    蓝色 = 正相关，橙红 = 负相关，颜色越深相关度越高
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -379,6 +467,46 @@ export function FactorsPage() {
                 {(icSummary.factor_turnover * 100).toFixed(1)}%
               </div>
               <div className="text-xs text-gray-400 mt-1">平均每日顶部资产替换比例</div>
+            </div>
+          )}
+
+          {/* Quintile Returns */}
+          {icSummary && (
+            <div className="card mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-800">
+                  分层收益（{horizonDays}日，{quintileData?.n_groups ?? 5} 分位）
+                </h3>
+                {!showQuintile ? (
+                  <button className="btn-secondary text-xs" onClick={() => { setShowQuintile(true); refetchQuintile() }}>
+                    计算分位收益
+                  </button>
+                ) : quintileFetching ? (
+                  <span className="text-xs text-gray-400">计算中…</span>
+                ) : null}
+              </div>
+              {quintileData && quintileData.groups.length > 0 && (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={quintileData.groups} margin={{ top: 8, right: 12, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="quintile" tickFormatter={v => `Q${v}`} tick={{ fontSize: 11 }} />
+                    <YAxis tickFormatter={v => `${(v * 100).toFixed(1)}%`} tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      formatter={(v: number) => [`${(v * 100).toFixed(3)}%`, '均值收益']}
+                      labelFormatter={v => `第 ${v} 分位`}
+                    />
+                    <Bar dataKey="mean_return" radius={[4, 4, 0, 0]}>
+                      {quintileData.groups.map((g, i) => (
+                        <Cell
+                          key={i}
+                          fill={Number(g.quintile) > Math.ceil(quintileData.n_groups / 2)
+                            ? `oklch(${50 + i * 4}% 0.18 145)`
+                            : `oklch(${60 - i * 4}% 0.18 25)`}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           )}
         </div>

@@ -11,6 +11,10 @@ class PETTM(FundamentalFactor):
     _column = "pe_ttm"
 
     @property
+    def description(self) -> str:
+        return "市盈率（TTM，滚动 12 个月）"
+
+    @property
     def name(self) -> str:
         return "pe_ttm"
 
@@ -25,6 +29,10 @@ class PB(FundamentalFactor):
     _column = "pb"
 
     @property
+    def description(self) -> str:
+        return "市净率（Price-to-Book）"
+
+    @property
     def name(self) -> str:
         return "pb"
 
@@ -37,6 +45,10 @@ class DividendYield(FundamentalFactor):
     """Dividend yield (annual dividend / price)."""
 
     _column = "dividend_yield"
+
+    @property
+    def description(self) -> str:
+        return "股息率（年化股息 / 股价）"
 
     @property
     def name(self) -> str:

@@ -22,6 +22,8 @@ export function MLLabPage() {
   const [trainRatio, setTrainRatio] = useState(0.7)
   const [validRatio, setValidRatio] = useState(0.15)
   const [hyperParams, setHyperParams] = useState<Record<string, string>>({})
+  const [fiSort, setFiSort] = useState<'importance' | 'feature'>('importance')
+  const [fiLimit, setFiLimit] = useState(15)
 
   const { data: experiments, isLoading, refetch } = useQuery({
     queryKey: extendedQueryKeys.ml.experiments(50),
@@ -43,6 +45,14 @@ export function MLLabPage() {
     if (!selectedRun || !experiments?.items) return null
     return experiments.items.find(r => r.run_id === selectedRun) ?? null
   }, [selectedRun, experiments])
+
+  const sortedFi = useMemo(() => {
+    if (!fi?.items) return []
+    const sorted = [...fi.items].sort((a, b) =>
+      fiSort === 'importance' ? b.importance - a.importance : a.feature.localeCompare(b.feature)
+    )
+    return sorted.slice(0, fiLimit)
+  }, [fi, fiSort, fiLimit])
 
   const { data: versions } = useQuery({
     queryKey: ['ml', 'versions'],
@@ -246,14 +256,14 @@ export function MLLabPage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  {['', 'Run ID', 'Trainer', '状态', 'RMSE', 'Sharpe', '开始', '操作'].map(h => (
+                  {['', 'Run ID', 'Trainer', 'Target', '状态', 'RMSE', 'Sharpe', '开始', '操作'].map(h => (
                     <th key={h} className="table-th">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {!experiments?.items.length && (
-                  <tr><td colSpan={8} className="table-td text-center text-gray-400 py-8">暂无实验记录</td></tr>
+                  <tr><td colSpan={9} className="table-td text-center text-gray-400 py-8">暂无实验记录</td></tr>
                 )}
                 {experiments?.items.map(r => (
                   <tr key={r.run_id}
@@ -272,6 +282,7 @@ export function MLLabPage() {
                     </td>
                     <td className="table-td font-mono text-xs">{r.run_id.slice(0, 8)}…</td>
                     <td className="table-td">{r.trainer_name || r.params?.trainer_name || '—'}</td>
+                    <td className="table-td text-xs font-mono">{r.target_name || '—'}</td>
                     <td className="table-td">
                       <StatusBadge status={r.status?.toLowerCase() ?? 'unknown'} />
                       {r.status === 'error' && r.error_text && (
@@ -321,9 +332,23 @@ export function MLLabPage() {
         {selectedRun && fi && fi.items.length > 0 && (
           <div className="w-80">
             <h2 className="font-semibold text-gray-800 mb-3">特征重要性</h2>
+            <div className="flex items-center gap-2 mb-2">
+              <select value={fiSort} onChange={e => setFiSort(e.target.value as 'importance' | 'feature')}
+                className="text-xs border rounded px-1 py-0.5">
+                <option value="importance">按重要性</option>
+                <option value="feature">按名称</option>
+              </select>
+              <select value={fiLimit} onChange={e => setFiLimit(Number(e.target.value))}
+                className="text-xs border rounded px-1 py-0.5">
+                <option value={10}>Top 10</option>
+                <option value={15}>Top 15</option>
+                <option value={20}>Top 20</option>
+                <option value={50}>Top 50</option>
+              </select>
+            </div>
             <div className="card">
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={fi.items.slice(0, 12)} layout="vertical">
+                <BarChart data={sortedFi} layout="vertical">
                   <XAxis type="number" tick={{ fontSize: 10 }} />
                   <YAxis type="category" dataKey="feature" width={90} tick={{ fontSize: 10 }} />
                   <Tooltip />
@@ -373,6 +398,23 @@ export function MLLabPage() {
               <pre className="mt-1 p-2 bg-gray-50 rounded text-xs overflow-x-auto max-h-40">
                 {JSON.stringify(selectedExperiment.params, null, 2)}
               </pre>
+            </div>
+          )}
+
+          {/* Metrics */}
+          {selectedExperiment.metrics && Object.keys(selectedExperiment.metrics).length > 0 && (
+            <div className="mt-3">
+              <span className="text-sm text-gray-500">训练指标</span>
+              <div className="grid grid-cols-3 gap-2 mt-1">
+                {Object.entries(selectedExperiment.metrics).map(([key, val]) => (
+                  <div key={key} className="p-2 bg-gray-50 rounded text-center">
+                    <div className="text-sm font-bold text-brand-600">
+                      {typeof val === 'number' ? val.toFixed(4) : String(val)}
+                    </div>
+                    <div className="text-xs text-gray-500">{key}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

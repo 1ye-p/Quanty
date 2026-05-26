@@ -14,6 +14,10 @@ class _VolNd(Factor):
         self._n = n
 
     @property
+    def description(self) -> str:
+        return f"{self._n} 日滚动日收益率标准差（年化）"
+
+    @property
     def name(self) -> str:
         return f"vol_{self._n}d"
 
@@ -57,6 +61,10 @@ class DownsideVol20d(Factor):
     """20-day downside volatility (only negative returns)."""
 
     @property
+    def description(self) -> str:
+        return "20 日下行波动率（仅计算负收益日）"
+
+    @property
     def name(self) -> str:
         return "downside_vol_20d"
 
@@ -87,6 +95,10 @@ class DownsideVol20d(Factor):
 
 class MaxDrawdown20d(Factor):
     """20-day maximum drawdown."""
+
+    @property
+    def description(self) -> str:
+        return "20 日最大回撤"
 
     @property
     def name(self) -> str:

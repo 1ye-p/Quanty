@@ -11,6 +11,10 @@ class ZscoreClose60d(Factor):
     """60-day z-score of close price (mean-reversion signal)."""
 
     @property
+    def description(self) -> str:
+        return "60 日收盘价 Z-score（均值回归信号）"
+
+    @property
     def name(self) -> str:
         return "zscore_close_60d"
 
@@ -36,6 +40,10 @@ class MA20dRatio(Factor):
     """Price relative to 20-day moving average (trend strength indicator)."""
 
     @property
+    def description(self) -> str:
+        return "价格 / 20 日均线比值（趋势强度指标）"
+
+    @property
     def name(self) -> str:
         return "ma_20d_ratio"
 
@@ -57,6 +65,10 @@ class MA20dRatio(Factor):
 
 class RSI14d(Factor):
     """14-day Relative Strength Index (momentum oscillator)."""
+
+    @property
+    def description(self) -> str:
+        return "14 日相对强弱指标 RSI（动量振荡器）"
 
     @property
     def name(self) -> str:
@@ -97,6 +109,10 @@ class BollingerBandWidth20d(Factor):
     """20-day Bollinger Band width (volatility indicator)."""
 
     @property
+    def description(self) -> str:
+        return "20 日布林带宽度（波动率指标）"
+
+    @property
     def name(self) -> str:
         return "bollinger_width_20d"
 
@@ -120,6 +136,10 @@ class BollingerBandWidth20d(Factor):
 
 class PriceHigh20dRatio(Factor):
     """Current price relative to 20-day high (breakout signal)."""
+
+    @property
+    def description(self) -> str:
+        return "当前价 / 20 日最高价（突破信号）"
 
     @property
     def name(self) -> str:

@@ -27,6 +27,26 @@ from cquant.riskguard.policies.position_limits import PositionLimitPolicy
 
 logger = logging.getLogger(__name__)
 
+_run_schema_ensured = False
+
+
+def _ensure_run_schema_extensions(conn) -> None:
+    """Add optional columns to gold_backtest_runs once per process."""
+    global _run_schema_ensured
+    if _run_schema_ensured:
+        return
+    for ddl in [
+        "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS benchmark_asset_id VARCHAR DEFAULT ''",
+        "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS is_walk_forward BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS n_folds INTEGER",
+        "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS aggregated_metrics_json JSON",
+    ]:
+        try:
+            conn.execute(ddl)
+        except Exception as exc:
+            logger.debug("_ensure_run_schema_extensions: %s", exc)
+    _run_schema_ensured = True
+
 
 @dataclass
 class BacktestRunSpec:
@@ -59,6 +79,12 @@ class BacktestRunSpec:
     # Combo params
     sub_strategy_configs: list[dict] = field(default_factory=list)
     combo_method: str = "equal_weight"
+    # Universe filtering
+    universe_id: str = "all"
+    # Cross-sectional scoring integration
+    scoring_run_id: str = ""
+    # CustomWeightStrategy
+    custom_weights: dict = field(default_factory=dict)
 
 
 class StaticTopNStrategy(Strategy):
@@ -155,6 +181,12 @@ class BacktestRunner:
             raise ValueError(f"No price data for {spec.start_date} to {spec.end_date}")
 
         features = self._load_features(spec)
+
+        # When using scoring results, auto-set sort_factor to 'score'
+        if spec.scoring_run_id and spec.sort_factor != "score":
+            from dataclasses import replace
+            spec = replace(spec, sort_factor="score")
+
         strategy = self._build_strategy(spec)
         cost_model = self._detect_cost_model(prices)
 
@@ -375,17 +407,7 @@ class BacktestRunner:
         now = datetime.now(tz=timezone.utc).isoformat()
 
         conn = self._catalog._get_conn()
-
-        # Ensure walk-forward columns exist (migration for existing DBs)
-        for col_def in [
-            "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS is_walk_forward BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS n_folds INTEGER",
-            "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS aggregated_metrics_json JSON",
-        ]:
-            try:
-                conn.execute(col_def)
-            except Exception:
-                pass
+        _ensure_run_schema_extensions(conn)
 
         conn.execute(
             "INSERT INTO gold_backtest_runs "
@@ -608,21 +630,46 @@ class BacktestRunner:
         return compute_win_rates_from_fills(fills, min_trades=min_trades)
 
     def _load_prices(self, spec: BacktestRunSpec) -> pl.DataFrame:
-        df = self._catalog.query(
-            """
-            SELECT asset_id, trade_date, open, high, low, close, volume, amount,
-                   adj_factor, adj_close, is_suspended
-            FROM silver_prices_1d
-            WHERE trade_date >= ? AND trade_date <= ?
-            ORDER BY asset_id, trade_date
-            """,
-            [spec.start_date.isoformat(), spec.end_date.isoformat()],
+        from cquant.backtest_vector.universe import resolve_universe
+
+        universe_id = getattr(spec, 'universe_id', None) or "all"
+        asset_ids = resolve_universe(self._catalog, universe_id)
+
+        query = (
+            "SELECT asset_id, trade_date, open, high, low, close, volume, amount, "
+            "adj_factor, adj_close, is_suspended "
+            "FROM silver_prices_1d "
+            "WHERE trade_date >= ? AND trade_date <= ?"
         )
+        params: list = [spec.start_date.isoformat(), spec.end_date.isoformat()]
+
+        if asset_ids is not None:
+            if not asset_ids:
+                return pl.DataFrame()
+            placeholders = ",".join(["?" for _ in asset_ids])
+            query += f" AND asset_id IN ({placeholders})"
+            params.extend(asset_ids)
+
+        query += " ORDER BY asset_id, trade_date"
+        df = self._catalog.query(query, params)
         if not df.is_empty() and df["trade_date"].dtype == pl.Utf8:
             df = df.with_columns(pl.col("trade_date").str.to_date())
         return df
 
     def _load_features(self, spec: BacktestRunSpec) -> pl.DataFrame | None:
+        # If scoring_run_id is set, load from cross-sectional scores
+        if spec.scoring_run_id:
+            df = self._catalog.query(
+                "SELECT asset_id, trade_date, score FROM gold_cross_section_scores "
+                "WHERE run_id = ? AND trade_date >= ? AND trade_date <= ?",
+                [spec.scoring_run_id, spec.start_date.isoformat(), spec.end_date.isoformat()],
+            )
+            if df.is_empty():
+                return None
+            if df["trade_date"].dtype == pl.Utf8:
+                df = df.with_columns(pl.col("trade_date").str.to_date())
+            return df
+
         if not spec.feature_set_version:
             return None
         df = self._catalog.query(
@@ -696,6 +743,12 @@ class BacktestRunner:
                 strategy_id=spec.strategy_id,
                 strategies=sub_strategies,
                 method=spec.combo_method,
+            )
+        if spec.strategy_type == "CustomWeightStrategy":
+            from cquant.backtest_vector.strategies.custom_weight_strategy import CustomWeightStrategy
+            return CustomWeightStrategy(
+                strategy_id=spec.strategy_id,
+                weights=spec.custom_weights or {},
             )
         return StaticTopNStrategy(
             strategy_id=spec.strategy_id,
@@ -791,12 +844,14 @@ class BacktestRunner:
         metrics_path.write_text(json.dumps(metrics_dict, indent=2))
 
         conn = self._catalog._get_conn()
+        _ensure_run_schema_extensions(conn)
         conn.execute(
             """
             INSERT INTO gold_backtest_runs
                 (run_id, engine, strategy_id, dataset_version, signal_set_version,
-                 cost_model_config, started_at, completed_at, status, metrics_uri, tags)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 cost_model_config, started_at, completed_at, status, metrics_uri, tags,
+                 benchmark_asset_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 result.run_id,
@@ -810,6 +865,7 @@ class BacktestRunner:
                 "completed" if result.error is None else "failed",
                 str(metrics_path),
                 json.dumps(spec.tags),
+                spec.benchmark_asset_id or "",
             ],
         )
 

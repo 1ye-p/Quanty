@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { backtestsApi, backtestExtApi, type BacktestFill } from '@/lib/api'
@@ -6,7 +6,8 @@ import { queryKeys } from '@/lib/queryKeys'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { PnLChart, type PnLDataPoint } from '@/components/charts/PnLChart'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  BarChart, Bar, LineChart, Line, Legend,
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
   Cell, ReferenceLine
 } from 'recharts'
 
@@ -107,6 +108,21 @@ function OverfitScore({ score }: { score: number }) {
   )
 }
 
+function mergeNavSeries(
+  runs: Array<{ run_id: string; nav_series: { date: string; nav: number }[] }>
+): Array<Record<string, unknown>> {
+  const dateMap = new Map<string, Record<string, unknown>>()
+  runs.forEach(r => {
+    r.nav_series.forEach(({ date, nav }) => {
+      if (!dateMap.has(date)) dateMap.set(date, { date })
+      dateMap.get(date)![r.run_id] = nav
+    })
+  })
+  return Array.from(dateMap.values()).sort((a, b) =>
+    String(a['date']).localeCompare(String(b['date']))
+  )
+}
+
 export function BacktestsPage() {
   const [searchParams] = useSearchParams()
   const initialRunId = searchParams.get('run_id')
@@ -115,6 +131,8 @@ export function BacktestsPage() {
   const [tab, setTab] = useState<Tab>('overview')
   const [page, setPage] = useState(0)
   const pageSize = 20
+  const [compareIds, setCompareIds] = useState<string[]>([])
+  const [showCompare, setShowCompare] = useState(false)
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: queryKeys.backtests.list(page * pageSize, pageSize),
@@ -179,6 +197,13 @@ export function BacktestsPage() {
     staleTime: 60_000,
   })
 
+  const { data: compareData, isLoading: compareLoading } = useQuery({
+    queryKey: ['backtests', 'compare', compareIds.join(',')],
+    queryFn: () => backtestsApi.compare(compareIds.join(',')),
+    enabled: showCompare && compareIds.length >= 2,
+    staleTime: 60_000,
+  })
+
   // Snapshots from tearsheet
   const snapshots = (tearsheet as Record<string, unknown>)?.snapshots as Record<string, unknown>[] ?? []
 
@@ -197,6 +222,19 @@ export function BacktestsPage() {
       })()
     : []
 
+  // Benchmark combined NAV for tearsheet overlay
+  const benchmarkNav = ((tearsheet as Record<string, unknown>)?.benchmark_nav ?? []) as { date: string; nav: number }[]
+  const benchmarkAssetId = String((tearsheet as Record<string, unknown>)?.benchmark_asset_id ?? '')
+  const combinedNav = useMemo(() => {
+    if (!snapshots.length) return []
+    const bmMap = new Map(benchmarkNav.map(b => [b.date, b.nav]))
+    return snapshots.map(s => ({
+      date: String(s.trade_date ?? '').slice(0, 10),
+      portfolio: Number(s.nav ?? 1),
+      benchmark: bmMap.get(String(s.trade_date ?? '').slice(0, 10)) ?? null,
+    }))
+  }, [snapshots, benchmarkNav])
+
   // Walk-forward windows for chart
   const wfWindows = validationData?.walk_forward ?? []
   const cpvcWindows = validationData?.cpcv ?? []
@@ -211,12 +249,14 @@ export function BacktestsPage() {
   const psr = Number(analysis?.psr ?? 0)
   const dsr = Number(analysis?.dsr ?? 0)
 
+  const isWalkForward = detail?.engine === 'walk_forward'
+
   const TABS: { id: Tab; label: string }[] = [
     { id: 'overview', label: '概览' },
     { id: 'tearsheet', label: 'Tearsheet' },
     { id: 'overfitting', label: '过拟合分析' },
     { id: 'fills', label: '交易明细' },
-    { id: 'walkforward', label: 'Walk-Forward' },
+    ...(isWalkForward ? [{ id: 'walkforward' as Tab, label: 'Walk-Forward' }] : []),
   ]
 
   return (
@@ -235,6 +275,7 @@ export function BacktestsPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
+                <th className="table-th w-10"><span className="sr-only">选择</span></th>
                 {['Run ID', '策略', '引擎', '状态', '开始', '结束'].map(h => (
                   <th key={h} className="table-th">{h}</th>
                 ))}
@@ -242,7 +283,7 @@ export function BacktestsPage() {
             </thead>
             <tbody>
               {!data?.items.length && (
-                <tr><td colSpan={6} className="table-td text-center text-gray-400 py-8">
+                <tr><td colSpan={7} className="table-td text-center text-gray-400 py-8">
                   {isFetching ? '加载中…' : '暂无回测记录'}
                 </td></tr>
               )}
@@ -252,9 +293,27 @@ export function BacktestsPage() {
                   className={`table-row cursor-pointer ${selectedId === r.run_id ? 'bg-blue-50' : ''}`}
                   onClick={() => { setSelectedId(r.run_id); setTab('overview') }}
                 >
+                  <td className="table-td" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={compareIds.includes(r.run_id)}
+                      onChange={e =>
+                        setCompareIds(prev =>
+                          e.target.checked
+                            ? [...prev.slice(0, 5), r.run_id]
+                            : prev.filter(id => id !== r.run_id)
+                        )
+                      }
+                      className="w-4 h-4 rounded border-gray-300 accent-brand-600"
+                    />
+                  </td>
                   <td className="table-td font-mono text-xs">{r.run_id.slice(0, 8)}…</td>
                   <td className="table-td font-medium">{r.strategy_id}</td>
-                  <td className="table-td text-gray-500">{r.engine}</td>
+                  <td className="table-td text-gray-500">
+                    {r.engine === 'walk_forward'
+                      ? <span className="px-1.5 py-0.5 text-xs rounded bg-purple-100 text-purple-700 font-medium">WF 汇总</span>
+                      : <span className="text-gray-500">{r.engine}</span>}
+                  </td>
                   <td className="table-td"><StatusBadge status={r.status} /></td>
                   <td className="table-td text-gray-400">{r.started_at?.slice(0, 16) ?? '—'}</td>
                   <td className="table-td text-gray-400">{r.completed_at?.slice(0, 16) ?? '—'}</td>
@@ -461,6 +520,41 @@ export function BacktestsPage() {
                   <div className="text-4xl mb-3">📈</div>
                   <div>Tearsheet 数据加载中…</div>
                   <div className="text-xs mt-1">需要完整的 portfolio_returns 存储后才能显示 NAV 曲线</div>
+                </div>
+              )}
+
+              {/* Benchmark overlay chart */}
+              {combinedNav.length > 0 && benchmarkNav.length > 0 && (
+                <div className="card">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-800">与基准对比</h3>
+                    {(() => {
+                      const lastPortfolio = combinedNav[combinedNav.length - 1]?.portfolio ?? 1
+                      const lastBm = benchmarkNav[benchmarkNav.length - 1]?.nav ?? 1
+                      const excess = (lastPortfolio / lastBm - 1) * 100
+                      return (
+                        <div className="text-sm text-gray-600">
+                          超额收益：
+                          <span className={`font-mono font-semibold ml-1 ${excess >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {excess >= 0 ? '+' : ''}{excess.toFixed(2)}%
+                          </span>
+                          <span className="text-xs text-gray-400 ml-1">vs {benchmarkAssetId}</span>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={combinedNav} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd"
+                        tickFormatter={v => String(v).slice(5)} />
+                      <YAxis tick={{ fontSize: 10 }} tickFormatter={v => v.toFixed(2)} />
+                      <Tooltip formatter={(v: number) => v.toFixed(4)} />
+                      <Legend />
+                      <Line dataKey="portfolio" name="策略" stroke="#3b82f6" dot={false} strokeWidth={2} />
+                      <Line dataKey="benchmark" name={benchmarkAssetId || '基准'} stroke="#94a3b8"
+                        strokeDasharray="5 3" dot={false} strokeWidth={1.5} connectNulls />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               )}
 
@@ -700,6 +794,138 @@ export function BacktestsPage() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* 浮动对比按钮 */}
+      {compareIds.length >= 2 && !showCompare && (
+        <div className="fixed bottom-6 right-6 z-20 flex items-center gap-2">
+          <button
+            className="btn-primary shadow-lg flex items-center gap-2 px-5 py-2.5"
+            onClick={() => setShowCompare(true)}
+          >
+            📊 对比 {compareIds.length} 个回测
+          </button>
+          <button className="btn-secondary text-xs" onClick={() => setCompareIds([])}>
+            清除
+          </button>
+        </div>
+      )}
+
+      {/* 对比弹窗 */}
+      {showCompare && (
+        <div className="fixed inset-0 bg-black/40 z-30 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b flex-shrink-0">
+              <h2 className="text-lg font-semibold text-gray-800">
+                多回测横向对比（{compareIds.length} 个）
+              </h2>
+              <button onClick={() => setShowCompare(false)} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">✕</button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-5 space-y-6">
+              {compareLoading ? (
+                <div className="py-12 text-center text-gray-400">加载中…</div>
+              ) : compareData ? (
+                <>
+                  {/* 指标对比表格 */}
+                  <div>
+                    <h3 className="font-semibold text-gray-700 mb-3">关键指标对比</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-gray-500 border-b bg-gray-50">
+                            <th className="py-2 px-3">指标</th>
+                            {compareData.runs.map(r => (
+                              <th key={r.run_id} className="py-2 px-3 text-center min-w-[120px]">
+                                <div className="font-semibold text-gray-800 truncate max-w-[120px]" title={r.strategy_id}>
+                                  {r.strategy_id}
+                                </div>
+                                <div className="text-xs text-gray-400 font-mono font-normal">{r.run_id.slice(0, 10)}…</div>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {([
+                            { key: 'sharpe_ratio', label: 'Sharpe Ratio', pct: false, invert: false },
+                            { key: 'max_drawdown', label: '最大回撤', pct: true, invert: true },
+                            { key: 'total_return', label: '总收益率', pct: true, invert: false },
+                            { key: 'calmar_ratio', label: 'Calmar Ratio', pct: false, invert: false },
+                            { key: 'sortino_ratio', label: 'Sortino Ratio', pct: false, invert: false },
+                            { key: 'annualized_volatility', label: '年化波动率', pct: true, invert: true },
+                            { key: 'annualized_return', label: '年化收益', pct: true, invert: false },
+                            { key: 'win_rate', label: '胜率', pct: true, invert: false },
+                          ] as const).map(({ key, label, pct, invert }) => {
+                            const vals = compareData.runs.map(r => {
+                              const v = r.metrics?.[key]
+                              return v !== undefined && v !== null ? Number(v) : NaN
+                            })
+                            const validVals = vals.filter(v => !isNaN(v))
+                            const best = validVals.length
+                              ? invert ? Math.min(...validVals) : Math.max(...validVals)
+                              : NaN
+                            return (
+                              <tr key={key} className="border-b hover:bg-gray-50">
+                                <td className="py-2 px-3 text-gray-600">{label}</td>
+                                {vals.map((v, i) => {
+                                  const isBest = !isNaN(v) && v === best
+                                  const display = isNaN(v)
+                                    ? '—'
+                                    : pct ? `${(v * 100).toFixed(2)}%` : v.toFixed(3)
+                                  return (
+                                    <td
+                                      key={compareData.runs[i].run_id}
+                                      className={`py-2 px-3 text-center font-mono ${isBest ? 'text-green-600 font-bold' : 'text-gray-700'}`}
+                                    >
+                                      {display}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* 净值曲线叠加图 */}
+                  {compareData.runs.some(r => r.nav_series.length > 0) && (
+                    <div>
+                      <h3 className="font-semibold text-gray-700 mb-3">净值曲线叠加</h3>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <LineChart
+                          data={mergeNavSeries(compareData.runs)}
+                          margin={{ top: 4, right: 16, left: -20, bottom: 0 }}
+                        >
+                          <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd"
+                            tickFormatter={v => String(v).slice(5)} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip formatter={(v: number) => v.toFixed(4)} />
+                          <Legend />
+                          {compareData.runs.map((r, i) => {
+                            const COLORS = ['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4']
+                            return (
+                              <Line
+                                key={r.run_id}
+                                dataKey={r.run_id}
+                                name={r.strategy_id}
+                                stroke={COLORS[i % COLORS.length]}
+                                dot={false}
+                                strokeWidth={2}
+                                connectNulls
+                              />
+                            )
+                          })}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </div>
         </div>
       )}
     </div>

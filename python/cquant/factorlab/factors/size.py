@@ -16,6 +16,10 @@ class MarketCap(FundamentalFactor):
     _column = "market_cap"
 
     @property
+    def description(self) -> str:
+        return "总市值"
+
+    @property
     def name(self) -> str:
         return "market_cap"
 
@@ -28,6 +32,10 @@ class LogMarketCap(FundamentalFactor):
     """Natural log of market capitalization (size proxy)."""
 
     _column = "market_cap"
+
+    @property
+    def description(self) -> str:
+        return "对数总市值（规模代理变量）"
 
     @property
     def name(self) -> str:

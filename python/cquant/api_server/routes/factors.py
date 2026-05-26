@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from cquant.api_server.deps import CatalogDep
 
@@ -407,3 +407,142 @@ def _compute_ic_matrix(job_id: str, body: ICMatrixBody, catalog: CatalogDep) -> 
             "UPDATE meta_factor_analytics SET status = 'error', error_text = ?, completed_at = ? WHERE job_id = ?",
             [f"IC 矩阵计算失败: {error_msg[:300]}", datetime.now(tz=timezone.utc).isoformat(), job_id],
         )
+
+
+# ── Factor Quintile Returns ───────────────────────────────────────────────────
+
+class QuintileRequest(BaseModel):
+    factor_name: str
+    feature_set_version: str
+    horizon_days: int = 5
+    start_date: str = ""
+    end_date: str = ""
+    n_groups: int = Field(default=5, ge=2, le=20)
+
+
+@router.post("/analytics/quintiles")
+async def compute_quintile_returns(body: QuintileRequest, catalog: CatalogDep) -> dict:
+    """计算因子分层收益（Q1–Qn 平均收益）。"""
+    import polars as pl
+
+    ret_name = f"ret_{body.horizon_days}d"
+    start = body.start_date or "2023-01-01"
+    end = body.end_date or "2025-12-31"
+
+    factor_df = catalog.query(
+        "SELECT asset_id, trade_date, value FROM gold_factor_values "
+        "WHERE feature_set_version = ? AND factor_name = ? "
+        "AND trade_date >= ? AND trade_date <= ?",
+        [body.feature_set_version, body.factor_name, start, end],
+    )
+    if factor_df.is_empty():
+        return {"factor_name": body.factor_name, "n_groups": body.n_groups, "groups": []}
+
+    prices_df = catalog.query(
+        "SELECT asset_id, trade_date, close FROM silver_prices_1d "
+        "WHERE trade_date >= ? AND trade_date <= ?",
+        [start, end],
+    )
+    prices_df = prices_df.with_columns(
+        (pl.col("close") / pl.col("close").shift(body.horizon_days).over("asset_id", order_by="trade_date") - 1)
+        .alias(ret_name)
+    )
+
+    joined = factor_df.join(
+        prices_df.select(["asset_id", "trade_date", ret_name]),
+        on=["asset_id", "trade_date"],
+        how="inner",
+    ).drop_nulls()
+
+    if joined.is_empty():
+        return {"factor_name": body.factor_name, "n_groups": body.n_groups, "groups": []}
+
+    n = body.n_groups
+    # 全 Polars 向量化分组：rank → quintile，无 Python 循环
+    labeled = (
+        joined
+        .with_columns(
+            pl.col("value").rank(method="average").over("trade_date").alias("_rank"),
+            pl.col("value").count().over("trade_date").alias("_n"),
+        )
+        .filter(pl.col("_n") >= n)
+        .with_columns(
+            ((pl.col("_rank") - 1) / pl.col("_n") * n)
+            .cast(pl.Int32)
+            .clip(0, n - 1)
+            .add(1)
+            .alias("quintile")  # Int32, not Utf8 — ensures numeric sort is correct
+        )
+        .drop(["_rank", "_n"])
+    )
+
+    if labeled.is_empty():
+        return {"factor_name": body.factor_name, "n_groups": body.n_groups, "groups": []}
+
+    group_stats = (
+        labeled.group_by("quintile")
+        .agg([
+            pl.col(ret_name).mean().alias("mean_return"),
+            pl.col(ret_name).std().alias("std_return"),
+            pl.col(ret_name).count().alias("count"),
+        ])
+        .sort("quintile")
+    )
+
+    return {
+        "factor_name": body.factor_name,
+        "horizon_days": body.horizon_days,
+        "n_groups": n,
+        "groups": group_stats.to_dicts(),
+    }
+
+
+# ── Factor Correlation Matrix ─────────────────────────────────────────────────
+
+class FactorCorrelationRequest(BaseModel):
+    factor_names: list[str]
+    feature_set_version: str
+    start_date: str = ""
+    end_date: str = ""
+
+
+@router.post("/analytics/factor-correlation")
+async def compute_factor_correlation(body: FactorCorrelationRequest, catalog: CatalogDep) -> dict:
+    """计算多因子值之间的截面均值相关矩阵。"""
+    import polars as pl
+
+    if len(body.factor_names) < 2:
+        return {"error": "需要至少 2 个因子", "factors": [], "matrix": []}
+    if len(body.factor_names) > 50:
+        return {"error": "因子数量不能超过 50 个", "factors": [], "matrix": []}
+
+    start = body.start_date or "2023-01-01"
+    end = body.end_date or "2025-12-31"
+
+    # 使用参数化占位符，避免 SQL 注入
+    in_placeholders = ",".join(["?" for _ in body.factor_names])
+    params = [body.feature_set_version] + list(body.factor_names) + [start, end]
+
+    df = catalog.query(
+        f"SELECT asset_id, trade_date, factor_name, value FROM gold_factor_values "
+        f"WHERE feature_set_version = ? AND factor_name IN ({in_placeholders}) "
+        f"AND trade_date >= ? AND trade_date <= ?",
+        params,
+    )
+    if df.is_empty():
+        return {"error": "无数据", "factors": body.factor_names, "matrix": []}
+
+    wide = df.pivot(index=["asset_id", "trade_date"], columns="factor_name", values="value")
+    factor_cols = [c for c in body.factor_names if c in wide.columns]
+
+    matrix = []
+    for f1 in factor_cols:
+        for f2 in factor_cols:
+            if f1 == f2:
+                corr: float | None = 1.0
+            else:
+                pair = wide.select([f1, f2]).drop_nulls()
+                corr = float(pair[f1].corr(pair[f2])) if len(pair) >= 10 else None
+            matrix.append({"factor_a": f1, "factor_b": f2, "correlation": corr})
+
+    return {"factors": factor_cols, "matrix": matrix}

@@ -28,6 +28,7 @@ from cquant.api_server.routes import (
     news,
     optimize,
     risk,
+    scoring,
     strategies,
     health,
     knowledge,
@@ -153,6 +154,7 @@ def create_app(
     app.include_router(trading.router, prefix=prefix, dependencies=_auth)
     app.include_router(optimize.router, prefix=prefix, dependencies=_auth)
     app.include_router(risk.router, prefix=prefix, dependencies=_auth)
+    app.include_router(scoring.router, prefix=prefix, dependencies=_auth)
 
     logger.info("cQuant API v%s ready — docs at /api/docs", _VERSION)
     return app
