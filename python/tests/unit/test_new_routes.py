@@ -49,8 +49,9 @@ class TestParseConfig:
     def test_empty_string_returns_none(self) -> None:
         assert strategies._parse_config("", "json") is None
 
-    def test_toml_format_returns_none(self) -> None:
-        assert strategies._parse_config('lookback = 20\n', "toml") is None
+    def test_toml_format_parses_correctly(self) -> None:
+        result = strategies._parse_config('lookback = 20\n', "toml")
+        assert result == {"lookback": 20}
 
 
 # ── Strategies routes ─────────────────────────────────────────────────────────
@@ -127,13 +128,23 @@ class TestStrategiesRoutes:
         assert "not found" in resp.json()["detail"]
 
     async def test_update_existing_returns_200(self) -> None:
-        self.catalog.query.return_value = pl.DataFrame([{"strategy_id": "alpha"}])
+        self.catalog.query.side_effect = [
+            pl.DataFrame([{
+                "strategy_id": "alpha",
+                "config_text": '{"lookback": 20}',
+                "config_format": "json",
+            }]),  # existing strategy check
+            pl.DataFrame(),  # old versions query (no versions to prune)
+        ]
         resp = await _call(self.app, "PUT", "/api/v1/strategies/alpha", json={
             "config_text": '{"lookback": 40}',
             "config_format": "json",
         })
         assert resp.status_code == 200
-        assert resp.json() == {"strategy_id": "alpha", "status": "updated"}
+        body = resp.json()
+        assert body["strategy_id"] == "alpha"
+        assert body["status"] == "updated"
+        assert "version_id" in body
         update_params = self.catalog.execute.call_args.args[1]
         assert json.loads(update_params[2]) == {"lookback": 40}
 
