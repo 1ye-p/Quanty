@@ -54,6 +54,16 @@ function StrategyBuilder({
   // Universe params
   const [universeId, setUniverseId] = useState(parsed.universe_id ?? 'all')
   const [customAssets, setCustomAssets] = useState('')
+  const [quickStopLoss, setQuickStopLoss] = useState(
+    parsed.risk_policy_params?.stop_loss?.stop_loss_pct != null
+      ? String(parsed.risk_policy_params.stop_loss.stop_loss_pct * 100)
+      : ''
+  )
+  const [quickDrawdownBreaker, setQuickDrawdownBreaker] = useState(
+    parsed.risk_policy_params?.drawdown_breaker?.max_drawdown_pct != null
+      ? String(parsed.risk_policy_params.drawdown_breaker.max_drawdown_pct * 100)
+      : ''
+  )
 
   const { data: policies } = useQuery({
     queryKey: extendedQueryKeys.risk.policies(),
@@ -105,8 +115,21 @@ function StrategyBuilder({
       config.risk_policies = selectedPolicies
       config.risk_policy_params = policyParams
     }
+    // 快速风控参数注入
+    if (quickStopLoss && selectedPolicies.includes('stop_loss')) {
+      config.risk_policy_params = {
+        ...(config.risk_policy_params as Record<string, unknown> ?? {}),
+        stop_loss: { stop_loss_pct: Number(quickStopLoss) / 100 },
+      }
+    }
+    if (quickDrawdownBreaker && selectedPolicies.includes('drawdown_breaker')) {
+      config.risk_policy_params = {
+        ...(config.risk_policy_params as Record<string, unknown> ?? {}),
+        drawdown_breaker: { max_drawdown_pct: Number(quickDrawdownBreaker) / 100 },
+      }
+    }
     onChange(JSON.stringify(config, null, 2))
-  }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets])
+  }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker])
 
   const selectedSizerInfo = sizers?.find(s => s.name === sizer)
 
@@ -271,6 +294,80 @@ function StrategyBuilder({
         </div>
       </div>
 
+      {/* 快速风控配置 — 最常用的3个参数直接展示 */}
+      <div className="border rounded-lg p-3 bg-amber-50 space-y-3">
+        <h4 className="text-sm font-medium text-amber-800">常用风控参数</h4>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              止损比例 (%)
+              <span className="ml-1 text-gray-400 cursor-help" title="单笔持仓亏损超过此比例时强制平仓">ⓘ</span>
+            </label>
+            <input
+              type="number"
+              step={0.5}
+              min={0}
+              max={50}
+              placeholder="不启用"
+              value={quickStopLoss}
+              onChange={e => {
+                setQuickStopLoss(e.target.value)
+                if (e.target.value && !selectedPolicies.includes('stop_loss')) {
+                  setSelectedPolicies(prev => [...prev, 'stop_loss'])
+                }
+                if (!e.target.value) {
+                  setSelectedPolicies(prev => prev.filter(p => p !== 'stop_loss'))
+                }
+              }}
+              className="input w-full text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              单仓最大比例 (%)
+              <span className="ml-1 text-gray-400 cursor-help" title="单只股票持仓不超过组合的此比例">ⓘ</span>
+            </label>
+            <input
+              type="number"
+              step={1}
+              min={1}
+              max={100}
+              value={maxPositionPct ? String(Number(maxPositionPct) * 100) : ''}
+              onChange={e => {
+                const pct = e.target.value ? String(Number(e.target.value) / 100) : ''
+                setMaxPositionPct(pct)
+              }}
+              className="input w-full text-sm"
+              placeholder="不限制"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              最大回撤熔断 (%)
+              <span className="ml-1 text-gray-400 cursor-help" title="组合从高点回撤超过此比例时暂停交易">ⓘ</span>
+            </label>
+            <input
+              type="number"
+              step={1}
+              min={0}
+              max={50}
+              placeholder="不启用"
+              value={quickDrawdownBreaker}
+              onChange={e => {
+                setQuickDrawdownBreaker(e.target.value)
+                if (e.target.value && !selectedPolicies.includes('drawdown_breaker')) {
+                  setSelectedPolicies(prev => [...prev, 'drawdown_breaker'])
+                }
+                if (!e.target.value) {
+                  setSelectedPolicies(prev => prev.filter(p => p !== 'drawdown_breaker'))
+                }
+              }}
+              className="input w-full text-sm"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Risk policies */}
       <div className="border rounded-lg p-3">
         <div className="text-xs font-medium text-gray-600 mb-2">风控策略</div>
@@ -298,6 +395,9 @@ function StrategyBuilder({
             {selectedPolicies.map(pName => {
               const pInfo = policies?.find(p => p.name === pName)
               if (!pInfo || pInfo.params.length === 0) return null
+              // Skip detailed params for policies controlled by quick controls
+              if (pName === 'stop_loss' && quickStopLoss) return null
+              if (pName === 'drawdown_breaker' && quickDrawdownBreaker) return null
               return (
                 <div key={pName} className="bg-gray-50 rounded p-2">
                   <div className="text-xs font-medium text-gray-500 mb-1">{pName}</div>
