@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { strategiesApi, backtestsApi, datasetsApi, riskApi } from '@/lib/api'
+import { strategiesApi, backtestsApi, datasetsApi, riskApi, mlApi } from '@/lib/api'
 import { queryKeys, extendedQueryKeys } from '@/lib/queryKeys'
 import Editor from '@monaco-editor/react'
 import { toast } from 'sonner'
@@ -51,6 +51,9 @@ function StrategyBuilder({
   const [subStrategyConfigs, setSubStrategyConfigs] = useState<string>(
     JSON.stringify(parsed.sub_strategy_configs ?? [], null, 2)
   )
+  // Universe params
+  const [universeId, setUniverseId] = useState(parsed.universe_id ?? 'all')
+  const [customAssets, setCustomAssets] = useState('')
 
   const { data: policies } = useQuery({
     queryKey: extendedQueryKeys.risk.policies(),
@@ -62,13 +65,19 @@ function StrategyBuilder({
     queryFn: () => riskApi.sizers(),
   })
 
+  const { data: universes } = useQuery({
+    queryKey: ['datasets', 'universes'],
+    queryFn: datasetsApi.universes,
+    staleTime: 300_000,
+  })
+
   // Generate JSON config whenever form state changes
   useEffect(() => {
     const factors = factorsText.split(',').map(f => f.trim()).filter(Boolean)
     const config: Record<string, unknown> = {
       strategy_id: parsed.strategy_id ?? 'my_strategy',
       strategy_type: strategyType,
-      universe: parsed.universe ?? { exchange: ['SSE', 'SZSE'], min_liquidity: 1000000 },
+      universe_id: universeId === 'custom' ? 'all' : universeId,
       rebalance_frequency: rebalance,
       top_n: Number(topN) || 10,
       factors,
@@ -97,7 +106,7 @@ function StrategyBuilder({
       config.risk_policy_params = policyParams
     }
     onChange(JSON.stringify(config, null, 2))
-  }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs])
+  }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets])
 
   const selectedSizerInfo = sizers?.find(s => s.name === sizer)
 
@@ -115,6 +124,35 @@ function StrategyBuilder({
           <option value="Combo">Combo — 组合策略</option>
         </select>
       </div>
+
+      {/* Universe Selector */}
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">股票池</label>
+        <select
+          className="input w-full"
+          value={universeId}
+          onChange={e => {
+            setUniverseId(e.target.value)
+            if (e.target.value !== 'custom') setCustomAssets('')
+          }}
+        >
+          {universes?.predefined.map(u => (
+            <option key={u.id} value={u.id}>{u.name} — {u.description}</option>
+          ))}
+          <option value="custom">自定义股票代码</option>
+        </select>
+      </div>
+      {universeId === 'custom' && (
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">自定义股票代码（逗号分隔）</label>
+          <input
+            className="input w-full"
+            value={customAssets}
+            onChange={e => setCustomAssets(e.target.value)}
+            placeholder="SSE:600036,SZSE:000001,SZSE:300750"
+          />
+        </div>
+      )}
 
       {/* Factors & Top N */}
       <div className="grid grid-cols-3 gap-3">
@@ -362,6 +400,19 @@ function BacktestRunModal({
   const [topN, setTopN] = useState(String(defaultTopN))
   const [sortFactor, setSortFactor] = useState(factors[0])
   const [datasetVersion, setDatasetVersion] = useState('')
+  const [universeId, setUniverseId] = useState(parsed.universe_id ?? 'all')
+  const [customAssets, setCustomAssets] = useState('')
+  const [benchmarkId, setBenchmarkId] = useState('')
+  const [scoringRunId, setScoringRunId] = useState('')
+  const [scoringWarning, setScoringWarning] = useState('')
+  const [mlModelVersion, setMlModelVersion] = useState(
+    (parsed as Record<string, unknown>).model_version as string
+    ?? (parsed as Record<string, unknown>).model_id as string
+    ?? ''
+  )
+  const [mlLabelName, setMlLabelName] = useState(
+    (parsed as Record<string, unknown>).label_name as string ?? 'ret_5d'
+  )
 
   // Data split mode
   const [splitMode, setSplitMode] = useState<'none' | 'oos' | 'walkforward'>('none')
@@ -379,6 +430,36 @@ function BacktestRunModal({
     queryKey: queryKeys.datasets.list(10),
     queryFn: () => datasetsApi.list(10),
   })
+
+  const { data: universes } = useQuery({
+    queryKey: ['datasets', 'universes'],
+    queryFn: datasetsApi.universes,
+    staleTime: 300_000,
+  })
+
+  const { data: mlExperiments } = useQuery({
+    queryKey: ['ml', 'experiments', 'completed'],
+    queryFn: () => mlApi.experiments(100),
+    enabled: parsed.strategy_type === 'MLModelStrategy',
+    staleTime: 30_000,
+    select: (data) => data.items?.filter(
+      (e: { status: string }) => e.status === 'completed' || e.status === 'done'
+    ) ?? [],
+  })
+
+  // Load pending scoring run from sessionStorage
+  useEffect(() => {
+    const pending = sessionStorage.getItem('pendingScoring')
+    if (pending) {
+      try {
+        const { runId, start, end } = JSON.parse(pending)
+        setScoringRunId(runId ?? '')
+        if (start) setStartDate(start)
+        if (end) setEndDate(end)
+      } catch { /* ignore */ }
+      sessionStorage.removeItem('pendingScoring')
+    }
+  }, [])
 
   // Auto-select current dataset
   useEffect(() => {
@@ -402,6 +483,9 @@ function BacktestRunModal({
   const runMutation = useMutation({
     mutationFn: backtestsApi.create,
     onSuccess: (data) => {
+      if (data.warning) {
+        setScoringWarning(data.warning as string)
+      }
       if (data.job_id) {
         setJobId(data.job_id)
       } else {
@@ -474,6 +558,107 @@ function BacktestRunModal({
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">股票池</label>
+            <select
+              className="input w-full"
+              value={universeId}
+              onChange={e => {
+                setUniverseId(e.target.value)
+                if (e.target.value !== 'custom') setCustomAssets('')
+              }}
+            >
+              {universes?.predefined.map(u => (
+                <option key={u.id} value={u.id}>{u.name} — {u.description}</option>
+              ))}
+              <option value="custom">自定义股票代码</option>
+            </select>
+          </div>
+          {universeId === 'custom' && (
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">自定义股票代码（逗号分隔）</label>
+              <input
+                type="text"
+                className="input w-full"
+                value={customAssets}
+                onChange={e => setCustomAssets(e.target.value)}
+                placeholder="SSE:600036,SZSE:000001,SZSE:300750"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">基准对比（可选）</label>
+            <select value={benchmarkId} onChange={e => setBenchmarkId(e.target.value)} className="input w-full">
+              <option value="">— 不设基准 —</option>
+              <option value="SSE:000300">沪深300</option>
+              <option value="SSE:000905">中证500</option>
+              <option value="SSE:000852">中证1000</option>
+              <option value="SSE:000001">上证指数</option>
+              <option value="SZSE:399001">深证成指</option>
+            </select>
+          </div>
+
+          {/* ML 模型选择（仅 MLModelStrategy 显示）*/}
+          {parsed.strategy_type === 'MLModelStrategy' && (
+            <div className="border rounded-lg p-3 bg-blue-50 space-y-3">
+              <h4 className="text-sm font-medium text-blue-800">ML 模型配置</h4>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">选择已训练模型</label>
+                <select
+                  value={mlModelVersion}
+                  onChange={e => {
+                    setMlModelVersion(e.target.value)
+                    const exp = mlExperiments?.find(
+                      (ex: { run_id: string; model_id?: string }) =>
+                        ex.run_id === e.target.value || ex.model_id === e.target.value
+                    )
+                    if (exp?.target_name) setMlLabelName(exp.target_name)
+                  }}
+                  className="input w-full text-sm"
+                >
+                  <option value="">— 选择已完成的实验 —</option>
+                  {mlExperiments?.map((exp: {
+                    run_id: string
+                    model_id?: string
+                    trainer_name?: string
+                    target_name?: string
+                    metrics?: { sharpe?: number }
+                    started_at?: string | number
+                  }) => (
+                    <option key={exp.run_id} value={exp.model_id ?? exp.run_id}>
+                      {exp.run_id.slice(0, 10)}… · {exp.trainer_name ?? '—'} · target={exp.target_name ?? '—'}
+                      {exp.metrics?.sharpe != null ? ` · Sharpe=${exp.metrics.sharpe.toFixed(2)}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {mlExperiments !== undefined && mlExperiments.length === 0 && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    暂无已完成实验，请先在"机器学习"页面训练模型
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">预测标签</label>
+                <select
+                  value={mlLabelName}
+                  onChange={e => setMlLabelName(e.target.value)}
+                  className="input w-full text-sm"
+                >
+                  <option value="ret_1d">ret_1d（1日收益）</option>
+                  <option value="ret_5d">ret_5d（5日收益）</option>
+                  <option value="ret_10d">ret_10d（10日收益）</option>
+                  <option value="ret_20d">ret_20d（20日收益）</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {scoringRunId && (
+            <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-700">
+              📊 使用截面打分结果：<span className="font-mono">{scoringRunId.slice(0, 12)}…</span>
+              <br />日期范围已限定为打分数据覆盖区间
+            </div>
+          )}
 
           {/* Data Split Section */}
           <div className="border-t pt-4">
@@ -558,7 +743,12 @@ function BacktestRunModal({
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-2 p-4 border-t">
+        <div className="flex justify-end gap-2 p-4 border-t flex-wrap">
+          {scoringWarning && (
+            <div className="w-full text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+              ⚠ {scoringWarning}
+            </div>
+          )}
           {jobId && jobStatus?.status === 'running' && (
             <div className="flex items-center gap-2 text-sm text-blue-600">
               <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full" />
@@ -586,6 +776,9 @@ function BacktestRunModal({
                 top_n: Number(topN) || 10,
                 sort_factor: sortFactor,
                 strategy_type: parsed.strategy_type ?? 'StaticTopN',
+                universe_id: universeId === 'custom' ? 'all' : universeId,
+                benchmark_asset_id: benchmarkId || "",
+                ...(scoringRunId ? { scoring_run_id: scoringRunId } : {}),
               }
               if (parsed.strategy_type === 'MarketNeutral') {
                 body.short_n = parsed.short_n ?? 10
@@ -598,6 +791,18 @@ function BacktestRunModal({
               if (parsed.strategy_type === 'Combo') {
                 body.sub_strategy_configs = parsed.sub_strategy_configs ?? []
                 body.combo_method = parsed.combo_method ?? 'equal_weight'
+              }
+              if (parsed.strategy_type === 'MLModelStrategy') {
+                body.model_version = mlModelVersion
+                  || (parsed as Record<string, unknown>).model_version
+                  || (parsed as Record<string, unknown>).model_id
+                  || ''
+                body.label_name = mlLabelName
+                  || (parsed as Record<string, unknown>).label_name
+                  || 'ret_5d'
+              }
+              if (parsed.strategy_type === 'CustomWeightStrategy') {
+                body.custom_weights = (parsed as Record<string, unknown>).custom_weights ?? {}
               }
               // Data split params
               if (splitMode === 'oos') {
@@ -628,6 +833,7 @@ export function StrategiesPage() {
   const qc = useQueryClient()
   const location = useLocation()
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const [showVersions, setShowVersions] = useState(false)
   const [configText, setConfigText] = useState(DEFAULT_CONFIG)
   const [newId, setNewId] = useState('')
   const [backtestStrategyId, setBacktestStrategyId] = useState<string | null>(null)
@@ -642,12 +848,38 @@ export function StrategiesPage() {
     queryFn: strategiesApi.list,
   })
 
+  const { data: versions, refetch: refetchVersions } = useQuery({
+    queryKey: ['strategies', editingId, 'versions'],
+    queryFn: () => strategiesApi.versions(editingId!),
+    enabled: !!editingId && editingId !== 'new' && showVersions,
+    staleTime: 5_000,
+  })
+
   useEffect(() => {
-    const prefill = (location.state as { prefill?: { strategy_id?: string; config?: string } } | null)?.prefill
+    const state = location.state as {
+      prefill?: { strategy_id?: string; config?: string }
+      openBacktest?: boolean
+      scoringRunId?: string
+      scoringDateRange?: { start?: string; end?: string }
+    } | null
+    if (!state) return
+    const { prefill, openBacktest, scoringRunId, scoringDateRange } = state
     if (prefill) {
       if (prefill.strategy_id) setNewId(prefill.strategy_id)
       if (prefill.config) setConfigText(prefill.config)
       setEditingId('new')
+    }
+    if (openBacktest && prefill?.strategy_id && !prefill.config) {
+      // If strategy already exists, open backtest modal directly
+      setBacktestStrategyId(prefill.strategy_id)
+      setBacktestConfigText(prefill.config ?? '')
+    }
+    if (scoringRunId) {
+      sessionStorage.setItem('pendingScoring', JSON.stringify({
+        runId: scoringRunId,
+        start: scoringDateRange?.start,
+        end: scoringDateRange?.end,
+      }))
     }
   }, [location.state])
 
@@ -681,6 +913,7 @@ export function StrategiesPage() {
     mutationFn: (id: string) => strategiesApi.update(id, { config_text: configText }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: extendedQueryKeys.strategies.list() })
+      qc.invalidateQueries({ queryKey: ['strategies', editingId, 'versions'] })
       setEditingId(null)
     },
   })
@@ -701,6 +934,7 @@ export function StrategiesPage() {
   function openEdit(item: { strategy_id: string; config_text: string }) {
     setEditingId(item.strategy_id)
     setConfigText(item.config_text)
+    setShowVersions(false)
   }
 
   return (
@@ -710,7 +944,7 @@ export function StrategiesPage() {
           <h1 className="page-title">策略配置</h1>
           <p className="page-subtitle">创建和管理量化策略配置（JSON）</p>
         </div>
-        <button className="btn-primary" onClick={() => { setEditingId('new'); setConfigText(DEFAULT_CONFIG); setNewId('') }}>
+        <button className="btn-primary" onClick={() => { setEditingId('new'); setConfigText(DEFAULT_CONFIG); setNewId(''); setShowVersions(false) }}>
           + 新建策略
         </button>
       </div>
@@ -790,6 +1024,74 @@ export function StrategiesPage() {
                 </>
               )}
             </div>
+            {/* 版本历史（仅编辑已有策略时显示）*/}
+            {editingId && editingId !== 'new' && (
+              <div className="mx-4 mb-3 border-t pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowVersions(v => !v)}
+                  className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                >
+                  <span>{showVersions ? '▾' : '▸'}</span>
+                  版本历史（最近 5 次）
+                </button>
+                {showVersions && (
+                  <div className="mt-2 space-y-1">
+                    {!versions ? (
+                      <p className="text-xs text-gray-400">加载中…</p>
+                    ) : versions.items.length === 0 ? (
+                      <p className="text-xs text-gray-400">暂无历史版本</p>
+                    ) : (
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-left text-gray-400 border-b">
+                            <th className="py-1">时间</th>
+                            <th className="py-1">摘要</th>
+                            <th className="py-1 w-16">操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {versions.items.map((v, idx) => (
+                            <tr key={v.version_id} className={`border-b ${idx === 0 ? 'opacity-50' : ''}`}>
+                              <td className="py-1 text-gray-500 font-mono">
+                                {new Date(v.created_at).toLocaleString('zh-CN', {
+                                  month: '2-digit', day: '2-digit',
+                                  hour: '2-digit', minute: '2-digit',
+                                })}
+                              </td>
+                              <td className="py-1 text-gray-700 max-w-[200px] truncate" title={v.summary}>
+                                {idx === 0 ? `${v.summary}（当前）` : v.summary}
+                              </td>
+                              <td className="py-1">
+                                {idx !== 0 && (
+                                  <button
+                                    className="text-brand-600 hover:underline"
+                                    onClick={async () => {
+                                      if (!confirm(`回滚到此版本？\n${v.summary}`)) return
+                                      try {
+                                        await strategiesApi.rollback(editingId!, v.version_id)
+                                        const fresh = await strategiesApi.get(editingId!)
+                                        setConfigText(fresh.config_text)
+                                        refetchVersions()
+                                        toast.success('已回滚到历史版本')
+                                      } catch (err) {
+                                        toast.error(`回滚失败：${(err as Error).message}`)
+                                      }
+                                    }}
+                                  >
+                                    恢复
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex justify-end gap-2 p-4 border-t">
               <button className="btn-secondary" onClick={() => setEditingId(null)}>取消</button>
               <button

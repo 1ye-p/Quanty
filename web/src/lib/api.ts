@@ -39,6 +39,26 @@ export const datasetsApi = {
   list: (limit = 50) =>
     request<{ items: DatasetVersion[]; total: number }>(`/datasets?limit=${limit}`),
   get: (id: string) => request<DatasetVersion>(`/datasets/${id}`),
+  universes: () => request<{
+    predefined: { id: string; name: string; description: string }[]
+    available_assets: string[]
+    total_assets: number
+  }>('/datasets/universes'),
+  quality: (version = '') =>
+    request<{
+      version: string
+      stats: {
+        n_assets: number
+        min_date: string
+        max_date: string
+        total_rows: number
+        recent_assets: number
+        null_rate: number
+        outlier_count: number
+      }
+      daily_coverage: { trade_date: string; n_assets: number }[]
+      bottom_assets: { asset_id: string; valid_days: number }[]
+    }>(`/datasets/quality?version=${encodeURIComponent(version)}`),
 }
 
 // ── Walk-Forward Config ──────────────────────────────────────────────────────
@@ -131,7 +151,15 @@ export const backtestsApi = {
     // Combo
     sub_strategy_configs?: Record<string, unknown>[]
     combo_method?: string
-  }) => request<{ job_id: string; strategy_id: string; status: string }>('/backtests', {
+    // Universe
+    universe_id?: string
+    // Scoring integration
+    scoring_run_id?: string
+    // CustomWeightStrategy
+    custom_weights?: Record<string, number>
+    // Benchmark
+    benchmark_asset_id?: string
+  }) => request<{ job_id: string; strategy_id: string; status: string; warning?: string }>('/backtests', {
     method: 'POST',
     body: JSON.stringify(body),
   }),
@@ -148,6 +176,19 @@ export const backtestsApi = {
       `/backtests/${id}/analyze`,
       { method: 'POST' },
     ),
+  compare: (runIds: string) =>
+    request<{
+      runs: Array<{
+        run_id: string
+        strategy_id: string
+        engine: string
+        status: string
+        started_at: string
+        dataset_version: string
+        metrics: Record<string, number>
+        nav_series: { date: string; nav: number }[]
+      }>
+    }>(`/backtests/compare?run_ids=${encodeURIComponent(runIds)}`),
   getWalkForwardFolds: (id: string) =>
     request<{
       run_id: string
@@ -279,6 +320,25 @@ export const strategiesApi = {
     request(`/strategies/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (id: string) =>
     request(`/strategies/${id}`, { method: 'DELETE' }),
+
+  versions: (strategyId: string) =>
+    request<{
+      items: Array<{
+        version_id: string
+        strategy_id: string
+        config_text: string
+        config_format: string
+        summary: string
+        created_at: string
+      }>
+      strategy_id: string
+    }>(`/strategies/${strategyId}/versions`),
+
+  rollback: (strategyId: string, versionId: string) =>
+    request<{ strategy_id: string; status: string; version_id: string; summary: string }>(
+      `/strategies/${strategyId}/rollback/${versionId}`,
+      { method: 'POST' }
+    ),
 }
 
 // ── ML ────────────────────────────────────────────────────────────────────────
@@ -397,6 +457,86 @@ export const factorAnalyticsApi = {
       body: JSON.stringify(body),
     }),
   icJob: (jobId: string) => request<ICJob>(`/factors/analytics/${jobId}`),
+  computeQuintiles: (body: {
+    factor_name: string
+    feature_set_version: string
+    horizon_days?: number
+    start_date?: string
+    end_date?: string
+    n_groups?: number
+  }) =>
+    request<{
+      factor_name: string
+      horizon_days: number
+      n_groups: number
+      groups: { quintile: string; mean_return: number; std_return: number; count: number }[]
+    }>('/factors/analytics/quintiles', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  computeFactorCorrelation: (body: {
+    factor_names: string[]
+    feature_set_version: string
+    start_date?: string
+    end_date?: string
+  }) =>
+    request<{
+      factors: string[]
+      matrix: { factor_a: string; factor_b: string; correlation: number | null }[]
+    }>('/factors/analytics/factor-correlation', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+}
+
+// ── Scoring ─────────────────────────────────────────────────────────────────
+
+export interface ScoringRun {
+  run_id: string
+  config_name: string
+  feature_set_version?: string
+  start_date?: string
+  end_date?: string
+  status: string
+  created_at?: string
+  completed_at?: string
+}
+
+export interface ScoringResult {
+  trade_date: string
+  asset_id: string
+  score: number | null
+  rank: number | null
+}
+
+export interface ScoringConfigBody {
+  name: string
+  factors: { factor_name: string; weight: number; direction: string }[]
+  feature_set_version: string
+  start_date: string
+  end_date: string
+  winsorize?: number[]
+  fill_null?: string
+}
+
+export const scoringApi = {
+  run: (body: ScoringConfigBody) =>
+    request<{ run_id: string; status: string }>('/scoring/run', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  getResult: (runId: string, offset = 0, limit = 50, tradeDate = '') =>
+    request<{
+      run: ScoringRun
+      results: ScoringResult[]
+      total: number
+      offset: number
+      limit: number
+      score_distribution: { breakpoint?: number; count: number }[]
+      available_dates: string[]
+    }>(`/scoring/results/${runId}?offset=${offset}&limit=${limit}${tradeDate ? `&trade_date=${tradeDate}` : ''}`),
+  listSnapshots: (limit = 20) =>
+    request<{ items: ScoringRun[] }>(`/scoring/snapshots?limit=${limit}`),
 }
 
 // ── Backtests (extended) ──────────────────────────────────────────────────────
