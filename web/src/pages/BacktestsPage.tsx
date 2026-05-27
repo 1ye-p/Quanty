@@ -254,13 +254,6 @@ export function BacktestsPage() {
     }
   }, [btSearch, filteredBacktests, selectedId])
 
-  // Fix 2: Remove filtered-out items from compareIds
-  useEffect(() => {
-    if (btSearch) {
-      setCompareIds(prev => prev.filter(id => filteredBacktests.some(r => r.run_id === id)))
-    }
-  }, [btSearch, filteredBacktests])
-
   // Walk-forward windows for chart
   const wfWindows = validationData?.walk_forward ?? []
   const cpvcWindows = validationData?.cpcv ?? []

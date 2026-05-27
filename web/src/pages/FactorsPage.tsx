@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { factorAnalyticsApi } from '@/lib/api'
@@ -63,6 +63,13 @@ export function FactorsPage() {
       f => f.name.toLowerCase().includes(q) || (f.description ?? '').toLowerCase().includes(q)
     )
   }, [defs, factorSearch])
+
+  // Remove selected factors that are no longer visible after search filter changes
+  useEffect(() => {
+    if (!factorSearch.trim()) return
+    const visibleNames = new Set(filteredFactorDefs.map(f => f.name))
+    setSelectedFactors(prev => prev.filter(n => visibleNames.has(n)))
+  }, [filteredFactorDefs, factorSearch])
 
   const { data: versions } = useQuery({
     queryKey: ["factors", "versions"],

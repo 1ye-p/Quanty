@@ -274,7 +274,11 @@ export function MLLabPage() {
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <h2 className="font-semibold text-gray-800">
-              实验记录（{filteredExperiments.length}{filteredExperiments.length !== (experiments?.total ?? 0) ? ` / ${experiments?.total ?? 0}` : ''}）
+              实验记录（{filteredExperiments.length}
+              {(expSearch || expStatusFilter !== 'all')
+                ? ` / ${experiments?.items?.length ?? 0} 条（当前页）`
+                : filteredExperiments.length !== (experiments?.total ?? 0)
+                  ? ` / ${experiments?.total ?? 0}` : ''}）
             </h2>
             <div className="ml-auto flex items-center gap-2">
               <select
