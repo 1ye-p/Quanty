@@ -13,12 +13,22 @@ _SCHEDULER_STATE: dict[str, Any] = {
     "last_run": None,      # ISO datetime str
     "last_status": None,   # "success" | "error" | "running"
     "last_error": None,
-    "next_run": None,      # ISO datetime str
 }
+_SCHEDULER_INSTANCE: Any = None  # set by start_data_scheduler()
 
 
 def get_scheduler_state() -> dict:
-    return dict(_SCHEDULER_STATE)
+    state = dict(_SCHEDULER_STATE)
+    # Dynamically read next_run_time so it stays fresh after each job fires
+    try:
+        if _SCHEDULER_INSTANCE is not None:
+            job = _SCHEDULER_INSTANCE.get_job("daily_ingest")
+            state["next_run"] = job.next_run_time.isoformat() if job and job.next_run_time else None
+        else:
+            state["next_run"] = None
+    except Exception:
+        state["next_run"] = None
+    return state
 
 
 def run_incremental_ingest(catalog) -> None:
@@ -52,7 +62,7 @@ def run_incremental_ingest(catalog) -> None:
     except Exception as e:
         logger.exception("DataScheduler: ingest failed")
         _SCHEDULER_STATE["last_status"] = "error"
-        _SCHEDULER_STATE["last_error"] = str(e)[:200]
+        _SCHEDULER_STATE["last_error"] = repr(e)[:200]
 
 
 def start_data_scheduler(catalog) -> Any:
@@ -73,11 +83,10 @@ def start_data_scheduler(catalog) -> Any:
         replace_existing=True,
     )
     scheduler.start()
+    global _SCHEDULER_INSTANCE
+    _SCHEDULER_INSTANCE = scheduler
 
-    # 计算下次运行时间
     job = scheduler.get_job("daily_ingest")
-    if job and job.next_run_time:
-        _SCHEDULER_STATE["next_run"] = job.next_run_time.isoformat()
-
-    logger.info("DataScheduler started, next run: %s", _SCHEDULER_STATE["next_run"])
+    next_run = job.next_run_time.isoformat() if job and job.next_run_time else None
+    logger.info("DataScheduler started, next run: %s", next_run)
     return scheduler

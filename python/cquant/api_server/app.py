@@ -13,6 +13,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,6 +53,22 @@ def _get_limiter_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Manage startup and shutdown lifecycle."""
+    from cquant.api_server.data_scheduler import start_data_scheduler
+    from cquant.api_server.deps import get_catalog
+    app.state.data_scheduler = start_data_scheduler(get_catalog())
+    yield
+    scheduler = getattr(app.state, "data_scheduler", None)
+    if scheduler is not None:
+        try:
+            scheduler.shutdown(wait=False)
+            logger.info("DataScheduler shut down cleanly")
+        except Exception as exc:
+            logger.debug("DataScheduler shutdown error: %s", exc)
+
+
 def create_app(
     *,
     cors_origins: list[str] | None = None,
@@ -66,6 +83,7 @@ def create_app(
         redoc_url="/api/redoc",
         openapi_url="/api/openapi.json",
         debug=debug,
+        lifespan=_lifespan,
     )
 
     # ── CORS ──────────────────────────────────────────────────────────────────
@@ -164,8 +182,3 @@ def create_app(
 app: FastAPI = create_app()
 
 
-@app.on_event("startup")
-async def _startup() -> None:
-    from cquant.api_server.data_scheduler import start_data_scheduler
-    from cquant.api_server.deps import get_catalog
-    app.state.data_scheduler = start_data_scheduler(get_catalog())

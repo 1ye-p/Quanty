@@ -29,7 +29,9 @@ export function DatasetsPage() {
   const triggerMutation = useMutation({
     mutationFn: datasetsApi.triggerIngest,
     onSuccess: () => {
-      setTimeout(() => refetchSchedule(), 2000)
+      // Immediate refetch: C2 fix ensures status is already "running" by the time
+      // the response returns, so a single refetch shows the correct state immediately.
+      refetchSchedule()
     },
   })
 

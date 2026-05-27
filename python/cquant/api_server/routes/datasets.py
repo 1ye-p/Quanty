@@ -209,10 +209,11 @@ async def get_schedule_status(catalog: CatalogDep) -> dict:
 @router.post("/schedule/trigger")
 async def trigger_ingest(background_tasks: BackgroundTasks, catalog: CatalogDep) -> dict:
     """手动触发一次增量摄取。"""
-    from cquant.api_server.data_scheduler import run_incremental_ingest, get_scheduler_state
-    state = get_scheduler_state()
-    if state.get("last_status") == "running":
+    from cquant.api_server.data_scheduler import run_incremental_ingest, get_scheduler_state, _SCHEDULER_STATE
+    if get_scheduler_state().get("last_status") == "running":
         return {"status": "already_running"}
+    # Set running BEFORE enqueuing to prevent TOCTOU race on concurrent requests
+    _SCHEDULER_STATE["last_status"] = "running"
     background_tasks.add_task(run_incremental_ingest, catalog)
     return {"status": "triggered"}
 
