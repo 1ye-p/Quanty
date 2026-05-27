@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { datasetsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -18,6 +18,19 @@ export function DatasetsPage() {
     queryFn: () => datasetsApi.quality(selectedVersion),
     enabled: !!selectedVersion,
     staleTime: 120_000,
+  })
+
+  const { data: scheduleStatus, refetch: refetchSchedule } = useQuery({
+    queryKey: ['datasets', 'schedule'],
+    queryFn: datasetsApi.scheduleStatus,
+    refetchInterval: 30_000,
+  })
+
+  const triggerMutation = useMutation({
+    mutationFn: datasetsApi.triggerIngest,
+    onSuccess: () => {
+      setTimeout(() => refetchSchedule(), 2000)
+    },
   })
 
   const qualityCards = quality ? [
@@ -55,6 +68,56 @@ export function DatasetsPage() {
         <h1 className="page-title">数据集</h1>
         <p className="page-subtitle">共 {data?.total ?? 0} 个版本 · 点击版本查看数据质量</p>
       </div>
+
+      {/* 调度状态卡片 */}
+      {scheduleStatus && (
+        <div className={`card flex items-center justify-between ${
+          scheduleStatus.last_status === 'error' ? 'border-red-200 bg-red-50' : ''
+        }`}>
+          <div className="flex items-center gap-3">
+            <div>
+              <span className="text-sm font-medium text-gray-700">数据调度</span>
+              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                scheduleStatus.last_status === 'running'
+                  ? 'bg-blue-100 text-blue-700 animate-pulse'
+                  : scheduleStatus.last_status === 'success'
+                  ? 'bg-green-100 text-green-700'
+                  : scheduleStatus.last_status === 'error'
+                  ? 'bg-red-100 text-red-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {scheduleStatus.last_status === 'running' ? '摄取中…'
+                  : scheduleStatus.last_status === 'success' ? '● 已启用'
+                  : scheduleStatus.last_status === 'error' ? '✗ 上次失败'
+                  : '○ 待首次运行'}
+              </span>
+            </div>
+            <div className="text-xs text-gray-500 space-x-3">
+              {scheduleStatus.last_data_date && (
+                <span>最新数据：<strong className="text-gray-700">{scheduleStatus.last_data_date}</strong></span>
+              )}
+              {scheduleStatus.last_run && (
+                <span>上次运行：{scheduleStatus.last_run.slice(0, 16).replace('T', ' ')}</span>
+              )}
+              {scheduleStatus.next_run && (
+                <span>下次计划：{scheduleStatus.next_run.slice(0, 16).replace('T', ' ')}</span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => triggerMutation.mutate()}
+            disabled={scheduleStatus.last_status === 'running' || triggerMutation.isPending}
+            className="btn-secondary text-xs disabled:opacity-40"
+          >
+            {scheduleStatus.last_status === 'running' ? '摄取中…' : '立即更新'}
+          </button>
+        </div>
+      )}
+      {scheduleStatus?.last_error && (
+        <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+          错误：{scheduleStatus.last_error}
+        </div>
+      )}
 
       <DataState isLoading={isLoading} error={error} isEmpty={!data?.items.length} emptyText="暂无数据集">
         <div className="card p-0 overflow-hidden">

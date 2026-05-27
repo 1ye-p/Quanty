@@ -59,6 +59,19 @@ export const datasetsApi = {
       daily_coverage: { trade_date: string; n_assets: number }[]
       bottom_assets: { asset_id: string; valid_days: number }[]
     }>(`/datasets/quality?version=${encodeURIComponent(version)}`),
+
+  scheduleStatus: () =>
+    request<{
+      enabled: boolean
+      last_run: string | null
+      last_status: 'success' | 'error' | 'running' | null
+      last_error: string | null
+      next_run: string | null
+      last_data_date: string | null
+    }>('/datasets/schedule'),
+
+  triggerIngest: () =>
+    request<{ status: string }>('/datasets/schedule/trigger', { method: 'POST' }),
 }
 
 // ── Walk-Forward Config ──────────────────────────────────────────────────────
