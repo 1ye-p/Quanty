@@ -28,6 +28,7 @@ export function OptimizePage() {
 
   // Expected returns (manual input per asset)
   const [returnsText, setReturnsText] = useState('')
+  const [expectedReturnsMap, setExpectedReturnsMap] = useState<Record<string, number>>({})
 
   // Results
   const [covResult, setCovResult] = useState<Record<string, Record<string, number>> | null>(null)
@@ -35,7 +36,19 @@ export function OptimizePage() {
 
   const covMutation = useMutation({
     mutationFn: optimizeApi.covariance,
-    onSuccess: (data) => setCovResult(data.covariance),
+    onSuccess: (data) => {
+      setCovResult(data.covariance)
+      setReturnsText('')
+      // Initialize expected returns map: keep existing values, default new assets to 0
+      const assets = Object.keys(data.covariance)
+      setExpectedReturnsMap(prev => {
+        const next: Record<string, number> = {}
+        for (const a of assets) {
+          next[a] = prev[a] ?? 0
+        }
+        return next
+      })
+    },
   })
 
   const optMutation = useMutation({
@@ -58,13 +71,8 @@ export function OptimizePage() {
     if (!covResult) return
     // Parse expected returns
     const assets = Object.keys(covResult)
-    const returns: Record<string, number> = {}
-    const lines = returnsText.split('\n').filter(Boolean)
-    for (const line of lines) {
-      const [asset, val] = line.split(',').map(s => s.trim())
-      if (asset && val) returns[asset] = Number(val)
-    }
-    // Default: use 0 for missing assets
+    // Use expectedReturnsMap directly (values already in decimal form)
+    const returns: Record<string, number> = { ...expectedReturnsMap }
     for (const a of assets) {
       if (!(a in returns)) returns[a] = 0
     }
@@ -173,12 +181,107 @@ export function OptimizePage() {
             </>
           )}
         </div>
-        <div>
-          <label className="text-xs text-gray-500 mb-1 block">预期收益率（每行：资产ID, 收益率，可选）</label>
-          <textarea className="input w-full font-mono text-xs" rows={4} value={returnsText}
-            onChange={e => setReturnsText(e.target.value)}
-            placeholder={"600519.SSE, 0.15\n000858.SZSE, 0.10\n601318.SSE, 0.08"} />
-        </div>
+        {/* 预期收益输入 — 表格模式（协方差计算后显示） */}
+        {covResult && Object.keys(expectedReturnsMap).length > 0 ? (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">预期年化收益率（%）</label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const val = Number(prompt('批量填充预期收益率（%）:', '10'))
+                    if (!isNaN(val)) {
+                      setExpectedReturnsMap(prev =>
+                        Object.fromEntries(Object.keys(prev).map(k => [k, val / 100]))
+                      )
+                    }
+                  }}
+                  className="text-xs text-brand-600 hover:underline"
+                >
+                  批量填充
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpectedReturnsMap(prev =>
+                      Object.fromEntries(Object.keys(prev).map(k => [k, 0]))
+                    )
+                  }
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  清零
+                </button>
+              </div>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="table-th text-left">资产代码</th>
+                    <th className="table-th text-right">预期年化收益率 (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(expectedReturnsMap).map(([asset, ret]) => (
+                    <tr key={asset} className="border-t hover:bg-gray-50">
+                      <td className="px-3 py-1.5 font-mono text-xs text-gray-700">{asset}</td>
+                      <td className="px-3 py-1.5">
+                        <input
+                          type="number"
+                          step={0.1}
+                          value={ret * 100}
+                          onChange={e =>
+                            setExpectedReturnsMap(prev => ({
+                              ...prev,
+                              [asset]: Number(e.target.value) / 100,
+                            }))
+                          }
+                          className="w-full text-right border rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
+                          placeholder="0"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              risk_parity 优化器不使用预期收益，均值方差优化器需要设置。
+            </p>
+            {/* 高级文本模式（折叠） */}
+            <details className="mt-2">
+              <summary className="text-xs text-gray-400 cursor-pointer">高级：文本模式输入</summary>
+              <textarea
+                rows={4}
+                value={returnsText}
+                onChange={e => {
+                  setReturnsText(e.target.value)
+                  // Sync to map
+                  const map: Record<string, number> = {}
+                  for (const line of e.target.value.split('\n').filter(Boolean)) {
+                    const [a, v] = line.split(',').map(s => s.trim())
+                    if (a && v) map[a] = Number(v)
+                  }
+                  setExpectedReturnsMap(prev => {
+                    const next: Record<string, number> = {}
+                    for (const a of Object.keys(prev)) {
+                      next[a] = map[a] !== undefined ? map[a] : prev[a]
+                    }
+                    return next
+                  })
+                }}
+                placeholder="asset_id, expected_return (小数形式，如 0.10 表示10%)"
+                className="mt-1 w-full font-mono text-xs border rounded p-2 focus:outline-none"
+              />
+            </details>
+          </div>
+        ) : (
+          /* 协方差未计算时：提示先计算协方差 */
+          <div className="p-3 bg-gray-50 border rounded-lg text-sm text-gray-500">
+            请先完成上方的协方差矩阵计算，资产列表将自动填入预期收益表格。
+          </div>
+        )}
         <button className="btn-primary" onClick={handleOptimize}
           disabled={optMutation.isPending || !covResult}>
           {optMutation.isPending ? '优化中...' : '运行优化'}
