@@ -16,6 +16,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/factors", tags=["factors"])
 
 
+def _ensure_custom_factor_table(catalog) -> None:
+    """幂等创建自定义因子表。"""
+    catalog.execute("""
+        CREATE TABLE IF NOT EXISTS meta_custom_factors (
+            factor_id   VARCHAR PRIMARY KEY,
+            name        VARCHAR UNIQUE NOT NULL,
+            expression  VARCHAR NOT NULL,
+            description VARCHAR DEFAULT '',
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
+class CustomFactorCreateBody(BaseModel):
+    name: str
+    expression: str
+    description: str = ""
+
+
+class CustomFactorPreviewBody(BaseModel):
+    expression: str
+    feature_set_version: str = ""
+
+
 @router.get("")
 async def list_factor_values(
     catalog: CatalogDep,
@@ -94,6 +118,99 @@ async def factor_definitions() -> dict:
         for f in BUILTIN_FACTORS
     ]
     return {"items": items, "total": len(items)}
+
+
+@router.get("/custom")
+async def list_custom_factors(catalog: CatalogDep) -> dict:
+    """列出所有自定义因子。"""
+    _ensure_custom_factor_table(catalog)
+    df = catalog.query(
+        "SELECT factor_id, name, expression, description, created_at "
+        "FROM meta_custom_factors ORDER BY created_at DESC"
+    )
+    return {"items": df.to_dicts() if not df.is_empty() else []}
+
+
+@router.post("/custom", status_code=201)
+async def create_custom_factor(body: CustomFactorCreateBody, catalog: CatalogDep) -> dict:
+    """创建自定义因子（含语法验证）。"""
+    import uuid as _uuid
+    from cquant.factorlab.factors.expression_factor import ExpressionFactor
+
+    validation = ExpressionFactor.validate_expression(body.expression)
+    if not validation["valid"]:
+        raise HTTPException(status_code=400, detail=validation["error"])
+
+    _ensure_custom_factor_table(catalog)
+    existing = catalog.query(
+        "SELECT factor_id FROM meta_custom_factors WHERE name = ?",
+        [body.name],
+    )
+    if not existing.is_empty():
+        raise HTTPException(status_code=409, detail=f"因子名称 '{body.name}' 已存在")
+
+    factor_id = f"cf_{_uuid.uuid4().hex[:10]}"
+    catalog.execute(
+        "INSERT INTO meta_custom_factors (factor_id, name, expression, description) VALUES (?, ?, ?, ?)",
+        [factor_id, body.name, body.expression, body.description],
+    )
+    return {"factor_id": factor_id, "name": body.name, "status": "created"}
+
+
+@router.post("/custom/preview")
+async def preview_custom_factor(body: CustomFactorPreviewBody, catalog: CatalogDep) -> dict:
+    """预览自定义因子：用最近 30 天样本数据试算，返回前10行结果。"""
+    import polars as pl
+    from cquant.factorlab.factors.expression_factor import ExpressionFactor
+
+    validation = ExpressionFactor.validate_expression(body.expression)
+    if not validation["valid"]:
+        return {"valid": False, "error": validation["error"], "preview": []}
+
+    try:
+        sample_df = catalog.query(
+            "SELECT asset_id, trade_date, open, high, low, close, volume, amount "
+            "FROM silver_prices_1d "
+            "WHERE trade_date >= CURRENT_DATE - INTERVAL '30 days' "
+            "ORDER BY asset_id, trade_date "
+            "LIMIT 50"
+        )
+    except Exception:
+        sample_df = pl.DataFrame()
+
+    if sample_df.is_empty():
+        return {"valid": True, "error": None, "preview": [], "note": "无样本数据，仅语法验证通过"}
+
+    validation2 = ExpressionFactor.validate_expression(body.expression, sample_df)
+    if not validation2["valid"]:
+        return {"valid": False, "error": validation2["error"], "preview": []}
+
+    factor = ExpressionFactor("__preview__", body.expression)
+    result = factor.compute(sample_df, None)  # type: ignore
+    preview_vals = result.to_list()[:10]
+    preview = [
+        {
+            "asset_id": str(sample_df["asset_id"][i]),
+            "trade_date": str(sample_df["trade_date"][i]),
+            "value": round(float(v), 6) if v is not None else None,
+        }
+        for i, v in enumerate(preview_vals)
+    ]
+    return {"valid": True, "error": None, "preview": preview}
+
+
+@router.delete("/custom/{factor_id}")
+async def delete_custom_factor(factor_id: str, catalog: CatalogDep) -> dict:
+    """删除自定义因子。"""
+    _ensure_custom_factor_table(catalog)
+    existing = catalog.query(
+        "SELECT factor_id FROM meta_custom_factors WHERE factor_id = ?",
+        [factor_id],
+    )
+    if existing.is_empty():
+        raise HTTPException(status_code=404, detail=f"Custom factor '{factor_id}' not found")
+    catalog.execute("DELETE FROM meta_custom_factors WHERE factor_id = ?", [factor_id])
+    return {"factor_id": factor_id, "status": "deleted"}
 
 
 @router.post("/analytics/compute", status_code=202)
