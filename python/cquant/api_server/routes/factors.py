@@ -110,13 +110,34 @@ async def compute_ic_matrix(
 
 
 @router.get("/definitions")
-async def factor_definitions() -> dict:
-    """List all registered built-in factor definitions."""
+async def factor_definitions(catalog: CatalogDep) -> dict:
+    """列出所有可用因子定义（内置 + 自定义）。"""
     from cquant.factorlab.factors import BUILTIN_FACTORS
+
+    # 内置因子
     items = [
-        {"name": f.name, "description": f.description, "tags": f.tags}
+        {"name": f.name, "description": f.description, "tags": f.tags, "source": "builtin"}
         for f in BUILTIN_FACTORS
     ]
+
+    # 自定义因子（从数据库追加）
+    try:
+        _ensure_custom_factor_table(catalog)
+        custom_df = catalog.query(
+            "SELECT factor_id, name, expression, description FROM meta_custom_factors ORDER BY created_at DESC"
+        )
+        for row in custom_df.to_dicts():
+            items.append({
+                "name": row["name"],
+                "description": row["description"] or f"自定义: {row['expression'][:40]}",
+                "tags": ["custom"],
+                "source": "custom",
+                "factor_id": row["factor_id"],
+                "expression": row["expression"],
+            })
+    except Exception:
+        pass  # 表不存在时不影响内置因子
+
     return {"items": items, "total": len(items)}
 
 
