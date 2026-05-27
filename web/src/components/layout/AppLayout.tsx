@@ -1,4 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { mlApi, backtestsApi, scoringApi } from '@/lib/api'
 
 const NAV_GROUPS = [
   {
@@ -38,6 +40,39 @@ const NAV_GROUPS = [
 ]
 
 export function AppLayout() {
+  // 轮询各模块运行中任务数量
+  const { data: mlJobs } = useQuery({
+    queryKey: ['layout', 'ml-running'],
+    queryFn: () => mlApi.experiments(100),
+    refetchInterval: 10_000,
+    select: (d) => d.items?.filter(
+      (e: { status: string }) => e.status === 'running' || e.status === 'pending'
+    ).length ?? 0,
+  })
+
+  const { data: btJobs } = useQuery({
+    queryKey: ['layout', 'bt-running'],
+    queryFn: () => backtestsApi.list(0, 50),
+    refetchInterval: 10_000,
+    select: (d) => d.items?.filter(
+      (r: { status: string }) => r.status === 'running' || r.status === 'pending'
+    ).length ?? 0,
+  })
+
+  const { data: scoringJobs } = useQuery({
+    queryKey: ['layout', 'scoring-running'],
+    queryFn: () => scoringApi.listSnapshots(20),
+    refetchInterval: 10_000,
+    select: (d) => d.items?.filter(
+      (s: { status: string }) => s.status === 'running' || s.status === 'pending'
+    ).length ?? 0,
+  })
+
+  const runningBadges: Record<string, number> = {}
+  if ((mlJobs ?? 0) > 0) runningBadges['/ml'] = mlJobs as number
+  if ((btJobs ?? 0) > 0) runningBadges['/backtests'] = btJobs as number
+  if ((scoringJobs ?? 0) > 0) runningBadges['/scoring'] = scoringJobs as number
+
   return (
     <div className="flex h-screen overflow-hidden">
       <nav className="w-56 bg-brand-600 text-gray-100 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto">
@@ -58,14 +93,17 @@ export function AppLayout() {
                       to={to}
                       end={to === '/'}
                       className={({ isActive }) =>
-                        `block px-3 py-2 rounded-lg text-sm transition-colors ${
+                        `flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                           isActive
                             ? 'bg-white/20 text-white font-semibold'
                             : 'text-blue-100 hover:bg-white/10 hover:text-white'
                         }`
                       }
                     >
-                      {label}
+                      <span className="flex-1">{label}</span>
+                      {runningBadges[to] ? (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-300 animate-pulse flex-shrink-0" />
+                      ) : null}
                     </NavLink>
                   </li>
                 ))}
