@@ -8,7 +8,9 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel, Field
+import re
+
+from pydantic import BaseModel, Field, field_validator
 
 from cquant.api_server.deps import CatalogDep
 
@@ -33,6 +35,14 @@ class CustomFactorCreateBody(BaseModel):
     name: str
     expression: str
     description: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', v):
+            raise ValueError("因子名称只允许字母、数字、下划线，且不能以数字开头")
+        return v
 
 
 class CustomFactorPreviewBody(BaseModel):
@@ -161,6 +171,12 @@ async def create_custom_factor(body: CustomFactorCreateBody, catalog: CatalogDep
     validation = ExpressionFactor.validate_expression(body.expression)
     if not validation["valid"]:
         raise HTTPException(status_code=400, detail=validation["error"])
+
+    # Check builtin name conflict
+    from cquant.factorlab.factors import BUILTIN_FACTORS
+    builtin_names = {f.name for f in BUILTIN_FACTORS}
+    if body.name in builtin_names:
+        raise HTTPException(status_code=409, detail=f"因子名称 '{body.name}' 与内置因子冲突")
 
     _ensure_custom_factor_table(catalog)
     existing = catalog.query(
