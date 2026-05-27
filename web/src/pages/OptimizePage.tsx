@@ -190,7 +190,9 @@ export function OptimizePage() {
                 <button
                   type="button"
                   onClick={() => {
-                    const val = Number(prompt('批量填充预期收益率（%）:', '10'))
+                    const input = prompt('批量填充预期收益率（%）:', '10')
+                    if (input === null) return
+                    const val = Number(input)
                     if (!isNaN(val)) {
                       setExpectedReturnsMap(prev =>
                         Object.fromEntries(Object.keys(prev).map(k => [k, val / 100]))
