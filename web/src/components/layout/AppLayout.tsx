@@ -1,6 +1,24 @@
+import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi } from '@/lib/api'
+
+const NAV_ICONS: Record<string, string> = {
+  '/factors':    '🔬',
+  '/strategies': '⚙️',
+  '/ml':         '🧠',
+  '/backtests':  '📈',
+  '/optimize':   '⚖️',
+  '/risk':       '🛡',
+  '/scoring':    '🎯',
+  '/live':       '📡',
+  '/trading':    '💹',
+  '/news':       '📰',
+  '/datasets':   '🗄️',
+  '/knowledge':  '📚',
+  '/advisor':    '🤖',
+  '/':           '🏠',
+}
 
 const NAV_GROUPS = [
   {
@@ -73,37 +91,82 @@ export function AppLayout() {
   if ((btJobs ?? 0) > 0) runningBadges['/backtests'] = btJobs as number
   if ((scoringJobs ?? 0) > 0) runningBadges['/scoring'] = scoringJobs as number
 
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem('sidebar_collapsed') === 'true' } catch { return false }
+  })
+
+  const toggleCollapsed = () => {
+    setCollapsed(prev => {
+      const next = !prev
+      try { localStorage.setItem('sidebar_collapsed', String(next)) } catch {}
+      return next
+    })
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
-      <nav className="w-56 bg-brand-600 text-gray-100 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto">
-        <Link to="/" className="text-white font-bold text-lg px-5 py-5 hover:text-blue-100 transition-colors">
-          cQuant
-        </Link>
+      <nav className={`${
+        collapsed ? 'w-12' : 'w-56'
+      } bg-brand-600 text-gray-100 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto transition-all duration-200`}>
 
-        <div className="flex-1 px-3 pb-4 space-y-4">
+        {collapsed ? (
+          <button
+            onClick={toggleCollapsed}
+            className="p-3 hover:bg-white/10 text-center text-lg w-full"
+            title="展开侧边栏"
+          >
+            ☰
+          </button>
+        ) : (
+          <div className="flex items-center justify-between px-5 py-5">
+            <Link to="/" className="text-white font-bold text-lg hover:text-blue-100 transition-colors">
+              cQuant
+            </Link>
+            <button
+              onClick={toggleCollapsed}
+              className="text-blue-200 hover:text-white text-sm"
+              title="折叠侧边栏"
+            >
+              ◀
+            </button>
+          </div>
+        )}
+
+        <div className="flex-1 px-2 pb-4 space-y-4">
           {NAV_GROUPS.map(group => (
             <div key={group.label}>
-              <div className="px-2 py-1 text-xs font-semibold text-blue-200 uppercase tracking-wider">
-                {group.label}
-              </div>
+              {!collapsed && (
+                <div className="px-2 py-1 text-xs font-semibold text-blue-200 uppercase tracking-wider">
+                  {group.label}
+                </div>
+              )}
               <ul className="space-y-0.5">
                 {group.items.map(({ to, label }) => (
                   <li key={to}>
                     <NavLink
                       to={to}
                       end={to === '/'}
+                      title={collapsed ? label : undefined}
                       className={({ isActive }) =>
-                        `flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
+                        `flex items-center ${collapsed ? 'justify-center px-2' : 'px-3'} py-2 rounded-lg text-sm transition-colors ${
                           isActive
                             ? 'bg-white/20 text-white font-semibold'
                             : 'text-blue-100 hover:bg-white/10 hover:text-white'
                         }`
                       }
                     >
-                      <span className="flex-1">{label}</span>
-                      {runningBadges[to] ? (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-300 animate-pulse flex-shrink-0" />
-                      ) : null}
+                      {collapsed ? (
+                        <span className="text-base">
+                          {NAV_ICONS[to] ?? label[0]}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="flex-1">{label}</span>
+                          {runningBadges[to] ? (
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-300 animate-pulse flex-shrink-0" />
+                          ) : null}
+                        </>
+                      )}
                     </NavLink>
                   </li>
                 ))}
