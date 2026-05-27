@@ -427,7 +427,14 @@ export const liveApi = {
 
 // ── Factors (extended) ────────────────────────────────────────────────────────
 
-export interface FactorDefinition { name: string; description: string; tags: string[] }
+export interface FactorDefinition {
+  name: string
+  description: string
+  tags: string[]
+  source?: string
+  factor_id?: string
+  expression?: string
+}
 export interface ICPoint { trade_date: string; ic: number }
 export interface ICJob {
   job_id: string
@@ -805,4 +812,36 @@ export const realtimeApi = {
     })
     return `/api/v1/live/stream?${params}`
   },
+}
+
+// ── Custom Factors ────────────────────────────────────────────────────────────
+
+export interface CustomFactor {
+  factor_id: string
+  name: string
+  expression: string
+  description: string
+  created_at: string
+}
+
+export const customFactorApi = {
+  list: () =>
+    request<{ items: CustomFactor[] }>('/factors/custom'),
+
+  create: (body: { name: string; expression: string; description?: string }) =>
+    request<{ factor_id: string; name: string; status: string }>(
+      '/factors/custom', { method: 'POST', body: JSON.stringify(body) }
+    ),
+
+  delete: (factorId: string) =>
+    request<{ factor_id: string; status: string }>(
+      `/factors/custom/${factorId}`, { method: 'DELETE' }
+    ),
+
+  preview: (body: { expression: string; feature_set_version?: string }) =>
+    request<{
+      valid: boolean
+      error: string | null
+      preview: { asset_id: string; trade_date: string; value: number | null }[]
+    }>('/factors/custom/preview', { method: 'POST', body: JSON.stringify(body) }),
 }
