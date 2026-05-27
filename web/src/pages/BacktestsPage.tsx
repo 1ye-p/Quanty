@@ -406,6 +406,19 @@ export function BacktestsPage() {
           {/* Overview Tab */}
           {tab === 'overview' && (
             <div className="space-y-4">
+              {/* Export HTML Report button */}
+              {selectedId && (
+                <div className="flex justify-end">
+                  <a
+                    href={`/api/v1/backtests/${selectedId}/export`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary text-xs flex items-center gap-1"
+                  >
+                    📄 导出 HTML 报告
+                  </a>
+                </div>
+              )}
               {/* Metrics cards */}
               {detail?.metrics && (
                 <>
