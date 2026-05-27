@@ -24,6 +24,8 @@ export function MLLabPage() {
   const [hyperParams, setHyperParams] = useState<Record<string, string>>({})
   const [fiSort, setFiSort] = useState<'importance' | 'feature'>('importance')
   const [fiLimit, setFiLimit] = useState(15)
+  const [expSearch, setExpSearch] = useState('')
+  const [expStatusFilter, setExpStatusFilter] = useState<string>('all')
 
   const { data: experiments, isLoading, refetch } = useQuery({
     queryKey: extendedQueryKeys.ml.experiments(50),
@@ -53,6 +55,19 @@ export function MLLabPage() {
     )
     return sorted.slice(0, fiLimit)
   }, [fi, fiSort, fiLimit])
+
+  const filteredExperiments = useMemo(() => {
+    if (!experiments?.items) return []
+    return experiments.items.filter(r => {
+      const matchStatus = expStatusFilter === 'all' || r.status === expStatusFilter
+      const q = expSearch.toLowerCase()
+      const matchSearch = !q
+        || r.run_id.toLowerCase().includes(q)
+        || (r.trainer_name ?? '').toLowerCase().includes(q)
+        || (r.target_name ?? '').toLowerCase().includes(q)
+      return matchStatus && matchSearch
+    })
+  }, [experiments, expSearch, expStatusFilter])
 
   const { data: versions } = useQuery({
     queryKey: ['ml', 'versions'],
@@ -250,7 +265,39 @@ export function MLLabPage() {
       <div className="flex gap-6">
         {/* Experiment list */}
         <div className="flex-1">
-          <h2 className="font-semibold text-gray-800 mb-3">实验记录（{experiments?.total ?? 0}）</h2>
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <h2 className="font-semibold text-gray-800">
+              实验记录（{filteredExperiments.length}{filteredExperiments.length !== (experiments?.total ?? 0) ? ` / ${experiments?.total ?? 0}` : ''}）
+            </h2>
+            <div className="ml-auto flex items-center gap-2">
+              <select
+                value={expStatusFilter}
+                onChange={e => setExpStatusFilter(e.target.value)}
+                className="text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="all">全部状态</option>
+                <option value="completed">已完成</option>
+                <option value="done">done</option>
+                <option value="running">运行中</option>
+                <option value="error">失败</option>
+                <option value="pending">等待中</option>
+              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="搜索 run_id / trainer / target…"
+                  value={expSearch}
+                  onChange={e => setExpSearch(e.target.value)}
+                  className="pl-6 pr-6 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-brand-500 w-48"
+                />
+                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                {expSearch && (
+                  <button onClick={() => setExpSearch('')}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                )}
+              </div>
+            </div>
+          </div>
           {isLoading && <p className="text-gray-400">Loading…</p>}
           <div className="card p-0 overflow-hidden">
             <table className="w-full">
@@ -262,10 +309,12 @@ export function MLLabPage() {
                 </tr>
               </thead>
               <tbody>
-                {!experiments?.items.length && (
-                  <tr><td colSpan={9} className="table-td text-center text-gray-400 py-8">暂无实验记录</td></tr>
+                {!filteredExperiments.length && (
+                  <tr><td colSpan={9} className="table-td text-center text-gray-400 py-8">
+                    {expSearch || expStatusFilter !== 'all' ? '未找到匹配的实验' : '暂无实验记录'}
+                  </td></tr>
                 )}
-                {experiments?.items.map(r => (
+                {filteredExperiments.map(r => (
                   <tr key={r.run_id}
                     className={`table-row cursor-pointer ${selectedRun === r.run_id ? 'bg-blue-50' : ''}`}
                     onClick={() => setSelectedRun(r.run_id)}>
