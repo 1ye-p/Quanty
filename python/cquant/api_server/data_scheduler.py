@@ -17,6 +17,11 @@ _SCHEDULER_STATE: dict[str, Any] = {
 _SCHEDULER_INSTANCE: Any = None  # set by start_data_scheduler()
 
 
+def mark_scheduler_running() -> None:
+    """Mark the scheduler as running (called before enqueuing a trigger job)."""
+    _SCHEDULER_STATE["last_status"] = "running"
+
+
 def get_scheduler_state() -> dict:
     state = dict(_SCHEDULER_STATE)
     # Dynamically read next_run_time so it stays fresh after each job fires
