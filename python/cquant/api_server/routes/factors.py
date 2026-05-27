@@ -42,9 +42,9 @@ def _ensure_custom_factor_table(catalog) -> None:
 
 
 class CustomFactorCreateBody(BaseModel):
-    name: str
-    expression: str
-    description: str = ""
+    name: str = Field(..., max_length=64)
+    expression: str = Field(..., max_length=500)
+    description: str = Field(default="", max_length=200)
 
     @field_validator("name")
     @classmethod
@@ -56,7 +56,7 @@ class CustomFactorCreateBody(BaseModel):
 
 
 class CustomFactorPreviewBody(BaseModel):
-    expression: str
+    expression: str = Field(..., max_length=500)
     feature_set_version: str = ""
 
 

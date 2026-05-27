@@ -20,7 +20,17 @@ _SAFE_BUILTINS = {
     "True": True, "False": False, "None": None,
 }
 
-_MATH_NS = {k: getattr(math, k) for k in dir(math) if not k.startswith("_")}
+# Explicit allow-list: omit factorial/gamma/perm/comb which can cause CPU exhaustion
+_MATH_NS = {
+    k: getattr(math, k) for k in (
+        "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
+        "sinh", "cosh", "tanh",
+        "exp", "log", "log2", "log10", "sqrt", "pow",
+        "floor", "ceil", "trunc", "fabs",
+        "isnan", "isinf", "isfinite",
+        "pi", "e", "tau", "inf", "nan",
+    )
+}
 
 
 def _build_polars_helpers(frame: pl.DataFrame) -> dict[str, Any]:
@@ -42,7 +52,7 @@ def _build_polars_helpers(frame: pl.DataFrame) -> dict[str, Any]:
         return (pl.col(col) - pl.col(col).shift(n)) / pl.col(col).shift(n)
 
     def rank(col: str) -> pl.Expr:
-        """截面排名（0-1），按交易日截面归一化。每日独立排名。"""
+        """截面排名（1/N 到 1.0），按交易日截面归一化。每日独立排名。"""
         return (
             pl.col(col).rank().over("trade_date")
             / pl.col(col).count().over("trade_date")
