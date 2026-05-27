@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 
 from cquant.api_server.deps import CatalogDep
 from cquant.api_server.schemas.common import UniverseCreateBody
@@ -190,6 +190,31 @@ async def create_universe(body: UniverseCreateBody, catalog: CatalogDep) -> dict
         [universe_id, body.name, json.dumps(body.asset_ids), body.filter_type, body.filter_value],
     )
     return {"universe_id": universe_id, "name": body.name}
+
+
+@router.get("/schedule")
+async def get_schedule_status(catalog: CatalogDep) -> dict:
+    """返回数据调度状态。"""
+    from cquant.api_server.data_scheduler import get_scheduler_state
+    state = get_scheduler_state()
+    # 同时返回 freshness（最后一次 silver 数据日期）
+    try:
+        df = catalog.query("SELECT MAX(trade_date) as d FROM silver_prices_1d")
+        last_data = str(df["d"][0]) if not df.is_empty() and df["d"][0] else None
+    except Exception:
+        last_data = None
+    return {**state, "last_data_date": last_data}
+
+
+@router.post("/schedule/trigger")
+async def trigger_ingest(background_tasks: BackgroundTasks, catalog: CatalogDep) -> dict:
+    """手动触发一次增量摄取。"""
+    from cquant.api_server.data_scheduler import run_incremental_ingest, get_scheduler_state
+    state = get_scheduler_state()
+    if state.get("last_status") == "running":
+        return {"status": "already_running"}
+    background_tasks.add_task(run_incremental_ingest, catalog)
+    return {"status": "triggered"}
 
 
 @router.get("/{version_id}")

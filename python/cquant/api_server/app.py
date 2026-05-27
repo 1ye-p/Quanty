@@ -162,3 +162,10 @@ def create_app(
 
 # Module-level app instance for uvicorn
 app: FastAPI = create_app()
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    from cquant.api_server.data_scheduler import start_data_scheduler
+    from cquant.api_server.deps import get_catalog
+    app.state.data_scheduler = start_data_scheduler(get_catalog())
