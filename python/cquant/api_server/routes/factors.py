@@ -18,17 +18,27 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/factors", tags=["factors"])
 
 
+_custom_factor_table_ensured = False
+
+
 def _ensure_custom_factor_table(catalog) -> None:
-    """幂等创建自定义因子表。"""
-    catalog.execute("""
-        CREATE TABLE IF NOT EXISTS meta_custom_factors (
-            factor_id   VARCHAR PRIMARY KEY,
-            name        VARCHAR UNIQUE NOT NULL,
-            expression  VARCHAR NOT NULL,
-            description VARCHAR DEFAULT '',
-            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+    """幂等创建自定义因子表（进程内只执行一次）。"""
+    global _custom_factor_table_ensured
+    if _custom_factor_table_ensured:
+        return
+    try:
+        catalog.execute("""
+            CREATE TABLE IF NOT EXISTS meta_custom_factors (
+                factor_id   VARCHAR PRIMARY KEY,
+                name        VARCHAR UNIQUE NOT NULL,
+                expression  VARCHAR NOT NULL,
+                description VARCHAR DEFAULT '',
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        _custom_factor_table_ensured = True
+    except Exception as exc:
+        logger.debug("_ensure_custom_factor_table: %s", exc)
 
 
 class CustomFactorCreateBody(BaseModel):
@@ -200,9 +210,10 @@ async def preview_custom_factor(body: CustomFactorPreviewBody, catalog: CatalogD
     import polars as pl
     from cquant.factorlab.factors.expression_factor import ExpressionFactor
 
-    validation = ExpressionFactor.validate_expression(body.expression)
-    if not validation["valid"]:
-        return {"valid": False, "error": validation["error"], "preview": []}
+    # Syntax-only check first (before loading sample data)
+    syntax_check = ExpressionFactor.validate_expression(body.expression)
+    if not syntax_check["valid"]:
+        return {"valid": False, "error": syntax_check["error"], "preview": []}
 
     try:
         sample_df = catalog.query(
@@ -218,9 +229,10 @@ async def preview_custom_factor(body: CustomFactorPreviewBody, catalog: CatalogD
     if sample_df.is_empty():
         return {"valid": True, "error": None, "preview": [], "note": "无样本数据，仅语法验证通过"}
 
-    validation2 = ExpressionFactor.validate_expression(body.expression, sample_df)
-    if not validation2["valid"]:
-        return {"valid": False, "error": validation2["error"], "preview": []}
+    # Runtime check with real data (subsumes syntax check, so no need to repeat)
+    runtime_check = ExpressionFactor.validate_expression(body.expression, sample_df)
+    if not runtime_check["valid"]:
+        return {"valid": False, "error": runtime_check["error"], "preview": []}
 
     factor = ExpressionFactor("__preview__", body.expression)
     result = factor.compute(sample_df, None)  # type: ignore

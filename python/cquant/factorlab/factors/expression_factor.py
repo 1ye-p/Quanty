@@ -11,9 +11,11 @@ from cquant.factorlab.factor import Factor, FactorContext
 
 
 # 受限命名空间中可用的安全函数
+# NOTE: `sum` and `range` are intentionally excluded — `sum(range(N))` is an O(N)
+# DoS vector. Use Polars aggregation functions (e.g. pl.col('x').sum()) instead.
 _SAFE_BUILTINS = {
     "abs": abs, "max": max, "min": min, "round": round,
-    "sum": sum, "len": len, "range": range,
+    "len": len,
     "int": int, "float": float, "str": str, "bool": bool,
     "True": True, "False": False, "None": None,
 }
@@ -40,8 +42,11 @@ def _build_polars_helpers(frame: pl.DataFrame) -> dict[str, Any]:
         return (pl.col(col) - pl.col(col).shift(n)) / pl.col(col).shift(n)
 
     def rank(col: str) -> pl.Expr:
-        """截面排名（0-1，over asset_id）。"""
-        return pl.col(col).rank() / pl.col(col).count()
+        """截面排名（0-1），按交易日截面归一化。每日独立排名。"""
+        return (
+            pl.col(col).rank().over("trade_date")
+            / pl.col(col).count().over("trade_date")
+        )
 
     def log(col: str) -> pl.Expr:
         """自然对数。"""
