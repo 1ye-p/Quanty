@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { backtestsApi, backtestExtApi, type BacktestFill } from '@/lib/api'
@@ -133,6 +133,7 @@ export function BacktestsPage() {
   const pageSize = 20
   const [compareIds, setCompareIds] = useState<string[]>([])
   const [showCompare, setShowCompare] = useState(false)
+  const [btSearch, setBtSearch] = useState('')
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: queryKeys.backtests.list(page * pageSize, pageSize),
@@ -235,6 +236,31 @@ export function BacktestsPage() {
     }))
   }, [snapshots, benchmarkNav])
 
+  const filteredBacktests = useMemo(() => {
+    if (!data?.items) return []
+    if (!btSearch.trim()) return data.items
+    const q = btSearch.toLowerCase()
+    return data.items.filter(
+      r => r.strategy_id.toLowerCase().includes(q)
+        || r.run_id.toLowerCase().includes(q)
+        || (r.engine ?? '').toLowerCase().includes(q)
+    )
+  }, [data, btSearch])
+
+  // Fix 1: Clear selectedId when the selected backtest is filtered out
+  useEffect(() => {
+    if (selectedId && btSearch && !filteredBacktests.some(r => r.run_id === selectedId)) {
+      setSelectedId(null)
+    }
+  }, [btSearch, filteredBacktests, selectedId])
+
+  // Fix 2: Remove filtered-out items from compareIds
+  useEffect(() => {
+    if (btSearch) {
+      setCompareIds(prev => prev.filter(id => filteredBacktests.some(r => r.run_id === id)))
+    }
+  }, [btSearch, filteredBacktests])
+
   // Walk-forward windows for chart
   const wfWindows = validationData?.walk_forward ?? []
   const cpvcWindows = validationData?.cpcv ?? []
@@ -262,7 +288,27 @@ export function BacktestsPage() {
   return (
     <div>
       <h1 className="page-title">回测评估</h1>
-      <p className="page-subtitle">共 {data?.total ?? 0} 条记录 · 点击行选择查看详情</p>
+      <div className="flex items-center justify-between mb-1">
+        <p className="page-subtitle">
+          {btSearch
+            ? `找到 ${filteredBacktests.length} / ${data?.total ?? 0} 条记录`
+            : `共 ${data?.total ?? 0} 条记录 · 点击行选择查看详情`}
+        </p>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="搜索策略名或 run_id…"
+            value={btSearch}
+            onChange={e => setBtSearch(e.target.value)}
+            className="pl-6 pr-6 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-brand-500 w-44"
+          />
+          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+          {btSearch && (
+            <button onClick={() => setBtSearch('')}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+          )}
+        </div>
+      </div>
 
       {/* Run list */}
       <div className="card p-0 overflow-hidden mb-6">
@@ -282,12 +328,12 @@ export function BacktestsPage() {
               </tr>
             </thead>
             <tbody>
-              {!data?.items.length && (
+              {!filteredBacktests.length && (
                 <tr><td colSpan={7} className="table-td text-center text-gray-400 py-8">
-                  {isFetching ? '加载中…' : '暂无回测记录'}
+                  {isFetching ? '加载中…' : btSearch ? '未找到匹配的回测记录' : '暂无回测记录'}
                 </td></tr>
               )}
-              {data?.items.map(r => (
+              {filteredBacktests.map(r => (
                 <tr
                   key={r.run_id}
                   className={`table-row cursor-pointer ${selectedId === r.run_id ? 'bg-blue-50' : ''}`}
