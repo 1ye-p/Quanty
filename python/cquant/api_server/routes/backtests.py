@@ -45,8 +45,7 @@ def _fmt_metric(key: str, value: float | None) -> dict:
         "calmar_ratio":       ("Calmar Ratio",     False, False),
         "win_rate":           ("胜率",              True,  False),
         "max_drawdown":       ("最大回撤",          True,  True),   # always bad
-        "annual_volatility":  ("年化波动率",         True,  True),   # always bad
-        "annualized_volatility": ("年化波动率",      True,  True),
+        "annualized_volatility": ("年化波动率",         True,  True),   # always bad
         "information_ratio":  ("信息比率（IR）",      False, False),
         "tracking_error":     ("跟踪误差（TE）",      True,  True),   # always bad
         "alpha":              ("超额收益 Alpha",     True,  False),
@@ -538,7 +537,6 @@ async def get_backtest_risk(run_id: str, catalog: CatalogDep, limit: int = 20) -
 def _nav_to_svg(
     nav_dates: list[str],
     nav_values: list[float],
-    bm_dates: list[str] | None = None,
     bm_values: list[float] | None = None,
     width: int = 900,
     height: int = 320,
@@ -583,8 +581,9 @@ def _nav_to_svg(
     # Benchmark
     if bm_values:
         parts.append(f'<polyline points="{polyline(bm_values, len(bm_values))}" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3"/>')
-    # Area fill
-    base_y = py(max(lo, 1.0))
+    # Area fill — use chart bottom (py(lo)) so polygon is always inside the viewBox
+    # Using py(max(lo, 1.0)) would break when all values < 1.0 (yields negative Y)
+    base_y = float(PT + ch)
     pts = polyline(nav_values)
     parts.append(f'<polygon points="{PL:.0f},{base_y:.0f} {pts} {PL + cw:.0f},{base_y:.0f}" fill="rgba(37,99,235,0.07)"/>')
     # Line
