@@ -21,7 +21,7 @@ def get_scheduler_state() -> dict:
     return dict(_SCHEDULER_STATE)
 
 
-async def run_incremental_ingest(catalog) -> None:
+def run_incremental_ingest(catalog) -> None:
     """执行增量摄取：从 silver_prices_1d 找最新日期，拉取到今日。"""
     _SCHEDULER_STATE["last_status"] = "running"
     _SCHEDULER_STATE["last_run"] = datetime.now(tz=timezone.utc).isoformat()
