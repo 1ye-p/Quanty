@@ -167,6 +167,43 @@ async def feature_importance(run_id: str, catalog: CatalogDep) -> dict:
         return {"items": [], "total": 0, "error": str(exc)}
 
 
+@router.get("/predictions")
+async def get_latest_predictions(
+    catalog: CatalogDep,
+    asset_ids: str = "",
+) -> dict:
+    """返回 gold_predictions 表中最新交易日对给定资产的预测值。
+
+    asset_ids: 逗号分隔的资产代码列表（如 SSE:600036,SZSE:000001）。
+    返回 {date, predictions: {asset_id: prediction}}。
+    """
+    import polars as pl
+
+    ids = [a.strip() for a in asset_ids.split(",") if a.strip()]
+    if not ids:
+        return {"date": None, "predictions": {}}
+
+    in_ph = ",".join(["?" for _ in ids])
+    try:
+        df = catalog.query(
+            f"SELECT trade_date, asset_id, prediction "
+            f"FROM gold_predictions "
+            f"WHERE asset_id IN ({in_ph}) "
+            f"ORDER BY trade_date DESC",
+            ids,
+        )
+    except Exception:
+        return {"date": None, "predictions": {}}
+
+    if df.is_empty():
+        return {"date": None, "predictions": {}}
+
+    latest_date = df["trade_date"][0]
+    latest_df = df.filter(pl.col("trade_date") == latest_date)
+    predictions = dict(zip(latest_df["asset_id"].to_list(), latest_df["prediction"].to_list()))
+    return {"date": str(latest_date), "predictions": predictions}
+
+
 @router.post("/jobs", status_code=202)
 async def submit_ml_job(
     body: MLJobBody,

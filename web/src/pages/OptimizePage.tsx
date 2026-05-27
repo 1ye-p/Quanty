@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { optimizeApi } from '@/lib/api'
+import { optimizeApi, mlApi } from '@/lib/api'
 import type { OptimizeResult } from '@/lib/api'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 
@@ -38,7 +38,6 @@ export function OptimizePage() {
     mutationFn: optimizeApi.covariance,
     onSuccess: (data) => {
       setCovResult(data.covariance)
-      setReturnsText('')
       // Initialize expected returns map: keep existing values, default new assets to 0
       const assets = Object.keys(data.covariance)
       setExpectedReturnsMap(prev => {
@@ -55,6 +54,26 @@ export function OptimizePage() {
     mutationFn: optimizeApi.optimize,
     onSuccess: (data) => setOptResult(data),
   })
+
+  // Fetch ML predictions for the current covariance assets (lazy — only when covResult exists)
+  const covAssets = covResult ? Object.keys(covResult) : []
+  const { data: mlPredictions, isFetching: mlFetching } = useQuery({
+    queryKey: ['ml', 'predictions', covAssets.join(',')],
+    queryFn: () => mlApi.predictions(covAssets),
+    enabled: covAssets.length > 0,
+    staleTime: 60_000,
+  })
+
+  const handleImportMlPredictions = () => {
+    if (!mlPredictions?.predictions || !Object.keys(mlPredictions.predictions).length) return
+    setExpectedReturnsMap(prev => {
+      const next = { ...prev }
+      for (const [asset, pred] of Object.entries(mlPredictions.predictions)) {
+        if (asset in next) next[asset] = pred
+      }
+      return next
+    })
+  }
 
   const handleComputeCov = () => {
     const assetIds = assetIdsText.split(',').map(s => s.trim()).filter(Boolean)
@@ -205,6 +224,15 @@ export function OptimizePage() {
                 </button>
                 <button
                   type="button"
+                  onClick={handleImportMlPredictions}
+                  disabled={mlFetching || !mlPredictions?.predictions || !Object.keys(mlPredictions.predictions).length}
+                  title={mlPredictions?.date ? `来自 ${mlPredictions.date}` : '无 ML 预测数据'}
+                  className="text-xs text-purple-600 hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {mlFetching ? '加载…' : '导入 ML 预测'}
+                </button>
+                <button
+                  type="button"
                   onClick={() =>
                     setExpectedReturnsMap(prev =>
                       Object.fromEntries(Object.keys(prev).map(k => [k, 0]))
@@ -233,12 +261,11 @@ export function OptimizePage() {
                           type="number"
                           step={0.1}
                           value={ret * 100}
-                          onChange={e =>
-                            setExpectedReturnsMap(prev => ({
-                              ...prev,
-                              [asset]: Number(e.target.value) / 100,
-                            }))
-                          }
+                          onChange={e => {
+                            const val = Number(e.target.value)
+                            if (isNaN(val)) return
+                            setExpectedReturnsMap(prev => ({ ...prev, [asset]: val / 100 }))
+                          }}
                           className="w-full text-right border rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
                           placeholder="0"
                         />
