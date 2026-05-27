@@ -242,26 +242,26 @@ async def create_backtest(
                 )
             s_start = str(scoring_meta["start_date"].item()).split()[0]
             s_end = str(scoring_meta["end_date"].item()).split()[0]
-                bt_start = body.start_date
-                bt_end = body.end_date
-                effective_start = max(bt_start, s_start)
-                effective_end = min(bt_end, s_end)
-                if effective_start > effective_end:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"回测日期范围 ({bt_start}~{bt_end}) 与打分结果范围 ({s_start}~{s_end}) 无交集",
-                    )
-                if effective_start != bt_start or effective_end != bt_end:
-                    scoring_date_warning = (
-                        f"回测范围已截断为 {effective_start}~{effective_end}（受打分数据范围限制）"
-                    )
-                    body = body.model_copy(update={
-                        "start_date": effective_start,
-                        "end_date": effective_end,
-                    })
-                    # Re-parse start/end so BacktestRunSpec receives truncated dates
-                    start = date.fromisoformat(effective_start)
-                    end = date.fromisoformat(effective_end)
+            bt_start = body.start_date
+            bt_end = body.end_date
+            effective_start = max(bt_start, s_start)
+            effective_end = min(bt_end, s_end)
+            if effective_start > effective_end:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"回测日期范围 ({bt_start}~{bt_end}) 与打分结果范围 ({s_start}~{s_end}) 无交集",
+                )
+            if effective_start != bt_start or effective_end != bt_end:
+                scoring_date_warning = (
+                    f"回测范围已截断为 {effective_start}~{effective_end}（受打分数据范围限制）"
+                )
+                body = body.model_copy(update={
+                    "start_date": effective_start,
+                    "end_date": effective_end,
+                })
+                # Re-parse start/end so BacktestRunSpec receives truncated dates
+                start = date.fromisoformat(effective_start)
+                end = date.fromisoformat(effective_end)
         except HTTPException:
             raise
         except Exception as e:
