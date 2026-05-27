@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { factorAnalyticsApi } from '@/lib/api'
@@ -31,6 +31,7 @@ export function FactorsPage() {
 
   // Factor correlation heatmap
   const [showCorrMap, setShowCorrMap] = useState(false)
+
   const { data: corrMatrix, isFetching: corrFetching, refetch: refetchCorr } = useQuery({
     queryKey: ['factors', 'correlation', selectedFactors, featureSetVersion],
     queryFn: () => factorAnalyticsApi.computeFactorCorrelation({
@@ -51,6 +52,17 @@ export function FactorsPage() {
     queryKey: extendedQueryKeys.factorAnalytics.definitions(),
     queryFn: factorAnalyticsApi.definitions,
   })
+
+  const [factorSearch, setFactorSearch] = useState('')
+
+  const filteredFactorDefs = useMemo(() => {
+    if (!defs?.items) return []
+    if (!factorSearch.trim()) return defs.items
+    const q = factorSearch.toLowerCase()
+    return defs.items.filter(
+      f => f.name.toLowerCase().includes(q) || (f.description ?? '').toLowerCase().includes(q)
+    )
+  }, [defs, factorSearch])
 
   const { data: versions } = useQuery({
     queryKey: ["factors", "versions"],
@@ -145,8 +157,31 @@ export function FactorsPage() {
 
       {isLoading && <p className="text-gray-400">Loading…</p>}
 
+      {/* 因子搜索 */}
+      <div className="relative mb-3">
+        <input
+          type="text"
+          placeholder="搜索因子名称或描述…"
+          value={factorSearch}
+          onChange={e => setFactorSearch(e.target.value)}
+          className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500"
+        />
+        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+        {factorSearch && (
+          <button
+            onClick={() => setFactorSearch('')}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+          >✕</button>
+        )}
+      </div>
+      {factorSearch && (
+        <p className="text-xs text-gray-400 mb-2">
+          找到 {filteredFactorDefs.length} / {defs?.items.length ?? 0} 个因子
+        </p>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {defs?.items.map(f => (
+        {filteredFactorDefs.map(f => (
           <div
             key={f.name}
             onClick={() => {
@@ -167,6 +202,11 @@ export function FactorsPage() {
             </div>
           </div>
         ))}
+        {filteredFactorDefs.length === 0 && !isLoading && (
+          <div className="col-span-full text-center py-8 text-gray-400 text-sm">
+            {factorSearch ? `未找到含"${factorSearch}"的因子` : '暂无因子数据'}
+          </div>
+        )}
       </div>
 
       {/* Multi-Factor IC Matrix */}
@@ -177,7 +217,7 @@ export function FactorsPage() {
             <div className="flex items-center gap-3">
               <button
                 className="text-xs text-blue-600 hover:underline"
-                onClick={() => setSelectedFactors(defs?.items?.map(f => f.name) ?? [])}
+                onClick={() => setSelectedFactors(filteredFactorDefs.map(f => f.name))}
               >
                 全选
               </button>
@@ -192,7 +232,7 @@ export function FactorsPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
-            {defs.items.map(f => (
+            {filteredFactorDefs.map(f => (
               <button
                 key={f.name}
                 className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
