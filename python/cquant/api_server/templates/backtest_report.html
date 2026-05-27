@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>回测报告 — {{ run_id }}</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+  h1 { font-size: 22px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #64748b; margin-bottom: 28px; }
+  .section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .section h2 { font-size: 15px; font-weight: 600; color: #334155; margin-bottom: 16px; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .metric-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }
+  .metric-value { font-size: 22px; font-weight: 700; color: #2563eb; }
+  .metric-value.positive { color: #16a34a; }
+  .metric-value.negative { color: #dc2626; }
+  .metric-label { font-size: 11px; color: #64748b; margin-top: 4px; }
+  .chart { width: 100%; height: 300px; }
+  .chart-tall { height: 360px; }
+  footer { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 32px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; background: #f8fafc; color: #64748b; font-weight: 500; border-bottom: 1px solid #e2e8f0; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }
+  @media (max-width: 700px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📊 回测报告</h1>
+  <p class="subtitle">
+    策略：<strong>{{ strategy_id }}</strong> &nbsp;|&nbsp;
+    引擎：{{ engine }} &nbsp;|&nbsp;
+    区间：{{ start_date }} ~ {{ end_date }} &nbsp;|&nbsp;
+    数据集：{{ dataset_version }} &nbsp;|&nbsp;
+    <span class="badge badge-green">{{ status }}</span>
+  </p>
+
+  <!-- 关键指标 -->
+  <div class="section">
+    <h2>关键指标</h2>
+    <div class="metrics-grid">
+      {% for m in key_metrics %}
+      <div class="metric-card">
+        <div class="metric-value {{ m.cls }}">{{ m.value }}</div>
+        <div class="metric-label">{{ m.label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 净值曲线 -->
+  <div class="section">
+    <h2>净值曲线</h2>
+    <div id="navChart" class="chart chart-tall"></div>
+  </div>
+
+  <!-- 年度收益 -->
+  {% if annual_returns %}
+  <div class="section">
+    <h2>年度收益</h2>
+    <div id="annualChart" class="chart"></div>
+  </div>
+  {% endif %}
+
+  <!-- 交易摘要 -->
+  {% if fills %}
+  <div class="section">
+    <h2>最近 20 笔交易</h2>
+    <table>
+      <thead><tr><th>日期</th><th>资产</th><th>方向</th><th>数量</th><th>价格</th></tr></thead>
+      <tbody>
+        {% for f in fills %}
+        <tr>
+          <td>{{ f.trade_date }}</td>
+          <td>{{ f.asset_id }}</td>
+          <td>{{ f.side }}</td>
+          <td>{{ f.quantity }}</td>
+          <td>{{ f.price }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <footer>由 cQuant 自动生成 &nbsp;·&nbsp; {{ generated_at }}</footer>
+</div>
+
+<script>
+// NAV 曲线
+(function() {
+  var dates = {{ nav_dates | tojson }};
+  var navs = {{ nav_values | tojson }};
+  var bmDates = {{ bm_dates | tojson }};
+  var bmNavs = {{ bm_values | tojson }};
+  var chart = echarts.init(document.getElementById('navChart'));
+  var series = [{
+    name: '策略净值', type: 'line', data: navs,
+    smooth: true, symbol: 'none', lineStyle: { width: 2, color: '#2563eb' },
+    areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+      colorStops: [{offset: 0, color: 'rgba(37,99,235,0.15)'}, {offset: 1, color: 'rgba(37,99,235,0.01)'}] } }
+  }];
+  if (bmDates.length > 0) {
+    series.push({ name: '基准', type: 'line', data: bmNavs,
+      symbol: 'none', lineStyle: { width: 1.5, color: '#94a3b8', type: 'dashed' } });
+  }
+  chart.setOption({
+    tooltip: { trigger: 'axis', formatter: function(p) {
+      return p[0].axisValue + '<br>' + p.map(function(s) {
+        return s.marker + s.seriesName + ': ' + (+s.value).toFixed(4);
+      }).join('<br>');
+    }},
+    legend: { data: series.map(function(s) { return s.name; }) },
+    xAxis: { type: 'category', data: dates, axisLabel: { fontSize: 11 } },
+    yAxis: { type: 'value', scale: true, axisLabel: { fontSize: 11 } },
+    series: series,
+    grid: { left: 50, right: 20, top: 40, bottom: 30 }
+  });
+  window.addEventListener('resize', function() { chart.resize(); });
+})();
+
+// 年度收益
+{% if annual_returns %}
+(function() {
+  var years = {{ annual_years | tojson }};
+  var rets = {{ annual_rets | tojson }};
+  var chart = echarts.init(document.getElementById('annualChart'));
+  chart.setOption({
+    tooltip: { formatter: function(p) { return p.name + ': ' + (p.value * 100).toFixed(2) + '%'; } },
+    xAxis: { type: 'category', data: years },
+    yAxis: { type: 'value', axisLabel: { formatter: function(v) { return (v*100).toFixed(0)+'%'; } } },
+    series: [{ type: 'bar', data: rets.map(function(v, i) {
+      return { value: v, itemStyle: { color: v >= 0 ? '#16a34a' : '#dc2626', borderRadius: [3,3,0,0] } };
+    }) }],
+    grid: { left: 50, right: 20, top: 20, bottom: 30 }
+  });
+  window.addEventListener('resize', function() { chart.resize(); });
+})();
+{% endif %}
+</script>
+</body>
+</html>
