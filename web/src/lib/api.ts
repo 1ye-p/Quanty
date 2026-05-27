@@ -396,7 +396,7 @@ export const mlApi = {
   jobStatus: (id: string) => request<MLJob>(`/ml/jobs/${id}`),
   predictions: (assetIds: string[]) =>
     request<{ date: string | null; predictions: Record<string, number> }>(
-      `/ml/predictions?asset_ids=${assetIds.join(',')}`,
+      `/ml/predictions?asset_ids=${encodeURIComponent(assetIds.join(','))}`,
     ),
 }
 

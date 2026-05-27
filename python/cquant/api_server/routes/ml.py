@@ -177,20 +177,21 @@ async def get_latest_predictions(
     asset_ids: 逗号分隔的资产代码列表（如 SSE:600036,SZSE:000001）。
     返回 {date, predictions: {asset_id: prediction}}。
     """
-    import polars as pl
-
     ids = [a.strip() for a in asset_ids.split(",") if a.strip()]
     if not ids:
         return {"date": None, "predictions": {}}
 
     in_ph = ",".join(["?" for _ in ids])
     try:
+        # Fetch only the latest trade_date rows — avoids loading full history
         df = catalog.query(
             f"SELECT trade_date, asset_id, prediction "
             f"FROM gold_predictions "
             f"WHERE asset_id IN ({in_ph}) "
-            f"ORDER BY trade_date DESC",
-            ids,
+            f"  AND trade_date = ("
+            f"    SELECT MAX(trade_date) FROM gold_predictions WHERE asset_id IN ({in_ph})"
+            f")",
+            ids + ids,  # params repeated for subquery
         )
     except Exception:
         return {"date": None, "predictions": {}}
@@ -199,8 +200,7 @@ async def get_latest_predictions(
         return {"date": None, "predictions": {}}
 
     latest_date = df["trade_date"][0]
-    latest_df = df.filter(pl.col("trade_date") == latest_date)
-    predictions = dict(zip(latest_df["asset_id"].to_list(), latest_df["prediction"].to_list()))
+    predictions = dict(zip(df["asset_id"].to_list(), df["prediction"].to_list()))
     return {"date": str(latest_date), "predictions": predictions}
 
 

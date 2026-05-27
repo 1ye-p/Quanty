@@ -69,7 +69,7 @@ export function OptimizePage() {
     setExpectedReturnsMap(prev => {
       const next = { ...prev }
       for (const [asset, pred] of Object.entries(mlPredictions.predictions)) {
-        if (asset in next) next[asset] = pred
+        if (asset in next && typeof pred === 'number' && !isNaN(pred)) next[asset] = pred
       }
       return next
     })
@@ -279,8 +279,22 @@ export function OptimizePage() {
               risk_parity 优化器不使用预期收益，均值方差优化器需要设置。
             </p>
             {/* 高级文本模式（折叠） */}
-            <details className="mt-2">
-              <summary className="text-xs text-gray-400 cursor-pointer">高级：文本模式输入</summary>
+            <details
+              className="mt-2"
+              onToggle={e => {
+                if ((e.target as HTMLDetailsElement).open) {
+                  // Populate text from current table values on open
+                  setReturnsText(
+                    Object.entries(expectedReturnsMap)
+                      .map(([a, v]) => `${a}, ${v.toFixed(4)}`)
+                      .join('\n')
+                  )
+                }
+              }}
+            >
+              <summary className="text-xs text-gray-400 cursor-pointer">
+                高级：文本模式输入（编辑后将覆盖表格中对应资产的值）
+              </summary>
               <textarea
                 rows={4}
                 value={returnsText}
