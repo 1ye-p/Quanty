@@ -614,13 +614,13 @@ function BacktestRunModal({
   }, [jobStatus, queryClient, onClose, navigate])
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-[500px] max-w-[95vw]">
-        <div className="flex items-center justify-between p-4 border-b">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-[500px] max-w-full max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
           <h2 className="font-semibold text-gray-900">执行回测</h2>
           <button className="text-gray-400 hover:text-gray-600" onClick={onClose}>✕</button>
         </div>
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto flex-1">
           <div>
             <label className="block text-sm text-gray-600 mb-1">策略</label>
             <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm">{strategyId}</div>
@@ -843,7 +843,7 @@ function BacktestRunModal({
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-2 p-4 border-t flex-wrap">
+        <div className="flex justify-end gap-2 p-4 border-t flex-wrap flex-shrink-0">
           {scoringWarning && (
             <div className="w-full text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
               ⚠ {scoringWarning}
