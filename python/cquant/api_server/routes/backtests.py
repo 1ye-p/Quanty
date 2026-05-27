@@ -10,6 +10,12 @@ import re
 import uuid
 from datetime import date, datetime, timezone
 
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+
+from cquant.api_server.deps import CatalogDep
+
 _ARTIFACTS_BASE = pathlib.Path("data/backtest_artifacts").resolve()
 _UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 
@@ -24,30 +30,40 @@ def _safe_metrics_path(run_id: str) -> pathlib.Path | None:
     return p
 
 def _fmt_metric(key: str, value: float | None) -> dict:
-    """格式化单个指标为模板友好的 dict。"""
-    METRIC_LABELS = {
-        "total_return": ("总收益率", True, True),
-        "cagr": ("年化收益（CAGR）", True, True),
-        "sharpe_ratio": ("Sharpe Ratio", False, False),
-        "max_drawdown": ("最大回撤", True, True),
-        "sortino_ratio": ("Sortino Ratio", False, False),
-        "calmar_ratio": ("Calmar Ratio", False, False),
-        "win_rate": ("胜率", True, False),
-        "annual_volatility": ("年化波动率", True, True),
+    """格式化单个指标为模板友好的 dict。
+
+    Tuple format: (label, is_pct, invert)
+    invert=True: higher value is worse (e.g. volatility, drawdown) — always show as "negative" class.
+    invert=False: higher is better — positive=green, negative=red.
+    """
+    METRIC_LABELS: dict[str, tuple[str, bool, bool]] = {
+        "total_return":       ("总收益率",         True,  False),
+        "annualized_return":  ("年化收益",          True,  False),
+        "cagr":               ("年化收益（CAGR）",   True,  False),
+        "sharpe_ratio":       ("Sharpe Ratio",     False, False),
+        "sortino_ratio":      ("Sortino Ratio",    False, False),
+        "calmar_ratio":       ("Calmar Ratio",     False, False),
+        "win_rate":           ("胜率",              True,  False),
+        "max_drawdown":       ("最大回撤",          True,  True),   # always bad
+        "annual_volatility":  ("年化波动率",         True,  True),   # always bad
+        "annualized_volatility": ("年化波动率",      True,  True),
+        "information_ratio":  ("信息比率（IR）",      False, False),
+        "tracking_error":     ("跟踪误差（TE）",      True,  True),   # always bad
+        "alpha":              ("超额收益 Alpha",     True,  False),
+        "beta":               ("Beta",              False, False),
     }
     label, is_pct, invert = METRIC_LABELS.get(key, (key, False, False))
     if value is None:
         return {"label": label, "value": "—", "cls": ""}
     display = f"{value * 100:.2f}%" if is_pct else f"{value:.3f}"
-    positive = value > 0
-    cls = "positive" if positive else ("negative" if not positive else "")
+    if value == 0:
+        cls = ""
+    elif invert:
+        cls = "negative"          # high value = bad for these metrics
+    else:
+        cls = "positive" if value > 0 else "negative"
     return {"label": label, "value": display, "cls": cls}
 
-
-from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel
-
-from cquant.api_server.deps import CatalogDep
 
 logger = logging.getLogger(__name__)
 
@@ -517,15 +533,118 @@ async def get_backtest_risk(run_id: str, catalog: CatalogDep, limit: int = 20) -
     return {"items": df.to_dicts(), "total": df.height}
 
 
-@router.get("/{run_id}/export")
-async def export_backtest_report(run_id: str, catalog: CatalogDep):
-    """生成回测 HTML 报告（独立文件，内嵌 ECharts）。"""
-    from datetime import datetime as dt
-    from jinja2 import Environment, FileSystemLoader
+# ── HTML Report SVG helpers ───────────────────────────────────────────────────
 
-    # 1. 加载运行元数据
+def _nav_to_svg(
+    nav_dates: list[str],
+    nav_values: list[float],
+    bm_dates: list[str] | None = None,
+    bm_values: list[float] | None = None,
+    width: int = 900,
+    height: int = 320,
+) -> str:
+    """Render NAV + optional benchmark as an inline SVG (no external dependencies)."""
+    if not nav_values:
+        return '<p style="text-align:center;color:#94a3b8;padding:40px">暂无净值数据</p>'
+    PL, PR, PT, PB = 62, 20, 20, 32
+    cw, ch = width - PL - PR, height - PT - PB
+    all_vals = list(nav_values) + (list(bm_values) if bm_values else [])
+    lo, hi = min(all_vals), max(all_vals)
+    rng = (hi - lo) or 0.01
+    n = len(nav_values)
+
+    def px(i: int, total: int = 0) -> float:
+        return PL + i * cw / max((total or n) - 1, 1)
+
+    def py(v: float) -> float:
+        return PT + ch - (v - lo) / rng * ch
+
+    def polyline(vals: list[float], total: int = 0) -> str:
+        return " ".join(f"{px(i, total):.1f},{py(v):.1f}" for i, v in enumerate(vals))
+
+    parts: list[str] = [
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">',
+        f'<rect x="{PL}" y="{PT}" width="{cw}" height="{ch}" fill="#f8fafc" rx="4"/>',
+    ]
+    # Y grid + labels
+    for t in range(5):
+        frac = t / 4
+        v = lo + frac * rng
+        y = PT + ch * (1 - frac)
+        parts += [
+            f'<line x1="{PL}" y1="{y:.0f}" x2="{PL + cw}" y2="{y:.0f}" stroke="#e2e8f0" stroke-dasharray="3,3"/>',
+            f'<text x="{PL - 6}" y="{y + 4:.0f}" text-anchor="end" font-size="10" fill="#94a3b8">{v:.3f}</text>',
+        ]
+    # X labels (up to 6)
+    x_step = max(1, n // 6)
+    for i in range(0, n, x_step):
+        lbl = nav_dates[i][:7] if len(nav_dates[i]) >= 7 else nav_dates[i]
+        parts.append(f'<text x="{px(i):.0f}" y="{height - 4}" text-anchor="middle" font-size="10" fill="#94a3b8">{lbl}</text>')
+    # Benchmark
+    if bm_values:
+        parts.append(f'<polyline points="{polyline(bm_values, len(bm_values))}" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3"/>')
+    # Area fill
+    base_y = py(max(lo, 1.0))
+    pts = polyline(nav_values)
+    parts.append(f'<polygon points="{PL:.0f},{base_y:.0f} {pts} {PL + cw:.0f},{base_y:.0f}" fill="rgba(37,99,235,0.07)"/>')
+    # Line
+    parts.append(f'<polyline points="{pts}" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round"/>')
+    # Axes
+    parts += [
+        f'<line x1="{PL}" y1="{PT}" x2="{PL}" y2="{PT + ch}" stroke="#e2e8f0"/>',
+        f'<line x1="{PL}" y1="{PT + ch}" x2="{PL + cw}" y2="{PT + ch}" stroke="#e2e8f0"/>',
+        '</svg>',
+    ]
+    return ''.join(parts)
+
+
+def _annual_returns_svg(years: list[str], rets: list[float], width: int = 600, height: int = 220) -> str:
+    """Render annual returns as an inline SVG bar chart."""
+    if not years or not rets:
+        return ''
+    PL, PR, PT, PB = 48, 20, 16, 28
+    cw, ch = width - PL - PR, height - PT - PB
+    max_abs = max(abs(r) for r in rets) or 0.01
+    zero_y = PT + ch / 2
+    scale = ch / 2 / max_abs
+    n = len(years)
+    bar_w = max(6, cw / n * 0.55)
+    gap = cw / n
+    parts: list[str] = [
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">',
+        f'<line x1="{PL}" y1="{zero_y:.0f}" x2="{PL + cw}" y2="{zero_y:.0f}" stroke="#e2e8f0"/>',
+    ]
+    for i, (year, ret) in enumerate(zip(years, rets)):
+        cx = PL + gap * i + gap / 2
+        bh = abs(ret) * scale
+        by = zero_y - bh if ret >= 0 else zero_y
+        col = "#16a34a" if ret >= 0 else "#dc2626"
+        parts += [
+            f'<rect x="{cx - bar_w / 2:.1f}" y="{by:.1f}" width="{bar_w:.1f}" height="{bh:.1f}" fill="{col}" rx="2"/>',
+            f'<text x="{cx:.0f}" y="{PT + ch + PB - 3}" text-anchor="middle" font-size="10" fill="#64748b">{year}</text>',
+            f'<text x="{cx:.0f}" y="{(by - 3 if ret >= 0 else by + bh + 11):.0f}" text-anchor="middle" font-size="9" fill="{col}">{ret * 100:.1f}%</text>',
+        ]
+    parts.append('</svg>')
+    return ''.join(parts)
+
+
+@router.get("/{run_id}/export")
+async def export_backtest_report(
+    run_id: str,
+    catalog: CatalogDep,
+    format: str = "html",
+) -> HTMLResponse:
+    """生成回测独立 HTML 报告（内嵌 SVG 图表，无外部依赖，支持离线打开）。"""
+    from datetime import datetime as dt
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+    if format != "html":
+        raise HTTPException(status_code=400, detail=f"Unsupported format '{format}'. Only 'html' is supported.")
+
+    # 1. 加载运行元数据（合并为单次查询）
     run_df = catalog.query(
-        "SELECT run_id, strategy_id, engine, status, dataset_version "
+        "SELECT run_id, strategy_id, engine, status, dataset_version, "
+        "benchmark_asset_id, started_at, completed_at "
         "FROM gold_backtest_runs WHERE run_id = ?",
         [run_id],
     )
@@ -544,8 +663,11 @@ async def export_backtest_report(run_id: str, catalog: CatalogDep):
 
     key_metrics = [
         _fmt_metric(k, metrics.get(k))
-        for k in ["total_return", "cagr", "sharpe_ratio", "max_drawdown",
-                  "sortino_ratio", "calmar_ratio", "win_rate", "annual_volatility"]
+        for k in [
+            "total_return", "annualized_return", "sharpe_ratio", "max_drawdown",
+            "sortino_ratio", "calmar_ratio", "win_rate", "annualized_volatility",
+            "information_ratio", "tracking_error", "alpha", "beta",
+        ]
     ]
 
     # 3. 加载净值曲线
@@ -559,31 +681,17 @@ async def export_backtest_report(run_id: str, catalog: CatalogDep):
     nav_values = [float(r["nav"]) for r in snaps]
 
     # 4. 加载基准曲线（如果有）
-    bm_dates: list[str] = []
     bm_values: list[float] = []
-    run_meta = catalog.query(
-        "SELECT benchmark_asset_id, started_at, completed_at FROM gold_backtest_runs WHERE run_id = ?",
-        [run_id],
-    )
-    bm_asset = ""
-    start_d = ""
-    end_d = ""
-    if not run_meta.is_empty():
-        row = run_meta.to_dicts()[0]
-        bm_asset = row.get("benchmark_asset_id") or ""
-        start_d = str(row.get("started_at", ""))[:10]
-        end_d = str(row.get("completed_at", ""))[:10]
+    bm_asset = run_info.get("benchmark_asset_id") or ""
     if bm_asset and nav_dates:
         bm_df = catalog.query(
             "SELECT trade_date, close FROM silver_prices_1d "
             "WHERE asset_id = ? AND trade_date >= ? AND trade_date <= ? ORDER BY trade_date",
-            [bm_asset, nav_dates[0] if nav_dates else start_d, nav_dates[-1] if nav_dates else end_d],
+            [bm_asset, nav_dates[0], nav_dates[-1]],
         )
         if not bm_df.is_empty():
             first = float(bm_df["close"][0])
-            bm_rows = bm_df.to_dicts()
-            bm_dates = [str(r["trade_date"]) for r in bm_rows]
-            bm_values = [float(r["close"]) / first for r in bm_rows]
+            bm_values = [float(r["close"]) / first for r in bm_df.to_dicts()]
 
     # 5. 年度收益
     annual_returns: list[tuple[str, float]] = []
@@ -592,12 +700,10 @@ async def export_backtest_report(run_id: str, catalog: CatalogDep):
         df_nav = pl.DataFrame({"date": nav_dates, "nav": nav_values}).with_columns(
             pl.col("date").str.slice(0, 4).alias("year")
         )
-        years_in_data = sorted(df_nav["year"].unique().to_list())
-        for year in years_in_data:
+        for year in sorted(df_nav["year"].unique().to_list()):
             yr_df = df_nav.filter(pl.col("year") == year).sort("date")
             if len(yr_df) >= 2:
-                annual_ret = float(yr_df["nav"][-1]) / float(yr_df["nav"][0]) - 1
-                annual_returns.append((year, annual_ret))
+                annual_returns.append((year, float(yr_df["nav"][-1]) / float(yr_df["nav"][0]) - 1))
 
     # 6. 最近 20 笔交易
     fills_df = catalog.query(
@@ -607,10 +713,18 @@ async def export_backtest_report(run_id: str, catalog: CatalogDep):
     )
     fills = fills_df.to_dicts() if not fills_df.is_empty() else []
 
-    # 7. 渲染 HTML
+    # 7. 生成服务端 SVG 图表（无外部依赖，离线可用）
+    nav_svg = _nav_to_svg(nav_dates, nav_values, bm_values=bm_values or None)
+    annual_svg = _annual_returns_svg(
+        [y for y, _ in annual_returns], [r for _, r in annual_returns]
+    )
+
+    # 8. 渲染 HTML（启用 autoescape 防止 XSS）
     tmpl_dir = pathlib.Path(__file__).parent.parent / "templates"
-    env = Environment(loader=FileSystemLoader(str(tmpl_dir)))
-    env.filters["tojson"] = json.dumps
+    env = Environment(
+        loader=FileSystemLoader(str(tmpl_dir)),
+        autoescape=select_autoescape(["html"]),
+    )
     template = env.get_template("backtest_report.html")
 
     html_content = template.render(
@@ -622,21 +736,21 @@ async def export_backtest_report(run_id: str, catalog: CatalogDep):
         start_date=nav_dates[0] if nav_dates else "—",
         end_date=nav_dates[-1] if nav_dates else "—",
         key_metrics=key_metrics,
-        nav_dates=nav_dates,
-        nav_values=nav_values,
-        bm_dates=bm_dates,
-        bm_values=bm_values,
-        annual_returns=annual_returns,
-        annual_years=[y for y, _ in annual_returns],
-        annual_rets=[r for _, r in annual_returns],
+        nav_svg=nav_svg,
+        annual_svg=annual_svg,
         fills=fills,
+        has_annual=bool(annual_returns),
         generated_at=dt.now().strftime("%Y-%m-%d %H:%M"),
     )
 
-    from fastapi.responses import HTMLResponse
+    # 9. 文件大小守护（PRD: < 2MB）
+    content_bytes = html_content.encode("utf-8")
+    if len(content_bytes) > 2 * 1024 * 1024:
+        logger.warning("HTML report for %s is %d bytes (> 2MB)", run_id, len(content_bytes))
+
     filename = f"backtest_report_{run_id[:12]}.html"
     return HTMLResponse(
-        content=html_content,
+        content=content_bytes.decode("utf-8"),
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
