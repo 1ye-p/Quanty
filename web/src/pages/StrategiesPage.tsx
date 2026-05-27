@@ -543,7 +543,7 @@ function BacktestRunModal({
     enabled: parsed.strategy_type === 'MLModelStrategy',
     staleTime: 30_000,
     select: (data) => data.items?.filter(
-      (e: { status: string }) => e.status === 'completed' || e.status === 'done'
+      (e: { status: string }) => e.status === 'done'
     ) ?? [],
   })
 

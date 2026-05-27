@@ -219,7 +219,7 @@ export function FactorsPage() {
                 className="text-xs text-blue-600 hover:underline"
                 onClick={() => setSelectedFactors(filteredFactorDefs.map(f => f.name))}
               >
-                全选
+                {factorSearch ? `全选 (${filteredFactorDefs.length})` : '全选'}
               </button>
               <span className="text-xs text-gray-400">选择 ≥2 个因子</span>
               <button

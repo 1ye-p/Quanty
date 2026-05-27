@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { mlApi, factorAnalyticsApi } from '@/lib/api'
@@ -68,6 +68,13 @@ export function MLLabPage() {
       return matchStatus && matchSearch
     })
   }, [experiments, expSearch, expStatusFilter])
+
+  // Clear selectedRun when it becomes hidden by the active filter
+  useEffect(() => {
+    if (selectedRun && !filteredExperiments.some(r => r.run_id === selectedRun)) {
+      setSelectedRun(null)
+    }
+  }, [filteredExperiments, selectedRun])
 
   const { data: versions } = useQuery({
     queryKey: ['ml', 'versions'],
@@ -276,8 +283,7 @@ export function MLLabPage() {
                 className="text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
               >
                 <option value="all">全部状态</option>
-                <option value="completed">已完成</option>
-                <option value="done">done</option>
+                <option value="done">已完成</option>
                 <option value="running">运行中</option>
                 <option value="error">失败</option>
                 <option value="pending">等待中</option>

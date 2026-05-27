@@ -291,7 +291,7 @@ export function BacktestsPage() {
       <div className="flex items-center justify-between mb-1">
         <p className="page-subtitle">
           {btSearch
-            ? `找到 ${filteredBacktests.length} / ${data?.total ?? 0} 条记录`
+            ? `找到 ${filteredBacktests.length} / ${data?.items?.length ?? 0} 条（当前页）· 共 ${data?.total ?? 0} 条`
             : `共 ${data?.total ?? 0} 条记录 · 点击行选择查看详情`}
         </p>
         <div className="relative">
