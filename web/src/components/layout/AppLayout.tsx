@@ -57,6 +57,15 @@ const NAV_GROUPS = [
   },
 ]
 
+// Dev-time guard: warn if any nav route is missing from NAV_ICONS
+if (import.meta.env.DEV) {
+  NAV_GROUPS.flatMap(g => g.items).forEach(({ to, label }) => {
+    if (!(to in NAV_ICONS)) {
+      console.warn(`[AppLayout] Missing icon for nav route "${to}" (${label}). Add an entry to NAV_ICONS.`)
+    }
+  })
+}
+
 export function AppLayout() {
   // 轮询各模块运行中任务数量
   const { data: mlJobs } = useQuery({
@@ -107,7 +116,7 @@ export function AppLayout() {
     <div className="flex h-screen overflow-hidden">
       <nav className={`${
         collapsed ? 'w-12' : 'w-56'
-      } bg-brand-600 text-gray-100 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto transition-all duration-200`}>
+      } bg-brand-600 text-gray-100 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto transition-[width] duration-200`}>
 
         {collapsed ? (
           <button
@@ -156,8 +165,11 @@ export function AppLayout() {
                       }
                     >
                       {collapsed ? (
-                        <span className="text-base">
+                        <span className="relative text-base">
                           {NAV_ICONS[to] ?? label[0]}
+                          {runningBadges[to] ? (
+                            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-blue-300 animate-pulse" />
+                          ) : null}
                         </span>
                       ) : (
                         <>
