@@ -10,11 +10,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import pathlib
+import re
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from cquant.api_server.deps import CatalogDep
@@ -23,6 +26,34 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/live", tags=["live"])
 
 _DISPLAY_BANNER = "⚠️ 模拟展示模式：数据来自历史回测，非真实交易数据"
+
+_ARTIFACTS_BASE = pathlib.Path("data/backtest_artifacts").resolve()
+_UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+
+
+def _safe_metrics_path(run_id: str) -> pathlib.Path | None:
+    if not _UUID_RE.match(run_id):
+        return None
+    p = (_ARTIFACTS_BASE / f"{run_id}.json").resolve()
+    if not str(p).startswith(str(_ARTIFACTS_BASE)):
+        return None
+    return p
+
+
+def _ensure_live_table(catalog) -> None:
+    """幂等创建模拟策略表。"""
+    catalog.execute("""
+        CREATE TABLE IF NOT EXISTS meta_live_strategies (
+            live_id         VARCHAR PRIMARY KEY,
+            backtest_run_id VARCHAR NOT NULL,
+            strategy_id     VARCHAR NOT NULL,
+            initial_cash    DOUBLE DEFAULT 1000000,
+            risk_mode       VARCHAR DEFAULT 'conservative',
+            status          VARCHAR DEFAULT 'active',
+            deployed_at     TIMESTAMP NOT NULL,
+            stopped_at      TIMESTAMP
+        )
+    """)
 
 
 # ── Real-time Quote Endpoints ──────────────────────────────────────────────────
@@ -252,3 +283,99 @@ async def strategy_risk(strategy_id: str, catalog: CatalogDep) -> dict:
         "history": history_df.to_dicts(),
         "display_mode": _DISPLAY_BANNER,
     }
+
+
+# ── Live Strategy Deployment ───────────────────────────────────────────────────
+
+class DeployRequest(BaseModel):
+    backtest_run_id: str
+    initial_cash: float = 1_000_000
+    risk_mode: str = "conservative"
+
+
+@router.post("/deploy", status_code=201)
+async def deploy_strategy(body: DeployRequest, catalog: CatalogDep) -> dict:
+    """将回测结果部署为模拟策略。"""
+    import uuid as _uuid
+
+    run_df = catalog.query(
+        "SELECT run_id, strategy_id, status FROM gold_backtest_runs WHERE run_id = ?",
+        [body.backtest_run_id],
+    )
+    if run_df.is_empty():
+        raise HTTPException(status_code=404, detail=f"Backtest run '{body.backtest_run_id}' not found")
+    if run_df["status"][0] != "completed":
+        raise HTTPException(status_code=422, detail="Only completed backtest runs can be deployed")
+
+    strategy_id = run_df["strategy_id"][0]
+    _ensure_live_table(catalog)
+
+    existing = catalog.query(
+        "SELECT live_id FROM meta_live_strategies "
+        "WHERE backtest_run_id = ? AND status = 'active'",
+        [body.backtest_run_id],
+    )
+    if not existing.is_empty():
+        raise HTTPException(status_code=409, detail="This backtest run is already deployed and active")
+
+    live_id = f"live_{_uuid.uuid4().hex[:10]}"
+    now = datetime.now(tz=timezone.utc).isoformat()
+    catalog.execute(
+        "INSERT INTO meta_live_strategies "
+        "(live_id, backtest_run_id, strategy_id, initial_cash, risk_mode, status, deployed_at) "
+        "VALUES (?, ?, ?, ?, ?, 'active', ?)",
+        [live_id, body.backtest_run_id, strategy_id,
+         body.initial_cash, body.risk_mode, now],
+    )
+    return {
+        "live_id": live_id,
+        "strategy_id": strategy_id,
+        "status": "active",
+        "deployed_at": now,
+    }
+
+
+@router.post("/strategies/{live_id}/stop")
+async def stop_live_strategy(live_id: str, catalog: CatalogDep) -> dict:
+    """停止模拟策略。"""
+    _ensure_live_table(catalog)
+    existing = catalog.query(
+        "SELECT live_id, status FROM meta_live_strategies WHERE live_id = ?",
+        [live_id],
+    )
+    if existing.is_empty():
+        raise HTTPException(status_code=404, detail=f"Live strategy '{live_id}' not found")
+    catalog.execute(
+        "UPDATE meta_live_strategies SET status = 'stopped', stopped_at = ? WHERE live_id = ?",
+        [datetime.now(tz=timezone.utc).isoformat(), live_id],
+    )
+    return {"live_id": live_id, "status": "stopped"}
+
+
+@router.get("/deployed")
+async def list_deployed_strategies(catalog: CatalogDep) -> dict:
+    """列出所有已部署的模拟策略（含回测指标摘要）。"""
+    _ensure_live_table(catalog)
+    df = catalog.query(
+        "SELECT ls.live_id, ls.strategy_id, ls.backtest_run_id, ls.initial_cash, "
+        "ls.risk_mode, ls.status, ls.deployed_at, ls.stopped_at "
+        "FROM meta_live_strategies ls ORDER BY ls.deployed_at DESC"
+    )
+    if df.is_empty():
+        return {"items": []}
+    items = []
+    for row in df.to_dicts():
+        metrics: dict = {}
+        mpath = _safe_metrics_path(row["backtest_run_id"])
+        if mpath and mpath.exists():
+            try:
+                m = json.loads(mpath.read_text())
+                metrics = {
+                    "sharpe": m.get("sharpe_ratio"),
+                    "max_drawdown": m.get("max_drawdown"),
+                    "cagr": m.get("cagr"),
+                }
+            except Exception:
+                pass
+        items.append({**row, "metrics": metrics})
+    return {"items": items}
