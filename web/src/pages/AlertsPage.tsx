@@ -25,6 +25,7 @@ export function AlertsPage() {
       setShowCreateForm(false)
       toast.success('告警规则已创建')
     },
+    onError: (e: Error) => toast.error(`创建失败: ${e.message}`),
   })
   const deleteMutation = useMutation({
     mutationFn: alertsApi.deleteRule,

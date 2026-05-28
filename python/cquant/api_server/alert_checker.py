@@ -90,7 +90,7 @@ def check_factor_ic_low(catalog, rule_id: str, params: dict) -> bool:
         df = catalog.query(
             "SELECT mean_ic FROM gold_factor_ic_summary "
             "WHERE factor_name = ? "
-            "  AND computed_at >= CURRENT_TIMESTAMP - INTERVAL ? DAY "
+            "  AND computed_at >= CURRENT_TIMESTAMP - (? * INTERVAL '1 DAY') "
             "ORDER BY computed_at DESC LIMIT 1",
             [factor_name, window_days],
         )
