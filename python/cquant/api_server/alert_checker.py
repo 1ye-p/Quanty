@@ -102,10 +102,12 @@ def check_pnl_drawdown(catalog, rule_id: str, params: dict) -> bool:
         return False
     try:
         df = catalog.query(
-            "SELECT MAX(drawdown) as max_dd FROM gold_risk_snapshots rs "
-            "JOIN gold_backtest_runs br ON rs.run_id = br.run_id "
-            "WHERE br.strategy_id = ? AND br.status = 'completed' "
-            "ORDER BY br.completed_at DESC LIMIT 500",
+            "SELECT MAX(drawdown) as max_dd FROM ("
+            "  SELECT rs.drawdown FROM gold_risk_snapshots rs "
+            "  JOIN gold_backtest_runs br ON rs.run_id = br.run_id "
+            "  WHERE br.strategy_id = ? AND br.status = 'completed' "
+            "  ORDER BY br.completed_at DESC LIMIT 500"
+            ") sub",
             [strategy_id],
         )
         if df.is_empty() or df["max_dd"][0] is None:
