@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, alertsApi } from '@/lib/api'
@@ -101,6 +101,58 @@ export function AppLayout() {
   if ((mlJobs ?? 0) > 0) runningBadges['/ml'] = mlJobs as number
   if ((btJobs ?? 0) > 0) runningBadges['/backtests'] = btJobs as number
   if ((scoringJobs ?? 0) > 0) runningBadges['/scoring'] = scoringJobs as number
+
+  const [taskDropdownOpen, setTaskDropdownOpen] = useState(false)
+
+  // Detailed running task queries for topbar
+  const { data: mlRunning } = useQuery({
+    queryKey: ['layout', 'ml-running-details'],
+    queryFn: () => mlApi.experiments(50),
+    refetchInterval: 10_000,
+    select: (d) => (d.items ?? [])
+      .filter((e: { status: string }) => e.status === 'running' || e.status === 'pending')
+      .map((e: { run_id: string; status: string; started_at?: number | string; trainer_name?: string }) => ({
+        type: 'ML训练',
+        id: e.run_id.slice(0, 10),
+        status: e.status,
+        startedAt: e.started_at,
+        detail: e.trainer_name ?? '',
+      })),
+  })
+
+  const { data: btRunning } = useQuery({
+    queryKey: ['layout', 'bt-running-details'],
+    queryFn: () => backtestsApi.list(0, 50),
+    refetchInterval: 10_000,
+    select: (d) => (d.items ?? [])
+      .filter((r: { status: string }) => r.status === 'running' || r.status === 'pending')
+      .map((r: { run_id: string; status: string; started_at?: string; strategy_id?: string }) => ({
+        type: '回测',
+        id: r.run_id.slice(0, 10),
+        status: r.status,
+        startedAt: r.started_at,
+        detail: r.strategy_id ?? '',
+      })),
+  })
+
+  const allRunningTasks = [...(mlRunning ?? []), ...(btRunning ?? [])]
+  const runningCount = allRunningTasks.length
+
+  function elapsedStr(startedAt: string | number | undefined): string {
+    if (!startedAt) return ''
+    const start = typeof startedAt === 'number' ? startedAt : new Date(startedAt).getTime()
+    const elapsed = Math.floor((Date.now() - start) / 1000)
+    if (elapsed < 60) return `${elapsed}s`
+    if (elapsed < 3600) return `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
+    return `${Math.floor(elapsed / 3600)}h ${Math.floor((elapsed % 3600) / 60)}m`
+  }
+
+  useEffect(() => {
+    if (!taskDropdownOpen) return
+    const handler = () => setTaskDropdownOpen(false)
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [taskDropdownOpen])
 
   const { data: alertUnread } = useQuery({
     queryKey: ['alerts', 'unread-count'],
@@ -205,9 +257,64 @@ export function AppLayout() {
         </div>
       </nav>
 
-      <main className="flex-1 overflow-y-auto p-8 bg-gray-50">
-        <Outlet />
-      </main>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Topbar */}
+          <header className="h-10 bg-white border-b border-gray-200 flex items-center justify-end px-4 flex-shrink-0 relative z-10">
+            {runningCount > 0 ? (
+              <div className="relative">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setTaskDropdownOpen(o => !o) }}
+                  className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100"
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="font-medium">⚙ {runningCount} 个任务运行中</span>
+                  <span className="text-xs text-gray-400">▾</span>
+                </button>
+                {taskDropdownOpen && (
+                  <div
+                    className="absolute right-0 top-full mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-50"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="px-3 py-2 border-b text-xs font-semibold text-gray-500 uppercase">
+                      进行中的任务
+                    </div>
+                    <ul className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                      {allRunningTasks.map((task, i) => (
+                        <li key={i} className="px-3 py-2 flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-medium text-gray-700">{task.type}</span>
+                            <span className="ml-2 font-mono text-xs text-gray-400">{task.id}…</span>
+                            {task.detail && (
+                              <div className="text-xs text-gray-500 truncate max-w-[160px]">{task.detail}</div>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-2">
+                            <span className="text-xs text-gray-400">
+                              {elapsedStr(task.startedAt)}
+                            </span>
+                            <div className="text-xs text-blue-500 mt-0.5">
+                              {task.status}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="px-3 py-2 border-t text-xs text-gray-400 text-center">
+                      每10秒自动刷新
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs text-gray-400">无运行中任务</span>
+            )}
+          </header>
+
+          {/* Main content */}
+          <main className="flex-1 overflow-y-auto p-8 bg-gray-50">
+            <Outlet />
+          </main>
+        </div>
     </div>
   )
 }
