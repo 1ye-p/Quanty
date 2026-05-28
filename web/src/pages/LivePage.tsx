@@ -1,15 +1,18 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { tradingApi, type RealtimeQuote } from '@/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { tradingApi, liveApi, type RealtimeQuote } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { OrderForm } from '@/components/trading/OrderForm'
 import { PositionTable } from '@/components/trading/PositionTable'
 import { OrderBook } from '@/components/trading/OrderBook'
+import { toast } from 'sonner'
 
 export function LivePage() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('')
   const [broker] = useState('paper')
+
+  const qc = useQueryClient()
 
   // Account data
   const { data: account } = useQuery({
@@ -29,6 +32,13 @@ export function LivePage() {
   const { data: positions } = useQuery({
     queryKey: extendedQueryKeys.trading.positions(broker),
     queryFn: () => tradingApi.positions(broker),
+  })
+
+  // Deployed strategies
+  const { data: deployed } = useQuery({
+    queryKey: ['live', 'deployed'],
+    queryFn: liveApi.deployed,
+    staleTime: 30_000,
   })
 
   // Real-time quotes for held positions
@@ -55,6 +65,50 @@ export function LivePage() {
           <span className="text-sm text-gray-500">{connected ? '已连接' : '未连接'}</span>
         </div>
       </div>
+
+      {/* 已部署的模拟策略 */}
+      {deployed?.items && deployed.items.length > 0 && (
+        <div className="card">
+          <h2 className="font-semibold text-gray-800 mb-3">
+            模拟策略（{deployed.items.filter(d => d.status === 'active').length} 个激活中）
+          </h2>
+          <div className="space-y-3">
+            {deployed.items.map(d => (
+              <div key={d.live_id}
+                className={`p-3 rounded-lg border flex items-center justify-between ${
+                  d.status === 'active' ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+                }`}>
+                <div>
+                  <span className="font-medium text-gray-800">{d.strategy_id}</span>
+                  <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+                    d.status === 'active' ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-600'
+                  }`}>{d.status === 'active' ? '● 运行中' : '■ 已停止'}</span>
+                  <div className="text-xs text-gray-500 mt-0.5 space-x-3">
+                    <span>初始资金：¥{d.initial_cash?.toLocaleString()}</span>
+                    <span>风控：{d.risk_mode}</span>
+                    <span>部署：{d.deployed_at?.slice(0, 10)}</span>
+                    {d.metrics?.sharpe != null && <span>Sharpe：{Number(d.metrics.sharpe).toFixed(3)}</span>}
+                  </div>
+                </div>
+                {d.status === 'active' && (
+                  <button
+                    onClick={() => {
+                      if (!confirm(`确认停止模拟策略 ${d.strategy_id}？`)) return
+                      liveApi.stopDeployed(d.live_id).then(() => {
+                        qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
+                        toast.success('策略已停止')
+                      }).catch((e: Error) => toast.error(`停止失败: ${e.message}`))
+                    }}
+                    className="btn-secondary text-xs ml-4 flex-shrink-0"
+                  >
+                    停止
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Account Overview */}
       {account && (
