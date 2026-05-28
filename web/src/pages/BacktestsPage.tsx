@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { backtestsApi, backtestExtApi, liveApi, type BacktestFill } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -136,6 +136,7 @@ export function BacktestsPage() {
   const [showCompare, setShowCompare] = useState(false)
   const [btSearch, setBtSearch] = useState('')
 
+  const qc = useQueryClient()
   const [showDeployWizard, setShowDeployWizard] = useState(false)
   const [deployStep, setDeployStep] = useState(1)
   const [deployCash, setDeployCash] = useState('1000000')
@@ -144,6 +145,7 @@ export function BacktestsPage() {
   const deployMutation = useMutation({
     mutationFn: liveApi.deploy,
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
       setShowDeployWizard(false)
       setDeployStep(1)
       toast.success('策略已部署为模拟实盘，前往"实盘监控"查看')
