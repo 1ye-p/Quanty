@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { backtestsApi, backtestExtApi, type BacktestFill } from '@/lib/api'
+import { backtestsApi, backtestExtApi, liveApi, type BacktestFill } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
+import { toast } from 'sonner'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { PnLChart, type PnLDataPoint } from '@/components/charts/PnLChart'
 import {
@@ -134,6 +135,21 @@ export function BacktestsPage() {
   const [compareIds, setCompareIds] = useState<string[]>([])
   const [showCompare, setShowCompare] = useState(false)
   const [btSearch, setBtSearch] = useState('')
+
+  const [showDeployWizard, setShowDeployWizard] = useState(false)
+  const [deployStep, setDeployStep] = useState(1)
+  const [deployCash, setDeployCash] = useState('1000000')
+  const [deployRiskMode, setDeployRiskMode] = useState<'conservative' | 'moderate' | 'aggressive'>('conservative')
+
+  const deployMutation = useMutation({
+    mutationFn: liveApi.deploy,
+    onSuccess: () => {
+      setShowDeployWizard(false)
+      setDeployStep(1)
+      toast.success('策略已部署为模拟实盘，前往"实盘监控"查看')
+    },
+    onError: (e: Error) => toast.error(`部署失败: ${e.message}`),
+  })
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: queryKeys.backtests.list(page * pageSize, pageSize),
@@ -408,7 +424,7 @@ export function BacktestsPage() {
             <div className="space-y-4">
               {/* Export HTML Report button */}
               {selectedId && (
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
                   <a
                     href={`/api/v1/backtests/${selectedId}/export`}
                     target="_blank"
@@ -417,6 +433,14 @@ export function BacktestsPage() {
                   >
                     📄 导出 HTML 报告
                   </a>
+                  {detail?.status === 'completed' && (
+                    <button
+                      onClick={() => setShowDeployWizard(true)}
+                      className="btn-primary text-xs flex items-center gap-1"
+                    >
+                      🚀 部署为模拟策略
+                    </button>
+                  )}
                 </div>
               )}
               {/* Metrics cards */}
@@ -976,6 +1000,111 @@ export function BacktestsPage() {
                   )}
                 </>
               ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deploy Wizard Modal */}
+      {showDeployWizard && selectedId && detail && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="font-semibold text-gray-900">部署为模拟策略</h2>
+              <div className="flex gap-1">
+                {[1, 2, 3].map(s => (
+                  <span key={s} className={`w-6 h-6 rounded-full text-xs flex items-center justify-center ${
+                    s === deployStep ? 'bg-brand-600 text-white' :
+                    s < deployStep ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}>{s < deployStep ? '✓' : s}</span>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4">
+              {deployStep === 1 && (
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-800">步骤 1：确认回测</h3>
+                  <div className="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
+                    <div><span className="text-gray-500">策略：</span><strong>{detail.strategy_id}</strong></div>
+                    <div><span className="text-gray-500">Run ID：</span><span className="font-mono text-xs">{selectedId.slice(0, 16)}…</span></div>
+                    <div><span className="text-gray-500">数据集：</span>{detail.dataset_version}</div>
+                    {detail.metrics?.sharpe_ratio != null && (
+                      <div><span className="text-gray-500">Sharpe：</span><strong className="text-brand-600">{Number(detail.metrics.sharpe_ratio).toFixed(3)}</strong></div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {deployStep === 2 && (
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-800">步骤 2：配置资金和风控</h3>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">初始资金（元）</label>
+                    <input type="number" value={deployCash} onChange={e => setDeployCash(e.target.value)}
+                      className="input w-full" min={10000} step={10000} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">风控模式</label>
+                    <select value={deployRiskMode} onChange={e => setDeployRiskMode(e.target.value as typeof deployRiskMode)}
+                      className="input w-full">
+                      <option value="conservative">保守（止损 5%，最大回撤 10%）</option>
+                      <option value="moderate">稳健（止损 8%，最大回撤 15%）</option>
+                      <option value="aggressive">激进（止损 15%，最大回撤 25%）</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {deployStep === 3 && (
+                <div className="space-y-3">
+                  <h3 className="font-medium text-gray-800">步骤 3：确认部署</h3>
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm space-y-1">
+                    <div>策略：<strong>{detail.strategy_id}</strong></div>
+                    <div>初始资金：<strong>¥{Number(deployCash).toLocaleString()}</strong></div>
+                    <div>风控模式：<strong>{deployRiskMode}</strong></div>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    ⚠ 这是模拟实盘（Paper Broker），不会执行真实交易。
+                    部署后可在"实盘监控"页面查看策略运行状态。
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between p-4 border-t">
+              <button
+                onClick={() => {
+                  if (deployStep > 1) {
+                    setDeployStep(s => s - 1)
+                  } else {
+                    setShowDeployWizard(false)
+                    setDeployStep(1)
+                    setDeployCash('1000000')
+                    setDeployRiskMode('conservative')
+                  }
+                }}
+                className="btn-secondary text-sm"
+              >
+                {deployStep === 1 ? '取消' : '← 上一步'}
+              </button>
+              {deployStep < 3 ? (
+                <button onClick={() => setDeployStep(s => s + 1)} className="btn-primary text-sm">
+                  下一步 →
+                </button>
+              ) : (
+                <button
+                  onClick={() => deployMutation.mutate({
+                    backtest_run_id: selectedId!,
+                    initial_cash: Number(deployCash),
+                    risk_mode: deployRiskMode,
+                  })}
+                  disabled={deployMutation.isPending}
+                  className="btn-primary text-sm disabled:opacity-40"
+                >
+                  {deployMutation.isPending ? '部署中…' : '🚀 确认部署'}
+                </button>
+              )}
             </div>
           </div>
         </div>

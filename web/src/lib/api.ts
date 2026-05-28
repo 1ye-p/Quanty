@@ -415,6 +415,18 @@ export const mlApi = {
 
 // ── Live ──────────────────────────────────────────────────────────────────────
 
+export interface LiveDeployment {
+  live_id: string
+  backtest_run_id: string
+  strategy_id: string
+  initial_cash: number
+  risk_mode: string
+  status: string
+  deployed_at: string
+  stopped_at: string | null
+  metrics: { sharpe?: number | null; max_drawdown?: number | null; cagr?: number | null }
+}
+
 export interface LiveStrategy {
   strategy_id: string
   last_run_id: string
@@ -436,6 +448,14 @@ export const liveApi = {
     request<{ latest_snapshot: Record<string, unknown> | null; history: Record<string, unknown>[]; display_mode: string }>(
       `/live/strategies/${id}/risk`,
     ),
+  deploy: (body: { backtest_run_id: string; initial_cash: number; risk_mode: string }) =>
+    request<{ live_id: string; strategy_id: string; status: string; deployed_at: string }>(
+      '/live/deploy', { method: 'POST', body: JSON.stringify(body) }
+    ),
+  stopDeployed: (liveId: string) =>
+    request<{ live_id: string; status: string }>(`/live/strategies/${liveId}/stop`, { method: 'POST' }),
+  deployed: () =>
+    request<{ items: LiveDeployment[] }>('/live/deployed'),
 }
 
 // ── Factors (extended) ────────────────────────────────────────────────────────
