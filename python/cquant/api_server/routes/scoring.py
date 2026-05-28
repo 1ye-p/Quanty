@@ -104,24 +104,22 @@ def _run_scoring_task(run_id: str, body: ScoringConfigBody, catalog):
         result = scorer.score(config, body.feature_set_version, body.start_date, body.end_date)
 
         if not result.is_empty():
-            # 批量写入：Arrow 注册 + 单条 INSERT SELECT，避免逐行 execute
             scored = result.with_columns(pl.lit(run_id).alias("run_id")).select(
                 ["run_id", "trade_date", "asset_id", "score", "rank"]
             )
             conn = catalog._get_conn()
-            stage = f"_score_stage_{run_id}"  # full run_id ensures uniqueness across concurrent jobs
-            conn.register(stage, scored.to_arrow())
-            try:
-                conn.execute(
-                    f"INSERT OR REPLACE INTO gold_cross_section_scores "
-                    f"(run_id, trade_date, asset_id, score, rank) "
-                    f"SELECT run_id, trade_date, asset_id, score, rank FROM {stage}"
-                )
-            finally:
-                try:
-                    conn.unregister(stage)
-                except Exception:
-                    pass
+            rows = scored.rows()
+            assert not rows or len(rows[0]) == 5, (
+                f"Column mismatch: {len(rows[0])} values vs 5 placeholders"
+            )
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO gold_cross_section_scores
+                    (run_id, trade_date, asset_id, score, rank)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
 
         catalog.execute(
             "UPDATE meta_scoring_runs SET status = 'completed', completed_at = ? WHERE run_id = ?",

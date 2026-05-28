@@ -371,7 +371,10 @@ async def get_job_status(job_id: str, catalog: CatalogDep) -> dict:
 
 @router.get("")
 async def list_backtests(catalog: CatalogDep, offset: int = 0, limit: int = 50) -> dict:
-    """List backtest runs."""
+    """List backtest runs, including in-flight jobs from _api_jobs."""
+    _ensure_job_table(catalog)
+
+    # 1. Normal backtest list from gold_backtest_runs
     total_df = catalog.query("SELECT COUNT(*) as cnt FROM gold_backtest_runs")
     total = total_df["cnt"].item() if not total_df.is_empty() else 0
     df = catalog.query(
@@ -379,7 +382,33 @@ async def list_backtests(catalog: CatalogDep, offset: int = 0, limit: int = 50) 
         "completed_at, status FROM gold_backtest_runs ORDER BY started_at DESC LIMIT ? OFFSET ?",
         [limit, offset],
     )
-    return {"items": df.to_dicts(), "total": total}
+    items = df.to_dicts()
+
+    # 2. Merge running backtest jobs (only on first page to avoid pagination issues)
+    if offset == 0:
+        running_df = catalog.query(
+            "SELECT job_id, status, created_at, error, run_id "
+            "FROM _api_jobs "
+            "WHERE job_type = 'backtest' AND status IN ('running', 'pending')"
+        )
+        if not running_df.is_empty():
+            existing_run_ids = {item.get("run_id") for item in items}
+            for row in running_df.to_dicts():
+                if row.get("run_id") and row["run_id"] in existing_run_ids:
+                    continue
+                items.insert(0, {
+                    "run_id": row.get("run_id") or row["job_id"],
+                    "engine": "",
+                    "strategy_id": "",
+                    "dataset_version": "",
+                    "started_at": row.get("created_at", ""),
+                    "completed_at": None,
+                    "status": row["status"],
+                    "error": row.get("error"),
+                })
+                total += 1
+
+    return {"items": items, "total": total}
 
 
 @router.get("/compare")

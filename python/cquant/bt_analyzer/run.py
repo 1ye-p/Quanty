@@ -132,20 +132,22 @@ class AnalysisRunner:
 
         df = pl.DataFrame(windows)
         conn = self._catalog._get_conn()
-        stage = "_validation_windows_stage"
-        conn.register(stage, df.to_arrow())
+        rows = df.rows()
+        assert not rows or len(rows[0]) == 8, (
+            f"Column mismatch: {len(rows[0])} values vs 8 placeholders"
+        )
         try:
-            conn.execute(f"""
+            conn.executemany(
+                """
                 INSERT OR REPLACE INTO gold_bt_validation_windows
-                SELECT * FROM {stage}
-            """)
+                    (analysis_run_id, window_id, method, train_start, train_end,
+                     test_start, test_end, metrics_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
         except Exception as exc:
             logger.warning("Failed to persist validation windows: %s", exc)
-        finally:
-            try:
-                conn.unregister(stage)
-            except Exception:
-                pass
 
     def _persist_multiple_testing(self, report: AnalysisReport) -> None:
         """Write multiple testing results to gold_bt_multiple_testing."""

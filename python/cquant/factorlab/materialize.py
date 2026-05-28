@@ -165,21 +165,18 @@ class FactorMaterializer:
         ).select(["feature_set_version", "factor_name", "trade_date", "asset_id", "value"])
 
         conn = self._catalog._get_conn()
-        stage = "_factor_values_stage"
-        conn.register(stage, write_frame.to_arrow())
+        rows = write_frame.rows()
+        assert not rows or len(rows[0]) == 5, (
+            f"Column mismatch: {len(rows[0])} values vs 5 placeholders"
+        )
         try:
-            conn.execute(
+            conn.executemany(
                 """
                 INSERT OR REPLACE INTO gold_factor_values
                     (feature_set_version, factor_name, trade_date, asset_id, value)
-                SELECT feature_set_version, factor_name, trade_date, asset_id, value
-                FROM _factor_values_stage
-                """
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                rows,
             )
         except Exception as exc:
             raise FactorComputeError(f"Failed to write gold_factor_values: {exc}") from exc
-        finally:
-            try:
-                conn.unregister(stage)
-            except Exception:
-                pass

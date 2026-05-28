@@ -163,20 +163,18 @@ def persist_feature_importance(
         schema=["model_id", "job_id", "trainer_name", "feature_name", "importance", "created_at"],
         orient="row",
     )
-    stage = "_fi_stage"
-    conn.register(stage, stage_df.to_arrow())
-    try:
-        conn.execute(f"""
-            INSERT OR REPLACE INTO meta_feature_importance
-                (model_id, job_id, trainer_name, feature_name, importance, created_at)
-            SELECT model_id, job_id, trainer_name, feature_name, importance, created_at
-            FROM {stage}
-        """)
-    finally:
-        try:
-            conn.unregister(stage)
-        except Exception:
-            pass
+    rows = stage_df.rows()
+    assert not rows or len(rows[0]) == 6, (
+        f"Column mismatch: {len(rows[0])} values vs 6 placeholders"
+    )
+    conn.executemany(
+        """
+        INSERT OR REPLACE INTO meta_feature_importance
+            (model_id, job_id, trainer_name, feature_name, importance, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        rows,
+    )
 
 
 def persist_predictions(
@@ -227,17 +225,15 @@ def persist_predictions(
     )
 
     conn = catalog._get_conn()
-    stage = "_predictions_stage"
-    conn.register(stage, pred_df.to_arrow())
-    try:
-        conn.execute(f"""
-            INSERT OR REPLACE INTO gold_predictions
-                (model_version, trade_date, asset_id, prediction, horizon, label_name, confidence)
-            SELECT model_version, trade_date, asset_id, prediction, horizon, label_name, confidence
-            FROM {stage}
-        """)
-    finally:
-        try:
-            conn.unregister(stage)
-        except Exception:
-            pass
+    pred_rows = pred_df.rows()
+    assert not pred_rows or len(pred_rows[0]) == 7, (
+        f"Column mismatch: {len(pred_rows[0])} values vs 7 placeholders"
+    )
+    conn.executemany(
+        """
+        INSERT OR REPLACE INTO gold_predictions
+            (model_version, trade_date, asset_id, prediction, horizon, label_name, confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        pred_rows,
+    )

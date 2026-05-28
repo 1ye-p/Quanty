@@ -142,21 +142,21 @@ class MarketIngestionOrchestrator:
         )
 
         conn = self._catalog._get_conn()
-        stage = f"_silver_prices_stage_{ingestion_id[:8]}"
-        conn.register(stage, write_frame.to_arrow())
+        all_cols = cols_to_write + ["ingestion_id"]
+        col_list = ", ".join(all_cols)
+        placeholders = ", ".join(["?"] * len(all_cols))
+        rows = write_frame.rows()
+        n_cols = len(all_cols)
+        assert not rows or len(rows[0]) == n_cols, (
+            f"Column mismatch: {len(rows[0])} values vs {n_cols} placeholders"
+        )
         try:
-            col_list = ", ".join(cols_to_write + ["ingestion_id"])
-            conn.execute(
-                f"INSERT OR REPLACE INTO silver_prices_1d ({col_list}) "
-                f"SELECT {col_list} FROM {stage}"
+            conn.executemany(
+                f"INSERT OR REPLACE INTO silver_prices_1d ({col_list}) VALUES ({placeholders})",
+                rows,
             )
         except Exception as exc:
             raise IngestError(f"Failed to write silver_prices_1d: {exc}") from exc
-        finally:
-            try:
-                conn.unregister(stage)
-            except Exception:
-                pass
 
         return ingestion_id
 

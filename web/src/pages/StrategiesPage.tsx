@@ -586,6 +586,8 @@ function BacktestRunModal({
       if (data.warning) {
         setScoringWarning(data.warning as string)
       }
+      // Invalidate backtests cache so navbar and BacktestsPage see the running job
+      queryClient.invalidateQueries({ queryKey: queryKeys.backtests.all })
       if (data.job_id) {
         setJobId(data.job_id)
       } else {
