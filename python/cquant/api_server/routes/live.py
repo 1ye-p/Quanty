@@ -17,7 +17,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from cquant.api_server.deps import CatalogDep
@@ -40,20 +40,31 @@ def _safe_metrics_path(run_id: str) -> pathlib.Path | None:
     return p
 
 
+_live_table_ensured = False
+
+
 def _ensure_live_table(catalog) -> None:
-    """幂等创建模拟策略表。"""
-    catalog.execute("""
-        CREATE TABLE IF NOT EXISTS meta_live_strategies (
-            live_id         VARCHAR PRIMARY KEY,
-            backtest_run_id VARCHAR NOT NULL,
-            strategy_id     VARCHAR NOT NULL,
-            initial_cash    DOUBLE DEFAULT 1000000,
-            risk_mode       VARCHAR DEFAULT 'conservative',
-            status          VARCHAR DEFAULT 'active',
-            deployed_at     TIMESTAMP NOT NULL,
-            stopped_at      TIMESTAMP
-        )
-    """)
+    """幂等创建模拟策略表（进程内只执行一次）。"""
+    global _live_table_ensured
+    if _live_table_ensured:
+        return
+    try:
+        catalog.execute("""
+            CREATE TABLE IF NOT EXISTS meta_live_strategies (
+                live_id         VARCHAR PRIMARY KEY,
+                backtest_run_id VARCHAR NOT NULL,
+                strategy_id     VARCHAR NOT NULL,
+                initial_cash    DOUBLE DEFAULT 1000000,
+                risk_mode       VARCHAR DEFAULT 'conservative',
+                status          VARCHAR DEFAULT 'active',
+                deployed_at     TIMESTAMP NOT NULL,
+                stopped_at      TIMESTAMP
+            )
+        """)
+        _live_table_ensured = True
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).debug("_ensure_live_table: %s", exc)
 
 
 # ── Real-time Quote Endpoints ──────────────────────────────────────────────────
@@ -289,7 +300,7 @@ async def strategy_risk(strategy_id: str, catalog: CatalogDep) -> dict:
 
 class DeployRequest(BaseModel):
     backtest_run_id: str
-    initial_cash: float = 1_000_000
+    initial_cash: float = Field(default=1_000_000, gt=0)
     risk_mode: str = "conservative"
 
 
@@ -345,6 +356,8 @@ async def stop_live_strategy(live_id: str, catalog: CatalogDep) -> dict:
     )
     if existing.is_empty():
         raise HTTPException(status_code=404, detail=f"Live strategy '{live_id}' not found")
+    if existing["status"][0] != "active":
+        raise HTTPException(status_code=409, detail="Strategy is not active")
     catalog.execute(
         "UPDATE meta_live_strategies SET status = 'stopped', stopped_at = ? WHERE live_id = ?",
         [datetime.now(tz=timezone.utc).isoformat(), live_id],

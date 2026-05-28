@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tradingApi, liveApi, type RealtimeQuote } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
@@ -13,6 +13,15 @@ export function LivePage() {
   const [broker] = useState('paper')
 
   const qc = useQueryClient()
+
+  const stopMutation = useMutation({
+    mutationFn: (liveId: string) => liveApi.stopDeployed(liveId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
+      toast.success('策略已停止')
+    },
+    onError: (e: Error) => toast.error(`停止失败: ${e.message}`),
+  })
 
   // Account data
   const { data: account } = useQuery({
@@ -92,16 +101,14 @@ export function LivePage() {
                 </div>
                 {d.status === 'active' && (
                   <button
+                    disabled={stopMutation.isPending}
                     onClick={() => {
                       if (!confirm(`确认停止模拟策略 ${d.strategy_id}？`)) return
-                      liveApi.stopDeployed(d.live_id).then(() => {
-                        qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
-                        toast.success('策略已停止')
-                      }).catch((e: Error) => toast.error(`停止失败: ${e.message}`))
+                      stopMutation.mutate(d.live_id)
                     }}
-                    className="btn-secondary text-xs ml-4 flex-shrink-0"
+                    className="btn-secondary text-xs ml-4 flex-shrink-0 disabled:opacity-50"
                   >
-                    停止
+                    {stopMutation.isPending ? '停止中…' : '停止'}
                   </button>
                 )}
               </div>
