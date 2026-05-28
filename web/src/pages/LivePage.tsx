@@ -20,7 +20,12 @@ export function LivePage() {
       qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
       toast.success('策略已停止')
     },
-    onError: (e: Error) => toast.error(`停止失败: ${e.message}`),
+    onError: (e: Error) => {
+      // Refresh list on any error — 409 means already stopped on server,
+      // so the local status may be stale
+      qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
+      toast.error(`停止失败: ${e.message}`)
+    },
   })
 
   // Account data
