@@ -35,6 +35,7 @@ from cquant.api_server.routes import (
     knowledge,
     plugins,
     trading,
+    alerts,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,23 @@ async def _lifespan(app: FastAPI):
     from cquant.api_server.data_scheduler import start_data_scheduler
     from cquant.api_server.deps import get_catalog
     app.state.data_scheduler = start_data_scheduler(get_catalog())
+    # 每小时告警检查
+    scheduler = app.state.data_scheduler
+    if scheduler is not None:
+        from cquant.api_server.alert_checker import run_all_checks
+        catalog_for_alerts = get_catalog()
+        try:
+            scheduler.add_job(
+                run_all_checks,
+                "interval",
+                hours=1,
+                id="hourly_alert_check",
+                args=[catalog_for_alerts],
+                replace_existing=True,
+            )
+            logger.info("Hourly alert check registered")
+        except Exception as exc:
+            logger.warning("Failed to register hourly_alert_check: %s", exc)
     yield
     scheduler = getattr(app.state, "data_scheduler", None)
     if scheduler is not None:
@@ -173,6 +191,7 @@ def create_app(
     app.include_router(optimize.router, prefix=prefix, dependencies=_auth)
     app.include_router(risk.router, prefix=prefix, dependencies=_auth)
     app.include_router(scoring.router, prefix=prefix, dependencies=_auth)
+    app.include_router(alerts.router, prefix=prefix, dependencies=_auth)
 
     logger.info("cQuant API v%s ready — docs at /api/docs", _VERSION)
     return app
