@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { mlApi, backtestsApi, scoringApi } from '@/lib/api'
+import { mlApi, backtestsApi, scoringApi, alertsApi } from '@/lib/api'
 
 const NAV_ICONS: Record<string, string> = {
   '/factors':    '🔬',
@@ -18,6 +18,7 @@ const NAV_ICONS: Record<string, string> = {
   '/knowledge':  '📚',
   '/advisor':    '🤖',
   '/':           '🏠',
+  '/alerts':    '🔔',
 }
 
 const NAV_GROUPS = [
@@ -52,7 +53,8 @@ const NAV_GROUPS = [
   {
     label: '系统',
     items: [
-      { to: '/', label: '总览' },
+      { to: '/',       label: '总览' },
+      { to: '/alerts', label: '告警中心' },
     ],
   },
 ]
@@ -99,6 +101,13 @@ export function AppLayout() {
   if ((mlJobs ?? 0) > 0) runningBadges['/ml'] = mlJobs as number
   if ((btJobs ?? 0) > 0) runningBadges['/backtests'] = btJobs as number
   if ((scoringJobs ?? 0) > 0) runningBadges['/scoring'] = scoringJobs as number
+
+  const { data: alertUnread } = useQuery({
+    queryKey: ['alerts', 'unread-count'],
+    queryFn: () => alertsApi.history(true, 1),
+    refetchInterval: 60_000,
+    select: (d) => d.unread_count,
+  })
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem('sidebar_collapsed') === 'true' } catch { return false }
@@ -169,12 +178,20 @@ export function AppLayout() {
                           {NAV_ICONS[to] ?? label[0]}
                           {runningBadges[to] ? (
                             <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-blue-300 animate-pulse" />
+                          ) : to === '/alerts' && (alertUnread ?? 0) > 0 ? (
+                            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 text-[7px] bg-red-500 text-white rounded-full flex items-center justify-center">
+                              {(alertUnread ?? 0) > 9 ? '9+' : alertUnread}
+                            </span>
                           ) : null}
                         </span>
                       ) : (
                         <>
                           <span className="flex-1">{label}</span>
-                          {runningBadges[to] ? (
+                          {to === '/alerts' && (alertUnread ?? 0) > 0 ? (
+                            <span className="px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full min-w-[18px] text-center flex-shrink-0">
+                              {alertUnread}
+                            </span>
+                          ) : runningBadges[to] ? (
                             <span className="w-1.5 h-1.5 rounded-full bg-blue-300 animate-pulse flex-shrink-0" />
                           ) : null}
                         </>

@@ -858,3 +858,35 @@ export const customFactorApi = {
       preview: { asset_id: string; trade_date: string; value: number | null }[]
     }>('/factors/custom/preview', { method: 'POST', body: JSON.stringify(body) }),
 }
+
+export const alertsApi = {
+  rules: () => request<{ items: AlertRule[]; rule_types: { type: string; label: string }[] }>('/alerts/rules'),
+  createRule: (body: { rule_type: string; params: Record<string, unknown>; enabled?: boolean }) =>
+    request<{ rule_id: string; status: string }>('/alerts/rules', { method: 'POST', body: JSON.stringify(body) }),
+  deleteRule: (ruleId: string) =>
+    request<{ rule_id: string; status: string }>(`/alerts/rules/${ruleId}`, { method: 'DELETE' }),
+  history: (unreadOnly = false, limit = 50) =>
+    request<{ items: AlertHistory[]; unread_count: number }>(
+      `/alerts/history?unread_only=${unreadOnly}&limit=${limit}`
+    ),
+  markAllRead: () => request<{ status: string }>('/alerts/history/read-all', { method: 'POST' }),
+  check: () => request<{ triggered: number }>('/alerts/check', { method: 'POST' }),
+}
+
+export interface AlertRule {
+  rule_id: string
+  rule_type: string
+  rule_type_label: string
+  params: Record<string, unknown>
+  enabled: boolean
+  created_at: string
+}
+
+export interface AlertHistory {
+  alert_id: string
+  rule_id: string
+  rule_type: string
+  message: string
+  triggered_at: string
+  read: boolean
+}

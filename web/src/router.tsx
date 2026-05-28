@@ -16,6 +16,7 @@ import { TradingPage } from '@/pages/TradingPage'
 import { OptimizePage } from '@/pages/OptimizePage'
 import { RiskPage } from '@/pages/RiskPage'
 import { ScoringPage } from '@/pages/ScoringPage'
+import { AlertsPage } from '@/pages/AlertsPage'
 
 export const router = createBrowserRouter([
   {
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
       { path: 'datasets',   element: <DatasetsPage /> },
       { path: 'knowledge',  element: <KnowledgePage /> },
       { path: 'advisor',    element: <AdvisorPage /> },
+      { path: 'alerts',     element: <AlertsPage /> },
     ],
   },
   {
