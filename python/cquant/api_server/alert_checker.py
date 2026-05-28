@@ -16,26 +16,36 @@ RULE_TYPES = {
 }
 
 
+_alert_tables_ensured = False
+
+
 def _ensure_tables(catalog) -> None:
-    catalog.execute("""
-        CREATE TABLE IF NOT EXISTS meta_alert_rules (
-            rule_id      VARCHAR PRIMARY KEY,
-            rule_type    VARCHAR NOT NULL,
-            params_json  VARCHAR NOT NULL,
-            enabled      BOOLEAN DEFAULT TRUE,
-            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    catalog.execute("""
-        CREATE TABLE IF NOT EXISTS meta_alert_history (
-            alert_id   VARCHAR PRIMARY KEY,
-            rule_id    VARCHAR NOT NULL,
-            rule_type  VARCHAR NOT NULL,
-            message    VARCHAR NOT NULL,
-            triggered_at TIMESTAMP NOT NULL,
-            read       BOOLEAN DEFAULT FALSE
-        )
-    """)
+    global _alert_tables_ensured
+    if _alert_tables_ensured:
+        return
+    try:
+        catalog.execute("""
+            CREATE TABLE IF NOT EXISTS meta_alert_rules (
+                rule_id      VARCHAR PRIMARY KEY,
+                rule_type    VARCHAR NOT NULL,
+                params_json  VARCHAR NOT NULL,
+                enabled      BOOLEAN DEFAULT TRUE,
+                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        catalog.execute("""
+            CREATE TABLE IF NOT EXISTS meta_alert_history (
+                alert_id     VARCHAR PRIMARY KEY,
+                rule_id      VARCHAR NOT NULL,
+                rule_type    VARCHAR NOT NULL,
+                message      VARCHAR NOT NULL,
+                triggered_at TIMESTAMP NOT NULL,
+                read         BOOLEAN DEFAULT FALSE
+            )
+        """)
+        _alert_tables_ensured = True
+    except Exception as exc:
+        logger.debug("_ensure_tables: %s", exc)
 
 
 def _save_alert(catalog, rule_id: str, rule_type: str, message: str) -> None:
@@ -79,8 +89,10 @@ def check_factor_ic_low(catalog, rule_id: str, params: dict) -> bool:
     try:
         df = catalog.query(
             "SELECT mean_ic FROM gold_factor_ic_summary "
-            "WHERE factor_name = ? ORDER BY computed_at DESC LIMIT 1",
-            [factor_name],
+            "WHERE factor_name = ? "
+            "  AND computed_at >= CURRENT_TIMESTAMP - INTERVAL ? DAY "
+            "ORDER BY computed_at DESC LIMIT 1",
+            [factor_name, window_days],
         )
         if df.is_empty():
             return False
@@ -101,18 +113,20 @@ def check_pnl_drawdown(catalog, rule_id: str, params: dict) -> bool:
     if not strategy_id:
         return False
     try:
+        # Anchor to the single most recently completed run to avoid mixing history
         df = catalog.query(
-            "SELECT MAX(drawdown) as max_dd FROM ("
-            "  SELECT rs.drawdown FROM gold_risk_snapshots rs "
-            "  JOIN gold_backtest_runs br ON rs.run_id = br.run_id "
-            "  WHERE br.strategy_id = ? AND br.status = 'completed' "
-            "  ORDER BY br.completed_at DESC LIMIT 500"
-            ") sub",
+            "SELECT MAX(ABS(rs.drawdown)) as max_dd "
+            "FROM gold_risk_snapshots rs "
+            "WHERE rs.run_id = ("
+            "  SELECT run_id FROM gold_backtest_runs "
+            "  WHERE strategy_id = ? AND status = 'completed' "
+            "  ORDER BY completed_at DESC LIMIT 1"
+            ")",
             [strategy_id],
         )
         if df.is_empty() or df["max_dd"][0] is None:
             return False
-        max_dd = abs(float(df["max_dd"][0]))
+        max_dd = float(df["max_dd"][0])  # ABS already applied in SQL
         if max_dd > threshold_pct:
             _save_alert(catalog, rule_id, "pnl_drawdown",
                         f"策略 {strategy_id} 最大回撤 {max_dd*100:.2f}% 超过阈值 {threshold_pct*100:.2f}%")

@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { alertsApi } from '@/lib/api'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 export function AlertsPage() {
   const qc = useQueryClient()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newRuleType, setNewRuleType] = useState('data_stale')
   const [newParams, setNewParams] = useState<Record<string, string>>({})
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const { data: rules } = useQuery({ queryKey: ['alerts', 'rules'], queryFn: alertsApi.rules })
   const { data: history } = useQuery({
@@ -26,7 +28,11 @@ export function AlertsPage() {
   })
   const deleteMutation = useMutation({
     mutationFn: alertsApi.deleteRule,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts', 'rules'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['alerts', 'rules'] })
+      setDeleteTarget(null)
+    },
+    onError: (e: Error) => toast.error(`删除失败: ${e.message}`),
   })
   const markReadMutation = useMutation({
     mutationFn: alertsApi.markAllRead,
@@ -34,6 +40,7 @@ export function AlertsPage() {
       qc.invalidateQueries({ queryKey: ['alerts', 'history'] })
       qc.invalidateQueries({ queryKey: ['alerts', 'unread-count'] })
     },
+    onError: (e: Error) => toast.error(`标记已读失败: ${e.message}`),
   })
   const checkMutation = useMutation({
     mutationFn: alertsApi.check,
@@ -42,6 +49,7 @@ export function AlertsPage() {
       qc.invalidateQueries({ queryKey: ['alerts', 'unread-count'] })
       toast.info(`检查完成，触发 ${d.triggered} 条告警`)
     },
+    onError: (e: Error) => toast.error(`告警检查失败: ${e.message}`),
   })
 
   const PARAM_FORMS: Record<string, { key: string; label: string; placeholder: string; defaultVal: string }[]> = {
@@ -144,7 +152,7 @@ export function AlertsPage() {
                     </span>
                   </td>
                   <td className="py-2">
-                    <button onClick={() => deleteMutation.mutate(r.rule_id)}
+                    <button onClick={() => setDeleteTarget(r.rule_id)}
                       className="text-xs text-red-500 hover:underline">删除</button>
                   </td>
                 </tr>
@@ -179,6 +187,16 @@ export function AlertsPage() {
           <p className="text-sm text-gray-400">暂无告警历史</p>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title="确认删除规则"
+        message="确定删除此告警规则？此操作不可撤销。"
+        confirmLabel="删除"
+        variant="danger"
+        onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget) }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }
