@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { datasetsApi, backtestsApi, knowledgeApi, liveApi } from '@/lib/api'
+import { datasetsApi, backtestsApi, knowledgeApi, liveApi, dashboardApi } from '@/lib/api'
 import { queryKeys, extendedQueryKeys } from '@/lib/queryKeys'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 
@@ -51,6 +51,24 @@ export function OverviewPage() {
     queryFn: liveApi.strategies,
   })
 
+  const { data: freshness } = useQuery({
+    queryKey: ['dashboard', 'freshness'],
+    queryFn: datasetsApi.freshness,
+    staleTime: 300_000,
+  })
+
+  const { data: bestBt } = useQuery({
+    queryKey: ['dashboard', 'best-recent'],
+    queryFn: () => dashboardApi.bestRecent(7),
+    staleTime: 60_000,
+  })
+
+  const { data: icBoard } = useQuery({
+    queryKey: ['dashboard', 'ic-leaderboard'],
+    queryFn: () => dashboardApi.icLeaderboard(5),
+    staleTime: 120_000,
+  })
+
   const completedRuns = backtests?.items.filter(r => r.status === 'completed').length ?? 0
   const runningStrategies = liveStrategies?.items.length ?? 0
 
@@ -70,6 +88,73 @@ export function OverviewPage() {
         <StatCard label="知识库文档" value={knowledgeDocs?.total ?? '—'} icon="📚" />
         <StatCard label="活跃策略" value={runningStrategies} icon="⚡"
           warn={runningStrategies === 0} />
+      </div>
+
+      {/* 增强行：数据新鲜度 + 最优回测 + IC 排行 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* 数据新鲜度 */}
+        <div className="card">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">📅 数据新鲜度</h3>
+          {freshness ? (
+            <>
+              <p className="text-2xl font-bold text-gray-800">
+                {freshness.last_updated ?? '—'}
+              </p>
+              {freshness.days_stale >= 0 && (
+                <p className={`text-xs mt-1 ${freshness.days_stale > 3 ? 'text-amber-600' : 'text-green-600'}`}>
+                  {freshness.days_stale === 0 ? '✓ 今日已更新' : `⚠ 已 ${freshness.days_stale} 天未更新`}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm">加载中…</p>
+          )}
+        </div>
+
+        {/* 近7天最优回测 */}
+        <div className="card">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">🏆 近7天最优回测</h3>
+          {bestBt?.run_id ? (
+            <>
+              <p className="font-semibold text-gray-800 truncate" title={bestBt.strategy_id ?? ''}>
+                {bestBt.strategy_id}
+              </p>
+              <div className="flex gap-3 mt-1 text-xs">
+                <span>Sharpe <strong className="text-brand-600">{bestBt.sharpe}</strong></span>
+                <span>MaxDD <strong className="text-red-500">{bestBt.max_drawdown}%</strong></span>
+                {bestBt.cagr != null && <span>CAGR <strong className="text-green-600">{bestBt.cagr}%</strong></span>}
+              </div>
+              <Link to={`/backtests?run_id=${bestBt.run_id}`} className="text-xs text-brand-600 hover:underline mt-2 block">
+                查看详情 →
+              </Link>
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm">近7天暂无已完成回测</p>
+          )}
+        </div>
+
+        {/* Top5 因子 IC */}
+        <div className="card">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">🔬 因子 IC 排行（Top 5）</h3>
+          {icBoard?.items.length ? (
+            <ul className="space-y-1">
+              {icBoard.items.map((f, i) => (
+                <li key={f.factor_name} className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500 w-4">{i + 1}.</span>
+                  <span className="flex-1 font-mono truncate mx-1" title={f.factor_name}>
+                    {f.factor_name}
+                  </span>
+                  <span className={`font-bold ${f.mean_ic > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                    {f.mean_ic.toFixed(4)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-400 text-sm">暂无 IC 记录</p>
+          )}
+        </div>
       </div>
 
       {/* Quick links */}

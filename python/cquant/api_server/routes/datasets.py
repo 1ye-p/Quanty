@@ -218,6 +218,22 @@ async def trigger_ingest(background_tasks: BackgroundTasks, catalog: CatalogDep)
     return {"status": "triggered"}
 
 
+@router.get("/freshness")
+async def get_data_freshness(catalog: CatalogDep) -> dict:
+    """返回最近一次数据更新时间和距今天数。"""
+    try:
+        df = catalog.query("SELECT MAX(trade_date) as last_date FROM silver_prices_1d")
+        if df.is_empty() or df["last_date"][0] is None:
+            return {"last_updated": None, "days_stale": -1}
+        last_date = str(df["last_date"][0])
+        from datetime import date
+        days_stale = (date.today() - date.fromisoformat(last_date)).days
+        return {"last_updated": last_date, "days_stale": days_stale}
+    except Exception as exc:
+        logger.debug("get_data_freshness failed: %s", exc)
+        return {"last_updated": None, "days_stale": -1}
+
+
 @router.get("/{version_id}")
 async def get_dataset(version_id: str, catalog: CatalogDep) -> dict:
     """Get a specific dataset version."""

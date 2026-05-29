@@ -84,6 +84,23 @@ async def news_stats(catalog: CatalogDep) -> dict:
         "SELECT AVG(sentiment_score) AS avg_sentiment FROM silver_news_events WHERE sentiment_score IS NOT NULL"
     )
 
+    daily_df = catalog.query(
+        "SELECT DATE_TRUNC('day', published_at) as date, "
+        "  AVG(sentiment_score) as avg_sentiment, COUNT(*) as n_events "
+        "FROM silver_news_events "
+        "WHERE published_at >= CURRENT_DATE - INTERVAL '35 days' "
+        "AND sentiment_score IS NOT NULL "
+        "GROUP BY 1 ORDER BY 1 DESC LIMIT 35",
+    )
+    daily_sentiment = [
+        {
+            "date": str(r["date"])[:10],
+            "avg_sentiment": round(float(r["avg_sentiment"]), 4),
+            "n_events": int(r["n_events"]),
+        }
+        for r in daily_df.to_dicts()
+    ] if not daily_df.is_empty() else []
+
     return {
         "total_events": total,
         "source_counts": {r["source"]: r["count"] for r in source_df.to_dicts()},
@@ -91,4 +108,5 @@ async def news_stats(catalog: CatalogDep) -> dict:
         "avg_sentiment": (
             v if (v := sentiment_df["avg_sentiment"].item()) is None else float(v)
         ) if not sentiment_df.is_empty() else None,
+        "daily_sentiment": daily_sentiment,
     }

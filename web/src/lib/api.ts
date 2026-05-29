@@ -72,6 +72,25 @@ export const datasetsApi = {
 
   triggerIngest: () =>
     request<{ status: string }>('/datasets/schedule/trigger', { method: 'POST' }),
+
+  freshness: () =>
+    request<{ last_updated: string | null; days_stale: number }>('/datasets/freshness'),
+}
+
+export const dashboardApi = {
+  bestRecent: (days = 7) =>
+    request<{
+      run_id: string | null
+      strategy_id: string | null
+      sharpe: number | null
+      max_drawdown: number | null
+      cagr: number | null
+    }>(`/backtests/best-recent?days=${days}`),
+
+  icLeaderboard: (limit = 5) =>
+    request<{
+      items: { factor_name: string; mean_ic: number; ir: number; hit_rate: number }[]
+    }>(`/factors/ic-leaderboard?limit=${limit}`),
 }
 
 // ── Walk-Forward Config ──────────────────────────────────────────────────────
@@ -301,6 +320,7 @@ export interface NewsStats {
   source_counts: Record<string, number>
   event_type_counts: Record<string, number>
   avg_sentiment: number | null
+  daily_sentiment: { date: string; avg_sentiment: number; n_events: number }[]
 }
 
 export const newsApi = {

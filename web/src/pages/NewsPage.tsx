@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { newsApi, type NewsEvent } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine,
+  ResponsiveContainer, Legend
+} from 'recharts'
 
 function NewsDetail({ eventId }: { eventId: string }) {
   const { data, isLoading } = useQuery({
@@ -73,6 +77,64 @@ export function NewsPage() {
               <div className="text-xs text-gray-500">平均情绪分</div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 情绪趋势图 */}
+      {stats?.daily_sentiment && stats.daily_sentiment.length > 0 && (
+        <div className="card">
+          <h2 className="font-semibold text-gray-800 mb-3">情绪趋势（近30天）</h2>
+          {(() => {
+            const data = [...stats!.daily_sentiment].reverse()  // 时间正序
+            // 计算7日滚动均值
+            const with7d = data.map((d, i) => {
+              const win = data.slice(Math.max(0, i - 6), i + 1)
+              const avg7d = win.reduce((s, r) => s + r.avg_sentiment, 0) / win.length
+              return { ...d, avg_7d: Number(avg7d.toFixed(4)) }
+            })
+            return (
+              <ResponsiveContainer width="100%" height={160}>
+                <LineChart data={with7d} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={v => String(v).slice(5)}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    domain={[-1, 1]}
+                    tickFormatter={v => v.toFixed(1)}
+                  />
+                  <Tooltip
+                    formatter={(v: number, name: string) => [v.toFixed(4), name]}
+                    labelFormatter={v => `日期: ${v}`}
+                  />
+                  <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
+                  <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="avg_sentiment"
+                    name="日均情绪"
+                    stroke="#94a3b8"
+                    dot={false}
+                    strokeWidth={1}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="avg_7d"
+                    name="7日均线"
+                    stroke="#3b82f6"
+                    dot={false}
+                    strokeWidth={2}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )
+          })()}
+          <p className="text-xs text-gray-400 mt-1">
+            正值（蓝色区域上方）= 整体偏乐观；负值 = 偏悲观
+          </p>
         </div>
       )}
 

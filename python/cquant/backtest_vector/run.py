@@ -891,6 +891,9 @@ class BacktestRunner:
                 1.0,
                 float(row.get("target_weight", 0) or 0),
             ))
+        assert not rows or len(rows[0]) == 8, (
+            f"Column mismatch: {len(rows[0])} values vs 8 placeholders"
+        )
         try:
             conn.executemany("""
                 INSERT OR REPLACE INTO gold_signals
@@ -927,6 +930,9 @@ class BacktestRunner:
                 float(row.get("slippage", 0) or 0),
                 float(row.get("total_cost", 0) or 0),
             ))
+        assert not rows or len(rows[0]) == 12, (
+            f"Column mismatch: {len(rows[0])} values vs 12 placeholders"
+        )
         try:
             conn.executemany("""
                 INSERT OR REPLACE INTO gold_fills
@@ -993,6 +999,9 @@ class BacktestRunner:
                 s["cash"], s["nav"], s["positions_count"],
                 s["gross_exposure"], s["net_exposure"],
             ))
+        assert not rows or len(rows[0]) == 8, (
+            f"Column mismatch: {len(rows[0])} values vs 8 placeholders"
+        )
         try:
             conn.executemany("""
                 INSERT OR REPLACE INTO gold_portfolio_snapshots
@@ -1061,6 +1070,9 @@ class BacktestRunner:
                 s["beta"], s["drawdown"], s["var_95"], s["cvar_95"],
                 s["sector_exposure"], s["factor_exposure"],
             ))
+        assert not rows or len(rows[0]) == 12, (
+            f"Column mismatch: {len(rows[0])} values vs 12 placeholders"
+        )
         try:
             conn.executemany("""
                 INSERT OR REPLACE INTO gold_risk_snapshots
@@ -1105,6 +1117,9 @@ class BacktestRunner:
                 json.dumps(d.get("reasons", [])),
                 json.dumps(d.get("policy_names", [])),
             ))
+        assert not rows or len(rows[0]) == 11, (
+            f"Column mismatch: {len(rows[0])} values vs 11 placeholders"
+        )
         try:
             conn.executemany("""
                 INSERT OR REPLACE INTO gold_pretrade_decisions

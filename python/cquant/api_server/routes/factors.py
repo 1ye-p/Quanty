@@ -712,3 +712,22 @@ async def compute_factor_correlation(body: FactorCorrelationRequest, catalog: Ca
             matrix.append({"factor_a": f1, "factor_b": f2, "correlation": corr})
 
     return {"factors": factor_cols, "matrix": matrix}
+
+
+@router.get("/ic-leaderboard")
+async def ic_leaderboard(catalog: CatalogDep, limit: int = 5) -> dict:
+    """返回 IC 绝对值最高的 Top N 因子（用于 Dashboard 排行榜）。"""
+    try:
+        df = catalog.query(
+            "SELECT factor_name, mean_ic, ir, hit_rate, feature_set_version "
+            "FROM gold_factor_ic_summary "
+            "WHERE mean_ic IS NOT NULL "
+            "ORDER BY ABS(mean_ic) DESC LIMIT ?",
+            [limit],
+        )
+        if df.is_empty():
+            return {"items": []}
+        return {"items": df.to_dicts()}
+    except Exception as exc:
+        logger.debug("ic-leaderboard query failed: %s", exc)
+        return {"items": []}

@@ -384,29 +384,30 @@ async def list_backtests(catalog: CatalogDep, offset: int = 0, limit: int = 50) 
     )
     items = df.to_dicts()
 
-    # 2. Merge running backtest jobs (only on first page to avoid pagination issues)
-    if offset == 0:
-        running_df = catalog.query(
-            "SELECT job_id, status, created_at, error, run_id "
-            "FROM _api_jobs "
-            "WHERE job_type = 'backtest' AND status IN ('running', 'pending')"
-        )
-        if not running_df.is_empty():
-            existing_run_ids = {item.get("run_id") for item in items}
-            for row in running_df.to_dicts():
-                if row.get("run_id") and row["run_id"] in existing_run_ids:
-                    continue
-                items.insert(0, {
-                    "run_id": row.get("run_id") or row["job_id"],
-                    "engine": "",
-                    "strategy_id": "",
-                    "dataset_version": "",
-                    "started_at": row.get("created_at", ""),
-                    "completed_at": None,
-                    "status": row["status"],
-                    "error": row.get("error"),
-                })
-                total += 1
+    # 2. Running/pending jobs from _api_jobs (always count for total; merge items only on first page)
+    running_df = catalog.query(
+        "SELECT job_id, status, created_at, error, run_id "
+        "FROM _api_jobs "
+        "WHERE job_type = 'backtest' AND status IN ('running', 'pending')"
+    )
+    running_rows = running_df.to_dicts() if not running_df.is_empty() else []
+    if offset == 0 and running_rows:
+        existing_run_ids = {item.get("run_id") for item in items}
+        for row in running_rows:
+            if row.get("run_id") and row["run_id"] in existing_run_ids:
+                continue
+            items.insert(0, {
+                "run_id": row.get("run_id") or row["job_id"],
+                "engine": "",
+                "strategy_id": "",
+                "dataset_version": "",
+                "started_at": row.get("created_at", ""),
+                "completed_at": None,
+                "status": row["status"],
+                "error": row.get("error"),
+                "is_running_job": True,  # W-3: flag for frontend to disable detail navigation
+            })
+    total += len(running_rows)
 
     return {"items": items, "total": total}
 
@@ -472,6 +473,44 @@ async def compare_backtests(run_ids: str, catalog: CatalogDep) -> dict:
         })
 
     return {"runs": results}
+
+
+@router.get("/best-recent")
+async def best_recent_backtest(catalog: CatalogDep, days: int = 7) -> dict:
+    """返回最近 N 天 Sharpe 最高的已完成回测摘要（用于 Dashboard）。"""
+    days = max(1, min(365, int(days)))
+
+    cutoff = f"CURRENT_DATE - INTERVAL '{days} days'"
+    df = catalog.query(
+        f"SELECT run_id, strategy_id, started_at FROM gold_backtest_runs "
+        f"WHERE status = 'completed' AND started_at >= {cutoff} "
+        f"ORDER BY started_at DESC LIMIT 20"
+    )
+    if df.is_empty():
+        return {"run_id": None, "strategy_id": None, "sharpe": None, "max_drawdown": None, "cagr": None}
+
+    best = None
+    best_sharpe = float('-inf')
+    for row in df.to_dicts():
+        mpath = _safe_metrics_path(row["run_id"])
+        if not mpath or not mpath.exists():
+            continue
+        try:
+            m = json.loads(mpath.read_text())
+        except Exception:
+            continue
+        s = m.get("sharpe_ratio")
+        if s is not None and float(s) > best_sharpe:
+            best_sharpe = float(s)
+            best = {
+                "run_id": row["run_id"],
+                "strategy_id": row["strategy_id"],
+                "sharpe": round(float(s), 3),
+                "max_drawdown": round(float(m.get("max_drawdown") or 0) * 100, 2),
+                "cagr": round(float(m.get("cagr") or 0) * 100, 2),
+            }
+
+    return best or {"run_id": None, "strategy_id": None, "sharpe": None, "max_drawdown": None, "cagr": None}
 
 
 @router.get("/{run_id}")
