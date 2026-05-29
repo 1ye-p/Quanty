@@ -347,8 +347,8 @@ export function BacktestsPage() {
               {filteredBacktests.map(r => (
                 <tr
                   key={r.run_id}
-                  className={`table-row cursor-pointer ${selectedId === r.run_id ? 'bg-blue-50' : ''}`}
-                  onClick={() => { setSelectedId(r.run_id); setTab('overview') }}
+                  className={`table-row ${r.is_running_job ? 'opacity-60' : 'cursor-pointer'} ${selectedId === r.run_id ? 'bg-blue-50' : ''}`}
+                  onClick={r.is_running_job ? undefined : () => { setSelectedId(r.run_id); setTab('overview') }}
                 >
                   <td className="table-td" onClick={e => e.stopPropagation()}>
                     <input
@@ -364,8 +364,8 @@ export function BacktestsPage() {
                       className="w-4 h-4 rounded border-gray-300 accent-brand-600"
                     />
                   </td>
-                  <td className="table-td font-mono text-xs">{r.run_id.slice(0, 8)}…</td>
-                  <td className="table-td font-medium">{r.strategy_id}</td>
+                  <td className="table-td font-mono text-xs">{r.is_running_job ? '—' : `${r.run_id.slice(0, 8)}…`}</td>
+                  <td className="table-td font-medium">{r.is_running_job ? <span className="text-blue-600">任务提交中…</span> : r.strategy_id}</td>
                   <td className="table-td text-gray-500">
                     {r.engine === 'walk_forward'
                       ? <span className="px-1.5 py-0.5 text-xs rounded bg-purple-100 text-purple-700 font-medium">WF 汇总</span>

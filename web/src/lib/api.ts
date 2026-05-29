@@ -113,6 +113,7 @@ export interface BacktestRun {
   started_at: string
   completed_at: string | null
   status: string
+  is_running_job?: boolean
   metrics?: {
     total_return: number
     annualized_return: number
