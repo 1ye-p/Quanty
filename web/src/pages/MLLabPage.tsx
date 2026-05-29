@@ -27,6 +27,17 @@ export function MLLabPage() {
   const [expSearch, setExpSearch] = useState('')
   const [expStatusFilter, setExpStatusFilter] = useState<string>('all')
 
+  // Online prediction
+  const [showPredictModal, setShowPredictModal] = useState(false)
+  const [predictRunId, setPredictRunId] = useState<string | null>(null)
+
+  const { data: predictResult, isFetching: predictFetching } = useQuery({
+    queryKey: ['ml', 'predict', predictRunId],
+    queryFn: () => mlApi.predict({ model_version: predictRunId!, top_n: 30 }),
+    enabled: !!predictRunId && showPredictModal,
+    staleTime: 60_000,
+  })
+
   const { data: experiments, isLoading, refetch } = useQuery({
     queryKey: extendedQueryKeys.ml.experiments(50),
     queryFn: () => mlApi.experiments(50),
@@ -360,24 +371,33 @@ export function MLLabPage() {
                     </td>
                     <td className="table-td" onClick={e => e.stopPropagation()}>
                       {(r.status === 'completed' || r.status === 'done') && r.model_id && (
-                        <button
-                          className="btn-secondary text-xs"
-                          onClick={() => navigate('/strategies', {
-                            state: {
-                              prefill: {
-                                strategy_id: `ml_${r.model_id!.slice(0, 8)}`,
-                                config: JSON.stringify({
-                                  strategy_type: 'MLModelStrategy',
-                                  model_id: r.model_id,
-                                  top_n: 10,
-                                  label_name: 'ret_5d',
-                                }, null, 2),
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setPredictRunId(r.run_id); setShowPredictModal(true) }}
+                            className="text-xs text-purple-600 hover:text-purple-800 mr-2"
+                            title="实时预测"
+                          >
+                            🔮
+                          </button>
+                          <button
+                            className="btn-secondary text-xs"
+                            onClick={() => navigate('/strategies', {
+                              state: {
+                                prefill: {
+                                  strategy_id: `ml_${r.model_id!.slice(0, 8)}`,
+                                  config: JSON.stringify({
+                                    strategy_type: 'MLModelStrategy',
+                                    model_id: r.model_id,
+                                    top_n: 10,
+                                    label_name: 'ret_5d',
+                                  }, null, 2),
+                                },
                               },
-                            },
-                          })}
-                        >
-                          创建策略
-                        </button>
+                            })}
+                          >
+                            创建策略
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>
@@ -543,6 +563,66 @@ export function MLLabPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Online Prediction Modal */}
+      {showPredictModal && predictRunId && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h2 className="font-semibold text-gray-900">实时预测排名</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  模型：<span className="font-mono">{predictRunId.slice(0, 16)}…</span>
+                  {predictResult?.date && <span className="ml-2">日期：{predictResult.date}</span>}
+                  {predictResult?.trainer_name && <span className="ml-2">Trainer：{predictResult.trainer_name}</span>}
+                </p>
+              </div>
+              <button onClick={() => { setShowPredictModal(false); setPredictRunId(null) }}
+                className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              {predictFetching ? (
+                <div className="flex items-center justify-center py-8 text-gray-500">
+                  <div className="animate-spin w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full mr-2" />
+                  模型加载中…
+                </div>
+              ) : predictResult?.predictions?.length ? (
+                <>
+                  <div className="text-xs text-gray-500 mb-3">
+                    共 {predictResult.total_assets} 只资产，展示 Top-{predictResult.top_n}
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-500 border-b">
+                        <th className="py-1.5 pr-3 w-12">#</th>
+                        <th className="py-1.5 pr-3">资产代码</th>
+                        <th className="py-1.5 text-right">预测收益</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {predictResult.predictions.map((p, i) => (
+                        <tr key={p.asset_id}
+                          className={`border-b border-gray-100 ${i < 3 ? 'bg-green-50' : i >= predictResult.predictions.length - 3 ? 'bg-red-50' : ''}`}>
+                          <td className="py-1.5 pr-3 font-mono text-gray-400">{p.rank}</td>
+                          <td className="py-1.5 pr-3 font-mono font-medium">{p.asset_id}</td>
+                          <td className={`py-1.5 text-right font-mono ${
+                            p.prediction > 0 ? 'text-green-600' : p.prediction < 0 ? 'text-red-600' : 'text-gray-400'
+                          }`}>
+                            {(p.prediction * 100).toFixed(2)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              ) : (
+                <div className="text-center text-gray-400 py-8">无预测数据</div>
+              )}
+            </div>
           </div>
         </div>
       )}

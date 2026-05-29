@@ -432,6 +432,15 @@ export const mlApi = {
     request<{ date: string | null; predictions: Record<string, number> }>(
       `/ml/predictions?asset_ids=${encodeURIComponent(assetIds.join(','))}`,
     ),
+  predict: (body: { model_version: string; date?: string | null; top_n?: number }) =>
+    request<{
+      date: string
+      model_version: string
+      trainer_name: string
+      predictions: { asset_id: string; prediction: number; rank: number }[]
+      total_assets: number
+      top_n: number
+    }>('/ml/predict', { method: 'POST', body: JSON.stringify(body) }),
 }
 
 // ── Live ──────────────────────────────────────────────────────────────────────
