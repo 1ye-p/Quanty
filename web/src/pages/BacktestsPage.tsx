@@ -353,6 +353,7 @@ export function BacktestsPage() {
                   <td className="table-td" onClick={e => e.stopPropagation()}>
                     <input
                       type="checkbox"
+                      disabled={!!r.is_running_job}
                       checked={compareIds.includes(r.run_id)}
                       onChange={e =>
                         setCompareIds(prev =>
@@ -361,15 +362,17 @@ export function BacktestsPage() {
                             : prev.filter(id => id !== r.run_id)
                         )
                       }
-                      className="w-4 h-4 rounded border-gray-300 accent-brand-600"
+                      className="w-4 h-4 rounded border-gray-300 accent-brand-600 disabled:opacity-40"
                     />
                   </td>
                   <td className="table-td font-mono text-xs">{r.is_running_job ? '—' : `${r.run_id.slice(0, 8)}…`}</td>
                   <td className="table-td font-medium">{r.is_running_job ? <span className="text-blue-600">任务提交中…</span> : r.strategy_id}</td>
                   <td className="table-td text-gray-500">
-                    {r.engine === 'walk_forward'
-                      ? <span className="px-1.5 py-0.5 text-xs rounded bg-purple-100 text-purple-700 font-medium">WF 汇总</span>
-                      : <span className="text-gray-500">{r.engine}</span>}
+                    {r.is_running_job
+                      ? '—'
+                      : r.engine === 'walk_forward'
+                        ? <span className="px-1.5 py-0.5 text-xs rounded bg-purple-100 text-purple-700 font-medium">WF 汇总</span>
+                        : <span className="text-gray-500">{r.engine}</span>}
                   </td>
                   <td className="table-td"><StatusBadge status={r.status} /></td>
                   <td className="table-td text-gray-400">{r.started_at?.slice(0, 16) ?? '—'}</td>
