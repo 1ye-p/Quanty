@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from cquant.api_server.deps import CatalogDep
 from cquant.core.config import settings
@@ -18,6 +18,12 @@ router = APIRouter(prefix="/ml", tags=["ml"])
 
 
 from cquant.api_server.schemas.common import WalkForwardConfig
+
+
+class PredictRequest(BaseModel):
+    model_version: str
+    date: str | None = None
+    top_n: int = Field(default=50, ge=1, le=5000)
 
 
 class MLJobBody(BaseModel):
@@ -236,6 +242,26 @@ async def get_ml_job(job_id: str, catalog: CatalogDep) -> dict:
     if df.is_empty():
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
     return df.to_dicts()[0]
+
+
+@router.post("/predict")
+async def predict(body: PredictRequest, catalog: CatalogDep) -> dict:
+    from cquant.ml_lab.predict_service import run_online_prediction
+    try:
+        result = run_online_prediction(
+            catalog=catalog,
+            model_version=body.model_version,
+            target_date=body.date,
+            top_n=body.top_n,
+        )
+        return result
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Prediction failed for model %s", body.model_version)
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}")
 
 
 def _extract_feature_importance(trainer, artifact) -> dict[str, float]:
