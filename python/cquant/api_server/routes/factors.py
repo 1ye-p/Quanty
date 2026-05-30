@@ -731,3 +731,66 @@ async def ic_leaderboard(catalog: CatalogDep, limit: int = 5) -> dict:
     except Exception as exc:
         logger.debug("ic-leaderboard query failed: %s", exc)
         return {"items": []}
+
+
+@router.get("/ic-status")
+async def factor_ic_status(
+    catalog: CatalogDep,
+    feature_set_version: str = "",
+    threshold: float = 0.02,
+    window_days: int = 20,
+) -> dict:
+    """批量检查因子 IC 状态，返回哪些因子 IC 低于阈值。"""
+    if not feature_set_version:
+        # Try to get the latest feature_set_version
+        try:
+            ver_df = catalog.query(
+                "SELECT DISTINCT feature_set_version FROM gold_factor_ic_summary "
+                "ORDER BY computed_at DESC LIMIT 1"
+            )
+            if ver_df.is_empty():
+                return {"items": [], "threshold": threshold, "window_days": window_days}
+            feature_set_version = ver_df["feature_set_version"][0]
+        except Exception:
+            return {"items": [], "threshold": threshold, "window_days": window_days}
+
+    try:
+        # Get latest IC summary for each factor
+        df = catalog.query(
+            "SELECT factor_name, mean_ic, ir, hit_rate, computed_at "
+            "FROM gold_factor_ic_summary "
+            "WHERE feature_set_version = ? "
+            "  AND computed_at >= CURRENT_TIMESTAMP - (? * INTERVAL '1 DAY') "
+            "ORDER BY factor_name, computed_at DESC",
+            [feature_set_version, window_days],
+        )
+        if df.is_empty():
+            return {"items": [], "threshold": threshold, "window_days": window_days}
+
+        # Keep latest per factor
+        latest = {}
+        for row in df.to_dicts():
+            fn = row["factor_name"]
+            if fn not in latest:
+                latest[fn] = row
+
+        items = []
+        for fn, row in latest.items():
+            ic = float(row["mean_ic"]) if row["mean_ic"] is not None else 0.0
+            is_alert = abs(ic) < threshold
+            items.append({
+                "factor_name": fn,
+                "mean_ic": round(ic, 6),
+                "ir": round(float(row["ir"]), 4) if row["ir"] is not None else None,
+                "hit_rate": round(float(row["hit_rate"]), 4) if row["hit_rate"] is not None else None,
+                "is_alert": is_alert,
+                "alert_message": f"IC 绝对值 {abs(ic):.4f} < 阈值 {threshold}" if is_alert else None,
+            })
+
+        # Sort: alert factors first, then by abs(IC) ascending
+        items.sort(key=lambda x: (not x["is_alert"], abs(x["mean_ic"])))
+
+        return {"items": items, "threshold": threshold, "window_days": window_days, "feature_set_version": feature_set_version}
+    except Exception as exc:
+        logger.warning("factor_ic_status failed: %s", exc)
+        return {"items": [], "threshold": threshold, "window_days": window_days, "error": str(exc)}

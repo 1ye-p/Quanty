@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { factorAnalyticsApi, customFactorApi } from '@/lib/api'
+import { factorAnalyticsApi, customFactorApi, alertsApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { toast } from 'sonner'
@@ -44,6 +44,31 @@ export function FactorsPage() {
     preview: { asset_id: string; trade_date: string; value: number | null }[]
   } | null>(null)
   const [cfPreviewLoading, setCfPreviewLoading] = useState(false)
+
+  // IC Alert
+  const [icThreshold, setIcThreshold] = useState(0.02)
+  const [showIcAlertModal, setShowIcAlertModal] = useState(false)
+  const [alertFactorName, setAlertFactorName] = useState<string | null>(null)
+
+  const { data: icStatus } = useQuery({
+    queryKey: ['factors', 'ic-status', featureSetVersion, icThreshold],
+    queryFn: () => factorAnalyticsApi.icStatus({
+      feature_set_version: featureSetVersion || undefined,
+      threshold: icThreshold,
+    }),
+    staleTime: 60_000,
+  })
+
+  // Build a set of factor names that have IC alerts
+  const icAlertFactors = useMemo(() => {
+    const set = new Set<string>()
+    if (icStatus?.items) {
+      for (const item of icStatus.items) {
+        if (item.is_alert) set.add(item.factor_name)
+      }
+    }
+    return set
+  }, [icStatus])
 
   const createFactorMutation = useMutation({
     mutationFn: customFactorApi.create,
@@ -232,6 +257,17 @@ export function FactorsPage() {
         </p>
       )}
 
+      {/* IC Alert Summary */}
+      {icStatus && icStatus.items.some(i => i.is_alert) && (
+        <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+          <span>{icStatus.items.filter(i => i.is_alert).length} 个因子 IC 低于阈值</span>
+          <span className="text-red-400">|</span>
+          <span>阈值：</span>
+          <input type="number" value={icThreshold} onChange={e => setIcThreshold(Number(e.target.value))}
+            className="w-16 px-1 py-0.5 border border-red-300 rounded text-xs" min={0.001} max={0.1} step={0.005} />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {filteredFactorDefs.map(f => (
           <div
@@ -245,7 +281,22 @@ export function FactorsPage() {
               selectedFactor === f.name ? 'border-blue-500' : 'border-transparent'
             }`}
           >
-            <div className="font-semibold text-gray-900 mb-1">{f.name}</div>
+            <div className="font-semibold text-gray-900 mb-1">
+              {f.name}
+              {icAlertFactors.has(f.name) && (
+                <span
+                  className="ml-1 text-red-500 cursor-pointer text-xs"
+                  title={icStatus?.items.find(i => i.factor_name === f.name)?.alert_message || 'IC 低于阈值'}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setAlertFactorName(f.name)
+                    setShowIcAlertModal(true)
+                  }}
+                >
+                  ⚠
+                </span>
+              )}
+            </div>
             <div className="text-xs text-gray-500 mb-2">{f.description || '无描述'}</div>
             <div className="flex flex-wrap gap-1">
               {f.tags.map(t => (
@@ -698,6 +749,48 @@ export function FactorsPage() {
               >
                 {createFactorMutation.isPending ? '创建中…' : '创建因子'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IC Alert Create Modal */}
+      {showIcAlertModal && alertFactorName && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+            <div className="p-4 border-b">
+              <h2 className="font-semibold text-gray-900">创建 IC 告警规则</h2>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">因子</label>
+                <div className="font-mono text-sm bg-gray-50 px-2 py-1.5 rounded">{alertFactorName}</div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">IC 阈值（绝对值低于此值触发）</label>
+                <input type="number" value={icThreshold} onChange={e => setIcThreshold(Number(e.target.value))}
+                  className="input w-full" min={0.001} max={0.1} step={0.005} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">检查窗口（天）</label>
+                <input type="number" defaultValue={20} className="input w-full" min={5} max={120} step={5}
+                  id="ic-alert-window" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <button onClick={() => { setShowIcAlertModal(false); setAlertFactorName(null) }}
+                className="btn-secondary text-sm">取消</button>
+              <button onClick={() => {
+                const windowDays = Number((document.getElementById('ic-alert-window') as HTMLInputElement)?.value || 20)
+                alertsApi.createRule({
+                  rule_type: 'factor_ic_low',
+                  params: { factor_name: alertFactorName, threshold: icThreshold, window_days: windowDays },
+                }).then(() => {
+                  toast.success(`已为 ${alertFactorName} 创建 IC 告警规则`)
+                  setShowIcAlertModal(false)
+                  setAlertFactorName(null)
+                }).catch(e => toast.error(`创建失败: ${e.message}`))
+              }} className="btn-primary text-sm">创建告警</button>
             </div>
           </div>
         </div>

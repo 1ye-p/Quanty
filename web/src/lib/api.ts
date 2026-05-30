@@ -561,6 +561,16 @@ export const factorAnalyticsApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  icStatus: (params: { feature_set_version?: string; threshold?: number; window_days?: number }) => {
+    const qs = new URLSearchParams()
+    if (params.feature_set_version) qs.set('feature_set_version', params.feature_set_version)
+    if (params.threshold != null) qs.set('threshold', String(params.threshold))
+    if (params.window_days != null) qs.set('window_days', String(params.window_days))
+    return request<{
+      items: { factor_name: string; mean_ic: number; ir: number | null; hit_rate: number | null; is_alert: boolean; alert_message: string | null }[]
+      threshold: number; window_days: number; feature_set_version: string
+    }>(`/factors/ic-status?${qs}`)
+  },
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────────────
