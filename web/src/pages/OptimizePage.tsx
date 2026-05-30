@@ -30,6 +30,11 @@ export function OptimizePage() {
   const [returnsText, setReturnsText] = useState('')
   const [expectedReturnsMap, setExpectedReturnsMap] = useState<Record<string, number>>({})
 
+  // Advanced constraints
+  const [showConstraints, setShowConstraints] = useState(false)
+  const [maxTurnover, setMaxTurnover] = useState('')
+  const [perAssetBounds, setPerAssetBounds] = useState<Record<string, { min: string; max: string }>>({})
+
   // Results
   const [covResult, setCovResult] = useState<Record<string, Record<string, number>> | null>(null)
   const [optResult, setOptResult] = useState<OptimizeResult | null>(null)
@@ -88,12 +93,28 @@ export function OptimizePage() {
 
   const handleOptimize = () => {
     if (!covResult) return
-    // Parse expected returns
     const assets = Object.keys(covResult)
-    // Use expectedReturnsMap directly (values already in decimal form)
     const returns: Record<string, number> = { ...expectedReturnsMap }
     for (const a of assets) {
       if (!(a in returns)) returns[a] = 0
+    }
+
+    // Build constraints
+    const constraints: Record<string, unknown> = {}
+
+    // Per-asset bounds
+    const minWeights: Record<string, number> = {}
+    const maxWeights: Record<string, number> = {}
+    for (const [asset, bounds] of Object.entries(perAssetBounds)) {
+      if (bounds.min && !isNaN(Number(bounds.min))) minWeights[asset] = Number(bounds.min) / 100
+      if (bounds.max && !isNaN(Number(bounds.max))) maxWeights[asset] = Number(bounds.max) / 100
+    }
+    if (Object.keys(minWeights).length) constraints.min_weights = minWeights
+    if (Object.keys(maxWeights).length) constraints.max_weights = maxWeights
+
+    // Max turnover
+    if (maxTurnover && !isNaN(Number(maxTurnover))) {
+      constraints.max_turnover = Number(maxTurnover) / 100
     }
 
     optMutation.mutate({
@@ -104,6 +125,8 @@ export function OptimizePage() {
       risk_free_rate: Number(riskFreeRate) || 0,
       cost_rate: Number(costRate) || 0.001,
       turnover_penalty: Number(turnoverPenalty) || 0.0005,
+      current_weights: {},
+      constraints,
     })
   }
 
@@ -198,6 +221,73 @@ export function OptimizePage() {
                   onChange={e => setTurnoverPenalty(e.target.value)} step={0.0001} min={0} />
               </div>
             </>
+          )}
+        </div>
+        {/* Advanced Constraints */}
+        <div className="mt-3">
+          <button
+            onClick={() => setShowConstraints(!showConstraints)}
+            className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+          >
+            {showConstraints ? '▼' : '▶'} 高级约束配置
+          </button>
+
+          {showConstraints && (
+            <div className="mt-2 space-y-3 p-3 bg-gray-50 rounded-lg">
+              {/* Max Turnover */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">最大换手率 (%)</label>
+                  <input type="number" value={maxTurnover} onChange={e => setMaxTurnover(e.target.value)}
+                    className="input w-full" placeholder="不限" min={0} max={200} step={5} />
+                  <p className="text-xs text-gray-400 mt-0.5">留空表示不限制</p>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">换手率惩罚系数</label>
+                  <input type="number" value={turnoverPenalty} onChange={e => setTurnoverPenalty(e.target.value)}
+                    className="input w-full" min={0} max={0.01} step={0.0001} />
+                </div>
+              </div>
+
+              {/* Per-Asset Bounds */}
+              {covResult && Object.keys(covResult).length > 0 && (
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1.5">单资产权重限制 (%)</label>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-500">
+                        <th className="text-left py-1 pr-2">资产</th>
+                        <th className="text-left py-1 pr-2 w-24">最小权重</th>
+                        <th className="text-left py-1 w-24">最大权重</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.keys(covResult).map(asset => (
+                        <tr key={asset} className="border-t border-gray-200">
+                          <td className="py-1 pr-2 font-mono text-gray-700">{asset}</td>
+                          <td className="py-1 pr-2">
+                            <input type="number"
+                              value={perAssetBounds[asset]?.min ?? ''}
+                              onChange={e => setPerAssetBounds(prev => ({
+                                ...prev, [asset]: { min: e.target.value, max: prev[asset]?.max ?? '' }
+                              }))}
+                              className="input w-full text-xs" placeholder="0" min={0} max={100} step={1} />
+                          </td>
+                          <td className="py-1">
+                            <input type="number"
+                              value={perAssetBounds[asset]?.max ?? ''}
+                              onChange={e => setPerAssetBounds(prev => ({
+                                ...prev, [asset]: { min: prev[asset]?.min ?? '', max: e.target.value }
+                              }))}
+                              className="input w-full text-xs" placeholder="100" min={0} max={100} step={1} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           )}
         </div>
         {/* 预期收益输入 — 表格模式（协方差计算后显示） */}
@@ -358,6 +448,12 @@ export function OptimizePage() {
               </div>
             </div>
           </div>
+
+          {optResult?.metadata?.turnover != null && Number(optResult.metadata.turnover) > 0 && (
+            <div className="text-xs text-gray-500 mt-1">
+              换手率：<span className="font-mono">{(Number(optResult.metadata.turnover) * 100).toFixed(1)}%</span>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-6">
             {/* Weights Table */}
