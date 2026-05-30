@@ -93,6 +93,14 @@ class MeanVarianceOptimizer(PortfolioOptimizer):
         else:
             cons = [eq_constraint]
 
+        # Hard turnover constraint
+        max_turnover = con.get("max_turnover", None)
+        if max_turnover is not None and has_current:
+            cons.append({
+                "type": "ineq",
+                "fun": lambda w, _mt=max_turnover: _mt - np.sum(np.abs(w - current_w)),
+            })
+
         # Objective: maximize Sharpe ratio (minimize negative Sharpe + turnover penalty)
         def neg_sharpe(w):
             port_return = np.dot(w, mu)

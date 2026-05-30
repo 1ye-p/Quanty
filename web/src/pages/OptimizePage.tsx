@@ -43,6 +43,7 @@ export function OptimizePage() {
     mutationFn: optimizeApi.covariance,
     onSuccess: (data) => {
       setCovResult(data.covariance)
+      setPerAssetBounds({})  // Reset bounds when asset list changes
       // Initialize expected returns map: keep existing values, default new assets to 0
       const assets = Object.keys(data.covariance)
       setExpectedReturnsMap(prev => {

@@ -21,7 +21,7 @@ from cquant.api_server.schemas.common import WalkForwardConfig
 
 
 class PredictRequest(BaseModel):
-    model_version: str
+    model_version: str = Field(..., min_length=1, max_length=128)
     date: str | None = None
     top_n: int = Field(default=50, ge=1, le=5000)
 
@@ -109,7 +109,10 @@ async def get_experiment(run_id: str, catalog: CatalogDep) -> dict:
         }
     except Exception:
         df = catalog.query(
-            "SELECT * FROM meta_ml_jobs WHERE mlflow_run_id = ? OR job_id = ?",
+            "SELECT job_id, mlflow_run_id, trainer_name, strategy_id, "
+            "dataset_version, feature_set_version, label_name, status, "
+            "created_at, completed_at, error "
+            "FROM meta_ml_jobs WHERE mlflow_run_id = ? OR job_id = ?",
             [run_id, run_id],
         )
         if df.is_empty():

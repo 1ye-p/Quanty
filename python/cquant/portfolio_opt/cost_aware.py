@@ -58,11 +58,19 @@ class CostAwareOptimizer(PortfolioOptimizer):
 
         max_weight = (constraints or {}).get("max_weight", 1.0)
         min_weight = (constraints or {}).get("min_weight", 0.0)
+        min_weights = (constraints or {}).get("min_weights", {})
+        max_weights = (constraints or {}).get("max_weights", {})
 
         if self._long_only:
-            bounds = [(min_weight, max_weight) for _ in range(n)]
+            bounds = [
+                (max(0.0, min_weights.get(a, min_weight)), max_weights.get(a, max_weight))
+                for a in assets
+            ]
         else:
-            bounds = [(-max_weight, max_weight) for _ in range(n)]
+            bounds = [
+                (-max_weights.get(a, max_weight), max_weights.get(a, max_weight))
+                for a in assets
+            ]
 
         eq_constraint = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
 

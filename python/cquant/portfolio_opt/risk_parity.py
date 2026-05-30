@@ -63,9 +63,15 @@ class RiskParityOptimizer(PortfolioOptimizer):
         eq_constraint = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
         cons = [eq_constraint]
 
-        # Bounds: long-only
+        # Bounds: long-only (per-asset if provided, else fallback to scalar)
         max_weight = (constraints or {}).get("max_weight", 1.0)
-        bounds = [(0.0, max_weight) for _ in range(n)]
+        min_weight = (constraints or {}).get("min_weight", 0.0)
+        min_weights = (constraints or {}).get("min_weights", {})
+        max_weights = (constraints or {}).get("max_weights", {})
+        bounds = [
+            (max(0.0, min_weights.get(a, min_weight)), max_weights.get(a, max_weight))
+            for a in assets
+        ]
 
         # Initial guess: equal weight
         w0 = np.ones(n) / n

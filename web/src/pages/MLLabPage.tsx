@@ -32,7 +32,7 @@ export function MLLabPage() {
   const [predictRunId, setPredictRunId] = useState<string | null>(null)
 
   const { data: predictResult, isFetching: predictFetching } = useQuery({
-    queryKey: ['ml', 'predict', predictRunId],
+    queryKey: extendedQueryKeys.ml.predict(predictRunId!),
     queryFn: () => mlApi.predict({ model_version: predictRunId!, top_n: 30 }),
     enabled: !!predictRunId && showPredictModal,
     staleTime: 60_000,

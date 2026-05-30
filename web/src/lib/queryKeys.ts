@@ -42,6 +42,7 @@ export const extendedQueryKeys = {
     experiment: (id: string) => ['ml', 'experiment', id] as const,
     featureImportance: (id: string) => ['ml', 'fi', id] as const,
     job: (id: string) => ['ml', 'job', id] as const,
+    predict: (id: string) => ['ml', 'predict', id] as const,
   },
   live: {
     strategies: () => ['live', 'strategies'] as const,
