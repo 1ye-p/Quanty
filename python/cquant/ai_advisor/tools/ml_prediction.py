@@ -3,20 +3,27 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from cquant.ai_advisor.tools.base import AdvisorTool, ToolContext, ToolResult
 
+logger = logging.getLogger(__name__)
+
 
 class MLPredictionTool(AdvisorTool):
     name = "ml_prediction"
-    description = "查询 ML 模型的预测结果。输入 model_version（可选）和 asset_ids（可选），返回最新预测值和模型信息。"
+    description = "Query ML model predictions. Accepts optional model_version and asset_ids. Returns latest predictions and model info."
 
     async def invoke(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         def _query():
             catalog = ctx.catalog
             model_version = args.get("model_version", "")
             asset_ids = args.get("asset_ids", [])
+            if isinstance(asset_ids, str):
+                asset_ids = [asset_ids]
+            if not isinstance(asset_ids, list):
+                return "asset_ids must be a list of strings."
 
             parts = []
 
@@ -28,18 +35,19 @@ class MLPredictionTool(AdvisorTool):
                     "ORDER BY submitted_at DESC LIMIT 5"
                 )
                 if not exp_df.is_empty():
-                    parts.append("## 最近 ML 实验\n")
+                    parts.append("## Recent ML Experiments\n")
                     for row in exp_df.to_dicts():
-                        status_icon = "✅" if row["status"] == "done" else "❌" if row["status"] == "error" else "⏳"
+                        status_icon = "done" if row["status"] == "done" else "error" if row["status"] == "error" else "running"
                         parts.append(
-                            f"- {status_icon} **{row['trainer_name']}** | "
+                            f"- [{status_icon}] **{row['trainer_name']}** | "
                             f"target={row['target_name']} | "
                             f"feature_set={row.get('feature_set_version', 'N/A')} | "
                             f"status={row['status']} | "
                             f"completed={str(row.get('completed_at', 'N/A'))[:10]}"
                         )
-            except Exception:
-                parts.append("无法查询 ML 实验列表。")
+            except Exception as exc:
+                logger.warning("ML experiment query failed: %s", exc)
+                parts.append(f"Failed to query ML experiments: {exc}")
 
             # Query predictions for specific assets
             if asset_ids:
@@ -53,14 +61,15 @@ class MLPredictionTool(AdvisorTool):
                         asset_ids,
                     )
                     if not pred_df.is_empty():
-                        parts.append("\n## 资产预测值\n")
+                        parts.append("\n## Asset Predictions\n")
                         for row in pred_df.to_dicts():
                             parts.append(
                                 f"- {row['asset_id']}: prediction={row['prediction']:.4f} "
                                 f"(model={row['model_version']}, date={row['trade_date']})"
                             )
-                except Exception:
-                    parts.append("无法查询预测数据。")
+                except Exception as exc:
+                    logger.warning("Prediction query failed: %s", exc)
+                    parts.append(f"Failed to query predictions: {exc}")
 
             # Query predictions for specific model
             if model_version:
@@ -72,14 +81,15 @@ class MLPredictionTool(AdvisorTool):
                         [model_version],
                     )
                     if not pred_df.is_empty():
-                        parts.append(f"\n## 模型 {model_version} 最新预测 Top-20\n")
+                        parts.append(f"\n## Model {model_version} Top-20 Predictions\n")
                         for row in pred_df.to_dicts():
                             parts.append(f"- {row['asset_id']}: {row['prediction']:.4f} ({row['trade_date']})")
-                except Exception:
-                    parts.append(f"无法查询模型 {model_version} 的预测。")
+                except Exception as exc:
+                    logger.warning("Model prediction query failed: %s", exc)
+                    parts.append(f"Failed to query model {model_version}: {exc}")
 
             if not parts:
-                return "当前无 ML 实验或预测数据。"
+                return "No ML experiments or predictions available."
 
             return "\n".join(parts)
 

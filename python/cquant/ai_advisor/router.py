@@ -41,6 +41,20 @@ ROUTING_TABLE: list[RoutingRule] = [
         }),
         agent_roles=("execution",),
     ),
+    RoutingRule(
+        keywords=frozenset({
+            "predict", "prediction", "ml model", "机器学习", "预测", "模型推理",
+            "optimize", "optimization", "portfolio optimization", "组合优化", "mvo",
+            "risk parity", "weight", "权重",
+        }),
+        agent_roles=("research",),
+    ),
+    RoutingRule(
+        keywords=frozenset({
+            "alert", "alarm", "notification", "告警", "预警", "通知",
+        }),
+        agent_roles=("risk",),
+    ),
 ]
 
 

@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from cquant.ai_advisor.tools.base import AdvisorTool, ToolContext, ToolResult
 
+logger = logging.getLogger(__name__)
+
 
 class AlertStatusTool(AdvisorTool):
     name = "alert_status"
-    description = "查询当前告警状态和历史记录。返回活跃告警规则、最近触发的告警、未读告警数量。"
+    description = "Query current alert status and history. Returns active alert rules, recent triggers, and unread count."
 
     async def invoke(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         def _query():
@@ -24,13 +27,14 @@ class AlertStatusTool(AdvisorTool):
                     "WHERE enabled = TRUE"
                 )
                 if not rules_df.is_empty():
-                    parts.append("## 活跃告警规则\n")
+                    parts.append("## Active Alert Rules\n")
                     for row in rules_df.to_dicts():
                         parts.append(f"- [{row['rule_type']}] {row['params_json']}")
                 else:
-                    parts.append("当前无活跃告警规则。")
-            except Exception:
-                parts.append("无法查询告警规则（表可能不存在）。")
+                    parts.append("No active alert rules.")
+            except Exception as exc:
+                logger.warning("Alert rules query failed: %s", exc)
+                parts.append(f"Failed to query alert rules: {exc}")
 
             # Query recent alerts
             try:
@@ -40,21 +44,23 @@ class AlertStatusTool(AdvisorTool):
                     "ORDER BY triggered_at DESC LIMIT 10"
                 )
                 if not alerts_df.is_empty():
-                    parts.append("\n## 最近告警记录\n")
-                    for row in alerts_df.to_dicts():
-                        read_icon = "⬜" if not row["read"] else "✅"
+                    rows = alerts_df.to_dicts()
+                    parts.append("\n## Recent Alerts\n")
+                    for row in rows:
+                        read_icon = "unread" if not row["read"] else "read"
                         parts.append(
-                            f"- {read_icon} [{row['rule_type']}] {row['message']} "
+                            f"- [{read_icon}] [{row['rule_type']}] {row['message']} "
                             f"({str(row['triggered_at'])[:16]})"
                         )
 
-                    unread = sum(1 for r in alerts_df.to_dicts() if not r["read"])
+                    unread = sum(1 for r in rows if not r["read"])
                     if unread > 0:
-                        parts.append(f"\n**未读告警：{unread} 条**")
-            except Exception:
-                parts.append("无法查询告警历史。")
+                        parts.append(f"\n**Unread alerts: {unread}**")
+            except Exception as exc:
+                logger.warning("Alert history query failed: %s", exc)
+                parts.append(f"Failed to query alert history: {exc}")
 
-            return "\n".join(parts) if parts else "当前无告警数据。"
+            return "\n".join(parts) if parts else "No alert data available."
 
         content = await asyncio.to_thread(_query)
         return ToolResult(success=True, content=content)

@@ -167,12 +167,12 @@ class AdvisorOrchestrator:
         return {
             "research": ResearchAgent(
                 self._provider, self._safety, tool_context=self._tool_ctx,
-                tools=tools("knowledge_search", "report_summary", "backtest_result", "analysis_report"),
+                tools=tools("knowledge_search", "report_summary", "backtest_result", "analysis_report", "ml_prediction", "optimize_guidance"),
                 max_tokens=2048,
             ),
             "risk": RiskAgent(
                 self._provider, self._safety, tool_context=self._tool_ctx,
-                tools=tools("risk_snapshot"), max_tokens=1536,
+                tools=tools("risk_snapshot", "alert_status"), max_tokens=1536,
             ),
             "execution": ExecutionAgent(
                 self._provider, self._safety, tool_context=self._tool_ctx,

@@ -250,7 +250,8 @@ async def advisor_stream(
             research = ResearchAgent(
                 provider, safety, tool_context=tool_ctx,
                 tools=[tool_registry[n] for n in ("knowledge_search", "report_summary",
-                       "backtest_result", "analysis_report") if n in tool_registry],
+                       "backtest_result", "analysis_report", "ml_prediction",
+                       "optimize_guidance") if n in tool_registry],
             )
             r_turn = await research.act(base_context, history)
             yield emit("agent_done", {"agent": "research", "content": r_turn.content, "artifacts": r_turn.artifacts})
@@ -258,7 +259,7 @@ async def advisor_stream(
             yield emit("agent_start", {"agent": "risk"})
             risk_agent = RiskAgent(
                 provider, safety, tool_context=tool_ctx,
-                tools=[tool_registry["risk_snapshot"]] if "risk_snapshot" in tool_registry else [],
+                tools=[tool_registry[n] for n in ("risk_snapshot", "alert_status") if n in tool_registry],
             )
             risk_turn = await risk_agent.act(base_context, history + [r_turn])
             yield emit("agent_done", {"agent": "risk", "content": risk_turn.content, "artifacts": risk_turn.artifacts})
