@@ -49,6 +49,19 @@ export function FactorsPage() {
   const [icThreshold, setIcThreshold] = useState(0.02)
   const [showIcAlertModal, setShowIcAlertModal] = useState(false)
   const [alertFactorName, setAlertFactorName] = useState<string | null>(null)
+  const [alertIcThreshold, setAlertIcThreshold] = useState(0.02)
+  const [alertWindowDays, setAlertWindowDays] = useState(20)
+
+  const createAlertMutation = useMutation({
+    mutationFn: alertsApi.createRule,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['alerts', 'rules'] })
+      toast.success(`已为 ${alertFactorName} 创建 IC 告警规则`)
+      setShowIcAlertModal(false)
+      setAlertFactorName(null)
+    },
+    onError: (e: Error) => toast.error(`创建失败: ${e.message}`),
+  })
 
   const { data: icStatus } = useQuery({
     queryKey: ['factors', 'ic-status', featureSetVersion, icThreshold],
@@ -284,17 +297,20 @@ export function FactorsPage() {
             <div className="font-semibold text-gray-900 mb-1">
               {f.name}
               {icAlertFactors.has(f.name) && (
-                <span
-                  className="ml-1 text-red-500 cursor-pointer text-xs"
+                <button
+                  className="ml-1 text-red-500 text-xs"
                   title={icStatus?.items.find(i => i.factor_name === f.name)?.alert_message || 'IC 低于阈值'}
+                  aria-label={`${f.name} IC 告警`}
                   onClick={(e) => {
                     e.stopPropagation()
                     setAlertFactorName(f.name)
+                    setAlertIcThreshold(icThreshold)
+                    setAlertWindowDays(20)
                     setShowIcAlertModal(true)
                   }}
                 >
                   ⚠
-                </span>
+                </button>
               )}
             </div>
             <div className="text-xs text-gray-500 mb-2">{f.description || '无描述'}</div>
@@ -758,8 +774,10 @@ export function FactorsPage() {
       {showIcAlertModal && alertFactorName && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
-            <div className="p-4 border-b">
+            <div className="flex items-center justify-between p-4 border-b">
               <h2 className="font-semibold text-gray-900">创建 IC 告警规则</h2>
+              <button onClick={() => { setShowIcAlertModal(false); setAlertFactorName(null) }}
+                className="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
             </div>
             <div className="p-4 space-y-3">
               <div>
@@ -768,29 +786,28 @@ export function FactorsPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-1">IC 阈值（绝对值低于此值触发）</label>
-                <input type="number" value={icThreshold} onChange={e => setIcThreshold(Number(e.target.value))}
+                <input type="number" value={alertIcThreshold} onChange={e => setAlertIcThreshold(Number(e.target.value))}
                   className="input w-full" min={0.001} max={0.1} step={0.005} />
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-1">检查窗口（天）</label>
-                <input type="number" defaultValue={20} className="input w-full" min={5} max={120} step={5}
-                  id="ic-alert-window" />
+                <input type="number" value={alertWindowDays} onChange={e => setAlertWindowDays(Number(e.target.value))}
+                  className="input w-full" min={5} max={120} step={5} />
               </div>
             </div>
             <div className="flex justify-end gap-2 p-4 border-t">
               <button onClick={() => { setShowIcAlertModal(false); setAlertFactorName(null) }}
                 className="btn-secondary text-sm">取消</button>
-              <button onClick={() => {
-                const windowDays = Number((document.getElementById('ic-alert-window') as HTMLInputElement)?.value || 20)
-                alertsApi.createRule({
+              <button
+                disabled={createAlertMutation.isPending}
+                onClick={() => createAlertMutation.mutate({
                   rule_type: 'factor_ic_low',
-                  params: { factor_name: alertFactorName, threshold: icThreshold, window_days: windowDays },
-                }).then(() => {
-                  toast.success(`已为 ${alertFactorName} 创建 IC 告警规则`)
-                  setShowIcAlertModal(false)
-                  setAlertFactorName(null)
-                }).catch(e => toast.error(`创建失败: ${e.message}`))
-              }} className="btn-primary text-sm">创建告警</button>
+                  params: { factor_name: alertFactorName, threshold: alertIcThreshold, window_days: alertWindowDays },
+                })}
+                className="btn-primary text-sm disabled:opacity-50"
+              >
+                {createAlertMutation.isPending ? '创建中...' : '创建告警'}
+              </button>
             </div>
           </div>
         </div>
