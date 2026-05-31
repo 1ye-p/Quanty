@@ -9,12 +9,12 @@ class AdvisorChatRequest(BaseModel):
     message: str = Field(
         ...,
         description="用户问题或研究请求",
-        example="分析动量因子在 2024 年的表现",
+        json_schema_extra={"example": "分析动量因子在 2024 年的表现"},
     )
     session_id: str = Field(
         default="",
         description="会话 ID（首次传空字符串）",
-        example="",
+        json_schema_extra={"example": ""},
     )
 
 
@@ -28,7 +28,7 @@ class AdvisorReportRequest(BaseModel):
     subject: str = Field(
         ...,
         description="报告主题",
-        example="沪深300成分股 2024 年价值因子轮动报告",
+        json_schema_extra={"example": "沪深300成分股 2024 年价值因子轮动报告"},
     )
     session_id: str = Field(default="", description="会话 ID")
 

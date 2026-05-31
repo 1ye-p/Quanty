@@ -27,13 +27,13 @@ from cquant.riskguard.policies.position_limits import PositionLimitPolicy
 
 logger = logging.getLogger(__name__)
 
-_run_schema_ensured = False
+_schema_ensured_for: set[int] = set()
 
 
 def _ensure_run_schema_extensions(conn) -> None:
-    """Add optional columns to gold_backtest_runs once per process."""
-    global _run_schema_ensured
-    if _run_schema_ensured:
+    """Add optional columns to gold_backtest_runs once per connection."""
+    conn_id = id(conn)
+    if conn_id in _schema_ensured_for:
         return
     for ddl in [
         "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS benchmark_asset_id VARCHAR DEFAULT ''",
@@ -45,7 +45,7 @@ def _ensure_run_schema_extensions(conn) -> None:
             conn.execute(ddl)
         except Exception as exc:
             logger.debug("_ensure_run_schema_extensions: %s", exc)
-    _run_schema_ensured = True
+    _schema_ensured_for.add(conn_id)
 
 
 @dataclass

@@ -224,6 +224,7 @@ class TestNewsRoutes:
             pl.DataFrame([{"source": "sina", "count": 3}, {"source": "reuters", "count": 2}]),
             pl.DataFrame([{"event_type": "news", "count": 5}]),
             pl.DataFrame({"avg_sentiment": [0.3]}),
+            pl.DataFrame(),  # daily_sentiment query
         ]
         resp = await _call(self.app, "GET", "/api/v1/news/stats")
         assert resp.status_code == 200
@@ -239,6 +240,7 @@ class TestNewsRoutes:
             pl.DataFrame({"source": [], "count": []}),
             pl.DataFrame({"event_type": [], "count": []}),
             pl.DataFrame({"avg_sentiment": [None]}),
+            pl.DataFrame(),  # daily_sentiment query
         ]
         resp = await _call(self.app, "GET", "/api/v1/news/stats")
         assert resp.status_code == 200

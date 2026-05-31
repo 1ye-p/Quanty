@@ -42,10 +42,10 @@ def test_persist_predictions_with_fold_id():
 
     persist_predictions(artifact, features, predictions, catalog, horizon="5d", fold_id="fold0")
 
-    # Verify the Arrow table contains the composite model_version
-    register_call = conn.register.call_args
-    arrow_table = register_call[0][1]
-    model_versions = arrow_table.column("model_version").to_pylist()
+    # Verify executemany was called with rows containing composite model_version
+    exec_call = conn.executemany.call_args
+    rows = exec_call[0][1]  # second arg is the rows list
+    model_versions = [row[0] for row in rows]  # model_version is first column
     assert all(v == "lgbm-abc_fold0" for v in model_versions), (
         f"Expected 'lgbm-abc_fold0', got {model_versions}"
     )
@@ -63,10 +63,10 @@ def test_persist_predictions_without_fold_id():
 
     persist_predictions(artifact, features, predictions, catalog, horizon="5d")
 
-    # Verify the Arrow table uses the original model_id (no fold_id suffix)
-    register_call = conn.register.call_args
-    arrow_table = register_call[0][1]
-    model_versions = arrow_table.column("model_version").to_pylist()
+    # Verify executemany was called with rows using original model_id
+    exec_call = conn.executemany.call_args
+    rows = exec_call[0][1]
+    model_versions = [row[0] for row in rows]
     assert all(v == "lgbm-abc" for v in model_versions)
 
 
