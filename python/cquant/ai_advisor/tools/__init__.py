@@ -1,5 +1,6 @@
 """Advisor tool implementations."""
 
+from cquant.ai_advisor.tools.alert_status import AlertStatusTool
 from cquant.ai_advisor.tools.analysis_report import AnalysisReportTool
 from cquant.ai_advisor.tools.backtest_result import BacktestResultTool
 from cquant.ai_advisor.tools.backtest_run import BacktestRunTool
@@ -8,15 +9,20 @@ from cquant.ai_advisor.tools.knowledge_entity import EntityRelationTool
 from cquant.ai_advisor.tools.knowledge_report import ReportSummaryTool
 from cquant.ai_advisor.tools.knowledge_search import KnowledgeSearchTool
 from cquant.ai_advisor.tools.knowledge_similar import SimilarDocumentsTool
+from cquant.ai_advisor.tools.ml_prediction import MLPredictionTool
+from cquant.ai_advisor.tools.optimize_result import OptimizeResultTool
 from cquant.ai_advisor.tools.risk_snapshot import RiskSnapshotTool
 
 __all__ = [
     "AdvisorTool",
+    "AlertStatusTool",
     "AnalysisReportTool",
     "BacktestResultTool",
     "BacktestRunTool",
     "EntityRelationTool",
     "KnowledgeSearchTool",
+    "MLPredictionTool",
+    "OptimizeResultTool",
     "ReportSummaryTool",
     "RiskSnapshotTool",
     "SimilarDocumentsTool",

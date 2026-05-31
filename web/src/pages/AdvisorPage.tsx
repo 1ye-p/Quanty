@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import { useMutation } from '@tanstack/react-query'
 import { useAdvisorStream } from '@/hooks/useAdvisorStream'
 import { advisorApi } from '@/lib/api'
 import { toast } from 'sonner'
@@ -93,11 +92,28 @@ export function AdvisorPage() {
 
   const { state: stream, start: startStream, reset: resetStream } = useAdvisorStream()
 
-  const reportMutation = useMutation({
-    mutationFn: () => advisorApi.report('生成投研报告', activeSessionId),
-    onSuccess: () => toast.success('报告已生成'),
-    onError: (err: Error) => toast.error(`报告生成失败：${err.message}`),
-  })
+  const [reportSubject, setReportSubject] = useState('')
+  const [generatingReport, setGeneratingReport] = useState(false)
+
+  const handleGenerateReport = async () => {
+    if (!reportSubject.trim()) return
+    setGeneratingReport(true)
+    try {
+      const result = await advisorApi.report(reportSubject, activeSessionId)
+      const blob = new Blob([result.report], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cquant-report-${new Date().toISOString().slice(0, 10)}.md`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('报告已生成并下载')
+    } catch (e: unknown) {
+      toast.error(`报告生成失败: ${(e as Error).message}`)
+    } finally {
+      setGeneratingReport(false)
+    }
+  }
 
   const [chatHistory, setChatHistory] = useState<{ role: string; content: string }[]>([])
   const [chatLoading, setChatLoading] = useState(false)
@@ -191,14 +207,24 @@ export function AdvisorPage() {
                 Session: {activeSessionId.slice(0, 8)}…
               </span>
             )}
-            <button
-              onClick={() => reportMutation.mutate()}
-              disabled={reportMutation.isPending}
-              className="text-xs text-green-600 hover:text-green-700 font-medium px-2 py-1 rounded border border-green-300 hover:bg-green-50"
-              title="生成投研报告"
-            >
-              {reportMutation.isPending ? '生成中…' : '报告'}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={reportSubject}
+                onChange={e => setReportSubject(e.target.value)}
+                placeholder="报告主题"
+                className="input text-xs w-40"
+                onKeyDown={e => { if (e.key === 'Enter') void handleGenerateReport() }}
+              />
+              <button
+                onClick={() => void handleGenerateReport()}
+                disabled={!reportSubject.trim() || generatingReport}
+                className="text-xs text-green-600 hover:text-green-700 font-medium px-2 py-1 rounded border border-green-300 hover:bg-green-50 disabled:opacity-40"
+                title="生成投研报告"
+              >
+                {generatingReport ? '生成中…' : '📄 报告'}
+              </button>
+            </div>
             <button
               onClick={() => setUsePanel(!usePanel)}
               className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${

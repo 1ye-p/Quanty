@@ -28,10 +28,13 @@ from cquant.ai_advisor.agents.base import AgentTurn
 from cquant.ai_advisor.context import RAGContext
 from cquant.ai_advisor.orchestrator import _debate_ctx, _fallback_md, _writer_ctx
 from cquant.ai_advisor.tools import (
+    AlertStatusTool,
     AnalysisReportTool,
     BacktestResultTool,
     BacktestRunTool,
     KnowledgeSearchTool,
+    MLPredictionTool,
+    OptimizeResultTool,
     ReportSummaryTool,
     RiskSnapshotTool,
     ToolContext,
@@ -102,6 +105,7 @@ def _build_tools() -> list:
     return [
         KnowledgeSearchTool(), ReportSummaryTool(), BacktestResultTool(),
         AnalysisReportTool(), RiskSnapshotTool(), BacktestRunTool(),
+        MLPredictionTool(), OptimizeResultTool(), AlertStatusTool(),
     ]
 
 
