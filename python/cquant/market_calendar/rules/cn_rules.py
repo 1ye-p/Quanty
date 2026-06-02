@@ -21,6 +21,7 @@ from typing import Callable
 
 from cquant.core.enums import AssetClass, AssetStatus, LimitStatus, TradabilityReason, Exchange
 from cquant.core.types import Asset
+from cquant.market_calendar.registry import register_rules
 from cquant.market_calendar.rules.base import TradingRules, TradabilityResult
 
 _INFINITY = Decimal("Inf")
@@ -33,6 +34,7 @@ _STAR_PREFIXES = ("SSE:688",)
 SuspensionLookup = Callable[[str, date], bool]
 
 
+@register_rules("CN")
 class CNTradingRules(TradingRules):
     """Trading rules for CN A-share markets (SSE and SZSE)."""
 
