@@ -60,7 +60,12 @@ class FunctionCallNode:
 ASTNode = NumberNode | ColumnNode | BinaryOpNode | UnaryOpNode | FunctionCallNode
 
 
+MAX_EXPRESSION_LENGTH = 10_000
+
+
 def tokenize(expression: str) -> list[Token]:
+    if len(expression) > MAX_EXPRESSION_LENGTH:
+        raise SyntaxError(f"Expression too long ({len(expression)} > {MAX_EXPRESSION_LENGTH})")
     tokens: list[Token] = []
     i = 0
     n = len(expression)
@@ -126,9 +131,12 @@ def tokenize(expression: str) -> list[Token]:
 
 
 class Parser:
+    MAX_DEPTH = 50
+
     def __init__(self, tokens: list[Token]) -> None:
         self.tokens = tokens
         self.pos = 0
+        self._depth = 0
 
     def peek(self) -> Token:
         return self.tokens[self.pos]
@@ -188,8 +196,12 @@ class Parser:
 
     def parse_unary(self) -> ASTNode:
         if self.peek().type == TokenType.MINUS:
+            self._depth += 1
+            if self._depth > self.MAX_DEPTH:
+                raise SyntaxError(f"Expression nesting too deep (>{self.MAX_DEPTH})")
             self.advance()
             operand = self.parse_unary()
+            self._depth -= 1
             return UnaryOpNode('-', operand)
         return self.parse_primary()
 

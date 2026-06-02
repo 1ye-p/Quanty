@@ -29,6 +29,7 @@
 | 2026-05-22 | Phase 3 | 因子研究+ML 打通：Rank IC 衰减图、分层收益图、换手率卡、FactorsPage/MLLabPage 流程步骤、创建策略跳转 |
 | 2026-05-22 | Phase 4 | AI Advisor 升级：SessionStore SQLite 持久化、FastMCP server（mcp_server）、IntentRouter 事件路由 |
 | 2026-05-22 | Phase 0-B | Vibe-Trading 集成：526 因子（qlib158+alpha101+gtja191）、引擎对比文档、Swarm 加载器（29 团队）、LLM 供应商适配器（14 供应商） |
+| 2026-06-02 | Phase 5 | Research UX：DataTable 组件、Factor DSL（parser+evaluator+16 函数）、FactorDSLEditor（Monaco）、策略版本管理（50 版本+回滚）、fills 分页、自动过拟合分析、ScoringPage 改进（分布图+CSV 导出）、ML 模型→策略导航、Monaco chunk 分离、响应式布局 |
 
 ---
 
