@@ -5,6 +5,7 @@ import { factorAnalyticsApi, customFactorApi, alertsApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { toast } from 'sonner'
+import { FactorDSLEditor } from '@/components/factors/FactorDSLEditor'
 
 export function FactorsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -38,6 +39,7 @@ export function FactorsPage() {
   const [cfName, setCfName] = useState('')
   const [cfExpr, setCfExpr] = useState('')
   const [cfDesc, setCfDesc] = useState('')
+  const [exprType, setExprType] = useState<'polars' | 'dsl'>('dsl')
   const [cfPreview, setCfPreview] = useState<{
     valid: boolean
     error: string | null
@@ -88,7 +90,7 @@ export function FactorsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['factors', 'definitions'] })
       setShowCreateFactor(false)
-      setCfName(''); setCfExpr(''); setCfDesc(''); setCfPreview(null)
+      setCfName(''); setCfExpr(''); setCfDesc(''); setCfPreview(null); setExprType('dsl')
       toast.success('自定义因子已创建')
     },
     onError: (e: Error) => toast.error(`创建失败: ${e.message}`),
@@ -677,7 +679,7 @@ export function FactorsPage() {
       {/* 新建自定义因子弹窗 */}
       {showCreateFactor && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl">
+          <div className={`bg-white rounded-xl shadow-xl w-full ${exprType === 'dsl' ? 'max-w-4xl' : 'max-w-2xl'}`}>
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="font-semibold text-gray-900">新建自定义因子</h2>
               <button onClick={() => setShowCreateFactor(false)} className="text-gray-400 hover:text-gray-600">✕</button>
@@ -698,73 +700,108 @@ export function FactorsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">
-                  Python/Polars 表达式 <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={4}
-                  value={cfExpr}
-                  onChange={e => { setCfExpr(e.target.value); setCfPreview(null) }}
-                  placeholder={"示例：\n(close - ma('close', 20)) / std('close', 20)\nroc('close', 5)\nma('volume', 5) / ma('volume', 20) - 1"}
-                  className="w-full font-mono text-sm border rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  可用列：close, open, high, low, volume, amount &nbsp;|&nbsp;
-                  可用函数：ma(col, n), std(col, n), shift(col, n), roc(col, n), rank(col), log(col), sign(col)
-                </p>
+              {/* Expression type toggle */}
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
+                {(['dsl', 'polars'] as const).map(t => (
+                  <button
+                    key={t}
+                    className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                      exprType === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    onClick={() => setExprType(t)}
+                  >
+                    {t === 'dsl' ? 'DSL 表达式' : 'Python/Polars'}
+                  </button>
+                ))}
               </div>
 
-              <div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handlePreviewFactor}
-                    disabled={cfPreviewLoading || !cfExpr.trim()}
-                    className="btn-secondary text-xs disabled:opacity-40"
-                  >
-                    {cfPreviewLoading ? '计算中…' : '▶ 预览计算结果'}
-                  </button>
-                  {cfPreview && (
-                    <span className={`text-xs ${cfPreview.valid ? 'text-green-600' : 'text-red-500'}`}>
-                      {cfPreview.valid ? '✓ 表达式有效' : `✗ ${cfPreview.error}`}
-                    </span>
-                  )}
-                </div>
-                {cfPreview?.valid && cfPreview.preview.length > 0 && (
-                  <div className="mt-2 overflow-auto max-h-32">
-                    <table className="text-xs w-full">
-                      <thead><tr className="text-gray-400">
-                        <th className="text-left py-1 pr-3">资产</th>
-                        <th className="text-left py-1 pr-3">日期</th>
-                        <th className="text-right py-1">因子值</th>
-                      </tr></thead>
-                      <tbody>
-                        {cfPreview.preview.map((row, i) => (
-                          <tr key={i} className="border-t">
-                            <td className="py-0.5 pr-3 font-mono">{row.asset_id}</td>
-                            <td className="py-0.5 pr-3 text-gray-500">{row.trade_date}</td>
-                            <td className="py-0.5 text-right font-mono">
-                              {row.value != null ? row.value.toFixed(5) : '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              {exprType === 'dsl' ? (
+                <FactorDSLEditor
+                  onSave={(expression, dslName) => {
+                    setCfExpr(expression)
+                    if (dslName && !cfName) setCfName(dslName)
+                    createFactorMutation.mutate({
+                      name: cfName || dslName || 'dsl_factor',
+                      expression,
+                      description: cfDesc,
+                      expression_type: 'dsl',
+                    })
+                  }}
+                  initialExpression={cfExpr}
+                />
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Python/Polars 表达式 <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={cfExpr}
+                      onChange={e => { setCfExpr(e.target.value); setCfPreview(null) }}
+                      placeholder={"示例：\n(close - ma('close', 20)) / std('close', 20)\nroc('close', 5)\nma('volume', 5) / ma('volume', 20) - 1"}
+                      className="w-full font-mono text-sm border rounded p-2 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      可用列：close, open, high, low, volume, amount &nbsp;|&nbsp;
+                      可用函数：ma(col, n), std(col, n), shift(col, n), roc(col, n), rank(col), log(col), sign(col)
+                    </p>
                   </div>
-                )}
-              </div>
+
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handlePreviewFactor}
+                        disabled={cfPreviewLoading || !cfExpr.trim()}
+                        className="btn-secondary text-xs disabled:opacity-40"
+                      >
+                        {cfPreviewLoading ? '计算中…' : '▶ 预览计算结果'}
+                      </button>
+                      {cfPreview && (
+                        <span className={`text-xs ${cfPreview.valid ? 'text-green-600' : 'text-red-500'}`}>
+                          {cfPreview.valid ? '✓ 表达式有效' : `✗ ${cfPreview.error}`}
+                        </span>
+                      )}
+                    </div>
+                    {cfPreview?.valid && cfPreview.preview.length > 0 && (
+                      <div className="mt-2 overflow-auto max-h-32">
+                        <table className="text-xs w-full">
+                          <thead><tr className="text-gray-400">
+                            <th className="text-left py-1 pr-3">资产</th>
+                            <th className="text-left py-1 pr-3">日期</th>
+                            <th className="text-right py-1">因子值</th>
+                          </tr></thead>
+                          <tbody>
+                            {cfPreview.preview.map((row, i) => (
+                              <tr key={i} className="border-t">
+                                <td className="py-0.5 pr-3 font-mono">{row.asset_id}</td>
+                                <td className="py-0.5 pr-3 text-gray-500">{row.trade_date}</td>
+                                <td className="py-0.5 text-right font-mono">
+                                  {row.value != null ? row.value.toFixed(5) : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 p-4 border-t">
               <button onClick={() => setShowCreateFactor(false)} className="btn-secondary text-sm">取消</button>
-              <button
-                onClick={() => createFactorMutation.mutate({ name: cfName, expression: cfExpr, description: cfDesc })}
-                disabled={!cfName.trim() || !cfExpr.trim() || createFactorMutation.isPending || cfPreview?.valid === false}
-                className="btn-primary text-sm disabled:opacity-40"
-              >
-                {createFactorMutation.isPending ? '创建中…' : '创建因子'}
-              </button>
+              {exprType === 'polars' && (
+                <button
+                  onClick={() => createFactorMutation.mutate({ name: cfName, expression: cfExpr, description: cfDesc })}
+                  disabled={!cfName.trim() || !cfExpr.trim() || createFactorMutation.isPending || cfPreview?.valid === false}
+                  className="btn-primary text-sm disabled:opacity-40"
+                >
+                  {createFactorMutation.isPending ? '创建中…' : '创建因子'}
+                </button>
+              )}
             </div>
           </div>
         </div>

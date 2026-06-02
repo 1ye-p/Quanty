@@ -348,6 +348,14 @@ async def create_backtest(
         try:
             run_id = _run_backtest(catalog, spec)
             _save_job(catalog, job_id, "backtest", "completed", run_id=run_id)
+            # Auto-trigger overfitting analysis after successful backtest
+            try:
+                from cquant.bt_analyzer.run import AnalysisRunner, AnalysisRunSpec
+                runner = AnalysisRunner(catalog)
+                runner.run(AnalysisRunSpec(backtest_run_id=run_id))
+                logger.info("Auto-analysis completed for run %s", run_id)
+            except Exception as analysis_exc:
+                logger.warning("Auto-analysis failed for run %s: %s", run_id, analysis_exc)
         except Exception as exc:
             logger.exception("Backtest job %s failed", job_id)
             _save_job(catalog, job_id, "backtest", "failed", error=f"Backtest failed: {str(exc)[:200]}")
@@ -941,15 +949,32 @@ async def get_multiple_testing(run_id: str, catalog: CatalogDep) -> dict:
 
 
 @router.get("/{run_id}/fills")
-async def get_backtest_fills(run_id: str, catalog: CatalogDep, limit: int = 200) -> dict:
-    """Get fill records for a backtest run."""
-    df = catalog.query(
-        "SELECT trade_date, asset_id, side, qty, price, notional, "
-        "commission, stamp_duty, slippage, total_cost "
-        "FROM gold_fills WHERE run_id = ? ORDER BY trade_date LIMIT ?",
-        [run_id, limit],
+async def get_backtest_fills(
+    run_id: str,
+    catalog: CatalogDep,
+    offset: int = 0,
+    limit: int = 50,
+    sort_by: str = "trade_date",
+    sort_order: str = "desc",
+) -> dict:
+    """Get fill records for a backtest run with pagination and sorting."""
+    allowed_sorts = {"trade_date", "asset_id", "side", "qty", "price", "notional", "total_cost"}
+    if sort_by not in allowed_sorts:
+        sort_by = "trade_date"
+    order = "DESC" if sort_order.lower() == "desc" else "ASC"
+
+    count_df = catalog.query(
+        "SELECT COUNT(*) as cnt FROM gold_fills WHERE run_id = ?", [run_id]
     )
-    return {"items": df.to_dicts(), "total": df.height}
+    total = count_df["cnt"].item() if not count_df.is_empty() else 0
+
+    df = catalog.query(
+        f"SELECT trade_date, asset_id, side, qty, price, notional, "
+        f"commission, stamp_duty, slippage, total_cost "
+        f"FROM gold_fills WHERE run_id = ? ORDER BY {sort_by} {order} LIMIT ? OFFSET ?",
+        [run_id, limit, offset],
+    )
+    return {"items": df.to_dicts(), "total": total, "offset": offset, "limit": limit}
 
 
 @router.get("/{run_id}/walk-forward-folds")

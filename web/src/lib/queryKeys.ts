@@ -15,7 +15,7 @@ export const queryKeys = {
     tearsheet: (id: string) => ['backtests', id, 'tearsheet'] as const,
     validationWindows: (id: string) => ['backtests', id, 'validation-windows'] as const,
     multipleTesting: (id: string) => ['backtests', id, 'multiple-testing'] as const,
-    fills: (id: string) => ['backtests', id, 'fills'] as const,
+    fills: (id: string, offset: number, limit: number) => ['backtests', id, 'fills', offset, limit] as const,
     walkForward: (id: string) => ['backtests', id, 'walk-forward-folds'] as const,
   },
   knowledge: {
@@ -53,6 +53,9 @@ export const extendedQueryKeys = {
   factorAnalytics: {
     definitions: () => ['factors', 'definitions'] as const,
     icJob: (id: string) => ['factors', 'ic', id] as const,
+  },
+  dsl: {
+    functions: ['factors', 'dsl', 'functions'] as const,
   },
   trading: {
     account: (broker: string) => ['trading', 'account', broker] as const,

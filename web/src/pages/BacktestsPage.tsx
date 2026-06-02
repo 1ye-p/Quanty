@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { backtestsApi, backtestExtApi, liveApi, type BacktestFill } from '@/lib/api'
+import { backtestsApi, backtestExtApi, liveApi } from '@/lib/api'
+import { DataTable } from '@/components/ui/DataTable'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -132,6 +133,8 @@ export function BacktestsPage() {
   const [tab, setTab] = useState<Tab>('overview')
   const [page, setPage] = useState(0)
   const pageSize = 20
+  const [fillsPage, setFillsPage] = useState(0)
+  const fillsPageSize = 50
   const [compareIds, setCompareIds] = useState<string[]>([])
   const [showCompare, setShowCompare] = useState(false)
   const [btSearch, setBtSearch] = useState('')
@@ -193,13 +196,15 @@ export function BacktestsPage() {
     queryFn: () => backtestsApi.getAnalysis(selectedId!),
     enabled: !!selectedId,
     staleTime: 60_000,
+    retry: false,  // 404 expected if auto-analysis hasn't completed yet
   })
 
   const { data: fillsData } = useQuery({
-    queryKey: queryKeys.backtests.fills(selectedId!),
-    queryFn: () => backtestsApi.getFills(selectedId!),
+    queryKey: queryKeys.backtests.fills(selectedId!, fillsPage * fillsPageSize, fillsPageSize),
+    queryFn: () => backtestsApi.getFills(selectedId!, fillsPage * fillsPageSize, fillsPageSize),
     enabled: !!selectedId && tab === 'fills',
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   })
 
   const { data: wfData } = useQuery({
@@ -264,6 +269,11 @@ export function BacktestsPage() {
         || (r.engine ?? '').toLowerCase().includes(q)
     )
   }, [data, btSearch])
+
+  // Reset fills page when selected backtest changes
+  useEffect(() => {
+    setFillsPage(0)
+  }, [selectedId])
 
   // Fix 1: Clear selectedId when the selected backtest is filtered out
   useEffect(() => {
@@ -728,21 +738,22 @@ export function BacktestsPage() {
               {!analysis && !validationData && !multipleTestData && selectedId && (
                 <div className="card text-center py-12">
                   <div className="text-4xl mb-3">🔬</div>
-                  <div className="text-gray-500 mb-4">暂无过拟合分析数据</div>
+                  <div className="text-gray-500 mb-2">暂无过拟合分析数据</div>
+                  <p className="text-xs text-gray-400 mb-4">
+                    分析会在回测完成后自动触发，如果尚未生成，可手动重新运行
+                  </p>
                   <button
                     className="btn-primary"
                     onClick={async () => {
                       try {
                         await backtestsApi.triggerAnalysis(selectedId)
-                        const { toast } = await import('sonner')
                         toast.info('分析任务已提交，约 30 秒后刷新查看结果')
                       } catch (e) {
-                        const { toast } = await import('sonner')
                         toast.error(`触发分析失败：${(e as Error).message}`)
                       }
                     }}
                   >
-                    运行过拟合分析
+                    重新分析
                   </button>
                   <p className="text-xs text-gray-400 mt-2">分析包含 PSR/DSR/CPCV 过拟合检测</p>
                 </div>
@@ -755,10 +766,7 @@ export function BacktestsPage() {
             <div className="space-y-3">
               {/* 导出 CSV 按钮 */}
               {fillsData && fillsData.items.length > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">
-                    共 {fillsData.total} 条成交记录
-                  </span>
+                <div className="flex justify-end">
                   <button
                     className="btn-secondary text-sm"
                     onClick={() => downloadCsv(
@@ -771,37 +779,37 @@ export function BacktestsPage() {
                 </div>
               )}
 
-              <div className="card p-0 overflow-hidden">
-                <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {['日期', '资产', '方向', '数量', '价格', '金额', '费用'].map(h => (
-                      <th key={h} className="table-th">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {!fillsData?.items.length && (
-                    <tr><td colSpan={7} className="table-td text-center text-gray-400 py-8">暂无交易记录</td></tr>
-                  )}
-                  {(fillsData?.items ?? []).map((f: BacktestFill, i: number) => (
-                    <tr key={`${f.trade_date}-${f.asset_id}-${f.side}-${i}`} className="table-row">
-                      <td className="table-td text-xs">{String(f.trade_date ?? '').slice(0, 10)}</td>
-                      <td className="table-td font-mono text-xs">{f.asset_id}</td>
-                      <td className="table-td">
-                        <span className={`badge ${f.side === 'buy' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                          {f.side === 'buy' ? '买入' : '卖出'}
-                        </span>
-                      </td>
-                      <td className="table-td text-right">{Number(f.qty).toLocaleString()}</td>
-                      <td className="table-td text-right">{Number(f.price).toFixed(2)}</td>
-                      <td className="table-td text-right">{Number(f.notional).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                      <td className="table-td text-right text-gray-500">{Number(f.total_cost).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
+              <DataTable
+                data={(fillsData?.items ?? []) as unknown as Record<string, unknown>[]}
+                rowKey="trade_date"
+                pageSize={fillsPageSize}
+                emptyText="暂无交易记录"
+                backendPagination={fillsData ? {
+                  total: fillsData.total,
+                  page: fillsPage,
+                  onPageChange: setFillsPage,
+                } : undefined}
+                columns={[
+                  { key: 'trade_date', label: '日期', sortable: true, width: '100px',
+                    render: (v) => <span className="text-xs">{String(v ?? '').slice(0, 10)}</span> },
+                  { key: 'asset_id', label: '资产', sortable: true, searchable: true,
+                    render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+                  { key: 'side', label: '方向', sortable: true, filterable: true, filters: ['buy', 'sell'],
+                    render: (v) => (
+                      <span className={`badge ${v === 'buy' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                        {v === 'buy' ? '买入' : '卖出'}
+                      </span>
+                    ) },
+                  { key: 'qty', label: '数量', sortable: true, width: '80px',
+                    render: (v) => <span className="text-right block">{Number(v).toLocaleString()}</span> },
+                  { key: 'price', label: '价格', sortable: true, width: '80px',
+                    render: (v) => <span className="text-right block">{Number(v).toFixed(2)}</span> },
+                  { key: 'notional', label: '金额', sortable: true, width: '120px',
+                    render: (v) => <span className="text-right block">{Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span> },
+                  { key: 'total_cost', label: '费用', sortable: true, width: '80px',
+                    render: (v) => <span className="text-right block text-gray-500">{Number(v).toFixed(2)}</span> },
+                ]}
+              />
             </div>
           )}
         </div>

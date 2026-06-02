@@ -196,9 +196,9 @@ export const backtestsApi = {
     method: 'POST',
     body: JSON.stringify(body),
   }),
-  getFills: (id: string, limit = 200) =>
-    request<{ items: BacktestFill[]; total: number }>(
-      `/backtests/${id}/fills?limit=${limit}`,
+  getFills: (id: string, offset = 0, limit = 50) =>
+    request<{ items: BacktestFill[]; total: number; offset: number; limit: number }>(
+      `/backtests/${id}/fills?offset=${offset}&limit=${limit}`,
     ),
   pollJob: (jobId: string) =>
     request<{ job_id: string; status: string; run_id: string | null; error: string | null }>(
@@ -345,6 +345,15 @@ export interface StrategyConfig {
   updated_at: string
 }
 
+export interface StrategyVersion {
+  version_id: string
+  strategy_id: string
+  config_text: string
+  config_format: string
+  summary: string
+  created_at: string
+}
+
 export const strategiesApi = {
   list: () => request<{ items: StrategyConfig[]; total: number }>('/strategies'),
   get: (id: string) => request<StrategyConfig>(`/strategies/${id}`),
@@ -356,17 +365,7 @@ export const strategiesApi = {
     request(`/strategies/${id}`, { method: 'DELETE' }),
 
   versions: (strategyId: string) =>
-    request<{
-      items: Array<{
-        version_id: string
-        strategy_id: string
-        config_text: string
-        config_format: string
-        summary: string
-        created_at: string
-      }>
-      strategy_id: string
-    }>(`/strategies/${strategyId}/versions`),
+    request<{ items: StrategyVersion[]; strategy_id: string }>(`/strategies/${strategyId}/versions`),
 
   rollback: (strategyId: string, versionId: string) =>
     request<{ strategy_id: string; status: string; version_id: string; summary: string }>(
@@ -901,7 +900,7 @@ export const customFactorApi = {
   list: () =>
     request<{ items: CustomFactor[] }>('/factors/custom'),
 
-  create: (body: { name: string; expression: string; description?: string }) =>
+  create: (body: { name: string; expression: string; description?: string; expression_type?: string }) =>
     request<{ factor_id: string; name: string; status: string }>(
       '/factors/custom', { method: 'POST', body: JSON.stringify(body) }
     ),
@@ -917,6 +916,22 @@ export const customFactorApi = {
       error: string | null
       preview: { asset_id: string; trade_date: string; value: number | null }[]
     }>('/factors/custom/preview', { method: 'POST', body: JSON.stringify(body) }),
+}
+
+export interface DslFunction {
+  name: string
+  minArgs: number
+  maxArgs: number
+  description: string
+}
+
+export interface DslExample {
+  name: string
+  expression: string
+}
+
+export const dslApi = {
+  functions: () => request<{ functions: DslFunction[]; columns: string[]; examples: DslExample[] }>('/factors/dsl/functions'),
 }
 
 export const alertsApi = {

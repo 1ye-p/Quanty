@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { keepPreviousData } from '@tanstack/react-query'
 import { scoringApi, factorAnalyticsApi } from '@/lib/api'
+import { DataTable } from '@/components/ui/DataTable'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface FactorWeightConfig {
@@ -299,26 +300,16 @@ export function ScoringPage() {
 
           {result.results && result.results.length > 0 && (
             <>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-500 border-b">
-                    <th className="py-2">Rank</th>
-                    <th className="py-2">Asset ID</th>
-                    <th className="py-2">Score</th>
-                    <th className="py-2">日期</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.results.map((r, idx) => (
-                    <tr key={`${r.asset_id}_${String(r.trade_date).slice(0,10)}_${idx}`} className="border-b hover:bg-gray-50">
-                      <td className="py-1.5 font-mono text-gray-700">{r.rank}</td>
-                      <td className="py-1.5 font-mono">{r.asset_id}</td>
-                      <td className="py-1.5 font-mono">{typeof r.score === 'number' ? r.score.toFixed(4) : '—'}</td>
-                      <td className="py-1.5 text-gray-500 text-xs">{String(r.trade_date).slice(0, 10)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                data={result.results}
+                columns={[
+                  { key: 'trade_date', label: '日期', sortable: true },
+                  { key: 'asset_id', label: '标的', searchable: true },
+                  { key: 'score', label: '得分', sortable: true, render: (v) => typeof v === 'number' ? v.toFixed(4) : String(v ?? '—') },
+                  { key: 'rank', label: '排名', sortable: true },
+                ]}
+                rowKey="asset_id"
+              />
 
               {result.total > PAGE_SIZE && (
                 <div className="flex items-center justify-between mt-3 text-sm text-gray-600">

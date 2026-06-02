@@ -45,6 +45,7 @@ class CustomFactorCreateBody(BaseModel):
     name: str = Field(..., max_length=64)
     expression: str = Field(..., max_length=500)
     description: str = Field(default="", max_length=200)
+    expression_type: str = "polars"
 
     @field_validator("name")
     @classmethod
@@ -178,9 +179,16 @@ async def create_custom_factor(body: CustomFactorCreateBody, catalog: CatalogDep
     import uuid as _uuid
     from cquant.factorlab.factors.expression_factor import ExpressionFactor
 
-    validation = ExpressionFactor.validate_expression(body.expression)
-    if not validation["valid"]:
-        raise HTTPException(status_code=400, detail=validation["error"])
+    if body.expression_type == "dsl":
+        from cquant.factorlab.dsl_evaluator import compile_expression, DSLError
+        try:
+            compile_expression(body.expression)
+        except (SyntaxError, DSLError) as e:
+            raise HTTPException(status_code=400, detail=f"DSL 表达式错误: {e}")
+    else:
+        validation = ExpressionFactor.validate_expression(body.expression)
+        if not validation["valid"]:
+            raise HTTPException(status_code=400, detail=validation["error"])
 
     # Check builtin name conflict
     from cquant.factorlab.factors import BUILTIN_FACTORS
@@ -794,3 +802,20 @@ async def factor_ic_status(
     except Exception as exc:
         logger.warning("factor_ic_status failed: %s", exc)
         return {"items": [], "threshold": threshold, "window_days": window_days, "error": str(exc)}
+
+
+@router.get("/dsl/functions")
+async def dsl_functions() -> dict:
+    """Return available DSL functions for frontend autocomplete."""
+    from cquant.factorlab.dsl_functions import get_function_descriptions, AVAILABLE_COLUMNS
+    return {
+        "functions": get_function_descriptions(),
+        "columns": sorted(AVAILABLE_COLUMNS),
+        "examples": [
+            {"name": "5日动量截面排名", "expression": "rank(close / lag(close, 5) - 1)"},
+            {"name": "20日波动率系数", "expression": "std(close, 20) / ma(close, 20)"},
+            {"name": "量比", "expression": "ema(volume, 5) / ema(volume, 20)"},
+            {"name": "20日威廉指标", "expression": "(close - min(low, 20)) / (max(high, 20) - min(low, 20))"},
+            {"name": "价量相关性", "expression": "corr(close, volume, 10)"},
+        ],
+    }

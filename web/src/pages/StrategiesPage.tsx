@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { strategiesApi, backtestsApi, datasetsApi, riskApi, mlApi } from '@/lib/api'
 import { queryKeys, extendedQueryKeys } from '@/lib/queryKeys'
-import Editor from '@monaco-editor/react'
+const Editor = lazy(() => import('@monaco-editor/react'))
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { VersionHistoryPanel } from '@/components/strategies/VersionHistoryPanel'
 
 const DEFAULT_CONFIG = JSON.stringify({
   strategy_id: "my_strategy",
@@ -934,8 +935,9 @@ function BacktestRunModal({
 export function StrategiesPage() {
   const qc = useQueryClient()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
-  const [showVersions, setShowVersions] = useState(false)
+  const [, setShowVersions] = useState(false)
   const [configText, setConfigText] = useState(DEFAULT_CONFIG)
   const [newId, setNewId] = useState('')
   const [backtestStrategyId, setBacktestStrategyId] = useState<string | null>(null)
@@ -953,7 +955,7 @@ export function StrategiesPage() {
   const { data: versions, refetch: refetchVersions } = useQuery({
     queryKey: ['strategies', editingId, 'versions'],
     queryFn: () => strategiesApi.versions(editingId!),
-    enabled: !!editingId && editingId !== 'new' && showVersions,
+    enabled: !!editingId && editingId !== 'new',
     staleTime: 5_000,
   })
 
@@ -984,6 +986,23 @@ export function StrategiesPage() {
       }))
     }
   }, [location.state])
+
+  // Pre-fill config when navigating from MLLabPage with URL params
+  useEffect(() => {
+    const mlModel = searchParams.get('ml_model')
+    const strategyType = searchParams.get('strategy_type')
+    if (mlModel && strategyType === 'MLModelStrategy') {
+      try {
+        const config = JSON.parse(configText)
+        config.strategy_type = 'MLModelStrategy'
+        config.model_id = mlModel
+        config.feature_set_version = searchParams.get('feature_set_version') || ''
+        config.label_name = searchParams.get('target_name') || 'ret_5d'
+        setConfigText(JSON.stringify(config, null, 2))
+        setEditingId('new')
+      } catch { /* ignore parse errors */ }
+    }
+  }, [searchParams])
 
   function validateConfig(text: string): string | null {
     if (!text.trim()) return null
@@ -1030,6 +1049,19 @@ export function StrategiesPage() {
     onError: (err: Error) => {
       toast.error(`删除失败：${err.message}`)
       setDeleteTarget(null)
+    },
+  })
+
+  const rollbackMutation = useMutation({
+    mutationFn: (versionId: string) => strategiesApi.rollback(editingId!, versionId),
+    onSuccess: async () => {
+      const fresh = await strategiesApi.get(editingId!)
+      setConfigText(fresh.config_text)
+      refetchVersions()
+      toast.success('已回滚到历史版本')
+    },
+    onError: (err: Error) => {
+      toast.error(`回滚失败：${err.message}`)
     },
   })
 
@@ -1098,7 +1130,7 @@ export function StrategiesPage() {
                 JSON 编辑
               </button>
             </div>
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
               {editorMode === 'builder' ? (
                 <StrategyBuilder
                   initialConfig={configText}
@@ -1109,17 +1141,25 @@ export function StrategiesPage() {
                 />
               ) : (
                 <>
-                  <Editor
-                    height="400px"
-                    language="json"
-                    value={configText}
-                    onChange={v => {
-                      const value = v ?? ''
-                      setConfigText(value)
-                      setConfigError(validateConfig(value))
-                    }}
-                    options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false }}
-                  />
+                  <Suspense fallback={
+                    <div className="h-[400px] bg-gray-50 animate-pulse rounded p-4 space-y-2">
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <div key={i} className="h-3 bg-gray-200 rounded" style={{ width: `${60 + Math.random() * 30}%` }} />
+                      ))}
+                    </div>
+                  }>
+                    <Editor
+                      height="400px"
+                      language="json"
+                      value={configText}
+                      onChange={v => {
+                        const value = v ?? ''
+                        setConfigText(value)
+                        setConfigError(validateConfig(value))
+                      }}
+                      options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false }}
+                    />
+                  </Suspense>
                   {configError && (
                     <p className="mt-1 px-4 text-xs text-red-600">{configError}</p>
                   )}
@@ -1129,69 +1169,13 @@ export function StrategiesPage() {
             {/* 版本历史（仅编辑已有策略时显示）*/}
             {editingId && editingId !== 'new' && (
               <div className="mx-4 mb-3 border-t pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowVersions(v => !v)}
-                  className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                >
-                  <span>{showVersions ? '▾' : '▸'}</span>
-                  版本历史（最近 5 次）
-                </button>
-                {showVersions && (
-                  <div className="mt-2 space-y-1">
-                    {!versions ? (
-                      <p className="text-xs text-gray-400">加载中…</p>
-                    ) : versions.items.length === 0 ? (
-                      <p className="text-xs text-gray-400">暂无历史版本</p>
-                    ) : (
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="text-left text-gray-400 border-b">
-                            <th className="py-1">时间</th>
-                            <th className="py-1">摘要</th>
-                            <th className="py-1 w-16">操作</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {versions.items.map((v, idx) => (
-                            <tr key={v.version_id} className={`border-b ${idx === 0 ? 'opacity-50' : ''}`}>
-                              <td className="py-1 text-gray-500 font-mono">
-                                {new Date(v.created_at).toLocaleString('zh-CN', {
-                                  month: '2-digit', day: '2-digit',
-                                  hour: '2-digit', minute: '2-digit',
-                                })}
-                              </td>
-                              <td className="py-1 text-gray-700 max-w-[200px] truncate" title={v.summary}>
-                                {idx === 0 ? `${v.summary}（当前）` : v.summary}
-                              </td>
-                              <td className="py-1">
-                                {idx !== 0 && (
-                                  <button
-                                    className="text-brand-600 hover:underline"
-                                    onClick={async () => {
-                                      if (!confirm(`回滚到此版本？\n${v.summary}`)) return
-                                      try {
-                                        await strategiesApi.rollback(editingId!, v.version_id)
-                                        const fresh = await strategiesApi.get(editingId!)
-                                        setConfigText(fresh.config_text)
-                                        refetchVersions()
-                                        toast.success('已回滚到历史版本')
-                                      } catch (err) {
-                                        toast.error(`回滚失败：${(err as Error).message}`)
-                                      }
-                                    }}
-                                  >
-                                    恢复
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                )}
+                <VersionHistoryPanel
+                  versions={versions?.items ?? []}
+                  onRollback={(versionId) => {
+                    if (!confirm('回滚到此版本？')) return
+                    rollbackMutation.mutate(versionId)
+                  }}
+                />
               </div>
             )}
             <div className="flex justify-end gap-2 p-4 border-t">

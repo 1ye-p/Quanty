@@ -81,7 +81,7 @@ export function OverviewPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="数据集版本" value={datasets?.total ?? '—'} icon="🗄️" />
         <StatCard label="回测记录" value={backtests?.total ?? '—'} icon="📊"
           delta={completedRuns > 0 ? `${completedRuns} 已完成` : undefined} />

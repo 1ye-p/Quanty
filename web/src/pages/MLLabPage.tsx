@@ -506,6 +506,20 @@ export function MLLabPage() {
               </pre>
             </div>
           )}
+
+          {/* Backtest with this model */}
+          {(selectedExperiment.status === 'completed' || selectedExperiment.status === 'done') && selectedExperiment.model_id && (
+            <div className="mt-3 flex justify-end">
+              <button
+                className="btn-primary text-sm"
+                onClick={() => {
+                  navigate(`/strategies?ml_model=${selectedExperiment.run_id}&strategy_type=MLModelStrategy&feature_set_version=${selectedExperiment.feature_set_version ?? ''}&target_name=${selectedExperiment.target_name ?? 'ret_5d'}`)
+                }}
+              >
+                用此模型回测
+              </button>
+            </div>
+          )}
         </div>
       )}
 

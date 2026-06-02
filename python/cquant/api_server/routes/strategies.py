@@ -88,7 +88,7 @@ def _generate_summary(parsed: dict | None, config_format: str) -> str:
     return " · ".join(parts) if parts else config_format
 
 
-MAX_VERSIONS = 5
+MAX_VERSIONS = 50
 
 
 @router.get("")
