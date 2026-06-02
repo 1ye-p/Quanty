@@ -232,5 +232,8 @@ class Parser:
 
 def parse(expression: str) -> ASTNode:
     """Parse a DSL expression string into an AST."""
-    tokens = tokenize(expression)
-    return Parser(tokens).parse()
+    try:
+        tokens = tokenize(expression)
+        return Parser(tokens).parse()
+    except RecursionError:
+        raise SyntaxError("Expression too deeply nested")

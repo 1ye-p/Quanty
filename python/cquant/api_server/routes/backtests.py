@@ -958,6 +958,8 @@ async def get_backtest_fills(
     sort_order: str = "desc",
 ) -> dict:
     """Get fill records for a backtest run with pagination and sorting."""
+    offset = max(0, offset)
+    limit = max(1, min(limit, 500))
     allowed_sorts = {"trade_date", "asset_id", "side", "qty", "price", "notional", "total_cost"}
     if sort_by not in allowed_sorts:
         sort_by = "trade_date"

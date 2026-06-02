@@ -124,7 +124,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
   return (
     <div className="space-y-3">
-      {(searchableKeys.length > 0 || columns.some(c => c.filterable)) && (
+      {!isBackend && (searchableKeys.length > 0 || columns.some(c => c.filterable)) && (
         <div className="flex flex-wrap gap-2 items-center">
           {searchableKeys.length > 0 && (
             <input

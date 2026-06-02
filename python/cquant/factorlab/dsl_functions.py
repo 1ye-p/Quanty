@@ -1,6 +1,7 @@
 """DSL function registry — maps function names to Polars expressions."""
 
 from __future__ import annotations
+import math
 from typing import Callable
 import polars as pl
 
@@ -39,14 +40,14 @@ def _abs(col: pl.Expr) -> pl.Expr:
     return col.abs()
 
 def _log(col: pl.Expr) -> pl.Expr:
-    return col.log(base=2.718281828459045)
+    return col.log(base=math.e)
 
 def _sign(col: pl.Expr) -> pl.Expr:
     return col.sign()
 
 def _ts_rank(col: pl.Expr, n: int) -> pl.Expr:
-    """Current value's percentile rank within the last n values."""
-    return col.rolling_rank(window_size=n)
+    """Current value's percentile rank (0~1) within the last n values."""
+    return col.rolling_rank(window_size=n) / n
 
 def _corr(col1: pl.Expr, col2: pl.Expr, n: int) -> pl.Expr:
     return pl.rolling_corr(col1, col2, window_size=n)
@@ -61,7 +62,7 @@ FUNCTIONS: dict[str, tuple[Callable, int, int, str]] = {
     "sma":     (_sma,     2, 2, "简单移动平均 (= ma): sma(close, 20)"),
     "ema":     (_ema,     2, 2, "指数移动平均: ema(close, 20)"),
     "std":     (_std,     2, 2, "滚动标准差: std(close, 20)"),
-    "rank":    (_rank,    1, 1, "截面排名 (0~1): rank(close)"),
+    "rank":    (_rank,    1, 1, "截面排名百分位 (1/n~1): rank(close)"),
     "delta":   (_delta,   2, 2, "差分: delta(close, 5)"),
     "max":     (_max,     2, 2, "滚动最大值: max(high, 20)"),
     "min":     (_min,     2, 2, "滚动最小值: min(low, 20)"),

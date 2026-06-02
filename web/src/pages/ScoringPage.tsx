@@ -86,9 +86,10 @@ export function ScoringPage() {
 
   function downloadCSV() {
     if (!result?.results?.length) return
+    const esc = (v: unknown) => { const s = String(v ?? ''); return s.includes(',') ? `"${s}"` : s }
     const headers = ['trade_date', 'asset_id', 'score', 'rank']
     const rows = result.results.map(r =>
-      [r.trade_date, r.asset_id, r.score?.toFixed(6) ?? '', r.rank].join(',')
+      [esc(r.trade_date), esc(r.asset_id), esc(r.score?.toFixed(6) ?? ''), esc(r.rank)].join(',')
     )
     const csv = [headers.join(','), ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
