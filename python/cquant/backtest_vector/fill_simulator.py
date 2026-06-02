@@ -21,6 +21,8 @@ import polars as pl
 
 from cquant.backtest_vector.costs import CostModel
 from cquant.backtest_vector.limit_rules import is_at_limit_up as _is_limit_up, is_at_limit_down as _is_limit_down
+from cquant.core.enums import TradabilityReason
+from cquant.market_calendar.rules.base import TradabilityResult
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +59,26 @@ class AShareFillSimulator:
         )
     """
 
-    def __init__(self, cost_model: CostModel | None = None) -> None:
+    def __init__(
+        self,
+        cost_model: CostModel | None = None,
+        market: str = "CN",
+        adj_type: str = "forward",
+    ) -> None:
         self._cost_model = cost_model or CostModel.for_cn()
+        self._market = market
+        self._adj_type = adj_type
+        self._rules = None
+        self._status_tracker = None
+        # Lazy-init market rules if market_calendar is available
+        try:
+            from cquant.market_calendar import get_market_rules, load_market_config, StatusTracker
+            config = load_market_config(market)
+            self._rules = get_market_rules(market, config)
+            self._status_tracker = StatusTracker()
+            self._rules.set_status_tracker(self._status_tracker)
+        except Exception:
+            logger.debug("Market rules not available, using legacy limit_rules")
 
     def simulate(
         self,
@@ -262,6 +282,25 @@ class AShareFillSimulator:
         ratio = close / prev_close
         return 0.5 <= ratio <= 2.0
 
+    def _check_tradability(self, td: date, asset_id: str, lookup: dict) -> TradabilityResult:
+        """Check tradability using market rules layer if available, else legacy."""
+        if self._rules:
+            data = lookup.get((td, asset_id), {})
+            bar = {
+                "open": data.get("open", 0),
+                "high": data.get("high", 0),
+                "low": data.get("low", 0),
+                "close": data.get("close", 0),
+                "volume": data.get("volume", 0),
+                "pre_close": data.get("prev_close", data.get("close", 0)),
+            }
+            return self._rules.check_tradable(asset_id, td, bar)
+
+        # Legacy fallback
+        if self._is_suspended(td, asset_id, lookup):
+            return TradabilityResult(False, TradabilityReason.SUSPENDED)
+        return TradabilityResult(True, TradabilityReason.TRADABLE)
+
     def _round_lot(self, qty: float) -> int:
         """Round down to nearest lot (100 shares)."""
         return int(qty // _LOT_SIZE) * _LOT_SIZE
@@ -292,13 +331,24 @@ class AShareFillSimulator:
         if not self._can_sell(td, asset_id, buy_dates):
             return 0
 
-        # Check suspension
-        if self._is_suspended(td, asset_id, lookup):
-            return 0
-
-        # Check limit down (can't sell at limit down)
-        if self._is_at_limit_down(td, asset_id, lookup):
-            return 0
+        # Use market rules layer if available
+        if self._rules:
+            result = self._check_tradability(td, asset_id, lookup)
+            if not result.tradable:
+                # Handle delist forced liquidation
+                if result.reason == TradabilityReason.DELISTED:
+                    positions = {asset_id: current_qty}
+                    forced = self._rules.handle_delist(positions, asset_id, td,
+                                                       self._get_price(td, asset_id, lookup, "close"))
+                    if forced:
+                        return forced[0].qty
+                return 0
+        else:
+            # Legacy checks
+            if self._is_suspended(td, asset_id, lookup):
+                return 0
+            if self._is_at_limit_down(td, asset_id, lookup):
+                return 0
 
         # Check price validity (reject bad data)
         if not self._is_price_valid(td, asset_id, lookup):
@@ -327,13 +377,17 @@ class AShareFillSimulator:
         lookup: dict,
     ) -> int:
         """Calculate quantity to buy."""
-        # Check suspension
-        if self._is_suspended(td, asset_id, lookup):
-            return 0
-
-        # Check limit up (can't buy at limit up)
-        if self._is_at_limit_up(td, asset_id, lookup):
-            return 0
+        # Use market rules layer if available
+        if self._rules:
+            result = self._check_tradability(td, asset_id, lookup)
+            if not result.tradable:
+                return 0
+        else:
+            # Legacy checks
+            if self._is_suspended(td, asset_id, lookup):
+                return 0
+            if self._is_at_limit_up(td, asset_id, lookup):
+                return 0
 
         # Check price validity (reject bad data)
         if not self._is_price_valid(td, asset_id, lookup):

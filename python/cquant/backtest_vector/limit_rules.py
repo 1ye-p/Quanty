@@ -1,4 +1,9 @@
-"""A-share daily price limit rules by board type."""
+"""A-share daily price limit rules by board type.
+
+.. deprecated::
+    This module is superseded by cquant.market_calendar.limit_detector.
+    New code should use the market_calendar module directly.
+"""
 from __future__ import annotations
 
 from enum import Enum
