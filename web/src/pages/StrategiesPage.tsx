@@ -13,6 +13,7 @@ const DEFAULT_CONFIG = JSON.stringify({
   universe: { exchange: ["SSE", "SZSE"], min_liquidity: 1000000 },
   rebalance_frequency: "1d",
   risk_limits: { max_position_pct: 0.10, max_gross_leverage: 1.0 },
+  market_rule: { market: "CN", adj_type: "forward" },
   factors: ["ret_20d", "vol_20d"],
   sizer: "equal_weight"
 }, null, 2)
@@ -65,6 +66,8 @@ function StrategyBuilder({
       ? String(parsed.risk_policy_params.drawdown_breaker.max_drawdown_pct * 100)
       : ''
   )
+  const [market, setMarket] = useState(parsed.market_rule?.market ?? 'CN')
+  const [adjType, setAdjType] = useState(parsed.market_rule?.adj_type ?? 'forward')
 
   const { data: policies } = useQuery({
     queryKey: extendedQueryKeys.risk.policies(),
@@ -129,8 +132,9 @@ function StrategyBuilder({
         drawdown_breaker: { max_drawdown_pct: Number(quickDrawdownBreaker) / 100 },
       }
     }
+    config.market_rule = { market, adj_type: adjType }
     onChange(JSON.stringify(config, null, 2))
-  }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker])
+  }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker, market, adjType])
 
   const selectedSizerInfo = sizers?.find(s => s.name === sizer)
 
@@ -291,6 +295,29 @@ function StrategyBuilder({
             <label className="text-xs text-gray-500">最大杠杆</label>
             <input type="number" className="input w-full" value={maxLeverage}
               onChange={e => setMaxLeverage(e.target.value)} min={0} max={5} step={0.1} />
+          </div>
+        </div>
+      </div>
+
+      {/* 市场规则 */}
+      <div className="border rounded-lg p-3">
+        <div className="text-xs font-medium text-gray-600 mb-2">市场规则</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-gray-500">市场</label>
+            <select className="input w-full" value={market} onChange={e => setMarket(e.target.value)}>
+              <option value="CN">A 股</option>
+              <option value="US">美股</option>
+              <option value="HK">港股</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500">复权方式</label>
+            <select className="input w-full" value={adjType} onChange={e => setAdjType(e.target.value)}>
+              <option value="forward">前复权</option>
+              <option value="backward">后复权</option>
+              <option value="none">不复权</option>
+            </select>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { BacktestsPage } from '../BacktestsPage'
@@ -32,9 +32,29 @@ vi.mock('@/lib/api', () => ({
       run_id: 'run-abc-123',
       status: 'completed',
       metrics: { total_return: 0.15, sharpe_ratio: 1.2 },
+      strategy_config: {
+        market_rule: { market: 'CN', adj_type: 'forward' },
+        rebalance_frequency: '1d',
+        sizer: 'equal_weight',
+      },
     }),
     getAnalysis: vi.fn().mockResolvedValue(null),
-    getFills: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    getFills: vi.fn().mockResolvedValue({
+      items: [
+        {
+          trade_date: '2025-06-01',
+          asset_id: '000001.SZ',
+          side: 'sell',
+          qty: 1000,
+          price: 12.5,
+          notional: 12500,
+          total_cost: 6.25,
+          reason: 'delist_forced_liquidation',
+          order_idx: 1,
+        },
+      ],
+      total: 1,
+    }),
     triggerAnalysis: vi.fn().mockResolvedValue({ job_id: 'j1', status: 'running' }),
     pollJob: vi.fn().mockResolvedValue({ status: 'completed', run_id: 'run-abc-123' }),
   },
@@ -48,6 +68,11 @@ vi.mock('@/lib/api', () => ({
   },
   datasetsApi: {
     list: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  },
+  liveApi: {
+    strategies: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    positions: vi.fn().mockResolvedValue([]),
+    risk: vi.fn().mockResolvedValue(null),
   },
 }))
 
@@ -84,6 +109,33 @@ describe('BacktestsPage', () => {
     renderWithProviders(<BacktestsPage />)
     await waitFor(() => {
       expect(screen.getByText(/1 条记录/)).toBeInTheDocument()
+    })
+  })
+
+  it('shows parameter summary in overview tab', async () => {
+    renderWithProviders(<BacktestsPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/run-abc-/)).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText(/run-abc-/))
+    await waitFor(() => {
+      expect(screen.getByText(/市场:/)).toBeInTheDocument()
+      expect(screen.getByText(/复权:/)).toBeInTheDocument()
+    })
+  })
+
+  it('shows reason column and highlights delist rows in fills tab', async () => {
+    renderWithProviders(<BacktestsPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/run-abc-/)).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText(/run-abc-/))
+    await waitFor(() => {
+      fireEvent.click(screen.getByText('交易明细'))
+    })
+    await waitFor(() => {
+      expect(screen.getByText('退市强制平仓')).toBeInTheDocument()
+      expect(screen.getByText('原因')).toBeInTheDocument()
     })
   })
 })

@@ -27,6 +27,7 @@ export interface DataTableProps<T> {
   rowKey: string | ((row: T) => string)
   searchPlaceholder?: string
   backendPagination?: BackendPagination
+  rowClassName?: (row: T) => string
 }
 
 export function DataTable<T extends Record<string, unknown>>({
@@ -39,6 +40,7 @@ export function DataTable<T extends Record<string, unknown>>({
   rowKey,
   searchPlaceholder = '搜索...',
   backendPagination,
+  rowClassName,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<string | null>(null)
@@ -186,7 +188,7 @@ export function DataTable<T extends Record<string, unknown>>({
               paged.map(row => (
                 <tr
                   key={typeof rowKey === 'function' ? rowKey(row) : String(row[rowKey])}
-                  className={`table-row ${onRowClick ? 'cursor-pointer' : ''}`}
+                  className={`table-row ${onRowClick ? 'cursor-pointer' : ''} ${rowClassName?.(row) ?? ''}`}
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map(col => (

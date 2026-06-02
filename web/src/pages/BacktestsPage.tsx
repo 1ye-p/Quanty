@@ -13,6 +13,16 @@ import {
   Cell, ReferenceLine
 } from 'recharts'
 
+function marketLabel(m?: string) {
+  return { CN: 'A股', US: '美股', HK: '港股' }[m ?? 'CN'] ?? 'A股'
+}
+function adjLabel(a?: string) {
+  return { forward: '前复权', backward: '后复权', none: '不复权' }[a ?? 'forward'] ?? '前复权'
+}
+function rebalanceLabel(r?: string) {
+  return { '1d': '每日', '5d': '每周', '20d': '每月' }[r ?? '1d'] ?? r ?? '每日'
+}
+
 type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills' | 'walkforward'
 
 /** 将 JSON 对象导出为 .json 文件下载 */
@@ -458,6 +468,15 @@ export function BacktestsPage() {
                   )}
                 </div>
               )}
+              {/* Parameter summary */}
+              {detail?.strategy_config && (
+                <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
+                  <span>市场: {marketLabel(detail.strategy_config.market_rule?.market)}</span>
+                  <span>复权: {adjLabel(detail.strategy_config.market_rule?.adj_type)}</span>
+                  <span>调仓: {rebalanceLabel(detail.strategy_config.rebalance_frequency)}</span>
+                  <span>Sizer: {detail.strategy_config.sizer ?? 'equal_weight'}</span>
+                </div>
+              )}
               {/* Metrics cards */}
               {detail?.metrics && (
                 <>
@@ -784,6 +803,9 @@ export function BacktestsPage() {
                 rowKey={(r) => `${r.trade_date}_${r.asset_id}_${r.order_idx ?? ''}`}
                 pageSize={fillsPageSize}
                 emptyText="暂无交易记录"
+                rowClassName={(row: Record<string, unknown>) =>
+                  row.reason === 'delist_forced_liquidation' ? 'bg-orange-50' : ''
+                }
                 backendPagination={fillsData ? {
                   total: fillsData.total,
                   page: fillsPage,
@@ -808,6 +830,11 @@ export function BacktestsPage() {
                     render: (v) => <span className="text-right block">{Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span> },
                   { key: 'total_cost', label: '费用', sortable: true, width: '80px',
                     render: (v) => <span className="text-right block text-gray-500">{Number(v).toFixed(2)}</span> },
+                  { key: 'reason', label: '原因', width: '120px',
+                    render: (v: unknown) => {
+                      if (v === 'delist_forced_liquidation') return <span className="text-orange-600 font-medium">退市强制平仓</span>
+                      return <span className="text-gray-400">—</span>
+                    } },
                 ]}
               />
             </div>

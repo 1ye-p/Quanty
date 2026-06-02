@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { StrategiesPage } from '../StrategiesPage'
@@ -25,6 +25,14 @@ vi.mock('@/lib/api', () => ({
   },
   datasetsApi: {
     list: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    universes: vi.fn().mockResolvedValue({ predefined: [], custom: [] }),
+  },
+  riskApi: {
+    policies: vi.fn().mockResolvedValue([]),
+    sizers: vi.fn().mockResolvedValue([]),
+  },
+  mlApi: {
+    experiments: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   },
   backtestsApi: {
     create: vi.fn().mockResolvedValue({ job_id: 'job-123', status: 'running' }),
@@ -83,5 +91,26 @@ describe('StrategiesPage', () => {
   it('renders the page subtitle', () => {
     renderWithProviders(<StrategiesPage />)
     expect(screen.getByText(/JSON/)).toBeInTheDocument()
+  })
+
+  it('renders market rules block with default values', async () => {
+    renderWithProviders(<StrategiesPage />)
+    // Wait for page to load
+    await waitFor(() => {
+      expect(screen.getByText('策略配置')).toBeInTheDocument()
+    })
+    // Open the new strategy modal
+    fireEvent.click(screen.getByText('+ 新建策略'))
+    // Switch to builder mode
+    await waitFor(() => {
+      fireEvent.click(screen.getByText('可视化构建'))
+    })
+    await waitFor(() => {
+      expect(screen.getByText('市场规则')).toBeInTheDocument()
+    })
+    const marketSelect = screen.getByDisplayValue('A 股')
+    expect(marketSelect).toBeInTheDocument()
+    const adjSelect = screen.getByDisplayValue('前复权')
+    expect(adjSelect).toBeInTheDocument()
   })
 })

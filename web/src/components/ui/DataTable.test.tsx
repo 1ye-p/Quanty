@@ -52,4 +52,13 @@ describe('DataTable', () => {
     render(<DataTable data={[]} columns={columns} rowKey="id" emptyText="No data" />)
     expect(screen.getByText('No data')).toBeInTheDocument()
   })
+
+  it('applies rowClassName based on row data', () => {
+    const rowClassName = (row: User) => row.status === 'inactive' ? 'bg-orange-50' : ''
+    render(<DataTable data={data} columns={columns} rowKey="id" rowClassName={rowClassName} />)
+    const rows = screen.getAllByRole('row')
+    // rows[0] is header, rows[2] is Bob (inactive)
+    expect(rows[2]).toHaveClass('bg-orange-50')
+    expect(rows[1]).not.toHaveClass('bg-orange-50')
+  })
 })
