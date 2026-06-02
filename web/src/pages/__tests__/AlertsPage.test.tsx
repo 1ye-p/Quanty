@@ -172,6 +172,41 @@ describe('AlertsPage', () => {
     expect(screen.getByText('确定删除此告警规则？此操作不可撤销。')).toBeInTheDocument()
   })
 
+  it('deletes rule on confirm', async () => {
+    const { alertsApi } = await import('@/lib/api')
+    const user = userEvent.setup()
+    renderWithProviders(<AlertsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('删除')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('删除'))
+    // Confirm button in dialog also says "删除" (btn-danger)
+    const deleteButtons = screen.getAllByText('删除')
+    await user.click(deleteButtons[deleteButtons.length - 1])
+
+    await waitFor(() => {
+      expect(alertsApi.deleteRule).toHaveBeenCalled()
+      expect(vi.mocked(alertsApi.deleteRule).mock.calls[0][0]).toBe('r1')
+    })
+  })
+
+  it('shows toast error when createRule fails', async () => {
+    const { alertsApi } = await import('@/lib/api')
+    const { toast } = await import('sonner')
+    vi.mocked(alertsApi.createRule).mockRejectedValueOnce(new Error('duplicate'))
+    const user = userEvent.setup()
+    renderWithProviders(<AlertsPage />)
+
+    await user.click(screen.getByText('+ 新增规则'))
+    await user.click(screen.getByText('保存规则'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalled()
+    })
+  })
+
   it('renders factor_ic_low param fields when rule type changes', async () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
@@ -188,11 +223,11 @@ describe('AlertsPage', () => {
 
   it('renders empty state when no rules', async () => {
     const { alertsApi } = await import('@/lib/api')
-    vi.mocked(alertsApi.rules).mockResolvedValueOnce({
+    vi.mocked(alertsApi.rules).mockResolvedValue({
       items: [],
       rule_types: [{ type: 'data_stale', label: '数据过期' }],
     })
-    vi.mocked(alertsApi.history).mockResolvedValueOnce({
+    vi.mocked(alertsApi.history).mockResolvedValue({
       items: [],
       unread_count: 0,
     })

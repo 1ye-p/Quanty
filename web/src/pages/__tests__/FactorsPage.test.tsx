@@ -1,16 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { FactorsPage } from '../FactorsPage'
 
-// Mock ResizeObserver for recharts
-globalThis.ResizeObserver = class ResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
+const _ResizeObserver = globalThis.ResizeObserver
+beforeAll(() => {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+})
+afterAll(() => { globalThis.ResizeObserver = _ResizeObserver })
 
 vi.mock('@/lib/api', () => ({
   factorAnalyticsApi: {
@@ -56,8 +59,8 @@ vi.mock('@/lib/api', () => ({
       horizon_days: 1,
       n_groups: 5,
       groups: [
-        { quintile: 1, mean_return: -0.02, std_return: 0.05, count: 100 },
-        { quintile: 5, mean_return: 0.03, std_return: 0.06, count: 100 },
+        { quintile: '1', mean_return: -0.02, std_return: 0.05, count: 100 },
+        { quintile: '5', mean_return: 0.03, std_return: 0.06, count: 100 },
       ],
     }),
     computeFactorCorrelation: vi.fn().mockResolvedValue({
@@ -264,6 +267,29 @@ describe('FactorsPage IC Alerts', () => {
     // (20 might also appear elsewhere, so use getAll)
     const windowInputs = screen.getAllByDisplayValue('20')
     expect(windowInputs.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('submits IC alert form and calls createRule', async () => {
+    const { alertsApi } = await import('@/lib/api')
+    const user = userEvent.setup()
+    renderWithProviders(<FactorsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('ret_20d IC 告警')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByLabelText('ret_20d IC 告警'))
+    expect(screen.getByText('创建 IC 告警规则')).toBeInTheDocument()
+
+    // Click submit button
+    const submitButtons = screen.getAllByText('创建告警')
+    await user.click(submitButtons[submitButtons.length - 1])
+
+    await waitFor(() => {
+      expect(alertsApi.createRule).toHaveBeenCalled()
+      const callArgs = vi.mocked(alertsApi.createRule).mock.calls[0][0]
+      expect(callArgs.rule_type).toBe('factor_ic_low')
+    })
   })
 })
 

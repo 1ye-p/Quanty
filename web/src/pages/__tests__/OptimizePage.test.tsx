@@ -1,16 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { OptimizePage } from '../OptimizePage'
 
-// Mock ResizeObserver for recharts
-globalThis.ResizeObserver = class ResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
+const _ResizeObserver = globalThis.ResizeObserver
+beforeAll(() => {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+})
+afterAll(() => { globalThis.ResizeObserver = _ResizeObserver })
 
 vi.mock('@/lib/api', () => ({
   optimizeApi: {
@@ -239,6 +242,32 @@ describe('OptimizePage', () => {
       expect(screen.getByText('权重分布')).toBeInTheDocument()
       expect(screen.getByText('权重分配')).toBeInTheDocument()
     })
+  })
+
+  it('passes risk_parity optimizer to API', async () => {
+    const { optimizeApi } = await import('@/lib/api')
+    const user = userEvent.setup()
+    renderWithProviders(<OptimizePage />)
+
+    const assetInput = screen.getAllByPlaceholderText(/600519/)[0]
+    await user.type(assetInput, 'A.SSE, B.SZSE')
+    await user.click(screen.getByText('计算协方差'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/协方差矩阵已计算/)).toBeInTheDocument()
+    })
+
+    const optimizerSelect = screen.getByDisplayValue(/mean_variance/)
+    await user.selectOptions(optimizerSelect, 'risk_parity')
+
+    await user.click(screen.getByText('运行优化'))
+
+    await waitFor(() => {
+      expect(optimizeApi.optimize).toHaveBeenCalled()
+    })
+
+    const callArgs = vi.mocked(optimizeApi.optimize).mock.calls[0][0]
+    expect(callArgs.optimizer).toBe('risk_parity')
   })
 
   it('shows backtest navigation button in results', async () => {
