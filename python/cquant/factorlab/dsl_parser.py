@@ -194,11 +194,14 @@ class Parser:
             return BinaryOpNode('^', node, right)
         return node
 
+    def _check_depth(self) -> None:
+        self._depth += 1
+        if self._depth > self.MAX_DEPTH:
+            raise SyntaxError(f"Expression nesting too deep (>{self.MAX_DEPTH})")
+
     def parse_unary(self) -> ASTNode:
         if self.peek().type == TokenType.MINUS:
-            self._depth += 1
-            if self._depth > self.MAX_DEPTH:
-                raise SyntaxError(f"Expression nesting too deep (>{self.MAX_DEPTH})")
+            self._check_depth()
             self.advance()
             operand = self.parse_unary()
             self._depth -= 1
@@ -215,16 +218,20 @@ class Parser:
         if tok.type == TokenType.IDENT:
             self.advance()
             if self.peek().type == TokenType.LPAREN:
+                self._check_depth()
                 self.advance()
                 args = self.parse_args()
                 self.expect(TokenType.RPAREN)
+                self._depth -= 1
                 return FunctionCallNode(tok.value, args)
             return ColumnNode(tok.value)
 
         if tok.type == TokenType.LPAREN:
+            self._check_depth()
             self.advance()
             node = self.parse_comparison()
             self.expect(TokenType.RPAREN)
+            self._depth -= 1
             return node
 
         raise SyntaxError(
