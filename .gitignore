@@ -106,6 +106,12 @@ vipdoc/
 
 # ── Frontend dependencies ─────────────────────────────────────────────────────
 web/node_modules/
+
+# ── Playwright ────────────────────────────────────────────────────────────────
+web/test-results/
+web/playwright-report/
+web/blob-report/
+.playwright/
 .claude/skills
 
 # ── MLflow tracking artifacts ─────────────────────────────────────────────────
