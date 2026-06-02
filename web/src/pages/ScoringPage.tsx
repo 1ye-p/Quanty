@@ -308,7 +308,7 @@ export function ScoringPage() {
                   { key: 'score', label: '得分', sortable: true, render: (v) => typeof v === 'number' ? v.toFixed(4) : String(v ?? '—') },
                   { key: 'rank', label: '排名', sortable: true },
                 ]}
-                rowKey="asset_id"
+                rowKey={(r) => `${r.asset_id}_${r.trade_date}`}
               />
 
               {result.total > PAGE_SIZE && (

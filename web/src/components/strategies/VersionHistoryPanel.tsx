@@ -75,7 +75,7 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
           <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold mb-3">版本配置</h3>
             <pre className="text-xs bg-gray-50 p-3 rounded overflow-x-auto">
-              {JSON.stringify(JSON.parse(diffVersion.config_text), null, 2)}
+              {(() => { try { return JSON.stringify(JSON.parse(diffVersion.config_text), null, 2) } catch { return diffVersion.config_text } })()}
             </pre>
             <div className="mt-4 flex justify-end">
               <button className="btn-secondary" onClick={() => setDiffTarget(null)}>关闭</button>

@@ -24,7 +24,7 @@ export interface DataTableProps<T> {
   loading?: boolean
   emptyText?: string
   onRowClick?: (row: T) => void
-  rowKey: string
+  rowKey: string | ((row: T) => string)
   searchPlaceholder?: string
   backendPagination?: BackendPagination
 }
@@ -185,7 +185,7 @@ export function DataTable<T extends Record<string, unknown>>({
             ) : (
               paged.map(row => (
                 <tr
-                  key={String(row[rowKey])}
+                  key={typeof rowKey === 'function' ? rowKey(row) : String(row[rowKey])}
                   className={`table-row ${onRowClick ? 'cursor-pointer' : ''}`}
                   onClick={() => onRowClick?.(row)}
                 >

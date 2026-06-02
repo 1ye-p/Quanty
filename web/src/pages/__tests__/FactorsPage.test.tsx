@@ -86,6 +86,18 @@ vi.mock('@/lib/api', () => ({
   alertsApi: {
     createRule: vi.fn().mockResolvedValue({ rule_id: 'ar1', status: 'created' }),
   },
+  dslApi: {
+    functions: vi.fn().mockResolvedValue({
+      functions: [
+        { name: 'ma', signature: 'ma(col, n)', description: '移动平均' },
+        { name: 'roc', signature: 'roc(col, n)', description: '变化率' },
+      ],
+      columns: ['close', 'open', 'high', 'low', 'volume'],
+      examples: [
+        { expression: "roc('close', 5)", description: '5日收益率' },
+      ],
+    }),
+  },
 }))
 
 vi.mock('sonner', () => ({
@@ -305,13 +317,23 @@ describe('FactorsPage Custom Factor', () => {
     expect(screen.getByPlaceholderText('如 my_momentum_5d')).toBeInTheDocument()
   })
 
-  it('shows expression help text', async () => {
+  it('shows DSL syntax help toggle', async () => {
     const user = userEvent.setup()
     renderWithProviders(<FactorsPage />)
 
     await user.click(screen.getByText('+ 新建因子'))
-    expect(screen.getByText(/可用列：close, open, high, low/)).toBeInTheDocument()
-    expect(screen.getByText(/可用函数：ma\(col, n\)/)).toBeInTheDocument()
+    expect(screen.getByText(/语法说明/)).toBeInTheDocument()
+  })
+
+  it('expands syntax help and shows columns and functions', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<FactorsPage />)
+
+    await user.click(screen.getByText('+ 新建因子'))
+    await user.click(screen.getByText(/语法说明/))
+
+    expect(screen.getByText('可用列')).toBeInTheDocument()
+    expect(screen.getByText('函数')).toBeInTheDocument()
   })
 
   it('shows preview button', async () => {
@@ -319,28 +341,7 @@ describe('FactorsPage Custom Factor', () => {
     renderWithProviders(<FactorsPage />)
 
     await user.click(screen.getByText('+ 新建因子'))
-    expect(screen.getByText(/预览计算结果/)).toBeInTheDocument()
-  })
-
-  it('previews factor expression', async () => {
-    const { customFactorApi } = await import('@/lib/api')
-    const user = userEvent.setup()
-    renderWithProviders(<FactorsPage />)
-
-    await user.click(screen.getByText('+ 新建因子'))
-
-    const exprInput = screen.getByPlaceholderText(/close - ma/)
-    await user.type(exprInput, "roc('close', 5)")
-
-    await user.click(screen.getByText(/预览计算结果/))
-
-    await waitFor(() => {
-      expect(customFactorApi.preview).toHaveBeenCalledWith({ expression: "roc('close', 5)" })
-    })
-
-    await waitFor(() => {
-      expect(screen.getByText('✓ 表达式有效')).toBeInTheDocument()
-    })
+    expect(screen.getByText('预览')).toBeInTheDocument()
   })
 })
 

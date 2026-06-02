@@ -781,7 +781,7 @@ export function BacktestsPage() {
 
               <DataTable
                 data={(fillsData?.items ?? []) as unknown as Record<string, unknown>[]}
-                rowKey="trade_date"
+                rowKey={(r) => `${r.trade_date}_${r.asset_id}_${r.order_idx ?? ''}`}
                 pageSize={fillsPageSize}
                 emptyText="暂无交易记录"
                 backendPagination={fillsData ? {

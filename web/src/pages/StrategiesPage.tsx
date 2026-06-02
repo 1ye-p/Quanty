@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { strategiesApi, backtestsApi, datasetsApi, riskApi, mlApi } from '@/lib/api'
@@ -939,10 +939,13 @@ export function StrategiesPage() {
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const [, setShowVersions] = useState(false)
   const [configText, setConfigText] = useState(DEFAULT_CONFIG)
+  const configTextRef = useRef(configText)
+  configTextRef.current = configText
   const [newId, setNewId] = useState('')
   const [backtestStrategyId, setBacktestStrategyId] = useState<string | null>(null)
   const [backtestConfigText, setBacktestConfigText] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [rollbackTarget, setRollbackTarget] = useState<string | null>(null)
   const [configError, setConfigError] = useState<string | null>(null)
   const [strategyIdError, setStrategyIdError] = useState<string | null>(null)
   const [editorMode, setEditorMode] = useState<'json' | 'builder'>('json')
@@ -993,7 +996,7 @@ export function StrategiesPage() {
     const strategyType = searchParams.get('strategy_type')
     if (mlModel && strategyType === 'MLModelStrategy') {
       try {
-        const config = JSON.parse(configText)
+        const config = JSON.parse(configTextRef.current)
         config.strategy_type = 'MLModelStrategy'
         config.model_id = mlModel
         config.feature_set_version = searchParams.get('feature_set_version') || ''
@@ -1171,10 +1174,7 @@ export function StrategiesPage() {
               <div className="mx-4 mb-3 border-t pt-3">
                 <VersionHistoryPanel
                   versions={versions?.items ?? []}
-                  onRollback={(versionId) => {
-                    if (!confirm('回滚到此版本？')) return
-                    rollbackMutation.mutate(versionId)
-                  }}
+                  onRollback={(versionId) => setRollbackTarget(versionId)}
                 />
               </div>
             )}
@@ -1245,6 +1245,18 @@ export function StrategiesPage() {
           if (deleteTarget) deleteMutation.mutate(deleteTarget)
         }}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={rollbackTarget !== null}
+        title="确认回滚版本"
+        message="确定回滚到此版本？当前配置将被覆盖。"
+        confirmLabel="回滚"
+        onConfirm={() => {
+          if (rollbackTarget) rollbackMutation.mutate(rollbackTarget)
+          setRollbackTarget(null)
+        }}
+        onCancel={() => setRollbackTarget(null)}
       />
     </div>
   )
