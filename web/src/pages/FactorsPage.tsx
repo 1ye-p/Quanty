@@ -521,6 +521,33 @@ export function FactorsPage() {
                   <p className="text-xs text-gray-400 mt-2 text-center">
                     蓝色 = 正相关，橙红 = 负相关，颜色越深相关度越高
                   </p>
+                  <div className="flex justify-center mt-2">
+                    <button
+                      className="btn-secondary text-xs"
+                      onClick={() => {
+                        if (!corrMatrix) return
+                        const header = ['', ...corrMatrix.factors].join(',')
+                        const rows = corrMatrix.factors.map(f1 => {
+                          const vals = corrMatrix.factors.map(f2 => {
+                            const cell = corrMatrix.matrix.find(c => c.factor_a === f1 && c.factor_b === f2)
+                            return cell?.correlation?.toFixed(4) ?? ''
+                          })
+                          return [f1, ...vals].join(',')
+                        })
+                        const csv = [header, ...rows].join('\n')
+                        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `factor_correlation_${new Date().toISOString().slice(0, 10)}.csv`
+                        a.click()
+                        URL.revokeObjectURL(url)
+                        toast.success('相关性矩阵已下载')
+                      }}
+                    >
+                      下载 CSV
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

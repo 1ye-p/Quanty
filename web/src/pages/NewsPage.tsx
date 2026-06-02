@@ -39,6 +39,7 @@ export function NewsPage() {
   const [source, setSource] = useState('')
   const [eventType, setEventType] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   const params: Record<string, string> = {}
   if (source) params.source = source
@@ -86,11 +87,15 @@ export function NewsPage() {
           <h2 className="font-semibold text-gray-800 mb-3">情绪趋势（近30天）</h2>
           {(() => {
             const data = [...stats!.daily_sentiment].reverse()  // 时间正序
-            // 计算7日滚动均值
+            // 计算7日/30日滚动均值
             const with7d = data.map((d, i) => {
-              const win = data.slice(Math.max(0, i - 6), i + 1)
-              const avg7d = win.reduce((s, r) => s + r.avg_sentiment, 0) / win.length
-              return { ...d, avg_7d: Number(avg7d.toFixed(4)) }
+              const win7 = data.slice(Math.max(0, i - 6), i + 1)
+              const win30 = data.slice(Math.max(0, i - 29), i + 1)
+              return {
+                ...d,
+                avg_7d: Number((win7.reduce((s, r) => s + r.avg_sentiment, 0) / win7.length).toFixed(4)),
+                avg_30d: Number((win30.reduce((s, r) => s + r.avg_sentiment, 0) / win30.length).toFixed(4)),
+              }
             })
             return (
               <ResponsiveContainer width="100%" height={160}>
@@ -107,8 +112,24 @@ export function NewsPage() {
                     tickFormatter={v => v.toFixed(1)}
                   />
                   <Tooltip
-                    formatter={(v: number, name: string) => [v.toFixed(4), name]}
-                    labelFormatter={v => `日期: ${v}`}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null
+                      const d = payload[0].payload as { date: string; avg_sentiment: number; avg_7d: number; avg_30d: number }
+                      return (
+                        <div
+                          className="bg-white border rounded-lg shadow-lg px-3 py-2 text-xs cursor-pointer"
+                          onClick={() => setSelectedDate(selectedDate === d.date ? null : d.date)}
+                        >
+                          <div className="font-medium mb-1">📅 {d.date}{selectedDate === d.date ? ' ✓' : ''}</div>
+                          {payload.map((p) => (
+                            <div key={String(p.dataKey)} className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color ?? undefined }} />
+                              <span>{p.name}: {Number(p.value).toFixed(4)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    }}
                   />
                   <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
                   <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
@@ -128,6 +149,15 @@ export function NewsPage() {
                     dot={false}
                     strokeWidth={2}
                   />
+                  <Line
+                    type="monotone"
+                    dataKey="avg_30d"
+                    name="30日均线"
+                    stroke="#f59e0b"
+                    dot={false}
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                  />
                 </LineChart>
               </ResponsiveContainer>
             )
@@ -138,8 +168,120 @@ export function NewsPage() {
         </div>
       )}
 
+      {/* 情绪热力图 */}
+      {stats?.daily_sentiment && stats.daily_sentiment.length > 0 && (() => {
+        const sorted = [...stats!.daily_sentiment].reverse() // 时间正序
+        // 建立 date → sentiment 映射
+        const sentimentMap = new Map(sorted.map(d => [d.date, d.avg_sentiment]))
+
+        // 按周分组（周日=0 ... 周六=6）
+        const weeks: { date: string; sentiment: number | null }[][] = []
+        if (sorted.length > 0) {
+          const firstDate = new Date(sorted[0].date + 'T00:00:00')
+          // 回溯到当周周日
+          const start = new Date(firstDate)
+          start.setDate(start.getDate() - start.getDay())
+
+          const lastDate = new Date(sorted[sorted.length - 1].date + 'T00:00:00')
+          const end = new Date(lastDate)
+          end.setDate(end.getDate() + (6 - end.getDay()))
+
+          const cur = new Date(start)
+          let week: { date: string; sentiment: number | null }[] = []
+          while (cur <= end) {
+            const ds = cur.toISOString().slice(0, 10)
+            week.push({ date: ds, sentiment: sentimentMap.get(ds) ?? null })
+            if (week.length === 7) {
+              weeks.push(week)
+              week = []
+            }
+            cur.setDate(cur.getDate() + 1)
+          }
+          if (week.length > 0) weeks.push(week)
+        }
+
+        const dayLabels = ['日', '一', '二', '三', '四', '五', '六']
+
+        return (
+          <div className="card mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-gray-800">情绪日历</h2>
+              {selectedDate && (
+                <button
+                  className="text-xs text-blue-600 hover:underline"
+                  onClick={() => setSelectedDate(null)}
+                >
+                  清除过滤：{selectedDate}
+                </button>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="text-xs border-collapse">
+                <thead>
+                  <tr>
+                    <th className="w-6" />
+                    {weeks.map((_, wi) => (
+                      <th key={wi} className="w-5 text-center text-gray-400 font-normal px-px">
+                        {wi % 2 === 0 ? '' : ''}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {dayLabels.map((label, di) => (
+                    <tr key={di}>
+                      <td className="text-gray-400 text-right pr-1 text-[10px] leading-4">{label}</td>
+                      {weeks.map((week, wi) => {
+                        const cell = week[di]
+                        if (!cell) return <td key={wi} className="px-px py-px"><div className="w-4 h-4" /></td>
+                        const v = cell.sentiment
+                        const bg = v === null
+                          ? '#f3f4f6'
+                          : v >= 0
+                            ? `rgba(34, 197, 94, ${Math.min(v, 1) * 0.8})`
+                            : `rgba(239, 68, 68, ${Math.min(-v, 1) * 0.8})`
+                        const isSelected = selectedDate === cell.date
+                        return (
+                          <td key={wi} className="px-px py-px">
+                            <div
+                              className={`w-4 h-4 rounded-sm cursor-pointer border ${isSelected ? 'border-blue-600 border-2' : 'border-transparent'}`}
+                              style={{ backgroundColor: bg }}
+                              title={`${cell.date}: ${v !== null ? v.toFixed(3) : '无数据'}`}
+                              onClick={() => setSelectedDate(selectedDate === cell.date ? null : cell.date)}
+                            />
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center gap-2 mt-2 text-[10px] text-gray-400">
+              <span>负面</span>
+              <div className="flex gap-0.5">
+                {[-0.8, -0.4, 0, 0.4, 0.8].map(v => (
+                  <div
+                    key={v}
+                    className="w-3 h-3 rounded-sm"
+                    style={{
+                      backgroundColor: v === 0
+                        ? '#f3f4f6'
+                        : v > 0
+                          ? `rgba(34, 197, 94, ${Math.min(v, 1) * 0.8})`
+                          : `rgba(239, 68, 68, ${Math.min(-v, 1) * 0.8})`,
+                    }}
+                  />
+                ))}
+              </div>
+              <span>正面</span>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Filters */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 items-center">
         <select className="input max-w-[160px]" value={source} onChange={e => setSource(e.target.value)}>
           <option value="">全部来源</option>
           {sources.map(s => <option key={s} value={s}>{s}</option>)}
@@ -148,6 +290,12 @@ export function NewsPage() {
           <option value="">全部类型</option>
           {eventTypes.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
+        {selectedDate && (
+          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded flex items-center gap-1">
+            日期: {selectedDate}
+            <button onClick={() => setSelectedDate(null)} className="hover:text-blue-800">✕</button>
+          </span>
+        )}
       </div>
 
       {isLoading && <p className="text-gray-400">Loading…</p>}
@@ -156,7 +304,7 @@ export function NewsPage() {
         {!data?.items.length && !isLoading && (
           <div className="text-center text-gray-400 py-12">暂无新闻数据，请先运行 newsflow 接入</div>
         )}
-        {data?.items.map((item: NewsEvent) => (
+        {(selectedDate ? (data?.items ?? []).filter((item: NewsEvent) => item.published_at?.startsWith(selectedDate)) : data?.items ?? []).map((item: NewsEvent) => (
           <div key={item.event_id} className="card cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => setExpanded(expanded === item.event_id ? null : item.event_id)}>
             <div className="flex items-start gap-3">
