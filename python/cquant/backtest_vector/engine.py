@@ -120,6 +120,118 @@ class VectorBacktestEngine:
     requiring vectorbt.  A vectorbt adapter will be added in a subsequent step.
     """
 
+    def _compute_expected_returns(
+        self,
+        signals: pl.DataFrame,
+        prices: pl.DataFrame,
+        td: date,
+        ml_predictions: dict[str, float] | None = None,
+        lookback: int = 60,
+    ) -> dict[str, float]:
+        """Compute expected returns for signal assets.
+
+        Priority order:
+          1. ML predictions (if provided) — highest fidelity.
+          2. Historical annualized return over the lookback window.
+          3. Strength-based fallback (strength * 0.05).
+
+        Parameters
+        ----------
+        signals:
+            DataFrame with at least ``[asset_id, strength]`` columns.
+        prices:
+            DataFrame with ``[asset_id, trade_date, close]`` columns.
+        td:
+            As-of date; only price data on or before this date is used.
+        ml_predictions:
+            Optional mapping ``{asset_id: expected_annual_return}``.
+        lookback:
+            Number of most-recent trading days to use for historical return.
+
+        Returns
+        -------
+        dict[str, float]
+            Mapping ``{asset_id: expected_annual_return}``.
+        """
+        asset_ids = signals["asset_id"].to_list()
+
+        # --- Layer 1: ML predictions ---
+        if ml_predictions:
+            result = {aid: ml_predictions[aid] for aid in asset_ids if aid in ml_predictions}
+            if len(result) == len(asset_ids):
+                return result
+        else:
+            result = {}
+
+        # --- Layer 2: Historical annualized returns ---
+        missing = [aid for aid in asset_ids if aid not in result]
+        if missing:
+            hist = prices.filter(
+                (pl.col("asset_id").is_in(missing)) & (pl.col("trade_date") <= td)
+            ).sort(["asset_id", "trade_date"])
+
+            unique_dates = sorted(hist["trade_date"].unique().to_list())
+            if len(unique_dates) >= 10:
+                cutoff = unique_dates[-min(lookback, len(unique_dates))]
+                hist = hist.filter(pl.col("trade_date") >= cutoff)
+
+                returns = (
+                    hist.group_by("asset_id")
+                    .agg([
+                        (pl.col("close").last() / pl.col("close").first() - 1).alias("raw_return"),
+                        pl.col("trade_date").n_unique().alias("days"),
+                    ])
+                    .with_columns(
+                        (pl.col("raw_return") * 252 / pl.col("days")).alias("annualized_return")
+                    )
+                )
+                for row in returns.iter_rows(named=True):
+                    result[row["asset_id"]] = float(row["annualized_return"])
+
+        # --- Layer 3: Strength-based fallback ---
+        for aid in asset_ids:
+            if aid not in result:
+                strength = float(signals.filter(pl.col("asset_id") == aid)["strength"].item())
+                result[aid] = strength * 0.05
+
+        return result
+
+    def _compute_covariance(
+        self,
+        asset_ids: list[str],
+        prices: pl.DataFrame,
+        td: date,
+    ) -> dict[str, dict[str, float]]:
+        """Compute annualized covariance matrix for the given assets.
+
+        Delegates to :class:`CovarianceEstimator` (historical method, 252-day
+        window, min 10 periods).  Returns a square nested dict covering only
+        the requested *asset_ids*.
+
+        Parameters
+        ----------
+        asset_ids:
+            Assets to include in the covariance matrix.
+        prices:
+            DataFrame with ``[asset_id, trade_date, close]`` columns.
+        td:
+            As-of date; only data on or before this date is used.
+
+        Returns
+        -------
+        dict[str, dict[str, float]]
+            ``{asset_id_a: {asset_id_b: cov_value}}``.
+        """
+        from cquant.portfolio_opt.covariance import CovarianceEstimator
+
+        estimator = CovarianceEstimator(method="historical", window=252, min_periods=10)
+        full_cov = estimator.estimate(prices, as_of_date=td)
+
+        return {
+            a: {b: full_cov.get(a, {}).get(b, 0.0) for b in asset_ids}
+            for a in asset_ids
+        }
+
     def run(self, spec: BacktestSpec) -> BacktestResult:
         """Execute a vectorized backtest according to *spec*."""
         run_id = str(uuid.uuid4())
@@ -213,17 +325,15 @@ class VectorBacktestEngine:
                 weights_dict = {aid: 1.0 / n for aid in active_assets} if n else {}
 
             # Apply portfolio optimizer if set (overrides sizer weights)
-            # PLACEHOLDER: Uses proxy data (signal-scaled returns, uniform diagonal
-            # covariance). For real mean-variance optimization, replace with actual
-            # expected returns from ML predictions and covariance from CovarianceEstimator.
             if spec.optimizer is not None and weights_dict:
                 try:
-                    expected_returns = {k: float(v) * 0.10 for k, v in weights_dict.items()}
-                    _var = (0.20 ** 2) / 252  # daily variance from 20% annual vol
-                    covariance = {
-                        a: {b: _var if a == b else 0.0 for b in weights_dict}
-                        for a in weights_dict
-                    }
+                    expected_returns = self._compute_expected_returns(
+                        signals, prices, td,
+                        ml_predictions=spec.extra.get("ml_predictions"),
+                    )
+                    covariance = self._compute_covariance(
+                        list(weights_dict.keys()), prices, td,
+                    )
                     opt_result = spec.optimizer.optimize(expected_returns, covariance)
                     if opt_result.weights:
                         weights_dict = opt_result.weights
