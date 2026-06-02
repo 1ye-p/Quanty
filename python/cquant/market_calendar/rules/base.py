@@ -3,10 +3,20 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
+from cquant.core.enums import TradabilityReason
 from cquant.core.types import Asset
+
+
+@dataclass
+class TradabilityResult:
+    """综合可交易性检查结果"""
+    tradable: bool
+    reason: TradabilityReason
+    message: str = ""
 
 
 class TradingRules(ABC):

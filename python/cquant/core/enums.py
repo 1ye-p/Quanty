@@ -100,6 +100,26 @@ class AdjMethod(str, Enum):
     NONE = "none"            # Raw unadjusted prices
 
 
+class LimitStatus(str, Enum):
+    """涨跌停状态"""
+    NONE = "none"
+    UP = "up"
+    DOWN = "down"
+    YIZI_UP = "yizi_up"      # 一字涨停（开盘=收盘=最高=最低=涨停价）
+    YIZI_DOWN = "yizi_down"  # 一字跌停
+
+
+class TradabilityReason(str, Enum):
+    """不可交易原因"""
+    TRADABLE = "tradable"
+    SUSPENDED = "suspended"
+    LIMIT_UP = "limit_up"
+    LIMIT_DOWN = "limit_down"
+    YIZI_LIMIT = "yizi_limit"
+    DELISTED = "delisted"
+    NOT_TRADING_DAY = "not_trading_day"
+
+
 class RiskDecisionType(str, Enum):
     APPROVED = "approved"
     CLIPPED = "clipped"      # Quantity reduced but order allowed
