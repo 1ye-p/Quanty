@@ -1,0 +1,29 @@
+market: CN
+name: A股
+
+price_limits:
+  main_board: { up: 0.10, down: 0.10 }
+  st: { up: 0.05, down: 0.05 }
+  chinext: { up: 0.20, down: 0.20 }
+  star: { up: 0.20, down: 0.20 }
+  ipo_first_days: 5
+
+settlement: T+1
+lot_size: 100
+tick_size: 0.01
+
+adjustment:
+  default: forward
+  options: [forward, backward, none]
+
+data_source:
+  primary: tushare
+  fallback: akshare
+  cache_table: market_status_cache
+  rate_limit:
+    tushare: { qps: 200, burst: 50 }
+    akshare: { qps: 10, burst: 5 }
+
+derivation:
+  limit_tolerance: 0.99
+  delist_suspend_days: 30
