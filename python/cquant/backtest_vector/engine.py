@@ -189,10 +189,12 @@ class VectorBacktestEngine:
                     result[row["asset_id"]] = float(row["annualized_return"])
 
         # --- Layer 3: Strength-based fallback ---
+        # strength is in [0, 1]; map to 0~5% annualized return as a soft prior
+        STRENGTH_ANNUALIZED_SCALE = 0.05
         for aid in asset_ids:
             if aid not in result:
                 strength = float(signals.filter(pl.col("asset_id") == aid)["strength"].item())
-                result[aid] = strength * 0.05
+                result[aid] = strength * STRENGTH_ANNUALIZED_SCALE
 
         return result
 
@@ -224,11 +226,15 @@ class VectorBacktestEngine:
         """
         from cquant.portfolio_opt.covariance import CovarianceEstimator
 
+        # Pre-filter to requested assets only — avoids O(N²) computation on full universe
+        id_set = set(asset_ids)
+        prices_filtered = prices.filter(pl.col("asset_id").is_in(id_set))
+
         estimator = CovarianceEstimator(method="historical", window=252, min_periods=10)
-        full_cov = estimator.estimate(prices, as_of_date=td)
+        cov = estimator.estimate(prices_filtered, as_of_date=td)
 
         return {
-            a: {b: full_cov.get(a, {}).get(b, 0.0) for b in asset_ids}
+            a: {b: cov.get(a, {}).get(b, 0.0) for b in asset_ids}
             for a in asset_ids
         }
 
@@ -338,7 +344,7 @@ class VectorBacktestEngine:
                     if opt_result.weights:
                         weights_dict = opt_result.weights
                 except Exception as _exc:
-                    logger.debug("Optimizer skipped for %s: %s", td, _exc)
+                    logger.warning("Optimizer skipped for %s: %s", td, _exc)
 
             # Apply risk policies if configured
             if spec.risk_policies and weights_dict:
