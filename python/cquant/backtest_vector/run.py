@@ -14,6 +14,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
+import numpy as np
 import polars as pl
 
 from cquant.backtest_vector.costs import CostModel
@@ -149,6 +150,97 @@ class StaticTopNStrategy(Strategy):
         ])
 
 
+def _compute_beta(
+    portfolio_returns: list[float],
+    benchmark_returns: list[float],
+    window: int = 60,
+) -> float | None:
+    """Compute rolling beta from portfolio and benchmark returns."""
+    if len(portfolio_returns) < window or len(benchmark_returns) < window:
+        return None
+    port = np.array(portfolio_returns[-window:])
+    bench = np.array(benchmark_returns[-window:])
+    cov_matrix = np.cov(port, bench)
+    var = cov_matrix[1][1]
+    return float(cov_matrix[0][1] / var) if var > 0 else None
+
+
+def _compute_sector_exposure(
+    positions_on_date: pl.DataFrame,
+    sector_map: dict[str, str],
+) -> dict[str, float]:
+    """Compute sector exposure from positions and sector map."""
+    if positions_on_date.is_empty() or not sector_map:
+        return {}
+    exposure: dict[str, float] = {}
+    for row in positions_on_date.iter_rows(named=True):
+        sector = sector_map.get(row["asset_id"], "Unknown")
+        exposure[sector] = exposure.get(sector, 0.0) + abs(row["target_weight"])
+    return exposure
+
+
+def _detect_drawdown_periods(
+    nav_series: list[tuple],
+) -> list[dict]:
+    """Detect drawdown periods from NAV time series."""
+    if len(nav_series) < 2:
+        return []
+
+    periods = []
+    peak_nav = nav_series[0][1]
+    peak_date = nav_series[0][0]
+    in_drawdown = False
+    trough_nav = peak_nav
+    trough_date = peak_date
+    dd_start_date = None
+
+    for i, (td, nav) in enumerate(nav_series):
+        if i == 0:
+            # Initialize with first point
+            peak_nav = nav
+            peak_date = td
+            continue
+
+        if nav >= peak_nav:
+            if in_drawdown:
+                recovery_days = (td - dd_start_date).days
+                periods.append({
+                    "start_date": dd_start_date,
+                    "trough_date": trough_date,
+                    "recovery_date": td,
+                    "max_drawdown": (trough_nav - peak_nav) / peak_nav,
+                    "duration_days": (td - dd_start_date).days,
+                    "recovery_days": recovery_days,
+                    "underwater_days": (td - dd_start_date).days,
+                })
+                in_drawdown = False
+            peak_nav = nav
+            peak_date = td
+        else:
+            if not in_drawdown:
+                dd_start_date = td
+                trough_nav = nav
+                trough_date = td
+                in_drawdown = True
+            elif nav < trough_nav:
+                trough_nav = nav
+                trough_date = td
+
+    if in_drawdown:
+        last_date = nav_series[-1][0]
+        periods.append({
+            "start_date": dd_start_date,
+            "trough_date": trough_date,
+            "recovery_date": None,
+            "max_drawdown": (trough_nav - peak_nav) / peak_nav,
+            "duration_days": (last_date - dd_start_date).days,
+            "recovery_days": -1,
+            "underwater_days": (last_date - dd_start_date).days,
+        })
+
+    return periods
+
+
 class BacktestRunner:
     """Run backtests with data from DuckDB and persist results.
 
@@ -208,6 +300,8 @@ class BacktestRunner:
         self._persist_signals(result, run_id, spec)
         self._persist_fills(result, run_id)
         self._persist_positions(result, run_id)
+        self._persist_rolling_risk_metrics(result, run_id)
+        self._persist_drawdown_periods(result, run_id)
         self._persist_portfolio_snapshots(result, run_id)
         self._persist_risk_snapshots(result, run_id)
         if result.pretrade_decisions:
@@ -519,6 +613,8 @@ class BacktestRunner:
         self._persist_signals(result, run_id, persist_spec)
         self._persist_fills(result, run_id)
         self._persist_positions(result, run_id)
+        self._persist_rolling_risk_metrics(result, run_id)
+        self._persist_drawdown_periods(result, run_id)
         self._persist_portfolio_snapshots(result, run_id)
         self._persist_risk_snapshots(result, run_id)
         if result.pretrade_decisions:
@@ -1018,22 +1114,42 @@ class BacktestRunner:
         if result.portfolio_returns.is_empty():
             return
 
-        import numpy as np
+        # Get benchmark returns for beta calculation
+        benchmark_returns: list[float] = []
+        if result.spec.benchmark_asset_id and not result.spec.prices.is_empty():
+            bench_prices = result.spec.prices.filter(
+                pl.col("asset_id") == result.spec.benchmark_asset_id
+            ).sort("trade_date")
+            if len(bench_prices) >= 2:
+                closes = bench_prices["close"].to_list()
+                benchmark_returns = [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes))]
 
-        # Create a risk snapshot per trade date from portfolio returns
+        # Get sector map
+        sector_map = result.spec.extra.get("sector_map", {}) if hasattr(result.spec, 'extra') and result.spec.extra else {}
+
+        # Build per-date positions lookup
+        positions_by_date: dict = {}
+        if not result.positions.is_empty():
+            for td in result.positions["trade_date"].unique().to_list():
+                positions_by_date[td] = result.positions.filter(pl.col("trade_date") == td)
+
         snapshots = []
         nav = float(result.spec.initial_cash)
         peak_nav = nav
         all_returns: list[float] = []
+        bench_returns_so_far: list[float] = []
 
         for i, row in enumerate(result.portfolio_returns.iter_rows(named=True)):
             ret = row.get("portfolio_return", 0.0) or 0.0
             all_returns.append(ret)
+            if i < len(benchmark_returns):
+                bench_returns_so_far.append(benchmark_returns[i])
+
             nav *= (1 + ret)
             peak_nav = max(peak_nav, nav)
             dd = (nav - peak_nav) / peak_nav if peak_nav > 0 else 0.0
 
-            # Compute VaR/CVaR from returns up to this point
+            # VaR/CVaR
             var_95 = None
             cvar_95 = None
             if len(all_returns) > 1:
@@ -1043,18 +1159,38 @@ class BacktestRunner:
                 var_95 = float(sorted_rets[var_idx])
                 cvar_95 = float(np.mean(sorted_rets[:var_idx + 1])) if var_idx > 0 else var_95
 
+            td = row["trade_date"]
+
+            # Real leverage from positions
+            gross_lev = 1.0
+            net_lev = 1.0
+            if td in positions_by_date:
+                pos = positions_by_date[td]
+                weights = pos["target_weight"].to_list()
+                gross_lev = sum(abs(w) for w in weights)
+                net_lev = sum(weights)
+
+            # Real beta
+            beta = _compute_beta(all_returns, bench_returns_so_far, window=60)
+
+            # Real sector exposure
+            sec_exp = None
+            if td in positions_by_date and sector_map:
+                exp = _compute_sector_exposure(positions_by_date[td], sector_map)
+                sec_exp = exp if exp else None
+
             snapshots.append({
-                "snapshot_id": f"{run_id}_{row['trade_date']}",
+                "snapshot_id": f"{run_id}_{td}",
                 "run_id": run_id,
-                "snapshot_ts": f"{row['trade_date']}T15:00:00Z",
+                "snapshot_ts": f"{td}T15:00:00Z",
                 "strategy_id": result.strategy_id,
-                "gross_leverage": 1.0,
-                "net_leverage": 1.0,
-                "beta": None,
+                "gross_leverage": gross_lev,
+                "net_leverage": net_lev,
+                "beta": beta,
                 "drawdown": dd,
                 "var_95": var_95,
                 "cvar_95": cvar_95,
-                "sector_exposure": None,
+                "sector_exposure": sec_exp,
                 "factor_exposure": None,
             })
 
@@ -1084,6 +1220,120 @@ class BacktestRunner:
             logger.info("Persisted %d risk snapshots", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist risk snapshots: %s", exc)
+
+    def _persist_rolling_risk_metrics(self, result, run_id: str) -> None:
+        """Compute and persist rolling risk metrics for multiple windows."""
+        if result.portfolio_returns.is_empty():
+            return
+
+        windows = [20, 60, 252]
+        returns = result.portfolio_returns.sort("trade_date")
+
+        # Get benchmark returns
+        benchmark_returns: list[float] = []
+        if result.spec.benchmark_asset_id and not result.spec.prices.is_empty():
+            bench_prices = result.spec.prices.filter(
+                pl.col("asset_id") == result.spec.benchmark_asset_id
+            ).sort("trade_date")
+            if len(bench_prices) >= 2:
+                closes = bench_prices["close"].to_list()
+                benchmark_returns = [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes))]
+
+        ret_list = returns["portfolio_return"].to_list()
+        date_list = returns["trade_date"].to_list()
+        rows = []
+
+        for w in windows:
+            for i in range(len(ret_list)):
+                if i < w - 1:
+                    continue
+
+                window_returns = ret_list[i - w + 1: i + 1]
+                rets = np.array(window_returns)
+
+                rolling_var = float(np.percentile(rets, 5))
+                var_mask = rets <= rolling_var
+                rolling_cvar = float(np.mean(rets[var_mask])) if var_mask.any() else rolling_var
+                rolling_vol = float(np.std(rets) * np.sqrt(252))
+                mean_ret = float(np.mean(rets))
+                std_ret = float(np.std(rets))
+                rolling_sharpe = (mean_ret / std_ret * np.sqrt(252)) if std_ret > 0 else 0.0
+
+                rolling_beta = None
+                if len(benchmark_returns) > i:
+                    bench_window = benchmark_returns[i - w + 1: i + 1]
+                    if len(bench_window) == w:
+                        cov_matrix = np.cov(rets, np.array(bench_window))
+                        var_bench = cov_matrix[1][1]
+                        if var_bench > 0:
+                            rolling_beta = float(cov_matrix[0][1] / var_bench)
+
+                rows.append((
+                    run_id, date_list[i], w,
+                    rolling_var, rolling_cvar, rolling_vol,
+                    rolling_sharpe, rolling_beta,
+                ))
+
+        if not rows:
+            return
+
+        conn = self._catalog._get_conn()
+        try:
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO gold_risk_rolling
+                    (run_id, trade_date, window, rolling_var, rolling_cvar,
+                     rolling_vol, rolling_sharpe, rolling_beta)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            logger.info("Persisted %d rolling risk metric rows", len(rows))
+        except Exception as exc:
+            logger.warning("Failed to persist rolling risk metrics: %s", exc)
+
+    def _persist_drawdown_periods(self, result, run_id: str) -> None:
+        """Detect and persist drawdown periods."""
+        if result.portfolio_returns.is_empty():
+            return
+
+        returns = result.portfolio_returns.sort("trade_date")
+        nav_series = list(zip(
+            returns["trade_date"].to_list(),
+            returns["nav"].to_list(),
+        ))
+
+        periods = _detect_drawdown_periods(nav_series)
+        if not periods:
+            return
+
+        conn = self._catalog._get_conn()
+        rows = []
+        for i, p in enumerate(periods):
+            rows.append((
+                run_id, i,
+                p["start_date"].isoformat() if p["start_date"] else None,
+                p["trough_date"].isoformat() if p["trough_date"] else None,
+                p["recovery_date"].isoformat() if p["recovery_date"] else None,
+                p["max_drawdown"],
+                p["duration_days"],
+                p["recovery_days"],
+                p["underwater_days"],
+            ))
+
+        try:
+            conn.executemany(
+                """
+                INSERT OR REPLACE INTO gold_drawdown_periods
+                    (run_id, period_id, start_date, trough_date, recovery_date,
+                     max_drawdown, duration_days, recovery_days, underwater_days)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            logger.info("Persisted %d drawdown periods", len(rows))
+        except Exception as exc:
+            logger.warning("Failed to persist drawdown periods: %s", exc)
 
     def _persist_risk_snapshots(self, result, run_id: str) -> None:
         """Persist portfolio_returns as a Parquet artifact for tearsheet."""

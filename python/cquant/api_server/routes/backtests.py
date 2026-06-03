@@ -608,6 +608,44 @@ async def get_backtest_risk(run_id: str, catalog: CatalogDep, limit: int = 20) -
     return {"items": df.to_dicts(), "total": df.height}
 
 
+@router.get("/{run_id}/risk-rolling")
+async def get_risk_rolling(
+    run_id: str,
+    window: int = 60,
+    catalog: CatalogDep = None,
+) -> dict:
+    """Get rolling risk metrics for a backtest run."""
+    df = catalog.query(
+        "SELECT * FROM gold_risk_rolling WHERE run_id = ? AND window = ? ORDER BY trade_date",
+        [run_id, window],
+    )
+    if df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No rolling risk data for run '{run_id}'")
+    return {
+        "run_id": run_id,
+        "window": window,
+        "data": df.to_dicts(),
+    }
+
+
+@router.get("/{run_id}/drawdowns")
+async def get_drawdowns(
+    run_id: str,
+    catalog: CatalogDep = None,
+) -> dict:
+    """Get drawdown periods for a backtest run."""
+    df = catalog.query(
+        "SELECT * FROM gold_drawdown_periods WHERE run_id = ? ORDER BY period_id",
+        [run_id],
+    )
+    if df.is_empty():
+        return {"run_id": run_id, "periods": []}
+    return {
+        "run_id": run_id,
+        "periods": df.to_dicts(),
+    }
+
+
 @router.get("/{run_id}/tca")
 async def get_backtest_tca(run_id: str, catalog: CatalogDep) -> dict:
     """Get TCA for a backtest run."""

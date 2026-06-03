@@ -34,3 +34,30 @@ CREATE TABLE IF NOT EXISTS gold_bt_multiple_testing (
     accepted                BOOLEAN NOT NULL,
     PRIMARY KEY (analysis_run_id, method)
 );
+
+-- gold_risk_rolling
+CREATE TABLE IF NOT EXISTS gold_risk_rolling (
+    run_id VARCHAR,
+    trade_date DATE,
+    window INTEGER,
+    rolling_var DOUBLE,
+    rolling_cvar DOUBLE,
+    rolling_vol DOUBLE,
+    rolling_sharpe DOUBLE,
+    rolling_beta DOUBLE,
+    PRIMARY KEY (run_id, trade_date, window)
+);
+
+-- gold_drawdown_periods
+CREATE TABLE IF NOT EXISTS gold_drawdown_periods (
+    run_id VARCHAR,
+    period_id INTEGER,
+    start_date DATE,
+    trough_date DATE,
+    recovery_date DATE,
+    max_drawdown DOUBLE,
+    duration_days INTEGER,
+    recovery_days INTEGER,
+    underwater_days INTEGER,
+    PRIMARY KEY (run_id, period_id)
+);
