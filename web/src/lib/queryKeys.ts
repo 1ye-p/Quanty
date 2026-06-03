@@ -19,6 +19,9 @@ export const queryKeys = {
     walkForward: (id: string) => ['backtests', id, 'walk-forward-folds'] as const,
     tca: (id: string) => ['backtests', id, 'tca'] as const,
     attribution: (id: string) => ['backtests', id, 'attribution'] as const,
+    riskRolling: (id: string, window: number) => ['backtests', id, 'risk-rolling', window] as const,
+    drawdowns: (id: string) => ['backtests', id, 'drawdowns'] as const,
+    returnDistribution: (id: string) => ['backtests', id, 'return-distribution'] as const,
   },
   knowledge: {
     all: ['knowledge'] as const,

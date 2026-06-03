@@ -646,6 +646,49 @@ async def get_drawdowns(
     }
 
 
+@router.get("/{run_id}/return-distribution")
+async def get_return_distribution(
+    run_id: str,
+    catalog: CatalogDep,
+    bins: int = 50,
+) -> dict:
+    """Get return distribution histogram data for a backtest run."""
+    import numpy as np
+
+    df = catalog.query(
+        "SELECT portfolio_return FROM gold_portfolio_returns WHERE run_id = ? ORDER BY trade_date",
+        [run_id],
+    )
+    if df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No return data for run '{run_id}'")
+
+    returns = df["portfolio_return"].to_numpy()
+    counts, bin_edges = np.histogram(returns, bins=bins)
+
+    data = []
+    for i in range(len(counts)):
+        data.append({
+            "bin_start": float(bin_edges[i]),
+            "bin_end": float(bin_edges[i + 1]),
+            "count": int(counts[i]),
+            "bin_label": f"{bin_edges[i]:.3f}",
+        })
+
+    return {
+        "run_id": run_id,
+        "bins": bins,
+        "data": data,
+        "stats": {
+            "mean": float(np.mean(returns)),
+            "std": float(np.std(returns)),
+            "skewness": float(np.mean(((returns - np.mean(returns)) / np.std(returns)) ** 3)),
+            "kurtosis": float(np.mean(((returns - np.mean(returns)) / np.std(returns)) ** 4)),
+            "min": float(np.min(returns)),
+            "max": float(np.max(returns)),
+        },
+    }
+
+
 @router.get("/{run_id}/tca")
 async def get_backtest_tca(run_id: str, catalog: CatalogDep) -> dict:
     """Get TCA for a backtest run."""

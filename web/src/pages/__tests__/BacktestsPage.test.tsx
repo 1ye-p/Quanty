@@ -4,6 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { BacktestsPage } from '../BacktestsPage'
 
+// Mock ResizeObserver for recharts ResponsiveContainer
+globalThis.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 vi.mock('@/lib/api', () => ({
   backtestsApi: {
     list: vi.fn().mockResolvedValue({
@@ -75,6 +82,30 @@ vi.mock('@/lib/api', () => ({
         '金融': { port_weight: 0.3, bench_weight: 0.25, port_return: 0.08, bench_return: 0.06 },
         '科技': { port_weight: 0.4, bench_weight: 0.35, port_return: 0.12, bench_return: 0.10 },
       },
+    }),
+    getRiskRolling: vi.fn().mockResolvedValue({
+      run_id: 'run-abc-123',
+      window: 60,
+      data: [
+        { trade_date: '2025-01-01', var_95: -0.02, cvar_95: -0.03, volatility: 0.15, sharpe_ratio: 1.1, drawdown: -0.01 },
+        { trade_date: '2025-01-02', var_95: -0.025, cvar_95: -0.035, volatility: 0.16, sharpe_ratio: 1.05, drawdown: -0.015 },
+      ],
+    }),
+    getDrawdowns: vi.fn().mockResolvedValue({
+      run_id: 'run-abc-123',
+      periods: [
+        { period_id: 1, peak_date: '2025-01-15', trough_date: '2025-01-20', recovery_date: '2025-01-25', max_drawdown: -0.05, duration_days: 10 },
+      ],
+    }),
+    getReturnDistribution: vi.fn().mockResolvedValue({
+      run_id: 'run-abc-123',
+      bins: 50,
+      data: [
+        { bin_start: -0.02, bin_end: -0.01, count: 5, bin_label: '-0.020' },
+        { bin_start: -0.01, bin_end: 0.0, count: 10, bin_label: '-0.010' },
+        { bin_start: 0.0, bin_end: 0.01, count: 15, bin_label: '0.000' },
+      ],
+      stats: { mean: 0.001, std: 0.015, skewness: -0.3, kurtosis: 3.2, min: -0.05, max: 0.04 },
     }),
   },
   backtestExtApi: {
@@ -194,6 +225,16 @@ describe('BacktestsPage', () => {
       expect(screen.getByText('行业归因明细')).toBeInTheDocument()
       expect(screen.getByText('金融')).toBeInTheDocument()
       expect(screen.getByText('科技')).toBeInTheDocument()
+    })
+  })
+
+  it('shows risk analysis tab', async () => {
+    renderWithProviders(<BacktestsPage />)
+    await waitFor(() => { expect(screen.getByText(/run-abc-/)).toBeInTheDocument() })
+    fireEvent.click(screen.getByText(/run-abc-/))
+    await waitFor(() => { fireEvent.click(screen.getByText('风险分析')) })
+    await waitFor(() => {
+      expect(screen.getByText('滚动 VaR / CVaR')).toBeInTheDocument()
     })
   })
 })

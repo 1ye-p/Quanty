@@ -241,6 +241,12 @@ export const backtestsApi = {
     request<Record<string, unknown>>(`/backtests/${id}/tca`),
   getAttribution: (id: string) =>
     request<Record<string, unknown>>(`/backtests/${id}/attribution`),
+  getRiskRolling: (id: string, window = 60) =>
+    request<Record<string, unknown>>(`/backtests/${id}/risk-rolling?window=${window}`),
+  getDrawdowns: (id: string) =>
+    request<Record<string, unknown>>(`/backtests/${id}/drawdowns`),
+  getReturnDistribution: (id: string, bins = 50) =>
+    request<Record<string, unknown>>(`/backtests/${id}/return-distribution?bins=${bins}`),
 }
 
 // ── Knowledge base ────────────────────────────────────────────────────────────

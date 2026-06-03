@@ -10,7 +10,7 @@ import { PnLChart, type PnLDataPoint } from '@/components/charts/PnLChart'
 import {
   BarChart, Bar, LineChart, Line, Legend,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
-  Cell, ReferenceLine
+  Cell, ReferenceLine, CartesianGrid, AreaChart, Area
 } from 'recharts'
 
 function marketLabel(m?: string) {
@@ -23,7 +23,7 @@ function rebalanceLabel(r?: string) {
   return { '1d': '每日', '5d': '每周', '20d': '每月' }[r ?? '1d'] ?? r ?? '每日'
 }
 
-type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills' | 'walkforward' | 'tca' | 'attribution'
+type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills' | 'walkforward' | 'tca' | 'attribution' | 'risk'
 
 /** 将 JSON 对象导出为 .json 文件下载 */
 function downloadJson(data: unknown, filename: string) {
@@ -148,6 +148,7 @@ export function BacktestsPage() {
   const [compareIds, setCompareIds] = useState<string[]>([])
   const [showCompare, setShowCompare] = useState(false)
   const [btSearch, setBtSearch] = useState('')
+  const [riskWindow, setRiskWindow] = useState(60)
 
   const qc = useQueryClient()
   const [showDeployWizard, setShowDeployWizard] = useState(false)
@@ -243,6 +244,24 @@ export function BacktestsPage() {
     enabled: !!selectedId && tab === 'attribution',
   })
 
+  const { data: riskRollingData } = useQuery({
+    queryKey: queryKeys.backtests.riskRolling(selectedId!, riskWindow),
+    queryFn: () => backtestsApi.getRiskRolling(selectedId!, riskWindow),
+    enabled: !!selectedId && tab === 'risk',
+  })
+
+  const { data: drawdownsData } = useQuery({
+    queryKey: queryKeys.backtests.drawdowns(selectedId!),
+    queryFn: () => backtestsApi.getDrawdowns(selectedId!),
+    enabled: !!selectedId && tab === 'risk',
+  })
+
+  const { data: returnDistData } = useQuery({
+    queryKey: queryKeys.backtests.returnDistribution(selectedId!),
+    queryFn: () => backtestsApi.getReturnDistribution(selectedId!),
+    enabled: !!selectedId && tab === 'risk',
+  })
+
   const { data: compareData, isLoading: compareLoading } = useQuery({
     queryKey: ['backtests', 'compare', compareIds.join(',')],
     queryFn: () => backtestsApi.compare(compareIds.join(',')),
@@ -328,6 +347,7 @@ export function BacktestsPage() {
     ...(isWalkForward ? [{ id: 'walkforward' as Tab, label: 'Walk-Forward' }] : []),
     { id: 'tca', label: '成本分析' },
     { id: 'attribution', label: '归因分析' },
+    { id: 'risk', label: '风险分析' },
   ]
 
   return (
@@ -925,6 +945,169 @@ export function BacktestsPage() {
                 </>
               ) : (
                 <div className="text-center text-gray-400 py-12">未设置基准或组合为单资产，无法进行归因分析</div>
+              )}
+            </div>
+          )}
+
+          {/* Risk Analysis Tab */}
+          {tab === 'risk' && (
+            <div className="space-y-4">
+              {riskRollingData ? (
+                <>
+                  {/* Latest metrics cards */}
+                  {(() => {
+                    const data = riskRollingData.data as Record<string, unknown>[] | undefined
+                    const latest = data?.[data.length - 1]
+                    if (!latest) return null
+                    return (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <MetricCard label="VaR 95%" value={`${((latest.var_95 as number ?? 0) * 100).toFixed(2)}%`} warn />
+                        <MetricCard label="CVaR 95%" value={`${((latest.cvar_95 as number ?? 0) * 100).toFixed(2)}%`} warn />
+                        <MetricCard label="年化波动率" value={`${((latest.volatility as number ?? 0) * 100).toFixed(2)}%`} />
+                        <MetricCard label="Sharpe" value={Number(latest.sharpe_ratio ?? 0).toFixed(3)} />
+                      </div>
+                    )
+                  })()}
+
+                  {/* Window selector */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-gray-500">滚动窗口：</span>
+                    {[20, 60, 252].map(w => (
+                      <button
+                        key={w}
+                        onClick={() => setRiskWindow(w)}
+                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                          riskWindow === w
+                            ? 'bg-brand-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {w}日
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Rolling VaR / CVaR chart */}
+                  <div className="card">
+                    <h3 className="font-semibold text-gray-800 mb-3">滚动 VaR / CVaR</h3>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <LineChart data={riskRollingData.data as Record<string, unknown>[]} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis dataKey="trade_date" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickFormatter={v => String(v).slice(5)} />
+                        <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v * 100).toFixed(1)}%`} />
+                        <Tooltip formatter={(v: number) => `${(v * 100).toFixed(3)}%`} />
+                        <Legend />
+                        <Line type="monotone" dataKey="var_95" name="VaR 95%" stroke="#ef4444" dot={false} strokeWidth={1.5} />
+                        <Line type="monotone" dataKey="cvar_95" name="CVaR 95%" stroke="#dc2626" dot={false} strokeWidth={1.5} strokeDasharray="4 2" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Rolling volatility + Sharpe side by side */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="card">
+                      <h3 className="font-semibold text-gray-800 mb-3">滚动波动率</h3>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={riskRollingData.data as Record<string, unknown>[]} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="trade_date" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickFormatter={v => String(v).slice(5)} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v * 100).toFixed(1)}%`} />
+                          <Tooltip formatter={(v: number) => `${(v * 100).toFixed(3)}%`} />
+                          <Line type="monotone" dataKey="volatility" name="波动率" stroke="#f59e0b" dot={false} strokeWidth={1.5} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="card">
+                      <h3 className="font-semibold text-gray-800 mb-3">滚动 Sharpe</h3>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <LineChart data={riskRollingData.data as Record<string, unknown>[]} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="trade_date" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickFormatter={v => String(v).slice(5)} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip formatter={(v: number) => v.toFixed(3)} />
+                          <ReferenceLine y={0} stroke="#e5e7eb" />
+                          <Line type="monotone" dataKey="sharpe_ratio" name="Sharpe" stroke="#3b82f6" dot={false} strokeWidth={1.5} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Drawdown underwater chart */}
+                  {drawdownsData && (drawdownsData.periods as Record<string, unknown>[])?.length > 0 && (
+                    <div className="card">
+                      <h3 className="font-semibold text-gray-800 mb-3">回撤水下图</h3>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <AreaChart data={riskRollingData.data as Record<string, unknown>[]} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="trade_date" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickFormatter={v => String(v).slice(5)} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v * 100).toFixed(1)}%`} />
+                          <Tooltip formatter={(v: number) => `${(v * 100).toFixed(3)}%`} />
+                          <Area type="monotone" dataKey="drawdown" name="回撤" stroke="#ef4444" fill="#fef2f2" fillOpacity={0.6} dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Return distribution histogram */}
+                  {returnDistData && (returnDistData.data as Record<string, unknown>[])?.length > 0 && (
+                    <div className="card">
+                      <h3 className="font-semibold text-gray-800 mb-3">收益率分布</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
+                        <MetricCard label="均值" value={`${((returnDistData.stats as Record<string, number>)?.mean * 100).toFixed(3)}%`} />
+                        <MetricCard label="标准差" value={`${((returnDistData.stats as Record<string, number>)?.std * 100).toFixed(3)}%`} />
+                        <MetricCard label="偏度" value={(returnDistData.stats as Record<string, number>)?.skewness?.toFixed(3) ?? '—'} />
+                        <MetricCard label="峰度" value={(returnDistData.stats as Record<string, number>)?.kurtosis?.toFixed(3) ?? '—'} />
+                        <MetricCard label="极值" value={`${((returnDistData.stats as Record<string, number>)?.min * 100).toFixed(2)}% ~ ${((returnDistData.stats as Record<string, number>)?.max * 100).toFixed(2)}%`} />
+                      </div>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={returnDistData.data as Record<string, unknown>[]} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="bin_label" tick={{ fontSize: 9 }} interval={Math.floor((returnDistData.data as unknown[])?.length / 8) || 1} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip formatter={(v: number) => `${v} 次`} />
+                          <Bar dataKey="count" name="频次" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Drawdown events table */}
+                  {drawdownsData && (drawdownsData.periods as Record<string, unknown>[])?.length > 0 && (
+                    <div className="card p-0 overflow-hidden">
+                      <div className="px-4 pt-3 pb-2 font-semibold text-gray-800 text-sm">回撤事件</div>
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="table-th">编号</th>
+                            <th className="table-th">开始</th>
+                            <th className="table-th">谷底</th>
+                            <th className="table-th">恢复</th>
+                            <th className="table-th">最大回撤</th>
+                            <th className="table-th">持续天数</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(drawdownsData.periods as Record<string, unknown>[]).map((p, i) => (
+                            <tr key={i} className="table-row">
+                              <td className="table-td font-mono">{p.period_id ?? i + 1}</td>
+                              <td className="table-td">{String(p.peak_date ?? '').slice(0, 10)}</td>
+                              <td className="table-td">{String(p.trough_date ?? '').slice(0, 10)}</td>
+                              <td className="table-td">{p.recovery_date ? String(p.recovery_date).slice(0, 10) : '未恢复'}</td>
+                              <td className="table-td text-red-600 font-medium">{((p.max_drawdown as number ?? 0) * 100).toFixed(2)}%</td>
+                              <td className="table-td">{p.duration_days ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="card text-center text-gray-400 py-12">
+                  <div className="text-4xl mb-3">📉</div>
+                  <div className="text-gray-500 mb-2">暂无风险分析数据</div>
+                  <p className="text-xs text-gray-400">风险数据在回测完成后自动生成，包含滚动风险指标和回撤分析</p>
+                </div>
               )}
             </div>
           )}
