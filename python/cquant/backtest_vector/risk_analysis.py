@@ -78,6 +78,8 @@ def compute_factor_exposures(
     volatility = returns.rolling(window).std().mean(axis=1)
 
     # Combine into time series
+    mom_key = f"momentum_{window}d"
+    vol_key = f"volatility_{window}d"
     result = []
     for date in momentum.index:
         mom_val = momentum.loc[date]
@@ -85,11 +87,11 @@ def compute_factor_exposures(
         if not np.isnan(mom_val) and not np.isnan(vol_val):
             result.append({
                 "trade_date": str(date),
-                "momentum_20d": float(mom_val),
-                "volatility_20d": float(vol_val),
+                mom_key: float(mom_val),
+                vol_key: float(vol_val),
             })
 
-    return {"data": result, "window": window}
+    return {"data": result, "window": window, "keys": [mom_key, vol_key]}
 
 
 def run_stress_test(

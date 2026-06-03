@@ -721,26 +721,22 @@ async def get_return_distribution(
     }
 
 
-@router.get("/{run_id}/correlation")
-async def get_correlation_matrix(
-    run_id: str,
-    catalog: CatalogDep,
-    window: int = Query(default=60, ge=2, le=504),
-) -> dict:
-    """Get asset correlation matrix for a backtest run."""
-    from cquant.backtest_vector.risk_analysis import compute_correlation_matrix
+def _fetch_position_prices(catalog, run_id: str) -> tuple[list[str], "pd.DataFrame"]:
+    """Fetch asset IDs and price data for a backtest run.
 
-    # Get positions from gold_positions
+    Returns (asset_ids, pandas DataFrame with trade_date, asset_id, close).
+    Raises HTTPException on missing data.
+    """
+    import pandas as pd
+
     pos_df = catalog.query(
         "SELECT DISTINCT asset_id FROM gold_positions WHERE run_id = ?",
         [run_id],
     )
     if pos_df.is_empty():
         raise HTTPException(status_code=404, detail=f"No positions found for run '{run_id}'")
-
     asset_ids = pos_df["asset_id"].to_list()
 
-    # Get date range from portfolio snapshots
     snap_df = catalog.query(
         "SELECT MIN(trade_date) as start_date, MAX(trade_date) as end_date "
         "FROM gold_portfolio_snapshots WHERE run_id = ?",
@@ -748,11 +744,9 @@ async def get_correlation_matrix(
     )
     if snap_df.is_empty():
         raise HTTPException(status_code=404, detail=f"No snapshots for run '{run_id}'")
-
     start_date = str(snap_df["start_date"].item()).split()[0]
     end_date = str(snap_df["end_date"].item()).split()[0]
 
-    # Get price data from silver_prices_1d
     asset_ph = ",".join(["?" for _ in asset_ids])
     price_df = catalog.query(
         f"SELECT trade_date, asset_id, close FROM silver_prices_1d "
@@ -763,10 +757,20 @@ async def get_correlation_matrix(
     if price_df.is_empty():
         raise HTTPException(status_code=404, detail="No price data available")
 
-    import pandas as pd
-    pdf = price_df.to_pandas()
-    result = compute_correlation_matrix(pdf, window=window)
-    return result
+    return asset_ids, price_df.to_pandas()
+
+
+@router.get("/{run_id}/correlation")
+async def get_correlation_matrix(
+    run_id: str,
+    catalog: CatalogDep,
+    window: int = Query(default=60, ge=2, le=504),
+) -> dict:
+    """Get asset correlation matrix for a backtest run."""
+    from cquant.backtest_vector.risk_analysis import compute_correlation_matrix
+
+    _, pdf = _fetch_position_prices(catalog, run_id)
+    return compute_correlation_matrix(pdf, window=window)
 
 
 @router.get("/{run_id}/factor-exposure")
@@ -778,43 +782,8 @@ async def get_factor_exposure(
     """Get factor exposure time series for a backtest run."""
     from cquant.backtest_vector.risk_analysis import compute_factor_exposures
 
-    # Get positions
-    pos_df = catalog.query(
-        "SELECT DISTINCT asset_id FROM gold_positions WHERE run_id = ?",
-        [run_id],
-    )
-    if pos_df.is_empty():
-        raise HTTPException(status_code=404, detail=f"No positions found for run '{run_id}'")
-
-    asset_ids = pos_df["asset_id"].to_list()
-
-    # Get date range
-    snap_df = catalog.query(
-        "SELECT MIN(trade_date) as start_date, MAX(trade_date) as end_date "
-        "FROM gold_portfolio_snapshots WHERE run_id = ?",
-        [run_id],
-    )
-    if snap_df.is_empty():
-        raise HTTPException(status_code=404, detail=f"No snapshots for run '{run_id}'")
-
-    start_date = str(snap_df["start_date"].item()).split()[0]
-    end_date = str(snap_df["end_date"].item()).split()[0]
-
-    # Get price data
-    asset_ph = ",".join(["?" for _ in asset_ids])
-    price_df = catalog.query(
-        f"SELECT trade_date, asset_id, close FROM silver_prices_1d "
-        f"WHERE asset_id IN ({asset_ph}) AND trade_date >= ? AND trade_date <= ? "
-        f"ORDER BY trade_date",
-        asset_ids + [start_date, end_date],
-    )
-    if price_df.is_empty():
-        raise HTTPException(status_code=404, detail="No price data available")
-
-    import pandas as pd
-    pdf = price_df.to_pandas()
-    result = compute_factor_exposures(pdf, window=window)
-    return result
+    _, pdf = _fetch_position_prices(catalog, run_id)
+    return compute_factor_exposures(pdf, window=window)
 
 
 @router.get("/{run_id}/stress-test")
@@ -862,35 +831,9 @@ async def get_risk_contribution(
         raise HTTPException(status_code=404, detail=f"No positions found for run '{run_id}'")
 
     weights = {row["asset_id"]: float(row["weight"]) for row in pos_df.to_dicts()}
-    asset_ids = list(weights.keys())
 
-    # Get date range
-    snap_df = catalog.query(
-        "SELECT MIN(trade_date) as start_date, MAX(trade_date) as end_date "
-        "FROM gold_portfolio_snapshots WHERE run_id = ?",
-        [run_id],
-    )
-    if snap_df.is_empty():
-        raise HTTPException(status_code=404, detail=f"No snapshots for run '{run_id}'")
-
-    start_date = str(snap_df["start_date"].item()).split()[0]
-    end_date = str(snap_df["end_date"].item()).split()[0]
-
-    # Get price data
-    asset_ph = ",".join(["?" for _ in asset_ids])
-    price_df = catalog.query(
-        f"SELECT trade_date, asset_id, close FROM silver_prices_1d "
-        f"WHERE asset_id IN ({asset_ph}) AND trade_date >= ? AND trade_date <= ? "
-        f"ORDER BY trade_date",
-        asset_ids + [start_date, end_date],
-    )
-    if price_df.is_empty():
-        raise HTTPException(status_code=404, detail="No price data available")
-
-    import pandas as pd
-    pdf = price_df.to_pandas()
-    result = compute_risk_contribution(weights, pdf, window=window)
-    return result
+    _, pdf = _fetch_position_prices(catalog, run_id)
+    return compute_risk_contribution(weights, pdf, window=window)
 
 
 @router.get("/{run_id}/tca")

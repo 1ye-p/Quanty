@@ -181,3 +181,49 @@ class TestRiskContribution:
         # Should be sorted by pct_of_risk descending
         pcts = [c["pct_of_risk"] for c in result["contributions"]]
         assert pcts == sorted(pcts, reverse=True)
+
+
+class TestComputeFactorExposures:
+    """Test compute_factor_exposures function."""
+
+    def _make_price_df(self, days: int, n_assets: int) -> pd.DataFrame:
+        np.random.seed(42)
+        dates = pd.bdate_range("2024-01-01", periods=days)
+        rows = []
+        for i in range(n_assets):
+            prices = 100 * np.cumprod(1 + np.random.normal(0.0005, 0.02, days))
+            for d, p in zip(dates, prices):
+                rows.append({"trade_date": d, "asset_id": f"SH60000{i}", "close": float(p)})
+        return pd.DataFrame(rows)
+
+    def test_basic_exposures(self):
+        df = self._make_price_df(100, 3)
+        result = compute_factor_exposures(df, window=20)
+        assert "data" in result
+        assert "window" in result
+        assert "keys" in result
+        assert result["window"] == 20
+        assert len(result["data"]) > 0
+        # Each row should have trade_date and the dynamic keys
+        row = result["data"][0]
+        assert "trade_date" in row
+        for key in result["keys"]:
+            assert key in row
+
+    def test_dynamic_key_names(self):
+        df = self._make_price_df(100, 3)
+        result = compute_factor_exposures(df, window=60)
+        assert result["keys"] == ["momentum_60d", "volatility_60d"]
+        row = result["data"][0]
+        assert "momentum_60d" in row
+        assert "volatility_60d" in row
+
+    def test_insufficient_data(self):
+        df = self._make_price_df(5, 2)
+        result = compute_factor_exposures(df, window=20)
+        assert result["data"] == []
+
+    def test_single_asset(self):
+        df = self._make_price_df(100, 1)
+        result = compute_factor_exposures(df, window=20)
+        assert len(result["data"]) > 0

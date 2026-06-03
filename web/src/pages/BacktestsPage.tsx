@@ -1183,8 +1183,8 @@ export function BacktestsPage() {
                           <YAxis tick={{ fontSize: 10 }} />
                           <Tooltip />
                           <Legend />
-                          <Area type="monotone" dataKey="momentum_20d" name="动量" stroke="#3b82f6" fill="#dbeafe" fillOpacity={0.6} dot={false} />
-                          <Area type="monotone" dataKey="volatility_20d" name="波动率" stroke="#f59e0b" fill="#fef3c7" fillOpacity={0.6} dot={false} />
+                          <Area type="monotone" dataKey={(factorExposureData.keys as string[])?.[0] ?? 'momentum_20d'} name="动量" stroke="#3b82f6" fill="#dbeafe" fillOpacity={0.6} dot={false} />
+                          <Area type="monotone" dataKey={(factorExposureData.keys as string[])?.[1] ?? 'volatility_20d'} name="波动率" stroke="#f59e0b" fill="#fef3c7" fillOpacity={0.6} dot={false} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
