@@ -215,8 +215,8 @@ class AnalysisRunner:
             [
                 report.analysis_run_id,
                 br.total_return,
-                report.benchmark_return or 0.0,
-                report.active_return or 0.0,
+                report.benchmark_return if report.benchmark_return is not None else None,
+                report.active_return if report.active_return is not None else None,
                 br.allocation_effect,
                 br.selection_effect,
                 br.interaction_effect,

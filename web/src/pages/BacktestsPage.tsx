@@ -891,9 +891,9 @@ export function BacktestsPage() {
                 <>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <MetricCard label="超额收益" value={`${Number(attributionData.active_return ?? 0 * 100).toFixed(2)}%`} warn={Number(attributionData.active_return ?? 0) < 0} />
-                    <MetricCard label="配置效应" value={`${Number(attributionData.allocation_effect ?? 0).toFixed(4)}`} />
-                    <MetricCard label="选股效应" value={`${Number(attributionData.selection_effect ?? 0).toFixed(4)}`} />
-                    <MetricCard label="交互效应" value={`${Number(attributionData.interaction_effect ?? 0).toFixed(4)}`} />
+                    <MetricCard label="配置效应" value={`${(Number(attributionData.allocation_effect ?? 0) * 100).toFixed(2)}%`} />
+                    <MetricCard label="选股效应" value={`${(Number(attributionData.selection_effect ?? 0) * 100).toFixed(2)}%`} />
+                    <MetricCard label="交互效应" value={`${(Number(attributionData.interaction_effect ?? 0) * 100).toFixed(2)}%`} />
                   </div>
                   {Object.keys(attributionData.sector_details as Record<string, unknown> ?? {}).length > 0 && (
                     <div className="card p-4">

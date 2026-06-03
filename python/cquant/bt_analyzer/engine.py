@@ -77,11 +77,17 @@ class AnalysisEngine:
         )
 
         # TCA analysis
-        from cquant.backtest_vector.tca import TransactionCostAnalyzer
-        tca_analyzer = TransactionCostAnalyzer()
-        tca_summary = tca_analyzer.analyze(result.fills)
-        tca_by_asset = tca_analyzer.analyze_by_asset(result.fills)
-        tca_by_date = tca_analyzer.analyze_by_date(result.fills)
+        tca_summary = None
+        tca_by_asset = None
+        tca_by_date = None
+        try:
+            from cquant.backtest_vector.tca import TransactionCostAnalyzer
+            tca_analyzer = TransactionCostAnalyzer()
+            tca_summary = tca_analyzer.analyze(result.fills)
+            tca_by_asset = tca_analyzer.analyze_by_asset(result.fills)
+            tca_by_date = tca_analyzer.analyze_by_date(result.fills)
+        except Exception as exc:
+            logger.debug("TCA analysis skipped: %s", exc)
 
         # Brinson attribution (enhanced)
         brinson_result = None
@@ -106,6 +112,7 @@ class AnalysisEngine:
 
                     bench_weights = {a: 1.0 / len(assets) for a in assets}
 
+                    # No date filter — _compute_period_brinson needs prices at all rebalance dates
                     prices_df = result.spec.prices.filter(
                         pl.col("asset_id").is_in(assets)
                     )
@@ -130,7 +137,7 @@ class AnalysisEngine:
                         )
                         active_return_val = brinson_result.total_return - bench_ret
 
-                        brinson_daily = _compute_daily_brinson(
+                        brinson_daily = _compute_period_brinson(
                             result.positions, prices_df, bench_weights,
                         )
         except Exception as _exc:
@@ -203,12 +210,12 @@ class AnalysisEngine:
         return OverfitScore(score=score, confidence=confidence, contributing_factors=factors)
 
 
-def _compute_daily_brinson(
+def _compute_period_brinson(
     positions: pl.DataFrame,
     prices: pl.DataFrame,
     bench_weights: dict[str, float],
 ) -> list[dict]:
-    """Compute Brinson attribution for each rebalance period."""
+    """Compute Brinson attribution for each rebalance period (not trading days)."""
     from cquant.bt_analyzer.attribution import BrinsonAttribution
 
     dates = sorted(positions["trade_date"].unique().to_list())
@@ -263,7 +270,8 @@ def _compute_daily_brinson(
                 "selection": result.selection_effect,
                 "interaction": result.interaction_effect,
             })
-        except Exception:
+        except Exception as exc:
+            logger.debug("Period Brinson attribution skipped for %s: %s", next_td, exc)
             continue
 
     return results
