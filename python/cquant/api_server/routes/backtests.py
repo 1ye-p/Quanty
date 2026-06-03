@@ -721,6 +721,178 @@ async def get_return_distribution(
     }
 
 
+@router.get("/{run_id}/correlation")
+async def get_correlation_matrix(
+    run_id: str,
+    catalog: CatalogDep,
+    window: int = Query(default=60, ge=2, le=504),
+) -> dict:
+    """Get asset correlation matrix for a backtest run."""
+    from cquant.backtest_vector.risk_analysis import compute_correlation_matrix
+
+    # Get positions from gold_positions
+    pos_df = catalog.query(
+        "SELECT DISTINCT asset_id FROM gold_positions WHERE run_id = ?",
+        [run_id],
+    )
+    if pos_df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No positions found for run '{run_id}'")
+
+    asset_ids = pos_df["asset_id"].to_list()
+
+    # Get date range from portfolio snapshots
+    snap_df = catalog.query(
+        "SELECT MIN(trade_date) as start_date, MAX(trade_date) as end_date "
+        "FROM gold_portfolio_snapshots WHERE run_id = ?",
+        [run_id],
+    )
+    if snap_df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No snapshots for run '{run_id}'")
+
+    start_date = str(snap_df["start_date"].item()).split()[0]
+    end_date = str(snap_df["end_date"].item()).split()[0]
+
+    # Get price data from silver_prices_1d
+    asset_ph = ",".join(["?" for _ in asset_ids])
+    price_df = catalog.query(
+        f"SELECT trade_date, asset_id, close FROM silver_prices_1d "
+        f"WHERE asset_id IN ({asset_ph}) AND trade_date >= ? AND trade_date <= ? "
+        f"ORDER BY trade_date",
+        asset_ids + [start_date, end_date],
+    )
+    if price_df.is_empty():
+        raise HTTPException(status_code=404, detail="No price data available")
+
+    import pandas as pd
+    pdf = price_df.to_pandas()
+    result = compute_correlation_matrix(pdf, window=window)
+    return result
+
+
+@router.get("/{run_id}/factor-exposure")
+async def get_factor_exposure(
+    run_id: str,
+    catalog: CatalogDep,
+    window: int = Query(default=20, ge=5, le=120),
+) -> dict:
+    """Get factor exposure time series for a backtest run."""
+    from cquant.backtest_vector.risk_analysis import compute_factor_exposures
+
+    # Get positions
+    pos_df = catalog.query(
+        "SELECT DISTINCT asset_id FROM gold_positions WHERE run_id = ?",
+        [run_id],
+    )
+    if pos_df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No positions found for run '{run_id}'")
+
+    asset_ids = pos_df["asset_id"].to_list()
+
+    # Get date range
+    snap_df = catalog.query(
+        "SELECT MIN(trade_date) as start_date, MAX(trade_date) as end_date "
+        "FROM gold_portfolio_snapshots WHERE run_id = ?",
+        [run_id],
+    )
+    if snap_df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No snapshots for run '{run_id}'")
+
+    start_date = str(snap_df["start_date"].item()).split()[0]
+    end_date = str(snap_df["end_date"].item()).split()[0]
+
+    # Get price data
+    asset_ph = ",".join(["?" for _ in asset_ids])
+    price_df = catalog.query(
+        f"SELECT trade_date, asset_id, close FROM silver_prices_1d "
+        f"WHERE asset_id IN ({asset_ph}) AND trade_date >= ? AND trade_date <= ? "
+        f"ORDER BY trade_date",
+        asset_ids + [start_date, end_date],
+    )
+    if price_df.is_empty():
+        raise HTTPException(status_code=404, detail="No price data available")
+
+    import pandas as pd
+    pdf = price_df.to_pandas()
+    result = compute_factor_exposures(pdf, window=window)
+    return result
+
+
+@router.get("/{run_id}/stress-test")
+async def get_stress_test(run_id: str, catalog: CatalogDep) -> dict:
+    """Run stress test scenarios on a backtest run."""
+    from cquant.backtest_vector.risk_analysis import run_stress_test
+
+    # Get portfolio returns
+    ret_df = catalog.query(
+        "SELECT portfolio_return FROM gold_portfolio_returns WHERE run_id = ? ORDER BY trade_date",
+        [run_id],
+    )
+    if ret_df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No return data for run '{run_id}'")
+
+    returns = ret_df["portfolio_return"].to_numpy()
+
+    # Get NAV series
+    snap_df = catalog.query(
+        "SELECT nav FROM gold_portfolio_snapshots WHERE run_id = ? ORDER BY trade_date",
+        [run_id],
+    )
+    nav_series = snap_df["nav"].to_numpy() if not snap_df.is_empty() else None
+
+    result = run_stress_test(returns, nav_series=nav_series)
+    return result
+
+
+@router.get("/{run_id}/risk-contribution")
+async def get_risk_contribution(
+    run_id: str,
+    catalog: CatalogDep,
+    window: int = Query(default=60, ge=2, le=504),
+) -> dict:
+    """Get risk contribution by asset for a backtest run."""
+    from cquant.backtest_vector.risk_analysis import compute_risk_contribution
+
+    # Get latest positions with weights
+    pos_df = catalog.query(
+        "SELECT asset_id, weight FROM gold_positions WHERE run_id = ? "
+        "AND trade_date = (SELECT MAX(trade_date) FROM gold_positions WHERE run_id = ?)",
+        [run_id, run_id],
+    )
+    if pos_df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No positions found for run '{run_id}'")
+
+    weights = {row["asset_id"]: float(row["weight"]) for row in pos_df.to_dicts()}
+    asset_ids = list(weights.keys())
+
+    # Get date range
+    snap_df = catalog.query(
+        "SELECT MIN(trade_date) as start_date, MAX(trade_date) as end_date "
+        "FROM gold_portfolio_snapshots WHERE run_id = ?",
+        [run_id],
+    )
+    if snap_df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No snapshots for run '{run_id}'")
+
+    start_date = str(snap_df["start_date"].item()).split()[0]
+    end_date = str(snap_df["end_date"].item()).split()[0]
+
+    # Get price data
+    asset_ph = ",".join(["?" for _ in asset_ids])
+    price_df = catalog.query(
+        f"SELECT trade_date, asset_id, close FROM silver_prices_1d "
+        f"WHERE asset_id IN ({asset_ph}) AND trade_date >= ? AND trade_date <= ? "
+        f"ORDER BY trade_date",
+        asset_ids + [start_date, end_date],
+    )
+    if price_df.is_empty():
+        raise HTTPException(status_code=404, detail="No price data available")
+
+    import pandas as pd
+    pdf = price_df.to_pandas()
+    result = compute_risk_contribution(weights, pdf, window=window)
+    return result
+
+
 @router.get("/{run_id}/tca")
 async def get_backtest_tca(run_id: str, catalog: CatalogDep) -> dict:
     """Get TCA for a backtest run."""

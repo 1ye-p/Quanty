@@ -23,6 +23,10 @@ export const queryKeys = {
     drawdowns: (id: string) => ['backtests', id, 'drawdowns'] as const,
     drawdownTimeseries: (id: string) => ['backtests', id, 'drawdown-timeseries'] as const,
     returnDistribution: (id: string) => ['backtests', id, 'return-distribution'] as const,
+    correlation: (id: string) => ['backtests', id, 'correlation'] as const,
+    factorExposure: (id: string) => ['backtests', id, 'factor-exposure'] as const,
+    stressTest: (id: string) => ['backtests', id, 'stress-test'] as const,
+    riskContribution: (id: string) => ['backtests', id, 'risk-contribution'] as const,
   },
   knowledge: {
     all: ['knowledge'] as const,

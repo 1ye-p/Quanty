@@ -249,6 +249,14 @@ export const backtestsApi = {
     request<Record<string, unknown>>(`/backtests/${id}/drawdown-timeseries`),
   getReturnDistribution: (id: string, bins = 50) =>
     request<Record<string, unknown>>(`/backtests/${id}/return-distribution?bins=${bins}`),
+  getCorrelation: (id: string, window = 60) =>
+    request<Record<string, unknown>>(`/backtests/${id}/correlation?window=${window}`),
+  getFactorExposure: (id: string, window = 20) =>
+    request<Record<string, unknown>>(`/backtests/${id}/factor-exposure?window=${window}`),
+  getStressTest: (id: string) =>
+    request<Record<string, unknown>>(`/backtests/${id}/stress-test`),
+  getRiskContribution: (id: string, window = 60) =>
+    request<Record<string, unknown>>(`/backtests/${id}/risk-contribution?window=${window}`),
 }
 
 // ── Knowledge base ────────────────────────────────────────────────────────────

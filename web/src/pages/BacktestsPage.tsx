@@ -10,7 +10,8 @@ import { PnLChart, type PnLDataPoint } from '@/components/charts/PnLChart'
 import {
   BarChart, Bar, LineChart, Line, Legend,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
-  Cell, ReferenceLine, CartesianGrid, AreaChart, Area
+  Cell, ReferenceLine, CartesianGrid, AreaChart, Area,
+  PieChart, Pie
 } from 'recharts'
 
 function marketLabel(m?: string) {
@@ -265,6 +266,30 @@ export function BacktestsPage() {
   const { data: returnDistData } = useQuery({
     queryKey: queryKeys.backtests.returnDistribution(selectedId!),
     queryFn: () => backtestsApi.getReturnDistribution(selectedId!),
+    enabled: !!selectedId && tab === 'risk',
+  })
+
+  const { data: correlationData } = useQuery({
+    queryKey: queryKeys.backtests.correlation(selectedId!),
+    queryFn: () => backtestsApi.getCorrelation(selectedId!),
+    enabled: !!selectedId && tab === 'risk',
+  })
+
+  const { data: factorExposureData } = useQuery({
+    queryKey: queryKeys.backtests.factorExposure(selectedId!),
+    queryFn: () => backtestsApi.getFactorExposure(selectedId!),
+    enabled: !!selectedId && tab === 'risk',
+  })
+
+  const { data: stressTestData } = useQuery({
+    queryKey: queryKeys.backtests.stressTest(selectedId!),
+    queryFn: () => backtestsApi.getStressTest(selectedId!),
+    enabled: !!selectedId && tab === 'risk',
+  })
+
+  const { data: riskContribData } = useQuery({
+    queryKey: queryKeys.backtests.riskContribution(selectedId!),
+    queryFn: () => backtestsApi.getRiskContribution(selectedId!),
     enabled: !!selectedId && tab === 'risk',
   })
 
@@ -1105,6 +1130,130 @@ export function BacktestsPage() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+
+                  {/* Correlation Heatmap */}
+                  {correlationData && (correlationData.assets as string[])?.length > 0 && (
+                    <div className="card">
+                      <h3 className="font-semibold text-gray-800 mb-3">资产相关性矩阵</h3>
+                      <div className="overflow-x-auto">
+                        <table className="text-xs">
+                          <thead>
+                            <tr>
+                              <th className="px-2 py-1"></th>
+                              {(correlationData.assets as string[]).map(a => (
+                                <th key={a} className="px-2 py-1 font-mono text-gray-600">{a.slice(0, 6)}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(correlationData.assets as string[]).map(row => (
+                              <tr key={row}>
+                                <td className="px-2 py-1 font-mono text-gray-600">{row.slice(0, 6)}</td>
+                                {(correlationData.assets as string[]).map(col => {
+                                  const val = (correlationData.matrix as Record<string, Record<string, number>>)?.[row]?.[col]
+                                  return (
+                                    <td key={col} className="px-2 py-1 text-center" style={{
+                                      backgroundColor: val == null ? '#f3f4f6'
+                                        : val > 0 ? `rgba(34,197,94,${Math.abs(val) * 0.8})`
+                                        : `rgba(239,68,68,${Math.abs(val) * 0.8})`,
+                                      color: Math.abs(val ?? 0) > 0.5 ? 'white' : '#374151'
+                                    }}>
+                                      {val != null ? val.toFixed(2) : '—'}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Factor Exposure */}
+                  {factorExposureData && (factorExposureData.data as Record<string, unknown>[])?.length > 0 && (
+                    <div className="card">
+                      <h3 className="font-semibold text-gray-800 mb-3">因子暴露</h3>
+                      <ResponsiveContainer width="100%" height={240}>
+                        <AreaChart data={factorExposureData.data as Record<string, unknown>[]} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="trade_date" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickFormatter={v => String(v).slice(5)} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip />
+                          <Legend />
+                          <Area type="monotone" dataKey="momentum_20d" name="动量" stroke="#3b82f6" fill="#dbeafe" fillOpacity={0.6} dot={false} />
+                          <Area type="monotone" dataKey="volatility_20d" name="波动率" stroke="#f59e0b" fill="#fef3c7" fillOpacity={0.6} dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Stress Test */}
+                  {stressTestData && (stressTestData.scenarios as Record<string, unknown>[])?.length > 0 && (
+                    <div className="card">
+                      <h3 className="font-semibold text-gray-800 mb-3">压力测试</h3>
+                      <ResponsiveContainer width="100%" height={240}>
+                        <BarChart
+                          data={(stressTestData.scenarios as Record<string, unknown>[]).map(s => ({
+                            ...s,
+                            impact_pct: (s.impact as number) * 100,
+                          }))}
+                          layout="vertical"
+                          margin={{ top: 4, right: 16, left: 100, bottom: 0 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(1)}%`} />
+                          <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={100} />
+                          <Tooltip formatter={(v: number) => `${v.toFixed(2)}%`} />
+                          <Bar dataKey="impact_pct" name="影响" radius={[0, 4, 4, 0]}>
+                            {(stressTestData.scenarios as Record<string, unknown>[]).map((_, i) => (
+                              <Cell key={i} fill={i === 5 ? '#8b5cf6' : '#ef4444'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Risk Contribution Pie */}
+                  {riskContribData && (riskContribData.contributions as Record<string, unknown>[])?.length > 0 && (
+                    <div className="card">
+                      <h3 className="font-semibold text-gray-800 mb-3">风险贡献</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <ResponsiveContainer width="100%" height={240}>
+                          <PieChart>
+                            <Pie
+                              data={(riskContribData.contributions as Record<string, unknown>[]).slice(0, 10).map(c => ({
+                                name: String(c.asset_id).slice(0, 6),
+                                value: Math.abs(c.pct_of_risk as number) * 100,
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={80}
+                              dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {(riskContribData.contributions as Record<string, unknown>[]).slice(0, 10).map((_, i) => (
+                                <Cell key={i} fill={['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'][i]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="text-sm">
+                          <div className="text-gray-500 mb-2">组合波动率: {((riskContribData.portfolio_volatility as number ?? 0) * 100).toFixed(2)}%</div>
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {(riskContribData.contributions as Record<string, unknown>[]).slice(0, 10).map((c, i) => (
+                              <div key={i} className="flex justify-between">
+                                <span className="font-mono text-xs">{String(c.asset_id).slice(0, 8)}</span>
+                                <span className="text-gray-600">{((c.pct_of_risk as number) * 100).toFixed(1)}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </>
