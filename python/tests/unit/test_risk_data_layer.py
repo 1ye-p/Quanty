@@ -165,10 +165,12 @@ class TestDrawdownAnalysis:
         ]
         periods = _detect_drawdown_periods(nav_series)
         assert len(periods) == 1
-        assert periods[0]["start_date"] == date(2024, 1, 3)
+        assert periods[0]["start_date"] == date(2024, 1, 2)  # Peak date, not first drop
         assert periods[0]["trough_date"] == date(2024, 1, 4)
         assert periods[0]["recovery_date"] == date(2024, 1, 5)
         assert periods[0]["max_drawdown"] < 0
+        assert periods[0]["duration_days"] == 3  # peak to recovery
+        assert periods[0]["recovery_days"] == 1  # trough to recovery
 
     def test_detect_drawdown_periods_no_drawdown(self):
         """Test when there's no drawdown (monotonically increasing)."""

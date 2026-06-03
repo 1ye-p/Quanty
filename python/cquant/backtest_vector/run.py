@@ -179,6 +179,19 @@ def _compute_sector_exposure(
     return exposure
 
 
+def _extract_benchmark_returns(spec: BacktestSpec) -> list[float]:
+    """Extract daily benchmark returns from spec prices."""
+    if not spec.benchmark_asset_id or spec.prices.is_empty():
+        return []
+    bench_prices = spec.prices.filter(
+        pl.col("asset_id") == spec.benchmark_asset_id
+    ).sort("trade_date")
+    if len(bench_prices) < 2:
+        return []
+    closes = bench_prices["close"].to_list()
+    return [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes))]
+
+
 def _detect_drawdown_periods(
     nav_series: list[tuple],
 ) -> list[dict]:
@@ -203,14 +216,13 @@ def _detect_drawdown_periods(
 
         if nav >= peak_nav:
             if in_drawdown:
-                recovery_days = (td - dd_start_date).days
                 periods.append({
                     "start_date": dd_start_date,
                     "trough_date": trough_date,
                     "recovery_date": td,
                     "max_drawdown": (trough_nav - peak_nav) / peak_nav,
                     "duration_days": (td - dd_start_date).days,
-                    "recovery_days": recovery_days,
+                    "recovery_days": (td - trough_date).days,
                     "underwater_days": (td - dd_start_date).days,
                 })
                 in_drawdown = False
@@ -218,7 +230,7 @@ def _detect_drawdown_periods(
             peak_date = td
         else:
             if not in_drawdown:
-                dd_start_date = td
+                dd_start_date = peak_date
                 trough_nav = nav
                 trough_date = td
                 in_drawdown = True
@@ -1115,23 +1127,15 @@ class BacktestRunner:
             return
 
         # Get benchmark returns for beta calculation
-        benchmark_returns: list[float] = []
-        if result.spec.benchmark_asset_id and not result.spec.prices.is_empty():
-            bench_prices = result.spec.prices.filter(
-                pl.col("asset_id") == result.spec.benchmark_asset_id
-            ).sort("trade_date")
-            if len(bench_prices) >= 2:
-                closes = bench_prices["close"].to_list()
-                benchmark_returns = [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes))]
+        benchmark_returns = _extract_benchmark_returns(result.spec)
 
         # Get sector map
         sector_map = result.spec.extra.get("sector_map", {}) if hasattr(result.spec, 'extra') and result.spec.extra else {}
 
-        # Build per-date positions lookup
+        # Build per-date positions lookup — O(P) via partition_by
         positions_by_date: dict = {}
         if not result.positions.is_empty():
-            for td in result.positions["trade_date"].unique().to_list():
-                positions_by_date[td] = result.positions.filter(pl.col("trade_date") == td)
+            positions_by_date = result.positions.partition_by("trade_date", as_dict=True)
 
         snapshots = []
         nav = float(result.spec.initial_cash)
@@ -1230,14 +1234,7 @@ class BacktestRunner:
         returns = result.portfolio_returns.sort("trade_date")
 
         # Get benchmark returns
-        benchmark_returns: list[float] = []
-        if result.spec.benchmark_asset_id and not result.spec.prices.is_empty():
-            bench_prices = result.spec.prices.filter(
-                pl.col("asset_id") == result.spec.benchmark_asset_id
-            ).sort("trade_date")
-            if len(bench_prices) >= 2:
-                closes = bench_prices["close"].to_list()
-                benchmark_returns = [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes))]
+        benchmark_returns = _extract_benchmark_returns(result.spec)
 
         ret_list = returns["portfolio_return"].to_list()
         date_list = returns["trade_date"].to_list()

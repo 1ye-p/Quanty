@@ -612,7 +612,7 @@ async def get_backtest_risk(run_id: str, catalog: CatalogDep, limit: int = 20) -
 async def get_risk_rolling(
     run_id: str,
     window: int = 60,
-    catalog: CatalogDep = None,
+    catalog: CatalogDep,
 ) -> dict:
     """Get rolling risk metrics for a backtest run."""
     df = catalog.query(
@@ -631,7 +631,7 @@ async def get_risk_rolling(
 @router.get("/{run_id}/drawdowns")
 async def get_drawdowns(
     run_id: str,
-    catalog: CatalogDep = None,
+    catalog: CatalogDep,
 ) -> dict:
     """Get drawdown periods for a backtest run."""
     df = catalog.query(
