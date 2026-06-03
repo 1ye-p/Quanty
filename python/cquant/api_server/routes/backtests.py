@@ -608,6 +608,45 @@ async def get_backtest_risk(run_id: str, catalog: CatalogDep, limit: int = 20) -
     return {"items": df.to_dicts(), "total": df.height}
 
 
+@router.get("/{run_id}/tca")
+async def get_backtest_tca(run_id: str, catalog: CatalogDep) -> dict:
+    """Get TCA for a backtest run."""
+    df = catalog.query(
+        "SELECT * FROM gold_bt_tca WHERE analysis_run_id IN "
+        "(SELECT analysis_run_id FROM gold_bt_analysis_runs WHERE backtest_run_id = ? "
+        "ORDER BY created_at DESC LIMIT 1)",
+        [run_id],
+    )
+    if df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No TCA data for run '{run_id}'")
+    return df.to_dicts()[0]
+
+
+@router.get("/{run_id}/attribution")
+async def get_backtest_attribution(run_id: str, catalog: CatalogDep) -> dict:
+    """Get Brinson attribution for a backtest run."""
+    df = catalog.query(
+        "SELECT * FROM gold_bt_attribution WHERE analysis_run_id IN "
+        "(SELECT analysis_run_id FROM gold_bt_analysis_runs WHERE backtest_run_id = ? "
+        "ORDER BY created_at DESC LIMIT 1)",
+        [run_id],
+    )
+    if df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No attribution data for run '{run_id}'")
+    row = df.to_dicts()[0]
+    if row.get("daily_json"):
+        row["daily"] = json.loads(row.pop("daily_json"))
+    else:
+        row["daily"] = []
+        row.pop("daily_json", None)
+    if row.get("sector_details_json"):
+        row["sector_details"] = json.loads(row.pop("sector_details_json"))
+    else:
+        row["sector_details"] = {}
+        row.pop("sector_details_json", None)
+    return row
+
+
 # ── HTML Report SVG helpers ───────────────────────────────────────────────────
 
 def _nav_to_svg(

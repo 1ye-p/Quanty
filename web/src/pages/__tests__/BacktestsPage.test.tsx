@@ -57,6 +57,25 @@ vi.mock('@/lib/api', () => ({
     }),
     triggerAnalysis: vi.fn().mockResolvedValue({ job_id: 'j1', status: 'running' }),
     pollJob: vi.fn().mockResolvedValue({ status: 'completed', run_id: 'run-abc-123' }),
+    getTca: vi.fn().mockResolvedValue({
+      total_cost: 1234.56,
+      cost_pct_turnover: 0.12,
+      num_trades: 120,
+      cost_per_trade: 10.29,
+      total_commission: 800.0,
+      total_stamp_duty: 234.56,
+      total_slippage: 200.0,
+    }),
+    getAttribution: vi.fn().mockResolvedValue({
+      active_return: 0.05,
+      allocation_effect: 0.02,
+      selection_effect: 0.025,
+      interaction_effect: 0.005,
+      sector_details: {
+        '金融': { port_weight: 0.3, bench_weight: 0.25, port_return: 0.08, bench_return: 0.06 },
+        '科技': { port_weight: 0.4, bench_weight: 0.35, port_return: 0.12, bench_return: 0.10 },
+      },
+    }),
   },
   backtestExtApi: {
     tearsheet: vi.fn().mockResolvedValue({ items: [] }),
@@ -136,6 +155,45 @@ describe('BacktestsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('退市强制平仓')).toBeInTheDocument()
       expect(screen.getByText('原因')).toBeInTheDocument()
+    })
+  })
+
+  it('shows TCA metrics when switching to tca tab', async () => {
+    renderWithProviders(<BacktestsPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/run-abc-/)).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText(/run-abc-/))
+    await waitFor(() => {
+      fireEvent.click(screen.getByText('成本分析'))
+    })
+    await waitFor(() => {
+      expect(screen.getByText('总成本')).toBeInTheDocument()
+      expect(screen.getByText('成本率')).toBeInTheDocument()
+      expect(screen.getByText('交易笔数')).toBeInTheDocument()
+      expect(screen.getByText('佣金')).toBeInTheDocument()
+      expect(screen.getByText('印花税')).toBeInTheDocument()
+      expect(screen.getByText('滑点')).toBeInTheDocument()
+    })
+  })
+
+  it('shows Attribution metrics when switching to attribution tab', async () => {
+    renderWithProviders(<BacktestsPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/run-abc-/)).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText(/run-abc-/))
+    await waitFor(() => {
+      fireEvent.click(screen.getByText('归因分析'))
+    })
+    await waitFor(() => {
+      expect(screen.getByText('超额收益')).toBeInTheDocument()
+      expect(screen.getByText('配置效应')).toBeInTheDocument()
+      expect(screen.getByText('选股效应')).toBeInTheDocument()
+      expect(screen.getByText('交互效应')).toBeInTheDocument()
+      expect(screen.getByText('行业归因明细')).toBeInTheDocument()
+      expect(screen.getByText('金融')).toBeInTheDocument()
+      expect(screen.getByText('科技')).toBeInTheDocument()
     })
   })
 })

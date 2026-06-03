@@ -17,6 +17,8 @@ export const queryKeys = {
     multipleTesting: (id: string) => ['backtests', id, 'multiple-testing'] as const,
     fills: (id: string, offset: number, limit: number) => ['backtests', id, 'fills', offset, limit] as const,
     walkForward: (id: string) => ['backtests', id, 'walk-forward-folds'] as const,
+    tca: (id: string) => ['backtests', id, 'tca'] as const,
+    attribution: (id: string) => ['backtests', id, 'attribution'] as const,
   },
   knowledge: {
     all: ['knowledge'] as const,

@@ -66,6 +66,8 @@ class AnalysisRunner:
         self._persist_analysis_run(report)
         self._persist_validation_windows(report)
         self._persist_multiple_testing(report)
+        self._persist_tca(report)
+        self._persist_attribution(report)
 
         logger.info(
             "Analysis complete: run_id=%s, overfit_score=%.2f, psr=%.2f, dsr=%.2f",
@@ -166,5 +168,59 @@ class AnalysisRunner:
                 mt.get("alpha", 0.05),
                 json.dumps(mt),
                 mt.get("accepted", False),
+            ],
+        )
+
+    def _persist_tca(self, report: AnalysisReport) -> None:
+        """Write TCA summary to gold_bt_tca."""
+        if not report.tca_summary:
+            return
+        conn = self._catalog._get_conn()
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO gold_bt_tca
+                (analysis_run_id, total_turnover, total_commission, total_stamp_duty,
+                 total_slippage, total_cost, cost_per_trade, cost_pct_turnover,
+                 num_trades, avg_trade_size)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                report.analysis_run_id,
+                report.tca_summary.total_turnover,
+                report.tca_summary.total_commission,
+                report.tca_summary.total_stamp_duty,
+                report.tca_summary.total_slippage,
+                report.tca_summary.total_cost,
+                report.tca_summary.cost_per_trade,
+                report.tca_summary.cost_as_pct_turnover,
+                report.tca_summary.num_trades,
+                report.tca_summary.avg_trade_size,
+            ],
+        )
+
+    def _persist_attribution(self, report: AnalysisReport) -> None:
+        """Write Brinson attribution to gold_bt_attribution."""
+        if not report.brinson_attribution:
+            return
+        conn = self._catalog._get_conn()
+        br = report.brinson_attribution
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO gold_bt_attribution
+                (analysis_run_id, total_return, benchmark_return, active_return,
+                 allocation_effect, selection_effect, interaction_effect,
+                 daily_json, sector_details_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                report.analysis_run_id,
+                br.total_return,
+                report.benchmark_return or 0.0,
+                report.active_return or 0.0,
+                br.allocation_effect,
+                br.selection_effect,
+                br.interaction_effect,
+                json.dumps(report.brinson_daily or []),
+                json.dumps(br.sector_details),
             ],
         )

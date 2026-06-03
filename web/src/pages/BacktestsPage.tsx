@@ -23,7 +23,7 @@ function rebalanceLabel(r?: string) {
   return { '1d': '每日', '5d': '每周', '20d': '每月' }[r ?? '1d'] ?? r ?? '每日'
 }
 
-type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills' | 'walkforward'
+type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills' | 'walkforward' | 'tca' | 'attribution'
 
 /** 将 JSON 对象导出为 .json 文件下载 */
 function downloadJson(data: unknown, filename: string) {
@@ -231,6 +231,18 @@ export function BacktestsPage() {
     staleTime: 60_000,
   })
 
+  const { data: tcaData } = useQuery({
+    queryKey: queryKeys.backtests.tca(selectedId!),
+    queryFn: () => backtestsApi.getTca(selectedId!),
+    enabled: !!selectedId && tab === 'tca',
+  })
+
+  const { data: attributionData } = useQuery({
+    queryKey: queryKeys.backtests.attribution(selectedId!),
+    queryFn: () => backtestsApi.getAttribution(selectedId!),
+    enabled: !!selectedId && tab === 'attribution',
+  })
+
   const { data: compareData, isLoading: compareLoading } = useQuery({
     queryKey: ['backtests', 'compare', compareIds.join(',')],
     queryFn: () => backtestsApi.compare(compareIds.join(',')),
@@ -314,6 +326,8 @@ export function BacktestsPage() {
     { id: 'overfitting', label: '过拟合分析' },
     { id: 'fills', label: '交易明细' },
     ...(isWalkForward ? [{ id: 'walkforward' as Tab, label: 'Walk-Forward' }] : []),
+    { id: 'tca', label: '成本分析' },
+    { id: 'attribution', label: '归因分析' },
   ]
 
   return (
@@ -493,7 +507,7 @@ export function BacktestsPage() {
                     />
                     <MetricCard
                       label="Sharpe"
-                      value={detail.metrics.sharpe_ratio.toFixed(3)}
+                      value={Number(detail.metrics.sharpe_ratio ?? 0).toFixed(3)}
                       warn={detail.metrics.sharpe_ratio < 0}
                     />
                     <MetricCard
@@ -837,6 +851,81 @@ export function BacktestsPage() {
                     } },
                 ]}
               />
+            </div>
+          )}
+
+          {tab === 'tca' && (
+            <div className="space-y-4">
+              {tcaData ? (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <MetricCard label="总成本" value={`¥${Number(tcaData.total_cost ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`} />
+                    <MetricCard label="成本率" value={`${Number(tcaData.cost_pct_turnover ?? 0).toFixed(4)}%`} />
+                    <MetricCard label="交易笔数" value={String(tcaData.num_trades ?? 0)} />
+                    <MetricCard label="平均成本/笔" value={`¥${Number(tcaData.cost_per_trade ?? 0).toFixed(2)}`} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="card p-4">
+                      <div className="text-xs text-gray-500 mb-1">佣金</div>
+                      <div className="text-lg font-semibold">¥{Number(tcaData.total_commission ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
+                    </div>
+                    <div className="card p-4">
+                      <div className="text-xs text-gray-500 mb-1">印花税</div>
+                      <div className="text-lg font-semibold">¥{Number(tcaData.total_stamp_duty ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
+                    </div>
+                    <div className="card p-4">
+                      <div className="text-xs text-gray-500 mb-1">滑点</div>
+                      <div className="text-lg font-semibold">¥{Number(tcaData.total_slippage ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center text-gray-400 py-12">无交易数据，无法进行成本分析</div>
+              )}
+            </div>
+          )}
+
+          {tab === 'attribution' && (
+            <div className="space-y-4">
+              {attributionData ? (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <MetricCard label="超额收益" value={`${Number(attributionData.active_return ?? 0 * 100).toFixed(2)}%`} warn={Number(attributionData.active_return ?? 0) < 0} />
+                    <MetricCard label="配置效应" value={`${Number(attributionData.allocation_effect ?? 0).toFixed(4)}`} />
+                    <MetricCard label="选股效应" value={`${Number(attributionData.selection_effect ?? 0).toFixed(4)}`} />
+                    <MetricCard label="交互效应" value={`${Number(attributionData.interaction_effect ?? 0).toFixed(4)}`} />
+                  </div>
+                  {Object.keys(attributionData.sector_details as Record<string, unknown> ?? {}).length > 0 && (
+                    <div className="card p-4">
+                      <div className="text-sm font-medium text-gray-700 mb-3">行业归因明细</div>
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="table-th">行业</th>
+                            <th className="table-th">组合权重</th>
+                            <th className="table-th">基准权重</th>
+                            <th className="table-th">组合收益</th>
+                            <th className="table-th">基准收益</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(attributionData.sector_details as Record<string, Record<string, number>>).map(([sector, data]) => (
+                            <tr key={sector} className="table-row">
+                              <td className="table-td">{sector}</td>
+                              <td className="table-td">{((data.port_weight ?? 0) * 100).toFixed(1)}%</td>
+                              <td className="table-td">{((data.bench_weight ?? 0) * 100).toFixed(1)}%</td>
+                              <td className="table-td">{((data.port_return ?? 0) * 100).toFixed(2)}%</td>
+                              <td className="table-td">{((data.bench_return ?? 0) * 100).toFixed(2)}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center text-gray-400 py-12">未设置基准或组合为单资产，无法进行归因分析</div>
+              )}
             </div>
           )}
         </div>

@@ -6,6 +6,8 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
+import polars as pl
+
 from cquant.backtest_vector.engine import BacktestResult
 
 logger = logging.getLogger(__name__)
@@ -74,31 +76,38 @@ class AnalysisEngine:
             stability=all_stability,
         )
 
-        # Optional Brinson attribution
+        # TCA analysis
+        from cquant.backtest_vector.tca import TransactionCostAnalyzer
+        tca_analyzer = TransactionCostAnalyzer()
+        tca_summary = tca_analyzer.analyze(result.fills)
+        tca_by_asset = tca_analyzer.analyze_by_asset(result.fills)
+        tca_by_date = tca_analyzer.analyze_by_date(result.fills)
+
+        # Brinson attribution (enhanced)
         brinson_result = None
+        brinson_daily = None
+        benchmark_return_val = None
+        active_return_val = None
         try:
             if not result.positions.is_empty() and "target_weight" in result.positions.columns:
-                import polars as pl
                 from cquant.bt_analyzer.attribution import BrinsonAttribution
 
-                port_weights_df = (
-                    result.positions
-                    .group_by("asset_id")
-                    .agg(pl.col("target_weight").mean().alias("avg_weight"))
-                )
-                port_weights = dict(zip(
-                    port_weights_df["asset_id"].to_list(),
-                    port_weights_df["avg_weight"].to_list(),
-                ))
+                assets = sorted(result.positions["asset_id"].unique().to_list())
+                if len(assets) > 1:
+                    port_weights_df = (
+                        result.positions
+                        .group_by("asset_id")
+                        .agg(pl.col("target_weight").mean().alias("avg_weight"))
+                    )
+                    port_weights = dict(zip(
+                        port_weights_df["asset_id"].to_list(),
+                        port_weights_df["avg_weight"].to_list(),
+                    ))
 
-                if port_weights:
-                    assets = list(port_weights.keys())
                     bench_weights = {a: 1.0 / len(assets) for a in assets}
 
                     prices_df = result.spec.prices.filter(
-                        (pl.col("asset_id").is_in(assets))
-                        & (pl.col("trade_date") >= result.spec.start_date)
-                        & (pl.col("trade_date") <= result.spec.end_date)
+                        pl.col("asset_id").is_in(assets)
                     )
                     asset_returns = {}
                     for a in assets:
@@ -107,11 +116,22 @@ class AnalysisEngine:
                             asset_returns[a] = float(apx["close"][-1]) / float(apx["close"][0]) - 1
 
                     if asset_returns:
+                        bench_ret = sum(
+                            bench_weights.get(a, 0) * asset_returns.get(a, 0)
+                            for a in assets
+                        )
+                        benchmark_return_val = bench_ret
+
                         brinson_result = BrinsonAttribution().analyze(
                             portfolio_weights=port_weights,
                             benchmark_weights=bench_weights,
                             portfolio_returns=asset_returns,
-                            benchmark_returns=asset_returns,
+                            benchmark_returns={a: bench_ret for a in assets},
+                        )
+                        active_return_val = brinson_result.total_return - bench_ret
+
+                        brinson_daily = _compute_daily_brinson(
+                            result.positions, prices_df, bench_weights,
                         )
         except Exception as _exc:
             logger.debug("Brinson attribution skipped: %s", _exc)
@@ -129,6 +149,12 @@ class AnalysisEngine:
             stability_metrics=all_stability,
             summary=_build_summary(result.run_id, overfit, psr, dsr, wf_windows, cpcv_windows),
             brinson_attribution=brinson_result,
+            brinson_daily=brinson_daily,
+            benchmark_return=benchmark_return_val,
+            active_return=active_return_val,
+            tca_summary=tca_summary,
+            tca_by_asset=tca_by_asset,
+            tca_by_date=tca_by_date,
             created_at=datetime.now(tz=timezone.utc),
         )
 
@@ -175,6 +201,72 @@ class AnalysisEngine:
             else "low"
         )
         return OverfitScore(score=score, confidence=confidence, contributing_factors=factors)
+
+
+def _compute_daily_brinson(
+    positions: pl.DataFrame,
+    prices: pl.DataFrame,
+    bench_weights: dict[str, float],
+) -> list[dict]:
+    """Compute Brinson attribution for each rebalance period."""
+    from cquant.bt_analyzer.attribution import BrinsonAttribution
+
+    dates = sorted(positions["trade_date"].unique().to_list())
+    if len(dates) < 2:
+        return []
+
+    results = []
+    analyzer = BrinsonAttribution()
+
+    for i in range(len(dates) - 1):
+        td = dates[i]
+        next_td = dates[i + 1]
+
+        pos = positions.filter(pl.col("trade_date") == td)
+        if pos.is_empty():
+            continue
+        port_weights = dict(zip(pos["asset_id"].to_list(), pos["target_weight"].to_list()))
+        assets = list(port_weights.keys())
+
+        asset_returns = {}
+        for a in assets:
+            px_td = prices.filter(
+                (pl.col("asset_id") == a) & (pl.col("trade_date") == td)
+            )
+            px_next = prices.filter(
+                (pl.col("asset_id") == a) & (pl.col("trade_date") == next_td)
+            )
+            if not px_td.is_empty() and not px_next.is_empty():
+                p0 = float(px_td["close"][0])
+                p1 = float(px_next["close"][0])
+                if p0 > 0:
+                    asset_returns[a] = p1 / p0 - 1
+
+        if not asset_returns:
+            continue
+
+        bench_ret = sum(
+            bench_weights.get(a, 0) * asset_returns.get(a, 0)
+            for a in assets
+        )
+
+        try:
+            result = analyzer.analyze(
+                portfolio_weights=port_weights,
+                benchmark_weights=bench_weights,
+                portfolio_returns=asset_returns,
+                benchmark_returns={a: bench_ret for a in assets},
+            )
+            results.append({
+                "date": str(next_td),
+                "allocation": result.allocation_effect,
+                "selection": result.selection_effect,
+                "interaction": result.interaction_effect,
+            })
+        except Exception:
+            continue
+
+    return results
 
 
 def _mean_metric(windows: list[ValidationWindow], key: str) -> float:

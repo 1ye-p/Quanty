@@ -237,6 +237,10 @@ export const backtestsApi = {
       }>
       aggregated: Record<string, number>
     }>(`/backtests/${id}/walk-forward-folds`),
+  getTca: (id: string) =>
+    request<Record<string, unknown>>(`/backtests/${id}/tca`),
+  getAttribution: (id: string) =>
+    request<Record<string, unknown>>(`/backtests/${id}/attribution`),
 }
 
 // ── Knowledge base ────────────────────────────────────────────────────────────

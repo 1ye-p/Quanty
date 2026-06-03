@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from cquant.backtest_vector.tca import TCADetail, TCASummary
     from cquant.bt_analyzer.attribution import BrinsonResult
 
 
@@ -73,4 +74,12 @@ class AnalysisReport:
     stability_metrics: dict[str, float]
     summary: str                                       # Human-readable, consumable by ai_advisor
     brinson_attribution: "BrinsonResult | None" = None
+    # TCA fields
+    tca_summary: "TCASummary | None" = None
+    tca_by_asset: "list[TCADetail] | None" = None
+    tca_by_date: "list[TCADetail] | None" = None
+    # Enhanced attribution fields
+    brinson_daily: list[dict[str, Any]] | None = None
+    benchmark_return: float | None = None
+    active_return: float | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
