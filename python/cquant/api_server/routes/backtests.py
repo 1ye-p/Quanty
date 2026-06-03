@@ -10,7 +10,7 @@ import re
 import uuid
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -611,12 +611,16 @@ async def get_backtest_risk(run_id: str, catalog: CatalogDep, limit: int = 20) -
 @router.get("/{run_id}/risk-rolling")
 async def get_risk_rolling(
     run_id: str,
-    window: int = 60,
+    window: int = Query(default=60, ge=1, le=504),
     catalog: CatalogDep,
 ) -> dict:
     """Get rolling risk metrics for a backtest run."""
     df = catalog.query(
-        "SELECT * FROM gold_risk_rolling WHERE run_id = ? AND window = ? ORDER BY trade_date",
+        "SELECT trade_date, window, "
+        "rolling_var AS var_95, rolling_cvar AS cvar_95, "
+        "rolling_vol AS volatility, rolling_sharpe AS sharpe_ratio, "
+        "rolling_beta AS beta "
+        "FROM gold_risk_rolling WHERE run_id = ? AND window = ? ORDER BY trade_date",
         [run_id, window],
     )
     if df.is_empty():
@@ -646,11 +650,39 @@ async def get_drawdowns(
     }
 
 
+@router.get("/{run_id}/drawdown-timeseries")
+async def get_drawdown_timeseries(
+    run_id: str,
+    catalog: CatalogDep,
+) -> dict:
+    """Get daily underwater drawdown values for charting."""
+    df = catalog.query(
+        "SELECT trade_date, portfolio_return FROM gold_portfolio_returns "
+        "WHERE run_id = ? ORDER BY trade_date",
+        [run_id],
+    )
+    if df.is_empty():
+        raise HTTPException(status_code=404, detail=f"No return data for run '{run_id}'")
+
+    returns = df["portfolio_return"].to_list()
+    dates = df["trade_date"].to_list()
+    nav = 1.0
+    peak = 1.0
+    data = []
+    for i, r in enumerate(returns):
+        nav *= (1 + r)
+        peak = max(peak, nav)
+        dd = (nav - peak) / peak if peak > 0 else 0.0
+        data.append({"trade_date": str(dates[i]), "drawdown": dd})
+
+    return {"run_id": run_id, "data": data}
+
+
 @router.get("/{run_id}/return-distribution")
 async def get_return_distribution(
     run_id: str,
     catalog: CatalogDep,
-    bins: int = 50,
+    bins: int = Query(default=50, ge=2, le=1000),
 ) -> dict:
     """Get return distribution histogram data for a backtest run."""
     import numpy as np
@@ -681,8 +713,8 @@ async def get_return_distribution(
         "stats": {
             "mean": float(np.mean(returns)),
             "std": float(np.std(returns)),
-            "skewness": float(np.mean(((returns - np.mean(returns)) / np.std(returns)) ** 3)),
-            "kurtosis": float(np.mean(((returns - np.mean(returns)) / np.std(returns)) ** 4)),
+            "skewness": float(np.mean(((returns - np.mean(returns)) / np.std(returns)) ** 3)) if np.std(returns) > 0 else 0.0,
+            "kurtosis": float(np.mean(((returns - np.mean(returns)) / np.std(returns)) ** 4)) if np.std(returns) > 0 else 0.0,
             "min": float(np.min(returns)),
             "max": float(np.max(returns)),
         },

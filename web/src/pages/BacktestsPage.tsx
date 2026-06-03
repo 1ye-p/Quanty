@@ -256,6 +256,12 @@ export function BacktestsPage() {
     enabled: !!selectedId && tab === 'risk',
   })
 
+  const { data: drawdownTsData } = useQuery({
+    queryKey: queryKeys.backtests.drawdownTimeseries(selectedId!),
+    queryFn: () => backtestsApi.getDrawdownTimeseries(selectedId!),
+    enabled: !!selectedId && tab === 'risk',
+  })
+
   const { data: returnDistData } = useQuery({
     queryKey: queryKeys.backtests.returnDistribution(selectedId!),
     queryFn: () => backtestsApi.getReturnDistribution(selectedId!),
@@ -1033,11 +1039,11 @@ export function BacktestsPage() {
                   </div>
 
                   {/* Drawdown underwater chart */}
-                  {drawdownsData && (drawdownsData.periods as Record<string, unknown>[])?.length > 0 && (
+                  {drawdownTsData && (drawdownTsData.data as Record<string, unknown>[])?.length > 0 && (
                     <div className="card">
                       <h3 className="font-semibold text-gray-800 mb-3">回撤水下图</h3>
                       <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart data={riskRollingData.data as Record<string, unknown>[]} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                        <AreaChart data={drawdownTsData.data as Record<string, unknown>[]} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                           <XAxis dataKey="trade_date" tick={{ fontSize: 10 }} interval="preserveStartEnd" tickFormatter={v => String(v).slice(5)} />
                           <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v * 100).toFixed(1)}%`} />

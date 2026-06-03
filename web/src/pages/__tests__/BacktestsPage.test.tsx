@@ -97,6 +97,13 @@ vi.mock('@/lib/api', () => ({
         { period_id: 1, peak_date: '2025-01-15', trough_date: '2025-01-20', recovery_date: '2025-01-25', max_drawdown: -0.05, duration_days: 10 },
       ],
     }),
+    getDrawdownTimeseries: vi.fn().mockResolvedValue({
+      run_id: 'run-abc-123',
+      data: [
+        { trade_date: '2025-01-01', drawdown: 0 },
+        { trade_date: '2025-01-02', drawdown: -0.015 },
+      ],
+    }),
     getReturnDistribution: vi.fn().mockResolvedValue({
       run_id: 'run-abc-123',
       bins: 50,

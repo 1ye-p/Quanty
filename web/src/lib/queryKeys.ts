@@ -21,6 +21,7 @@ export const queryKeys = {
     attribution: (id: string) => ['backtests', id, 'attribution'] as const,
     riskRolling: (id: string, window: number) => ['backtests', id, 'risk-rolling', window] as const,
     drawdowns: (id: string) => ['backtests', id, 'drawdowns'] as const,
+    drawdownTimeseries: (id: string) => ['backtests', id, 'drawdown-timeseries'] as const,
     returnDistribution: (id: string) => ['backtests', id, 'return-distribution'] as const,
   },
   knowledge: {
