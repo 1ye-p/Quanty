@@ -38,6 +38,7 @@ dev = [
     "pytest-cov>=5.0",
     "pytest-snapshot>=0.9",
 ]
+qlib = ["qlib>=0.9.0"]
 
 [project.scripts]
 cquant = "cquant.cli.main:main"

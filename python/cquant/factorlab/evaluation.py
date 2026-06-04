@@ -252,8 +252,8 @@ class FactorEvaluator:
     def qlib_risk_analysis(self, returns: pl.Series) -> dict | None:
         """使用 Qlib 计算年化风险指标。
 
-        调用 ``qlib.contrib.evaluate.risk_analysis()`` 计算年化收益、
-        信息比率（夏普）和最大回撤，无需 ``qlib.init()``。
+        通过 ``cquant.qlib_bridge.risk_analysis.qlib_risk_analysis()``
+        桥接层调用 Qlib 的 ``risk_analysis()``，不直接 import qlib。
 
         Parameters
         ----------
@@ -273,21 +273,8 @@ class FactorEvaluator:
         if returns.is_empty():
             return None
 
-        try:
-            import pandas as pd
-            from qlib.contrib.evaluate import risk_analysis
+        from cquant.qlib_bridge.risk_analysis import (
+            qlib_risk_analysis as _qlib_risk_analysis,
+        )
 
-            pd_returns = pd.Series(returns.to_numpy(), name="returns")
-            result_df = risk_analysis(pd_returns)
-
-            return {
-                "mean": float(result_df.loc["mean", "risk"]),
-                "std": float(result_df.loc["std", "risk"]),
-                "annualized_return": float(result_df.loc["annualized_return", "risk"]),
-                "information_ratio": float(result_df.loc["information_ratio", "risk"]),
-                "max_drawdown": float(result_df.loc["max_drawdown", "risk"]),
-            }
-        except ImportError:
-            import logging
-            logging.getLogger(__name__).warning("qlib 未安装，跳过 qlib_risk_analysis()")
-            return None
+        return _qlib_risk_analysis(returns.to_numpy())

@@ -5,3 +5,6 @@
 [submodule "lib/vibe-trading"]
 	path = lib/vibe-trading
 	url = https://github.com/HKUDS/Vibe-Trading.git
+[submodule "lib/qlib"]
+	path = lib/qlib
+	url = git@github.com:microsoft/qlib.git

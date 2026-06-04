@@ -24,6 +24,12 @@ def __getattr__(name: str):
     if name == "ensemble_fold_predictions":
         from cquant.qlib_bridge.ml_rolling import ensemble_fold_predictions
         return ensemble_fold_predictions
+    if name == "init_qlib_with_quantdb":
+        from cquant.qlib_bridge.init import init_qlib_with_quantdb
+        return init_qlib_with_quantdb
+    if name == "qlib_risk_analysis":
+        from cquant.qlib_bridge.risk_analysis import qlib_risk_analysis
+        return qlib_risk_analysis
     raise AttributeError(f"module 'cquant.qlib_bridge' has no attribute {name!r}")
 
 
@@ -36,4 +42,6 @@ __all__ = [
     "RollingConfig",
     "generate_rolling_splits",
     "ensemble_fold_predictions",
+    "init_qlib_with_quantdb",
+    "qlib_risk_analysis",
 ]
