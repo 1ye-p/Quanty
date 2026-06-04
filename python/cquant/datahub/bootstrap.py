@@ -96,21 +96,18 @@ def bootstrap_assets_from_tdx(
     ])
 
     # Write to DuckDB
-    conn = catalog._get_conn()
     rows = asset_rows.rows()
     assert not rows or len(rows[0]) == 17, (
         f"Column mismatch: {len(rows[0])} values vs 17 placeholders"
     )
     try:
-        conn.executemany(
-            """
-            INSERT OR REPLACE INTO silver_assets
-                (asset_id, symbol, exchange, asset_class, currency, name, name_en,
-                 status, lot_size, tick_size, list_date, delist_date,
-                 industry, sector, effective_from, effective_to, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+        catalog.upsert(
+            "silver_assets",
+            ["asset_id", "symbol", "exchange", "asset_class", "currency", "name", "name_en",
+             "status", "lot_size", "tick_size", "list_date", "delist_date",
+             "industry", "sector", "effective_from", "effective_to", "updated_at"],
             rows,
+            ["asset_id"],
         )
     except Exception as exc:
         logger.error("Failed to write silver_assets: %s", exc)
@@ -151,20 +148,19 @@ def enrich_industry_from_lookup(
     matched_ids = lookup_matched["asset_id"].to_list()
 
     # Update industry using a temp table + UPDATE ... FROM
-    conn = catalog._get_conn()
-    conn.execute("CREATE TEMP TABLE IF NOT EXISTS _industry_lookup_stage (asset_id VARCHAR, industry VARCHAR)")
-    conn.execute("DELETE FROM _industry_lookup_stage")
-    conn.executemany(
+    catalog.execute("CREATE TEMP TABLE IF NOT EXISTS _industry_lookup_stage (asset_id VARCHAR, industry VARCHAR)")
+    catalog.execute("DELETE FROM _industry_lookup_stage")
+    catalog.executemany(
         "INSERT INTO _industry_lookup_stage (asset_id, industry) VALUES (?, ?)",
         lookup_matched.select(["asset_id", "industry"]).rows(),
     )
-    conn.execute("""
+    catalog.execute("""
         UPDATE silver_assets
         SET industry = l.industry
         FROM _industry_lookup_stage AS l
         WHERE silver_assets.asset_id = l.asset_id
     """)
-    conn.execute("DROP TABLE IF EXISTS _industry_lookup_stage")
+    catalog.execute("DROP TABLE IF EXISTS _industry_lookup_stage")
 
     return len(matched_ids)
 
@@ -207,19 +203,16 @@ def bootstrap_calendar_from_tdx(
         pl.lit("tdx").alias("source"),
     ])
 
-    conn = catalog._get_conn()
     rows = df.rows()
     assert not rows or len(rows[0]) == 6, (
         f"Column mismatch: {len(rows[0])} values vs 6 placeholders"
     )
     try:
-        conn.executemany(
-            """
-            INSERT OR REPLACE INTO silver_trading_calendar
-                (exchange, trade_date, is_open, open_time, close_time, source)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
+        catalog.upsert(
+            "silver_trading_calendar",
+            ["exchange", "trade_date", "is_open", "open_time", "close_time", "source"],
             rows,
+            ["exchange", "trade_date"],
         )
     except Exception as exc:
         logger.error("Failed to write silver_trading_calendar: %s", exc)

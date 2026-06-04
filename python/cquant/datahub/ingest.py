@@ -141,19 +141,18 @@ class MarketIngestionOrchestrator:
             pl.lit(ingestion_id).alias("ingestion_id")
         )
 
-        conn = self._catalog._get_conn()
         all_cols = cols_to_write + ["ingestion_id"]
-        col_list = ", ".join(all_cols)
-        placeholders = ", ".join(["?"] * len(all_cols))
         rows = write_frame.rows()
         n_cols = len(all_cols)
         assert not rows or len(rows[0]) == n_cols, (
             f"Column mismatch: {len(rows[0])} values vs {n_cols} placeholders"
         )
         try:
-            conn.executemany(
-                f"INSERT OR REPLACE INTO silver_prices_1d ({col_list}) VALUES ({placeholders})",
+            self._catalog.upsert(
+                "silver_prices_1d",
+                all_cols,
                 rows,
+                ["asset_id", "trade_date"],
             )
         except Exception as exc:
             raise IngestError(f"Failed to write silver_prices_1d: {exc}") from exc

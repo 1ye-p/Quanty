@@ -80,14 +80,11 @@ class AnalysisRunner:
 
     def _persist_analysis_run(self, report: AnalysisReport) -> None:
         """Write analysis run metadata to gold_bt_analysis_runs."""
-        conn = self._catalog._get_conn()
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO gold_bt_analysis_runs
-                (analysis_run_id, backtest_run_id, overall_overfit_score, dsr, psr, summary, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
+        self._catalog.upsert(
+            "gold_bt_analysis_runs",
+            ["analysis_run_id", "backtest_run_id", "overall_overfit_score",
+             "dsr", "psr", "summary", "created_at"],
+            [(
                 report.analysis_run_id,
                 report.backtest_run_id,
                 report.overall_overfit_score.score,
@@ -95,7 +92,8 @@ class AnalysisRunner:
                 report.psr,
                 report.summary,
                 report.created_at.isoformat(),
-            ],
+            )],
+            ["analysis_run_id"],
         )
 
     def _persist_validation_windows(self, report: AnalysisReport) -> None:
@@ -133,20 +131,14 @@ class AnalysisRunner:
         import polars as pl
 
         df = pl.DataFrame(windows)
-        conn = self._catalog._get_conn()
         rows = df.rows()
-        assert not rows or len(rows[0]) == 8, (
-            f"Column mismatch: {len(rows[0])} values vs 8 placeholders"
-        )
         try:
-            conn.executemany(
-                """
-                INSERT OR REPLACE INTO gold_bt_validation_windows
-                    (analysis_run_id, window_id, method, train_start, train_end,
-                     test_start, test_end, metrics_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+            self._catalog.upsert(
+                "gold_bt_validation_windows",
+                ["analysis_run_id", "window_id", "method", "train_start", "train_end",
+                 "test_start", "test_end", "metrics_json"],
                 rows,
+                ["analysis_run_id", "method", "window_id"],
             )
         except Exception as exc:
             logger.warning("Failed to persist validation windows: %s", exc)
@@ -154,37 +146,30 @@ class AnalysisRunner:
     def _persist_multiple_testing(self, report: AnalysisReport) -> None:
         """Write multiple testing results to gold_bt_multiple_testing."""
         mt = report.multiple_testing_result
-        conn = self._catalog._get_conn()
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO gold_bt_multiple_testing
-                (analysis_run_id, method, n_trials, alpha, results_json, accepted)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            [
+        self._catalog.upsert(
+            "gold_bt_multiple_testing",
+            ["analysis_run_id", "method", "n_trials", "alpha", "results_json", "accepted"],
+            [(
                 report.analysis_run_id,
                 mt.get("method", "holm"),
                 mt.get("n_trials", 1),
                 mt.get("alpha", 0.05),
                 json.dumps(mt),
                 mt.get("accepted", False),
-            ],
+            )],
+            ["analysis_run_id", "method"],
         )
 
     def _persist_tca(self, report: AnalysisReport) -> None:
         """Write TCA summary to gold_bt_tca."""
         if not report.tca_summary:
             return
-        conn = self._catalog._get_conn()
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO gold_bt_tca
-                (analysis_run_id, total_turnover, total_commission, total_stamp_duty,
-                 total_slippage, total_cost, cost_per_trade, cost_pct_turnover,
-                 num_trades, avg_trade_size)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
+        self._catalog.upsert(
+            "gold_bt_tca",
+            ["analysis_run_id", "total_turnover", "total_commission", "total_stamp_duty",
+             "total_slippage", "total_cost", "cost_per_trade", "cost_pct_turnover",
+             "num_trades", "avg_trade_size"],
+            [(
                 report.analysis_run_id,
                 report.tca_summary.total_turnover,
                 report.tca_summary.total_commission,
@@ -195,24 +180,21 @@ class AnalysisRunner:
                 report.tca_summary.cost_as_pct_turnover,
                 report.tca_summary.num_trades,
                 report.tca_summary.avg_trade_size,
-            ],
+            )],
+            ["analysis_run_id"],
         )
 
     def _persist_attribution(self, report: AnalysisReport) -> None:
         """Write Brinson attribution to gold_bt_attribution."""
         if not report.brinson_attribution:
             return
-        conn = self._catalog._get_conn()
         br = report.brinson_attribution
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO gold_bt_attribution
-                (analysis_run_id, total_return, benchmark_return, active_return,
-                 allocation_effect, selection_effect, interaction_effect,
-                 daily_json, sector_details_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
+        self._catalog.upsert(
+            "gold_bt_attribution",
+            ["analysis_run_id", "total_return", "benchmark_return", "active_return",
+             "allocation_effect", "selection_effect", "interaction_effect",
+             "daily_json", "sector_details_json"],
+            [(
                 report.analysis_run_id,
                 br.total_return,
                 report.benchmark_return if report.benchmark_return is not None else None,
@@ -222,5 +204,6 @@ class AnalysisRunner:
                 br.interaction_effect,
                 json.dumps(report.brinson_daily or []),
                 json.dumps(br.sector_details),
-            ],
+            )],
+            ["analysis_run_id"],
         )

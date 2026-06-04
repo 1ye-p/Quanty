@@ -200,9 +200,8 @@ class QuoteFeed:
                 return
 
             df = pl.DataFrame(rows)
-            conn = self._catalog._get_conn()
 
-            conn.execute("""
+            self._catalog.execute("""
                 CREATE TABLE IF NOT EXISTS silver_prices_realtime (
                     asset_id VARCHAR,
                     symbol VARCHAR,
@@ -224,7 +223,7 @@ class QuoteFeed:
                 )
             """)
 
-            conn.execute(
+            self._catalog.execute(
                 "INSERT INTO silver_prices_realtime SELECT * FROM df",
             )
             logger.debug("Persisted %d quotes", len(rows))

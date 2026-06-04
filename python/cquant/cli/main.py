@@ -276,37 +276,36 @@ def cmd_status(args: argparse.Namespace) -> None:
     """Handle 'status' command."""
     catalog = Catalog(args.catalog)
     catalog.initialize()
-    conn = catalog._get_conn()
 
     print("=== cQuant Status ===\n")
 
     # Silver layer
-    assets = conn.execute("SELECT COUNT(*) FROM silver_prices_1d").fetchone()
-    print(f"Silver prices: {assets[0]:,} rows")
+    assets_df = catalog.query("SELECT COUNT(*) AS cnt FROM silver_prices_1d")
+    print(f"Silver prices: {assets_df['cnt'][0]:,} rows")
 
-    asset_count = conn.execute("SELECT COUNT(DISTINCT asset_id) FROM silver_prices_1d").fetchone()
-    print(f"Assets: {asset_count[0]:,}")
+    asset_count_df = catalog.query("SELECT COUNT(DISTINCT asset_id) AS cnt FROM silver_prices_1d")
+    print(f"Assets: {asset_count_df['cnt'][0]:,}")
 
-    date_range = conn.execute("SELECT MIN(trade_date), MAX(trade_date) FROM silver_prices_1d").fetchone()
-    print(f"Date range: {date_range[0]} to {date_range[1]}\n")
+    date_range_df = catalog.query("SELECT MIN(trade_date) AS min_d, MAX(trade_date) AS max_d FROM silver_prices_1d")
+    print(f"Date range: {date_range_df['min_d'][0]} to {date_range_df['max_d'][0]}\n")
 
     # Gold layer
-    factors = conn.execute("SELECT COUNT(*) FROM gold_factor_values").fetchone()
-    print(f"Factor values: {factors[0]:,}")
+    factors_df = catalog.query("SELECT COUNT(*) AS cnt FROM gold_factor_values")
+    print(f"Factor values: {factors_df['cnt'][0]:,}")
 
-    factor_names = conn.execute("SELECT COUNT(DISTINCT factor_name) FROM gold_factor_values").fetchone()
-    print(f"Unique factors: {factor_names[0]}")
+    factor_names_df = catalog.query("SELECT COUNT(DISTINCT factor_name) AS cnt FROM gold_factor_values")
+    print(f"Unique factors: {factor_names_df['cnt'][0]}")
 
-    backtests = conn.execute("SELECT COUNT(*) FROM gold_backtest_runs").fetchone()
-    print(f"Backtest runs: {backtests[0]}")
+    backtests_df = catalog.query("SELECT COUNT(*) AS cnt FROM gold_backtest_runs")
+    print(f"Backtest runs: {backtests_df['cnt'][0]}")
 
-    analyses = conn.execute("SELECT COUNT(*) FROM gold_bt_analysis_runs").fetchone()
-    print(f"Analysis runs: {analyses[0]}\n")
+    analyses_df = catalog.query("SELECT COUNT(*) AS cnt FROM gold_bt_analysis_runs")
+    print(f"Analysis runs: {analyses_df['cnt'][0]}\n")
 
     # Available factors
-    factor_list = conn.execute("SELECT DISTINCT factor_name FROM gold_factor_values ORDER BY factor_name").fetchdf()
+    factor_list_df = catalog.query("SELECT DISTINCT factor_name FROM gold_factor_values ORDER BY factor_name")
     print("Available factors:")
-    for _, row in factor_list.iterrows():
+    for row in factor_list_df.iter_rows(named=True):
         print(f"  - {row['factor_name']}")
 
 

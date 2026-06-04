@@ -10,8 +10,9 @@ import json
 import os
 from pathlib import Path
 
-import duckdb
 from fastmcp import FastMCP
+
+from cquant.datahub.catalog import Catalog
 
 mcp = FastMCP("cQuant Data Tools")
 
@@ -22,9 +23,9 @@ _DB_PATH: str = os.environ.get(
 )
 
 
-def _connect() -> duckdb.DuckDBPyConnection:
-    """Return a read-only DuckDB connection."""
-    return duckdb.connect(_DB_PATH, read_only=True)
+def _get_catalog() -> Catalog:
+    """Return a Catalog instance for read-only queries."""
+    return Catalog(_DB_PATH)
 
 
 @mcp.tool()
@@ -35,25 +36,20 @@ def query_backtest_result(run_id: str) -> str:
         run_id: UUID of the backtest run (from gold_backtest_runs table).
     """
     try:
-        con = _connect()
-        try:
-            rows = con.execute(
-                "SELECT run_id, engine, strategy_id, dataset_version, "
-                "started_at, completed_at, status, metrics_uri, error_message "
-                "FROM gold_backtest_runs WHERE run_id = ? LIMIT 1",
-                [run_id],
-            ).fetchall()
-        finally:
-            con.close()
+        catalog = _get_catalog()
+        df = catalog.query(
+            "SELECT run_id, engine, strategy_id, dataset_version, "
+            "started_at, completed_at, status, metrics_uri, error_message "
+            "FROM gold_backtest_runs WHERE run_id = ? LIMIT 1",
+            [run_id],
+        )
     except Exception as exc:
         return json.dumps({"error": f"Database error: {exc}"})
 
-    if not rows:
+    if df.is_empty():
         return json.dumps({"error": f"Backtest run '{run_id}' not found."})
 
-    cols = ["run_id", "engine", "strategy_id", "dataset_version",
-            "started_at", "completed_at", "status", "metrics_uri", "error_message"]
-    row = dict(zip(cols, rows[0]))
+    row = df.row(0, named=True)
     return json.dumps(row, default=str, ensure_ascii=False)
 
 
@@ -66,36 +62,32 @@ def query_factor_ic(factor_name: str, feature_set_version: str = "") -> str:
         feature_set_version: Optional feature set version filter.
     """
     try:
-        con = _connect()
-        try:
-            if feature_set_version:
-                rows = con.execute(
-                    "SELECT job_id, factor_name, feature_set_version, status, "
-                    "summary_json, created_at "
-                    "FROM meta_factor_analytics "
-                    "WHERE factor_name = ? AND feature_set_version = ? "
-                    "ORDER BY created_at DESC LIMIT 1",
-                    [factor_name, feature_set_version],
-                ).fetchall()
-            else:
-                rows = con.execute(
-                    "SELECT job_id, factor_name, feature_set_version, status, "
-                    "summary_json, created_at "
-                    "FROM meta_factor_analytics "
-                    "WHERE factor_name = ? "
-                    "ORDER BY created_at DESC LIMIT 1",
-                    [factor_name],
-                ).fetchall()
-        finally:
-            con.close()
+        catalog = _get_catalog()
+        if feature_set_version:
+            df = catalog.query(
+                "SELECT job_id, factor_name, feature_set_version, status, "
+                "summary_json, created_at "
+                "FROM meta_factor_analytics "
+                "WHERE factor_name = ? AND feature_set_version = ? "
+                "ORDER BY created_at DESC LIMIT 1",
+                [factor_name, feature_set_version],
+            )
+        else:
+            df = catalog.query(
+                "SELECT job_id, factor_name, feature_set_version, status, "
+                "summary_json, created_at "
+                "FROM meta_factor_analytics "
+                "WHERE factor_name = ? "
+                "ORDER BY created_at DESC LIMIT 1",
+                [factor_name],
+            )
     except Exception as exc:
         return json.dumps({"error": f"Database error: {exc}"})
 
-    if not rows:
+    if df.is_empty():
         return json.dumps({"error": f"No IC analysis found for factor '{factor_name}'."})
 
-    cols = ["job_id", "factor_name", "feature_set_version", "status", "summary_json", "created_at"]
-    row = dict(zip(cols, rows[0]))
+    row = df.row(0, named=True)
     if row.get("summary_json"):
         try:
             row["summary_json"] = json.loads(row["summary_json"])
@@ -116,36 +108,31 @@ def query_risk_snapshot(run_id: str = "", strategy_id: str = "") -> str:
         return json.dumps({"error": "Provide either run_id or strategy_id."})
 
     try:
-        con = _connect()
-        try:
-            if run_id:
-                rows = con.execute(
-                    "SELECT run_id, snapshot_ts, strategy_id, gross_leverage, net_leverage, "
-                    "beta, drawdown, var_95, cvar_95 "
-                    "FROM gold_risk_snapshots WHERE run_id = ? "
-                    "ORDER BY snapshot_ts DESC LIMIT 1",
-                    [run_id],
-                ).fetchall()
-            else:
-                rows = con.execute(
-                    "SELECT run_id, snapshot_ts, strategy_id, gross_leverage, net_leverage, "
-                    "beta, drawdown, var_95, cvar_95 "
-                    "FROM gold_risk_snapshots WHERE strategy_id = ? "
-                    "ORDER BY snapshot_ts DESC LIMIT 1",
-                    [strategy_id],
-                ).fetchall()
-        finally:
-            con.close()
+        catalog = _get_catalog()
+        if run_id:
+            df = catalog.query(
+                "SELECT run_id, snapshot_ts, strategy_id, gross_leverage, net_leverage, "
+                "beta, drawdown, var_95, cvar_95 "
+                "FROM gold_risk_snapshots WHERE run_id = ? "
+                "ORDER BY snapshot_ts DESC LIMIT 1",
+                [run_id],
+            )
+        else:
+            df = catalog.query(
+                "SELECT run_id, snapshot_ts, strategy_id, gross_leverage, net_leverage, "
+                "beta, drawdown, var_95, cvar_95 "
+                "FROM gold_risk_snapshots WHERE strategy_id = ? "
+                "ORDER BY snapshot_ts DESC LIMIT 1",
+                [strategy_id],
+            )
     except Exception as exc:
         return json.dumps({"error": f"Database error: {exc}"})
 
-    if not rows:
+    if df.is_empty():
         ref = run_id or strategy_id
         return json.dumps({"error": f"No risk snapshot found for '{ref}'."})
 
-    cols = ["run_id", "snapshot_ts", "strategy_id", "gross_leverage", "net_leverage",
-            "beta", "drawdown", "var_95", "cvar_95"]
-    row = dict(zip(cols, rows[0]))
+    row = df.row(0, named=True)
     return json.dumps(row, default=str, ensure_ascii=False)
 
 

@@ -140,8 +140,7 @@ def persist_feature_importance(
     if not importance:
         return
 
-    conn = catalog._get_conn()
-    conn.execute("""
+    catalog.execute("""
         CREATE TABLE IF NOT EXISTS meta_feature_importance (
             model_id      VARCHAR NOT NULL,
             job_id        VARCHAR NOT NULL DEFAULT '',
@@ -167,13 +166,11 @@ def persist_feature_importance(
     assert not rows or len(rows[0]) == 6, (
         f"Column mismatch: {len(rows[0])} values vs 6 placeholders"
     )
-    conn.executemany(
-        """
-        INSERT OR REPLACE INTO meta_feature_importance
-            (model_id, job_id, trainer_name, feature_name, importance, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
+    catalog.upsert(
+        "meta_feature_importance",
+        ["model_id", "job_id", "trainer_name", "feature_name", "importance", "created_at"],
         rows,
+        ["model_id", "feature_name"],
     )
 
 
@@ -224,16 +221,13 @@ def persist_predictions(
         ])
     )
 
-    conn = catalog._get_conn()
     pred_rows = pred_df.rows()
     assert not pred_rows or len(pred_rows[0]) == 7, (
         f"Column mismatch: {len(pred_rows[0])} values vs 7 placeholders"
     )
-    conn.executemany(
-        """
-        INSERT OR REPLACE INTO gold_predictions
-            (model_version, trade_date, asset_id, prediction, horizon, label_name, confidence)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
+    catalog.upsert(
+        "gold_predictions",
+        ["model_version", "trade_date", "asset_id", "prediction", "horizon", "label_name", "confidence"],
         pred_rows,
+        ["model_version", "trade_date", "asset_id"],
     )

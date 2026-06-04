@@ -31,10 +31,10 @@ logger = logging.getLogger(__name__)
 _schema_ensured_for: set[int] = set()
 
 
-def _ensure_run_schema_extensions(conn) -> None:
-    """Add optional columns to gold_backtest_runs once per connection."""
-    conn_id = id(conn)
-    if conn_id in _schema_ensured_for:
+def _ensure_run_schema_extensions(catalog: Catalog) -> None:
+    """Add optional columns to gold_backtest_runs once per catalog."""
+    cat_id = id(catalog)
+    if cat_id in _schema_ensured_for:
         return
     for ddl in [
         "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS benchmark_asset_id VARCHAR DEFAULT ''",
@@ -43,10 +43,10 @@ def _ensure_run_schema_extensions(conn) -> None:
         "ALTER TABLE gold_backtest_runs ADD COLUMN IF NOT EXISTS aggregated_metrics_json JSON",
     ]:
         try:
-            conn.execute(ddl)
+            catalog.execute(ddl)
         except Exception as exc:
             logger.debug("_ensure_run_schema_extensions: %s", exc)
-    _schema_ensured_for.add(conn_id)
+    _schema_ensured_for.add(cat_id)
 
 
 @dataclass
@@ -512,10 +512,9 @@ class BacktestRunner:
         run_id = str(uuid.uuid4())
         now = datetime.now(tz=timezone.utc).isoformat()
 
-        conn = self._catalog._get_conn()
-        _ensure_run_schema_extensions(conn)
+        _ensure_run_schema_extensions(self._catalog)
 
-        conn.execute(
+        self._catalog.execute(
             "INSERT INTO gold_backtest_runs "
             "(run_id, engine, strategy_id, dataset_version, started_at, completed_at, status, "
             " is_walk_forward, n_folds, aggregated_metrics_json) "
@@ -526,7 +525,7 @@ class BacktestRunner:
             ],
         )
 
-        conn.execute("""
+        self._catalog.execute("""
             CREATE TABLE IF NOT EXISTS gold_wf_folds (
                 run_id VARCHAR, fold_id INTEGER,
                 train_start VARCHAR, train_end VARCHAR,
@@ -534,13 +533,18 @@ class BacktestRunner:
                 fold_run_id VARCHAR, PRIMARY KEY (run_id, fold_id)
             )
         """)
-        for fold in fold_results:
-            conn.execute(
-                "INSERT OR REPLACE INTO gold_wf_folds "
-                "(run_id, fold_id, train_start, train_end, test_start, test_end, fold_run_id) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [run_id, fold["fold_id"], fold["train_start"], fold["train_end"],
-                 fold["test_start"], fold["test_end"], fold["run_id"]],
+        wf_rows = [
+            (run_id, fold["fold_id"], fold["train_start"], fold["train_end"],
+             fold["test_start"], fold["test_end"], fold["run_id"])
+            for fold in fold_results
+        ]
+        if wf_rows:
+            self._catalog.upsert(
+                "gold_wf_folds",
+                ["run_id", "fold_id", "train_start", "train_end",
+                 "test_start", "test_end", "fold_run_id"],
+                wf_rows,
+                ["run_id", "fold_id"],
             )
 
         return run_id
@@ -951,9 +955,8 @@ class BacktestRunner:
         metrics_path = metrics_dir / f"{result.run_id}.json"
         metrics_path.write_text(json.dumps(metrics_dict, indent=2))
 
-        conn = self._catalog._get_conn()
-        _ensure_run_schema_extensions(conn)
-        conn.execute(
+        _ensure_run_schema_extensions(self._catalog)
+        self._catalog.execute(
             """
             INSERT INTO gold_backtest_runs
                 (run_id, engine, strategy_id, dataset_version, signal_set_version,
@@ -986,7 +989,6 @@ class BacktestRunner:
         if positions.is_empty():
             return
 
-        conn = self._catalog._get_conn()
         rows = []
         for row in positions.iter_rows(named=True):
             rows.append((
@@ -999,16 +1001,14 @@ class BacktestRunner:
                 1.0,
                 float(row.get("target_weight", 0) or 0),
             ))
-        assert not rows or len(rows[0]) == 8, (
-            f"Column mismatch: {len(rows[0])} values vs 8 placeholders"
-        )
         try:
-            conn.executemany("""
-                INSERT OR REPLACE INTO gold_signals
-                    (signal_set_version, strategy_id, trade_date, asset_id,
-                     signal, direction, confidence, target_weight)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, rows)
+            self._catalog.upsert(
+                "gold_signals",
+                ["signal_set_version", "strategy_id", "trade_date", "asset_id",
+                 "signal", "direction", "confidence", "target_weight"],
+                rows,
+                ["signal_set_version", "strategy_id", "trade_date", "asset_id"],
+            )
             logger.info("Persisted %d signals to gold_signals", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist signals: %s", exc)
@@ -1021,7 +1021,6 @@ class BacktestRunner:
 
         import uuid as _uuid
 
-        conn = self._catalog._get_conn()
         rows = []
         for row in fills.iter_rows(named=True):
             rows.append((
@@ -1038,16 +1037,14 @@ class BacktestRunner:
                 float(row.get("slippage", 0) or 0),
                 float(row.get("total_cost", 0) or 0),
             ))
-        assert not rows or len(rows[0]) == 12, (
-            f"Column mismatch: {len(rows[0])} values vs 12 placeholders"
-        )
         try:
-            conn.executemany("""
-                INSERT OR REPLACE INTO gold_fills
-                    (fill_id, run_id, trade_date, asset_id, side, qty,
-                     price, notional, commission, stamp_duty, slippage, total_cost)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, rows)
+            self._catalog.upsert(
+                "gold_fills",
+                ["fill_id", "run_id", "trade_date", "asset_id", "side", "qty",
+                 "price", "notional", "commission", "stamp_duty", "slippage", "total_cost"],
+                rows,
+                ["fill_id"],
+            )
             logger.info("Persisted %d fills to gold_fills", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist fills: %s", exc)
@@ -1099,7 +1096,6 @@ class BacktestRunner:
         if not snapshots:
             return
 
-        conn = self._catalog._get_conn()
         rows = []
         for s in snapshots:
             rows.append((
@@ -1107,16 +1103,14 @@ class BacktestRunner:
                 s["cash"], s["nav"], s["positions_count"],
                 s["gross_exposure"], s["net_exposure"],
             ))
-        assert not rows or len(rows[0]) == 8, (
-            f"Column mismatch: {len(rows[0])} values vs 8 placeholders"
-        )
         try:
-            conn.executemany("""
-                INSERT OR REPLACE INTO gold_portfolio_snapshots
-                    (snapshot_id, run_id, trade_date, cash, nav,
-                     positions_count, gross_exposure, net_exposure)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, rows)
+            self._catalog.upsert(
+                "gold_portfolio_snapshots",
+                ["snapshot_id", "run_id", "trade_date", "cash", "nav",
+                 "positions_count", "gross_exposure", "net_exposure"],
+                rows,
+                ["snapshot_id"],
+            )
             logger.info("Persisted %d portfolio snapshots", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist portfolio snapshots: %s", exc)
@@ -1201,7 +1195,6 @@ class BacktestRunner:
         if not snapshots:
             return
 
-        conn = self._catalog._get_conn()
         rows = []
         for s in snapshots:
             rows.append((
@@ -1210,17 +1203,15 @@ class BacktestRunner:
                 s["beta"], s["drawdown"], s["var_95"], s["cvar_95"],
                 s["sector_exposure"], s["factor_exposure"],
             ))
-        assert not rows or len(rows[0]) == 12, (
-            f"Column mismatch: {len(rows[0])} values vs 12 placeholders"
-        )
         try:
-            conn.executemany("""
-                INSERT OR REPLACE INTO gold_risk_snapshots
-                    (snapshot_id, run_id, snapshot_ts, strategy_id,
-                     gross_leverage, net_leverage, beta, drawdown,
-                     var_95, cvar_95, sector_exposure, factor_exposure)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, rows)
+            self._catalog.upsert(
+                "gold_risk_snapshots",
+                ["snapshot_id", "run_id", "snapshot_ts", "strategy_id",
+                 "gross_leverage", "net_leverage", "beta", "drawdown",
+                 "var_95", "cvar_95", "sector_exposure", "factor_exposure"],
+                rows,
+                ["snapshot_id"],
+            )
             logger.info("Persisted %d risk snapshots", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist risk snapshots: %s", exc)
@@ -1274,16 +1265,13 @@ class BacktestRunner:
         if not rows:
             return
 
-        conn = self._catalog._get_conn()
         try:
-            conn.executemany(
-                """
-                INSERT OR REPLACE INTO gold_risk_rolling
-                    (run_id, trade_date, window, rolling_var, rolling_cvar,
-                     rolling_vol, rolling_sharpe, rolling_beta)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+            self._catalog.upsert(
+                "gold_risk_rolling",
+                ["run_id", "trade_date", "window", "rolling_var", "rolling_cvar",
+                 "rolling_vol", "rolling_sharpe", "rolling_beta"],
                 rows,
+                ["run_id", "trade_date", "window"],
             )
             logger.info("Persisted %d rolling risk metric rows", len(rows))
         except Exception as exc:
@@ -1304,7 +1292,6 @@ class BacktestRunner:
         if not periods:
             return
 
-        conn = self._catalog._get_conn()
         rows = []
         for i, p in enumerate(periods):
             rows.append((
@@ -1319,14 +1306,12 @@ class BacktestRunner:
             ))
 
         try:
-            conn.executemany(
-                """
-                INSERT OR REPLACE INTO gold_drawdown_periods
-                    (run_id, period_id, start_date, trough_date, recovery_date,
-                     max_drawdown, duration_days, recovery_days, underwater_days)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+            self._catalog.upsert(
+                "gold_drawdown_periods",
+                ["run_id", "period_id", "start_date", "trough_date", "recovery_date",
+                 "max_drawdown", "duration_days", "recovery_days", "underwater_days"],
                 rows,
+                ["run_id", "period_id"],
             )
             logger.info("Persisted %d drawdown periods", len(rows))
         except Exception as exc:
@@ -1348,7 +1333,6 @@ class BacktestRunner:
         if not result.pretrade_decisions:
             return
 
-        conn = self._catalog._get_conn()
         rows = []
         for d in result.pretrade_decisions:
             rows.append((
@@ -1364,17 +1348,15 @@ class BacktestRunner:
                 json.dumps(d.get("reasons", [])),
                 json.dumps(d.get("policy_names", [])),
             ))
-        assert not rows or len(rows[0]) == 11, (
-            f"Column mismatch: {len(rows[0])} values vs 11 placeholders"
-        )
         try:
-            conn.executemany("""
-                INSERT OR REPLACE INTO gold_pretrade_decisions
-                    (decision_id, run_id, engine, trade_date, strategy_id,
-                     asset_id, requested_qty, approved_qty, decision,
-                     reasons, policy_names)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, rows)
+            self._catalog.upsert(
+                "gold_pretrade_decisions",
+                ["decision_id", "run_id", "engine", "trade_date", "strategy_id",
+                 "asset_id", "requested_qty", "approved_qty", "decision",
+                 "reasons", "policy_names"],
+                rows,
+                ["decision_id"],
+            )
             logger.info("Persisted %d pretrade decisions", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist pretrade decisions: %s", exc)

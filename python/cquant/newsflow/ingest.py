@@ -101,17 +101,14 @@ class NewsIngestionOrchestrator:
         return out
 
     def _write(self, frame: pl.DataFrame) -> None:
-        conn = self._catalog._get_conn()
-        cols = ", ".join(_COLS)
-        placeholders = ", ".join(["?"] * len(_COLS))
         rows = frame.select(_COLS).rows()
         n_cols = len(_COLS)
         assert not rows or len(rows[0]) == n_cols, (
             f"Column mismatch: {len(rows[0])} values vs {n_cols} placeholders"
         )
         try:
-            conn.executemany(
-                f"INSERT INTO silver_news_events ({cols}) VALUES ({placeholders})",
+            self._catalog.executemany(
+                f"INSERT INTO silver_news_events ({', '.join(_COLS)}) VALUES ({', '.join(['?'] * n_cols)})",
                 rows,
             )
         except Exception as exc:

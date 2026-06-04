@@ -11,12 +11,14 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import duckdb
 import polars as pl
 
 from cquant.core.errors import CatalogError
+
+if TYPE_CHECKING:
+    from cquant.datahub.backend import CatalogBackend
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ _DDL_FILES = [
 
 
 class Catalog:
-    """DuckDB catalog for the cQuant data lake.
+    """Database-agnostic catalog for the cQuant data lake.
 
     Usage::
 
@@ -45,16 +47,22 @@ class Catalog:
         self,
         db_path: str | Path = "data/catalog.duckdb",
         repo_root: str | Path | None = None,
+        backend: CatalogBackend | None = None,
     ) -> None:
-        self._db_path = Path(db_path)
         self._repo_root = Path(repo_root) if repo_root else Path.cwd()
-        self._conn: duckdb.DuckDBPyConnection | None = None
-
-    def _get_conn(self) -> duckdb.DuckDBPyConnection:
-        if self._conn is None:
+        if backend is not None:
+            self._backend: CatalogBackend = backend
+            self._db_path = Path(db_path)
+        else:
+            self._db_path = Path(db_path)
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
-            self._conn = duckdb.connect(str(self._db_path))
-        return self._conn
+            from cquant.datahub.backends.duckdb_backend import DuckDBBackend
+
+            self._backend = DuckDBBackend(str(self._db_path))
+
+    def _get_conn(self):
+        """Compatibility shim — returns the raw backend connection if available."""
+        return getattr(self._backend, "_conn", None)
 
     def initialize(self) -> None:
         """Execute all DDL scripts to create tables if they do not exist."""
@@ -76,20 +84,45 @@ class Catalog:
 
     def query(self, sql: str, params: list[Any] | None = None) -> pl.DataFrame:
         """Execute *sql* and return the result as a Polars DataFrame."""
-        conn = self._get_conn()
         try:
-            rel = conn.execute(sql, params or [])
-            return rel.pl()
+            return self._backend.query(sql, params)
+        except CatalogError:
+            raise
         except Exception as exc:
             raise CatalogError(f"Query failed: {exc}\n\nSQL: {sql}") from exc
 
     def execute(self, sql: str, params: list[Any] | None = None) -> None:
         """Execute a non-SELECT statement (INSERT, UPDATE, DELETE)."""
-        conn = self._get_conn()
         try:
-            conn.execute(sql, params or [])
+            self._backend.execute(sql, params)
+        except CatalogError:
+            raise
         except Exception as exc:
             raise CatalogError(f"Execute failed: {exc}\n\nSQL: {sql}") from exc
+
+    def executemany(self, sql: str, rows: list[tuple]) -> None:
+        """Execute statement for multiple rows."""
+        try:
+            self._backend.executemany(sql, rows)
+        except CatalogError:
+            raise
+        except Exception as exc:
+            raise CatalogError(f"Executemany failed: {exc}\n\nSQL: {sql}") from exc
+
+    def upsert(
+        self,
+        table: str,
+        columns: list[str],
+        rows: list[tuple],
+        conflict_columns: list[str],
+    ) -> None:
+        """Insert or update rows on conflict."""
+        try:
+            self._backend.upsert(table, columns, rows, conflict_columns)
+        except CatalogError:
+            raise
+        except Exception as exc:
+            raise CatalogError(f"Upsert failed: {exc}\n\nTable: {table}") from exc
 
     def register_dataset(
         self,
@@ -194,9 +227,7 @@ class Catalog:
         }
 
     def close(self) -> None:
-        if self._conn is not None:
-            self._conn.close()
-            self._conn = None
+        self._backend.close()
 
     def __enter__(self) -> "Catalog":
         return self
@@ -222,3 +253,18 @@ def _split_statements(sql: str) -> list[str]:
         if stmt:
             statements.append(stmt + ";")
     return statements
+
+
+def create_catalog() -> Catalog:
+    """Create catalog from environment configuration."""
+    import os
+
+    backend_type = os.environ.get("CQUANT_DB_BACKEND", "duckdb")
+    if backend_type == "postgresql":
+        dsn = os.environ["CQUANT_PG_DSN"]
+        from cquant.datahub.backends.postgres_backend import PostgresBackend
+
+        return Catalog(backend=PostgresBackend(dsn))
+    else:
+        db_path = os.environ.get("CQUANT_DB_PATH", "data/catalog.duckdb")
+        return Catalog(db_path=db_path)

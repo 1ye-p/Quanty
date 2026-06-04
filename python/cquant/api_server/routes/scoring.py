@@ -107,18 +107,15 @@ def _run_scoring_task(run_id: str, body: ScoringConfigBody, catalog):
             scored = result.with_columns(pl.lit(run_id).alias("run_id")).select(
                 ["run_id", "trade_date", "asset_id", "score", "rank"]
             )
-            conn = catalog._get_conn()
             rows = scored.rows()
             assert not rows or len(rows[0]) == 5, (
                 f"Column mismatch: {len(rows[0])} values vs 5 placeholders"
             )
-            conn.executemany(
-                """
-                INSERT OR REPLACE INTO gold_cross_section_scores
-                    (run_id, trade_date, asset_id, score, rank)
-                VALUES (?, ?, ?, ?, ?)
-                """,
+            catalog.upsert(
+                "gold_cross_section_scores",
+                ["run_id", "trade_date", "asset_id", "score", "rank"],
                 rows,
+                ["run_id", "trade_date", "asset_id"],
             )
 
         catalog.execute(
