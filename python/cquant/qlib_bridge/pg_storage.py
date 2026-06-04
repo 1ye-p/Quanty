@@ -153,8 +153,8 @@ if QLIB_AVAILABLE:
                     str(row["trade_date"])
                     for row in df.to_dicts()
                 ]
-            except Exception:
-                logger.warning("QuantDBCalendarStorage: failed to load calendar, returning empty")
+            except Exception as exc:
+                logger.warning("QuantDBCalendarStorage: failed to load calendar, returning empty: %s", exc)
                 self._cache = []
             return self._cache
 
@@ -245,11 +245,10 @@ if QLIB_AVAILABLE:
                         """
                     )
                 else:
-                    # Index membership — try to filter by index name
-                    # The index membership table may vary; fall back to all assets
-                    logger.info(
-                        "QuantDBInstrumentStorage: market=%r not 'all', "
-                        "attempting index filter",
+                    # Index filtering not yet implemented — returning all assets
+                    logger.warning(
+                        "QuantDBInstrumentStorage: market=%r index filter not implemented, "
+                        "returning all assets",
                         self.market,
                     )
                     df = self._catalog.query(
@@ -275,9 +274,9 @@ if QLIB_AVAILABLE:
                     result.setdefault(sec_id, []).append((start, end))
 
                 self._cache = result
-            except Exception:
+            except Exception as exc:
                 logger.warning(
-                    "QuantDBInstrumentStorage: failed to load instruments, returning empty"
+                    "QuantDBInstrumentStorage: failed to load instruments, returning empty: %s", exc
                 )
                 self._cache = {}
             return self._cache
@@ -353,9 +352,9 @@ if QLIB_AVAILABLE:
             """Map Qlib field name to cQuant column name."""
             col = _FIELD_MAP.get(self.field)
             if col is None:
-                # Try stripping the '$' prefix as a fallback
-                stripped = self.field.lstrip("$")
-                col = stripped
+                raise ValueError(
+                    f"Unknown field '{self.field}'. Supported: {list(_FIELD_MAP.keys())}"
+                )
             return col
 
         def _load_data(self) -> pd.Series:
@@ -390,11 +389,12 @@ if QLIB_AVAILABLE:
                     values, index=pd.RangeIndex(0, len(values))
                 )
                 self._start_idx = 0
-            except Exception:
+            except Exception as exc:
                 logger.warning(
-                    "QuantDBFeatureStorage: failed to load %s/%s, returning empty",
+                    "QuantDBFeatureStorage: failed to load %s/%s, returning empty: %s",
                     self.instrument,
                     self.field,
+                    exc,
                 )
                 self._series = pd.Series(dtype=np.float32)
                 self._start_idx = None
