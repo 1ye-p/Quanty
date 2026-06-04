@@ -39,13 +39,13 @@ CREATE TABLE IF NOT EXISTS gold_bt_multiple_testing (
 CREATE TABLE IF NOT EXISTS gold_risk_rolling (
     run_id VARCHAR,
     trade_date DATE,
-    window INTEGER,
+    "window" INTEGER,
     rolling_var DOUBLE,
     rolling_cvar DOUBLE,
     rolling_vol DOUBLE,
     rolling_sharpe DOUBLE,
     rolling_beta DOUBLE,
-    PRIMARY KEY (run_id, trade_date, window)
+    PRIMARY KEY (run_id, trade_date, "window")
 );
 
 -- gold_drawdown_periods

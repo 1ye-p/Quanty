@@ -1268,10 +1268,10 @@ class BacktestRunner:
         try:
             self._catalog.upsert(
                 "gold_risk_rolling",
-                ["run_id", "trade_date", "window", "rolling_var", "rolling_cvar",
+                ["run_id", "trade_date", '"window"', "rolling_var", "rolling_cvar",
                  "rolling_vol", "rolling_sharpe", "rolling_beta"],
                 rows,
-                ["run_id", "trade_date", "window"],
+                ["run_id", "trade_date", '"window"'],
             )
             logger.info("Persisted %d rolling risk metric rows", len(rows))
         except Exception as exc:

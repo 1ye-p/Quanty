@@ -616,11 +616,11 @@ async def get_risk_rolling(
 ) -> dict:
     """Get rolling risk metrics for a backtest run."""
     df = catalog.query(
-        "SELECT trade_date, window, "
+        'SELECT trade_date, "window", '
         "rolling_var AS var_95, rolling_cvar AS cvar_95, "
         "rolling_vol AS volatility, rolling_sharpe AS sharpe_ratio, "
-        "rolling_beta AS beta "
-        "FROM gold_risk_rolling WHERE run_id = ? AND window = ? ORDER BY trade_date",
+        'rolling_beta AS beta '
+        'FROM gold_risk_rolling WHERE run_id = ? AND "window" = ? ORDER BY trade_date',
         [run_id, window],
     )
     if df.is_empty():
