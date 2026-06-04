@@ -25,7 +25,7 @@ _DB_PATH: str = os.environ.get(
 
 def _get_catalog() -> Catalog:
     """Return a Catalog instance for read-only queries."""
-    return Catalog(_DB_PATH)
+    return Catalog(_DB_PATH, read_only=True)
 
 
 @mcp.tool()

@@ -48,6 +48,7 @@ class Catalog:
         db_path: str | Path = "data/catalog.duckdb",
         repo_root: str | Path | None = None,
         backend: CatalogBackend | None = None,
+        read_only: bool = False,
     ) -> None:
         self._repo_root = Path(repo_root) if repo_root else Path.cwd()
         if backend is not None:
@@ -55,10 +56,11 @@ class Catalog:
             self._db_path = Path(db_path)
         else:
             self._db_path = Path(db_path)
-            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            if not read_only:
+                self._db_path.parent.mkdir(parents=True, exist_ok=True)
             from cquant.datahub.backends.duckdb_backend import DuckDBBackend
 
-            self._backend = DuckDBBackend(str(self._db_path))
+            self._backend = DuckDBBackend(str(self._db_path), read_only=read_only)
 
     def _get_conn(self):
         """Compatibility shim — returns the raw backend connection if available."""
@@ -66,18 +68,15 @@ class Catalog:
 
     def initialize(self) -> None:
         """Execute all DDL scripts to create tables if they do not exist."""
-        conn = self._get_conn()
         for ddl_file in _DDL_FILES:
             path = self._repo_root / ddl_file
             if not path.exists():
                 logger.warning("DDL file not found, skipping: %s", path)
                 continue
             sql = path.read_text(encoding="utf-8")
-            # Execute statement by statement (DuckDB does not support multi-statement
-            # execute in all versions)
             for stmt in _split_statements(sql):
                 try:
-                    conn.execute(stmt)
+                    self._backend.execute(stmt)
                 except Exception as exc:
                     raise CatalogError(f"DDL failed in {ddl_file}: {exc}\n\n{stmt}") from exc
         logger.info("Catalog initialized at %s", self._db_path)

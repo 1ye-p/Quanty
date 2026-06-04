@@ -34,6 +34,12 @@ class PostgresBackend:
     def _get_conn(self):
         """Get or create short-lived connection."""
         import psycopg
+        if self._conn is not None and not self._conn.closed:
+            # Reset stale transaction state from prior errors
+            try:
+                self._conn.execute("SELECT 1")
+            except Exception:
+                self._conn.rollback()
         if self._conn is None or self._conn.closed:
             self._conn = psycopg.connect(
                 self._dsn,
@@ -54,13 +60,17 @@ class PostgresBackend:
 
     def execute(self, sql: str, params: list[Any] | None = None) -> None:
         sql = _convert_placeholders(sql)
-        cur = self._get_conn().cursor()
+        conn = self._get_conn()
+        cur = conn.cursor()
         cur.execute(sql, params or [])
+        conn.commit()
 
     def executemany(self, sql: str, rows: list[tuple]) -> None:
         sql = _convert_placeholders(sql)
-        cur = self._get_conn().cursor()
+        conn = self._get_conn()
+        cur = conn.cursor()
         cur.executemany(sql, rows)
+        conn.commit()
 
     def upsert(
         self,

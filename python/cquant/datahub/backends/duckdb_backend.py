@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 class DuckDBBackend:
     """DuckDB database backend."""
 
-    def __init__(self, db_path: str = "data/catalog.duckdb") -> None:
+    def __init__(self, db_path: str = "data/catalog.duckdb", read_only: bool = False) -> None:
         import duckdb
-        self._conn = duckdb.connect(db_path)
-        logger.info("DuckDB backend connected: %s", db_path)
+        self._conn = duckdb.connect(db_path, read_only=read_only)
+        logger.info("DuckDB backend connected: %s (read_only=%s)", db_path, read_only)
 
     def query(self, sql: str, params: list[Any] | None = None) -> pl.DataFrame:
         rel = self._conn.execute(sql, params or [])
