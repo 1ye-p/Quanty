@@ -95,8 +95,6 @@ class TestRollingRiskMetrics:
         """Test that rolling risk metrics are computed and persisted."""
         # Create mock result
         mock_catalog = MagicMock()
-        mock_conn = MagicMock()
-        mock_catalog._get_conn.return_value = mock_conn
 
         # Create mock portfolio returns with valid dates (use datetime objects)
         base_date = date(2024, 1, 1)
@@ -120,10 +118,13 @@ class TestRollingRiskMetrics:
         runner = BacktestRunner(mock_catalog)
         runner._persist_rolling_risk_metrics(mock_result, "test_run_id")
 
-        # Verify executemany was called
-        assert mock_conn.executemany.called
-        call_args = mock_conn.executemany.call_args
-        rows = call_args[0][1]
+        # Verify upsert was called
+        assert mock_catalog.upsert.called
+        call_args = mock_catalog.upsert.call_args
+        table_name = call_args[0][0]
+        rows = call_args[0][2]
+
+        assert table_name == "gold_risk_rolling"
 
         # Should have rows for windows 20, 60 (not 252 since only 100 returns)
         assert len(rows) > 0
@@ -147,8 +148,8 @@ class TestRollingRiskMetrics:
         runner = BacktestRunner(mock_catalog)
         runner._persist_rolling_risk_metrics(mock_result, "test_run_id")
 
-        # Should not call executemany
-        mock_catalog._get_conn.assert_not_called()
+        # Should not call upsert
+        mock_catalog.upsert.assert_not_called()
 
 
 class TestDrawdownAnalysis:
@@ -218,8 +219,6 @@ class TestDrawdownAnalysis:
     def test_persist_drawdown_periods(self):
         """Test that drawdown periods are persisted correctly."""
         mock_catalog = MagicMock()
-        mock_conn = MagicMock()
-        mock_catalog._get_conn.return_value = mock_conn
 
         # Create mock portfolio returns with drawdown
         dates = [date(2024, 1, i + 1) for i in range(10)]
@@ -238,10 +237,13 @@ class TestDrawdownAnalysis:
         runner = BacktestRunner(mock_catalog)
         runner._persist_drawdown_periods(mock_result, "test_run_id")
 
-        # Verify executemany was called
-        assert mock_conn.executemany.called
-        call_args = mock_conn.executemany.call_args
-        rows = call_args[0][1]
+        # Verify upsert was called
+        assert mock_catalog.upsert.called
+        call_args = mock_catalog.upsert.call_args
+        table_name = call_args[0][0]
+        rows = call_args[0][2]
+
+        assert table_name == "gold_drawdown_periods"
 
         # Should have at least one drawdown period
         assert len(rows) > 0
