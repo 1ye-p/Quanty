@@ -186,14 +186,12 @@ class TestFillSimulatorRiskAlert:
         from datetime import date
 
         mock_catalog = MagicMock()
-        mock_conn = MagicMock()
-        mock_catalog._get_conn.return_value = mock_conn
 
         sim = AShareFillSimulator(catalog=mock_catalog)
-        sim._emit_risk_alert("run_1", "T+1", "REJECTED", "T+1 限制", "000001.SZ", date(2025, 1, 1))
+        sim._emit_risk_alert("T+1", "REJECTED", "T+1 限制", "000001.SZ", date(2025, 1, 1))
 
-        mock_conn.execute.assert_called_once()
-        call_args = mock_conn.execute.call_args[0]
+        mock_catalog.execute.assert_called_once()
+        call_args = mock_catalog.execute.call_args[0]
         params = call_args[1]
         assert params[2] == "risk_breach"
         assert params[3] == "critical"  # REJECTED -> critical
@@ -204,13 +202,11 @@ class TestFillSimulatorRiskAlert:
         from datetime import date
 
         mock_catalog = MagicMock()
-        mock_conn = MagicMock()
-        mock_catalog._get_conn.return_value = mock_conn
 
         sim = AShareFillSimulator(catalog=mock_catalog)
-        sim._emit_risk_alert("run_1", "max_position", "CLIPPED", "仓位限制", "000001.SZ", date(2025, 1, 1))
+        sim._emit_risk_alert("max_position", "CLIPPED", "仓位限制", "000001.SZ", date(2025, 1, 1))
 
-        params = mock_conn.execute.call_args[0][1]
+        params = mock_catalog.execute.call_args[0][1]
         assert params[3] == "warning"  # CLIPPED -> warning
 
     def test_emit_risk_alert_no_catalog(self):
@@ -219,18 +215,18 @@ class TestFillSimulatorRiskAlert:
 
         sim = AShareFillSimulator()
         # Should not raise
-        sim._emit_risk_alert("run_1", "T+1", "REJECTED", "T+1 限制", "000001.SZ", date(2025, 1, 1))
+        sim._emit_risk_alert("T+1", "REJECTED", "T+1 限制", "000001.SZ", date(2025, 1, 1))
 
     def test_emit_risk_alert_catalog_exception_handled(self):
         from cquant.backtest_vector.fill_simulator import AShareFillSimulator
         from datetime import date
 
         mock_catalog = MagicMock()
-        mock_catalog._get_conn.side_effect = Exception("DB error")
+        mock_catalog.execute.side_effect = Exception("DB error")
 
         sim = AShareFillSimulator(catalog=mock_catalog)
         # Should not raise
-        sim._emit_risk_alert("run_1", "T+1", "REJECTED", "T+1 限制", "000001.SZ", date(2025, 1, 1))
+        sim._emit_risk_alert("T+1", "REJECTED", "T+1 限制", "000001.SZ", date(2025, 1, 1))
 
 
 # ── Test alert API routes ─────────────────────────────────────────────────────

@@ -163,9 +163,12 @@ async def list_channels(catalog: CatalogDep) -> dict:
         "SELECT channel_id, channel_type, name, config_json, enabled, created_at "
         "FROM meta_notification_channels ORDER BY created_at DESC"
     )
+    _SENSITIVE_KEYS = {"password", "token", "secret", "sign_key", "webhook_url"}
     items = []
     for r in df.to_dicts():
-        items.append({**r, "config": json.loads(r["config_json"])})
+        config = json.loads(r["config_json"])
+        masked = {k: ("***" if k in _SENSITIVE_KEYS and v else v) for k, v in config.items()}
+        items.append({**r, "config": masked})
     return {"items": items}
 
 

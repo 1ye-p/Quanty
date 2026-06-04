@@ -45,6 +45,10 @@ def _ensure_tables(catalog) -> None:
                 read         BOOLEAN DEFAULT FALSE
             )
         """)
+        # Migration: add severity column to existing tables
+        catalog.execute(
+            "ALTER TABLE meta_alert_history ADD COLUMN IF NOT EXISTS severity VARCHAR DEFAULT 'warning'"
+        )
         _alert_tables_ensured = True
     except Exception as exc:
         logger.debug("_ensure_tables: %s", exc)
