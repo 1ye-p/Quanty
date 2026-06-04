@@ -5,32 +5,33 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import polars as pl
+
+
+def _make_test_df(db_rows: list, schema: list[str]):
+    """Create a Polars DataFrame from raw row tuples, or a mock empty."""
+    if not db_rows:
+        empty = MagicMock()
+        empty.is_empty.return_value = True
+        return empty
+    return pl.DataFrame(db_rows, schema=schema, orient="row")
+
 
 class TestQueryBacktestResult:
+    _SCHEMA = [
+        "run_id", "engine", "strategy_id", "dataset_version",
+        "started_at", "completed_at", "status", "metrics_uri", "error_message",
+    ]
+
     def _call(self, run_id: str, db_rows: list) -> dict:
         """Helper: mock Catalog, call the tool, parse JSON."""
         from cquant.mcp_server.server import query_backtest_result
 
         mock_catalog = MagicMock()
-        mock_catalog.query.return_value = self._make_df(db_rows)
+        mock_catalog.query.return_value = _make_test_df(db_rows, self._SCHEMA)
         with patch("cquant.mcp_server.server._get_catalog", return_value=mock_catalog):
             result = query_backtest_result(run_id)
         return json.loads(result)
-
-    @staticmethod
-    def _make_df(db_rows: list):
-        """Create a mock DataFrame from raw row tuples."""
-        import polars as pl
-        if not db_rows:
-            empty = MagicMock()
-            empty.is_empty.return_value = True
-            return empty
-        schema = [
-            "run_id", "engine", "strategy_id", "dataset_version",
-            "started_at", "completed_at", "status", "metrics_uri", "error_message",
-        ]
-        df = pl.DataFrame(db_rows, schema=schema, orient="row")
-        return df
 
     def test_returns_run_data(self) -> None:
         row = ("r1", "vector", "strat_a", "v1", "2026-01-01", "2026-01-02",
@@ -53,29 +54,19 @@ class TestQueryBacktestResult:
 
 
 class TestQueryFactorIC:
+    _SCHEMA = [
+        "job_id", "factor_name", "feature_set_version", "status",
+        "summary_json", "created_at",
+    ]
+
     def _call(self, factor_name: str, fsv: str, db_rows: list) -> dict:
         from cquant.mcp_server.server import query_factor_ic
 
         mock_catalog = MagicMock()
-        mock_catalog.query.return_value = self._make_df(db_rows)
+        mock_catalog.query.return_value = _make_test_df(db_rows, self._SCHEMA)
         with patch("cquant.mcp_server.server._get_catalog", return_value=mock_catalog):
             result = query_factor_ic(factor_name, fsv)
         return json.loads(result)
-
-    @staticmethod
-    def _make_df(db_rows: list):
-        """Create a mock DataFrame from raw row tuples."""
-        import polars as pl
-        if not db_rows:
-            empty = MagicMock()
-            empty.is_empty.return_value = True
-            return empty
-        schema = [
-            "job_id", "factor_name", "feature_set_version", "status",
-            "summary_json", "created_at",
-        ]
-        df = pl.DataFrame(db_rows, schema=schema, orient="row")
-        return df
 
     def test_returns_summary(self) -> None:
         summary = json.dumps({"mean_ic": 0.05, "ir": 1.2})
@@ -93,7 +84,7 @@ class TestQueryFactorIC:
         """When feature_set_version is empty, no version filter is applied."""
         from cquant.mcp_server.server import query_factor_ic
         mock_catalog = MagicMock()
-        mock_catalog.query.return_value = self._make_df([])
+        mock_catalog.query.return_value = _make_test_df([], self._SCHEMA)
         with patch("cquant.mcp_server.server._get_catalog", return_value=mock_catalog):
             query_factor_ic("my_factor", "")
         call_sql = mock_catalog.query.call_args[0][0]
@@ -101,29 +92,19 @@ class TestQueryFactorIC:
 
 
 class TestQueryRiskSnapshot:
+    _SCHEMA = [
+        "run_id", "snapshot_ts", "strategy_id", "gross_leverage",
+        "net_leverage", "beta", "drawdown", "var_95", "cvar_95",
+    ]
+
     def _call(self, run_id: str, strategy_id: str, db_rows: list) -> dict:
         from cquant.mcp_server.server import query_risk_snapshot
 
         mock_catalog = MagicMock()
-        mock_catalog.query.return_value = self._make_df(db_rows)
+        mock_catalog.query.return_value = _make_test_df(db_rows, self._SCHEMA)
         with patch("cquant.mcp_server.server._get_catalog", return_value=mock_catalog):
             result = query_risk_snapshot(run_id=run_id, strategy_id=strategy_id)
         return json.loads(result)
-
-    @staticmethod
-    def _make_df(db_rows: list):
-        """Create a mock DataFrame from raw row tuples."""
-        import polars as pl
-        if not db_rows:
-            empty = MagicMock()
-            empty.is_empty.return_value = True
-            return empty
-        schema = [
-            "run_id", "snapshot_ts", "strategy_id", "gross_leverage",
-            "net_leverage", "beta", "drawdown", "var_95", "cvar_95",
-        ]
-        df = pl.DataFrame(db_rows, schema=schema, orient="row")
-        return df
 
     def test_returns_snapshot_by_run_id(self) -> None:
         row = ("r1", "2026-01-01T12:00:00", "strat_a", 1.5, 0.8, 0.95, -0.12, -0.08, -0.10)

@@ -126,6 +126,10 @@ class TestRollingRiskMetrics:
 
         assert table_name == "gold_risk_rolling"
 
+        # Verify quoted column names for reserved keyword 'window'
+        columns = call_args[0][1]
+        assert '"window"' in columns
+
         # Should have rows for windows 20, 60 (not 252 since only 100 returns)
         assert len(rows) > 0
 
