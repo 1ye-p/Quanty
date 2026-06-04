@@ -57,12 +57,45 @@ async def delete_alert_rule(rule_id: str, catalog: CatalogDep) -> dict:
     return {"rule_id": rule_id, "status": "deleted"}
 
 
+class AlertRuleUpdateBody(BaseModel):
+    params: dict | None = None
+    enabled: bool | None = None
+
+
+@router.put("/rules/{rule_id}")
+async def update_alert_rule(rule_id: str, body: AlertRuleUpdateBody, catalog: CatalogDep) -> dict:
+    _ensure_tables(catalog)
+    existing = catalog.query(
+        "SELECT rule_id, params_json, enabled FROM meta_alert_rules WHERE rule_id = ?",
+        [rule_id],
+    )
+    if existing.is_empty():
+        raise HTTPException(status_code=404, detail=f"Rule '{rule_id}' not found")
+
+    updates = []
+    params = []
+    if body.params is not None:
+        updates.append("params_json = ?")
+        params.append(json.dumps(body.params))
+    if body.enabled is not None:
+        updates.append("enabled = ?")
+        params.append(body.enabled)
+
+    if updates:
+        params.append(rule_id)
+        catalog.execute(
+            f"UPDATE meta_alert_rules SET {', '.join(updates)} WHERE rule_id = ?",
+            params,
+        )
+    return {"rule_id": rule_id, "status": "updated"}
+
+
 @router.get("/history")
 async def list_alert_history(catalog: CatalogDep, unread_only: bool = False, limit: int = 50) -> dict:
     _ensure_tables(catalog)
     where = "WHERE read = FALSE" if unread_only else "WHERE 1=1"
     df = catalog.query(
-        f"SELECT alert_id, rule_id, rule_type, message, triggered_at, read "
+        f"SELECT alert_id, rule_id, rule_type, severity, message, triggered_at, read "
         f"FROM meta_alert_history {where} ORDER BY triggered_at DESC LIMIT ?",
         [limit],
     )
@@ -88,3 +121,68 @@ async def trigger_check(catalog: CatalogDep) -> dict:
     """手动触发一次所有规则检查。"""
     triggered = run_all_checks(catalog)
     return {"triggered": triggered}
+
+
+# ── Notification Channels ──────────────────────────────────────────────────────
+
+_channel_tables_ensured = False
+
+
+def _ensure_channel_tables(catalog) -> None:
+    global _channel_tables_ensured
+    if _channel_tables_ensured:
+        return
+    try:
+        catalog.execute("""
+            CREATE TABLE IF NOT EXISTS meta_notification_channels (
+                channel_id   VARCHAR PRIMARY KEY,
+                channel_type VARCHAR NOT NULL,
+                name         VARCHAR NOT NULL,
+                config_json  VARCHAR NOT NULL,
+                enabled      BOOLEAN DEFAULT TRUE,
+                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        _channel_tables_ensured = True
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).debug("_ensure_channel_tables: %s", exc)
+
+
+class ChannelBody(BaseModel):
+    channel_type: str
+    name: str
+    config: dict
+    enabled: bool = True
+
+
+@router.get("/channels")
+async def list_channels(catalog: CatalogDep) -> dict:
+    _ensure_channel_tables(catalog)
+    df = catalog.query(
+        "SELECT channel_id, channel_type, name, config_json, enabled, created_at "
+        "FROM meta_notification_channels ORDER BY created_at DESC"
+    )
+    items = []
+    for r in df.to_dicts():
+        items.append({**r, "config": json.loads(r["config_json"])})
+    return {"items": items}
+
+
+@router.post("/channels", status_code=201)
+async def create_channel(body: ChannelBody, catalog: CatalogDep) -> dict:
+    _ensure_channel_tables(catalog)
+    channel_id = f"ch_{uuid.uuid4().hex[:10]}"
+    catalog.execute(
+        "INSERT INTO meta_notification_channels (channel_id, channel_type, name, config_json, enabled) "
+        "VALUES (?, ?, ?, ?, ?)",
+        [channel_id, body.channel_type, body.name, json.dumps(body.config), body.enabled],
+    )
+    return {"channel_id": channel_id, "status": "created"}
+
+
+@router.delete("/channels/{channel_id}")
+async def delete_channel(channel_id: str, catalog: CatalogDep) -> dict:
+    _ensure_channel_tables(catalog)
+    catalog.execute("DELETE FROM meta_notification_channels WHERE channel_id = ?", [channel_id])
+    return {"channel_id": channel_id, "status": "deleted"}

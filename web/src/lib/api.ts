@@ -958,6 +958,8 @@ export const alertsApi = {
   rules: () => request<{ items: AlertRule[]; rule_types: { type: string; label: string }[] }>('/alerts/rules'),
   createRule: (body: { rule_type: string; params: Record<string, unknown>; enabled?: boolean }) =>
     request<{ rule_id: string; status: string }>('/alerts/rules', { method: 'POST', body: JSON.stringify(body) }),
+  updateRule: (ruleId: string, body: Record<string, unknown>) =>
+    request<{ rule_id: string; status: string }>(`/alerts/rules/${ruleId}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteRule: (ruleId: string) =>
     request<{ rule_id: string; status: string }>(`/alerts/rules/${ruleId}`, { method: 'DELETE' }),
   history: (unreadOnly = false, limit = 50) =>
@@ -966,6 +968,11 @@ export const alertsApi = {
     ),
   markAllRead: () => request<{ status: string }>('/alerts/history/read-all', { method: 'POST' }),
   check: () => request<{ triggered: number }>('/alerts/check', { method: 'POST' }),
+  channels: () => request<{ items: NotificationChannel[] }>('/alerts/channels'),
+  createChannel: (body: { channel_type: string; name: string; config: Record<string, unknown>; enabled?: boolean }) =>
+    request<{ channel_id: string; status: string }>('/alerts/channels', { method: 'POST', body: JSON.stringify(body) }),
+  deleteChannel: (id: string) =>
+    request<{ channel_id: string; status: string }>(`/alerts/channels/${id}`, { method: 'DELETE' }),
 }
 
 export interface AlertRule {
@@ -981,7 +988,17 @@ export interface AlertHistory {
   alert_id: string
   rule_id: string
   rule_type: string
+  severity: string
   message: string
   triggered_at: string
   read: boolean
+}
+
+export interface NotificationChannel {
+  channel_id: string
+  channel_type: string
+  name: string
+  config: Record<string, unknown>
+  enabled: boolean
+  created_at: string
 }

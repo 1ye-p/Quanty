@@ -611,8 +611,8 @@ async def get_backtest_risk(run_id: str, catalog: CatalogDep, limit: int = 20) -
 @router.get("/{run_id}/risk-rolling")
 async def get_risk_rolling(
     run_id: str,
-    window: int = Query(default=60, ge=1, le=504),
     catalog: CatalogDep,
+    window: int = Query(default=60, ge=1, le=504),
 ) -> dict:
     """Get rolling risk metrics for a backtest run."""
     df = catalog.query(

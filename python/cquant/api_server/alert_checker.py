@@ -13,6 +13,7 @@ RULE_TYPES = {
     "data_stale":     "数据缺失超过 N 天",
     "factor_ic_low":  "因子 IC 绝对值持续低于阈值",
     "pnl_drawdown":   "策略 P&L 回撤超过阈值",
+    "risk_breach":    "风控策略拦截交易",
 }
 
 
@@ -38,6 +39,7 @@ def _ensure_tables(catalog) -> None:
                 alert_id     VARCHAR PRIMARY KEY,
                 rule_id      VARCHAR NOT NULL,
                 rule_type    VARCHAR NOT NULL,
+                severity     VARCHAR DEFAULT 'warning',
                 message      VARCHAR NOT NULL,
                 triggered_at TIMESTAMP NOT NULL,
                 read         BOOLEAN DEFAULT FALSE
@@ -48,12 +50,12 @@ def _ensure_tables(catalog) -> None:
         logger.debug("_ensure_tables: %s", exc)
 
 
-def _save_alert(catalog, rule_id: str, rule_type: str, message: str) -> None:
+def _save_alert(catalog, rule_id: str, rule_type: str, message: str, severity: str = "warning") -> None:
     alert_id = f"al_{uuid.uuid4().hex[:10]}"
     catalog.execute(
-        "INSERT INTO meta_alert_history (alert_id, rule_id, rule_type, message, triggered_at) "
-        "VALUES (?, ?, ?, ?, ?)",
-        [alert_id, rule_id, rule_type, message,
+        "INSERT INTO meta_alert_history (alert_id, rule_id, rule_type, severity, message, triggered_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        [alert_id, rule_id, rule_type, severity, message,
          datetime.now(tz=timezone.utc).isoformat()],
     )
 
@@ -66,13 +68,14 @@ def check_data_stale(catalog, rule_id: str, params: dict) -> bool:
             "SELECT MAX(trade_date) as d FROM silver_prices_1d"
         )
         if df.is_empty() or df["d"][0] is None:
-            _save_alert(catalog, rule_id, "data_stale", "无可用行情数据")
+            _save_alert(catalog, rule_id, "data_stale", "无可用行情数据", severity="warning")
             return True
         from datetime import date
         days = (date.today() - df["d"][0]).days
         if days > max_days:
             _save_alert(catalog, rule_id, "data_stale",
-                        f"行情数据已 {days} 天未更新（最新：{df['d'][0]}，阈值：{max_days}天）")
+                        f"行情数据已 {days} 天未更新（最新：{df['d'][0]}，阈值：{max_days}天）",
+                        severity="warning")
             return True
     except Exception as e:
         logger.warning("check_data_stale failed: %s", e)
@@ -99,7 +102,8 @@ def check_factor_ic_low(catalog, rule_id: str, params: dict) -> bool:
         ic = float(df["mean_ic"][0])
         if abs(ic) < threshold:
             _save_alert(catalog, rule_id, "factor_ic_low",
-                        f"因子 {factor_name} IC 绝对值 {abs(ic):.4f} 低于阈值 {threshold}（近{window_days}日）")
+                        f"因子 {factor_name} IC 绝对值 {abs(ic):.4f} 低于阈值 {threshold}（近{window_days}日）",
+                        severity="warning")
             return True
     except Exception as e:
         logger.warning("check_factor_ic_low failed: %s", e)
@@ -128,8 +132,10 @@ def check_pnl_drawdown(catalog, rule_id: str, params: dict) -> bool:
             return False
         max_dd = float(df["max_dd"][0])  # ABS already applied in SQL
         if max_dd > threshold_pct:
+            severity = "critical" if max_dd > 0.10 else "warning"
             _save_alert(catalog, rule_id, "pnl_drawdown",
-                        f"策略 {strategy_id} 最大回撤 {max_dd*100:.2f}% 超过阈值 {threshold_pct*100:.2f}%")
+                        f"策略 {strategy_id} 最大回撤 {max_dd*100:.2f}% 超过阈值 {threshold_pct*100:.2f}%",
+                        severity=severity)
             return True
     except Exception as e:
         logger.warning("check_pnl_drawdown failed: %s", e)

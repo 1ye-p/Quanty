@@ -13,8 +13,9 @@ Produces real fills with commission, stamp duty, and slippage costs.
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 import polars as pl
@@ -64,10 +65,12 @@ class AShareFillSimulator:
         cost_model: CostModel | None = None,
         market: str = "CN",
         adj_type: str = "forward",
+        catalog=None,
     ) -> None:
         self._cost_model = cost_model or CostModel.for_cn()
         self._market = market
         self._adj_type = adj_type
+        self._catalog = catalog
         self._rules = None
         self._status_tracker = None
         # Lazy-init market rules if market_calendar is available
@@ -79,6 +82,27 @@ class AShareFillSimulator:
             self._rules.set_status_tracker(self._status_tracker)
         except Exception:
             logger.debug("Market rules not available, using legacy limit_rules")
+
+    def _emit_risk_alert(
+        self, run_id: str, policy_name: str, decision: str, reason: str, asset_id: str, trade_date: date
+    ) -> None:
+        """Emit a risk breach alert to the alert history table."""
+        if not self._catalog:
+            return
+        severity = "critical" if decision == "REJECTED" else "warning"
+        alert_id = f"al_{uuid.uuid4().hex[:10]}"
+        message = f"[{decision}] {policy_name}: {reason} (资产: {asset_id}, 日期: {trade_date})"
+        try:
+            conn = self._catalog._get_conn()
+            conn.execute(
+                "INSERT OR IGNORE INTO meta_alert_history "
+                "(alert_id, rule_id, rule_type, severity, message, triggered_at, read) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [alert_id, f"risk_{policy_name}", "risk_breach", severity, message,
+                 datetime.now().isoformat(), False],
+            )
+        except Exception:
+            pass
 
     def simulate(
         self,
@@ -329,6 +353,7 @@ class AShareFillSimulator:
         """Calculate quantity to sell."""
         # Check T+1
         if not self._can_sell(td, asset_id, buy_dates):
+            self._emit_risk_alert("", "T+1", "REJECTED", "T+1 限制，当日买入不可卖出", asset_id, td)
             return 0
 
         # Use market rules layer if available
@@ -342,16 +367,21 @@ class AShareFillSimulator:
                                                        self._get_price(td, asset_id, lookup, "close"))
                     if forced:
                         return forced[0].qty
+                self._emit_risk_alert("", "tradability", "REJECTED",
+                                      f"不可交易: {result.reason}", asset_id, td)
                 return 0
         else:
             # Legacy checks
             if self._is_suspended(td, asset_id, lookup):
+                self._emit_risk_alert("", "suspension", "REJECTED", "停牌", asset_id, td)
                 return 0
             if self._is_at_limit_down(td, asset_id, lookup):
+                self._emit_risk_alert("", "limit_down", "REJECTED", "跌停无法卖出", asset_id, td)
                 return 0
 
         # Check price validity (reject bad data)
         if not self._is_price_valid(td, asset_id, lookup):
+            self._emit_risk_alert("", "price_validity", "REJECTED", "价格数据异常", asset_id, td)
             return 0
 
         price = self._get_price(td, asset_id, lookup, "close")
@@ -381,16 +411,21 @@ class AShareFillSimulator:
         if self._rules:
             result = self._check_tradability(td, asset_id, lookup)
             if not result.tradable:
+                self._emit_risk_alert("", "tradability", "REJECTED",
+                                      f"不可交易: {result.reason}", asset_id, td)
                 return 0
         else:
             # Legacy checks
             if self._is_suspended(td, asset_id, lookup):
+                self._emit_risk_alert("", "suspension", "REJECTED", "停牌", asset_id, td)
                 return 0
             if self._is_at_limit_up(td, asset_id, lookup):
+                self._emit_risk_alert("", "limit_up", "REJECTED", "涨停无法买入", asset_id, td)
                 return 0
 
         # Check price validity (reject bad data)
         if not self._is_price_valid(td, asset_id, lookup):
+            self._emit_risk_alert("", "price_validity", "REJECTED", "价格数据异常", asset_id, td)
             return 0
 
         price = self._get_price(td, asset_id, lookup, "close")
