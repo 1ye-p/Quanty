@@ -42,7 +42,7 @@ def run_incremental_ingest(catalog) -> None:
     _SCHEDULER_STATE["last_run"] = datetime.now(tz=timezone.utc).isoformat()
     try:
         from cquant.datahub.ingest import MarketIngestionOrchestrator, IngestionSpec
-        from cquant.datahub.connectors.akshare_connector import AkShareConnector
+        from cquant.datahub.connectors.akshare_connector import AKShareConnector
         from datetime import date
 
         # 找上次摄取的最新日期
@@ -59,7 +59,7 @@ def run_incremental_ingest(catalog) -> None:
             return
 
         logger.info("DataScheduler: ingesting %s ~ %s", start_date, end_date)
-        orchestrator = MarketIngestionOrchestrator(catalog, [AkShareConnector()])
+        orchestrator = MarketIngestionOrchestrator(catalog, [AKShareConnector()])
         orchestrator.ingest(IngestionSpec(start_date=start_date, end_date=end_date))
         _SCHEDULER_STATE["last_status"] = "success"
         _SCHEDULER_STATE["last_error"] = None

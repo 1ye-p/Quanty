@@ -553,6 +553,54 @@ def cmd_trade_orders(args: argparse.Namespace) -> None:
               f"{o.status.value:<15} {o.filled_qty:>8,} {o.filled_price:>10.2f}")
 
 
+def cmd_scheduler_start(args: argparse.Namespace) -> None:
+    """Handle 'scheduler start' command."""
+    from cquant.scheduler.data_scheduler import DataScheduler
+
+    catalog = Catalog(args.catalog)
+    catalog.initialize()
+
+    scheduler = DataScheduler(catalog)
+    print("Starting data scheduler (Ctrl+C to stop)...")
+    scheduler.start()
+
+
+def cmd_scheduler_status(args: argparse.Namespace) -> None:
+    """Handle 'scheduler status' command."""
+    from cquant.scheduler.data_scheduler import DataScheduler
+
+    catalog = Catalog(args.catalog)
+    catalog.initialize()
+
+    scheduler = DataScheduler(catalog)
+    info = scheduler.status()
+
+    print("=== Data Scheduler Status ===\n")
+    print(f"  Running:   {info['running']}")
+    print(f"  Timezone:  {info['timezone']}")
+    if info["jobs"]:
+        print("\n  Registered Jobs:")
+        print(f"  {'ID':<20} {'Name':<25} {'Next Run':<25}")
+        print(f"  {'-'*20} {'-'*25} {'-'*25}")
+        for job in info["jobs"]:
+            print(f"  {job['id']:<20} {job['name']:<25} {job['next_run'] or 'N/A':<25}")
+    else:
+        print("\n  No jobs registered (scheduler not started)")
+
+
+def cmd_scheduler_run(args: argparse.Namespace) -> None:
+    """Handle 'scheduler run <task>' command."""
+    from cquant.scheduler.data_scheduler import DataScheduler
+
+    catalog = Catalog(args.catalog)
+    catalog.initialize()
+
+    scheduler = DataScheduler(catalog)
+    print(f"Running task: {args.task}")
+    scheduler.run_task(args.task)
+    print(f"Task '{args.task}' completed")
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build and return the CLI argument parser."""
     parser = argparse.ArgumentParser(
@@ -665,6 +713,27 @@ def build_parser() -> argparse.ArgumentParser:
     quote_parser.add_argument("--watch", action="store_true", help="Watch mode (polling)")
     quote_parser.add_argument("--interval", type=float, default=5.0, help="Poll interval in seconds")
     quote_parser.set_defaults(func=cmd_quote)
+
+    # scheduler command
+    scheduler_parser = subparsers.add_parser("scheduler", help="Data pipeline scheduler")
+    scheduler_sub = scheduler_parser.add_subparsers(dest="scheduler_cmd", help="Scheduler subcommands")
+
+    # scheduler start
+    scheduler_start = scheduler_sub.add_parser("start", help="Start data scheduler daemon")
+    scheduler_start.set_defaults(func=cmd_scheduler_start)
+
+    # scheduler status
+    scheduler_status = scheduler_sub.add_parser("status", help="Show scheduler status")
+    scheduler_status.set_defaults(func=cmd_scheduler_status)
+
+    # scheduler run
+    scheduler_run = scheduler_sub.add_parser("run", help="Manually trigger a scheduler task")
+    scheduler_run.add_argument(
+        "task",
+        choices=["price-ingest", "fundamentals", "alerts", "health"],
+        help="Task to run",
+    )
+    scheduler_run.set_defaults(func=cmd_scheduler_run)
 
     # live command
     live_parser = subparsers.add_parser("live", help="Live execution engine")

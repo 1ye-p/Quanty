@@ -1,0 +1,24 @@
+[scheduler]
+timezone = "Asia/Shanghai"
+
+[scheduler.price_ingest]
+enabled = true
+hour = 16
+minute = 35
+source = "akshare"
+max_retries = 3
+
+[scheduler.fundamentals]
+enabled = true
+hour = 17
+minute = 0
+source = "akshare"
+
+[scheduler.alerts]
+enabled = true
+interval_hours = 1
+
+[scheduler.health]
+enabled = true
+hour = 8
+minute = 0
