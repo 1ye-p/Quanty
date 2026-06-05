@@ -310,7 +310,7 @@ async def deploy_strategy(body: DeployRequest, catalog: CatalogDep) -> dict:
     import uuid as _uuid
 
     run_df = catalog.query(
-        "SELECT run_id, strategy_id, status FROM gold_backtest_runs WHERE run_id = ?",
+        "SELECT run_id, strategy_id, status, config_json FROM gold_backtest_runs WHERE run_id = ?",
         [body.backtest_run_id],
     )
     if run_df.is_empty():
@@ -319,6 +319,25 @@ async def deploy_strategy(body: DeployRequest, catalog: CatalogDep) -> dict:
         raise HTTPException(status_code=422, detail="Only completed backtest runs can be deployed")
 
     strategy_id = run_df["strategy_id"][0]
+
+    # Enhanced validation: check strategy availability
+    config_json = run_df["config_json"][0] if not run_df.is_empty() else None
+    if config_json:
+        try:
+            import json as _json
+            config = _json.loads(config_json) if isinstance(config_json, str) else config_json
+            strategy_type = config.get("strategy_type", "StaticTopN")
+            # Validate strategy type is known
+            from cquant.execution.strategy_loader import get_strategy_class
+            get_strategy_class(strategy_type)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Strategy type not available for live execution: {exc}",
+            )
+        except Exception:
+            pass  # Non-critical, continue with deploy
+
     _ensure_live_table(catalog)
 
     existing = catalog.query(
@@ -392,3 +411,54 @@ async def list_deployed_strategies(catalog: CatalogDep) -> dict:
                 pass
         items.append({**row, "metrics": metrics})
     return {"items": items}
+
+
+@router.get("/strategies/{live_id}/executions")
+async def get_executions(
+    live_id: str,
+    catalog: CatalogDep,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> dict:
+    """获取策略执行历史。"""
+    _ensure_live_table(catalog)
+
+    # Verify live_id exists
+    existing = catalog.query(
+        "SELECT live_id, strategy_id FROM meta_live_strategies WHERE live_id = ?",
+        [live_id],
+    )
+    if existing.is_empty():
+        raise HTTPException(status_code=404, detail=f"Live strategy '{live_id}' not found")
+
+    # Check if executions table exists
+    try:
+        count_df = catalog.query(
+            "SELECT COUNT(*) AS cnt FROM gold_live_executions WHERE live_id = ?",
+            [live_id],
+        )
+        total = count_df["cnt"][0] if not count_df.is_empty() else 0
+
+        df = catalog.query(
+            "SELECT execution_id, live_id, strategy_id, order_id, asset_id, "
+            "side, qty, filled_qty, filled_price, commission, stamp_duty, "
+            "slippage, total_cost, status, reject_reason, executed_at "
+            "FROM gold_live_executions WHERE live_id = ? "
+            "ORDER BY executed_at DESC LIMIT ? OFFSET ?",
+            [live_id, limit, offset],
+        )
+
+        return {
+            "items": df.to_dicts() if not df.is_empty() else [],
+            "total": total,
+            "live_id": live_id,
+            "strategy_id": existing["strategy_id"][0],
+        }
+    except Exception:
+        # Table may not exist yet (no executions)
+        return {
+            "items": [],
+            "total": 0,
+            "live_id": live_id,
+            "strategy_id": existing["strategy_id"][0],
+        }

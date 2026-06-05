@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { tradingApi, liveApi, type RealtimeQuote } from '@/lib/api'
+import { tradingApi, liveApi, type RealtimeQuote, type LiveExecution } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { OrderForm } from '@/components/trading/OrderForm'
@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 
 export function LivePage() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('')
+  const [selectedLiveId, setSelectedLiveId] = useState<string | null>(null)
   const [broker] = useState('paper')
 
   const qc = useQueryClient()
@@ -53,6 +54,14 @@ export function LivePage() {
     queryKey: ['live', 'deployed'],
     queryFn: liveApi.deployed,
     staleTime: 30_000,
+  })
+
+  // Execution history for selected live strategy
+  const { data: executions } = useQuery({
+    queryKey: ['live', 'executions', selectedLiveId],
+    queryFn: () => liveApi.getExecutions(selectedLiveId!, 20),
+    enabled: !!selectedLiveId,
+    staleTime: 10_000,
   })
 
   // Real-time quotes for held positions
@@ -104,21 +113,123 @@ export function LivePage() {
                     {d.metrics?.sharpe != null && <span>Sharpe：{Number(d.metrics.sharpe).toFixed(3)}</span>}
                   </div>
                 </div>
-                {d.status === 'active' && (
+                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
                   <button
-                    disabled={stopMutation.isPending}
-                    onClick={() => {
-                      if (!confirm(`确认停止模拟策略 ${d.strategy_id}？`)) return
-                      stopMutation.mutate(d.live_id)
-                    }}
-                    className="btn-secondary text-xs ml-4 flex-shrink-0 disabled:opacity-50"
+                    onClick={() => setSelectedLiveId(selectedLiveId === d.live_id ? null : d.live_id)}
+                    className="btn-secondary text-xs"
                   >
-                    {stopMutation.isPending ? '停止中…' : '停止'}
+                    {selectedLiveId === d.live_id ? '隐藏记录' : '执行记录'}
                   </button>
-                )}
+                  {d.status === 'active' && (
+                    <button
+                      disabled={stopMutation.isPending}
+                      onClick={() => {
+                        if (!confirm(`确认停止模拟策略 ${d.strategy_id}？`)) return
+                        stopMutation.mutate(d.live_id)
+                      }}
+                      className="btn-secondary text-xs disabled:opacity-50"
+                    >
+                      {stopMutation.isPending ? '停止中…' : '停止'}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Execution History */}
+      {selectedLiveId && executions && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-gray-800">
+              执行记录
+              <span className="text-xs text-gray-500 ml-2">共 {executions.total} 条</span>
+            </h2>
+            <span className="text-xs text-gray-400 font-mono">{selectedLiveId}</span>
+          </div>
+
+          {/* Execution summary cards */}
+          {executions.items.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <div className="text-center p-2 bg-gray-50 rounded-lg">
+                <div className="text-lg font-bold text-brand-600">{executions.items.length}</div>
+                <div className="text-xs text-gray-500">总订单</div>
+              </div>
+              <div className="text-center p-2 bg-green-50 rounded-lg">
+                <div className="text-lg font-bold text-green-600">
+                  {executions.items.filter(e => e.status === 'filled').length}
+                </div>
+                <div className="text-xs text-gray-500">已成交</div>
+              </div>
+              <div className="text-center p-2 bg-red-50 rounded-lg">
+                <div className="text-lg font-bold text-red-600">
+                  {executions.items.filter(e => e.status === 'rejected').length}
+                </div>
+                <div className="text-xs text-gray-500">已拒绝</div>
+              </div>
+              <div className="text-center p-2 bg-gray-50 rounded-lg">
+                <div className="text-lg font-bold text-gray-600">
+                  {executions.items.reduce((sum, e) => sum + e.total_cost, 0).toFixed(2)}
+                </div>
+                <div className="text-xs text-gray-500">总费用</div>
+              </div>
+            </div>
+          )}
+
+          {/* Execution log table */}
+          {executions.items.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="table-th">时间</th>
+                    <th className="table-th">资产</th>
+                    <th className="table-th">方向</th>
+                    <th className="table-th text-right">数量</th>
+                    <th className="table-th text-right">成交价</th>
+                    <th className="table-th text-right">费用</th>
+                    <th className="table-th">状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {executions.items.map((ex: LiveExecution) => (
+                    <tr key={ex.execution_id} className="table-row">
+                      <td className="table-td text-gray-400">{ex.executed_at?.slice(0, 16) ?? '—'}</td>
+                      <td className="table-td font-mono">{ex.asset_id}</td>
+                      <td className="table-td">
+                        <span className={`badge ${ex.side === 'buy' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                          {ex.side === 'buy' ? '买入' : '卖出'}
+                        </span>
+                      </td>
+                      <td className="table-td text-right">{ex.filled_qty.toLocaleString()}</td>
+                      <td className="table-td text-right">{ex.filled_price.toFixed(2)}</td>
+                      <td className="table-td text-right text-gray-500">{ex.total_cost.toFixed(2)}</td>
+                      <td className="table-td">
+                        <span className={`badge ${
+                          ex.status === 'filled' ? 'bg-green-100 text-green-800' :
+                          ex.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {ex.status === 'filled' ? '已成交' : ex.status === 'rejected' ? '已拒绝' : ex.status}
+                        </span>
+                        {ex.reject_reason && (
+                          <span className="ml-1 text-red-500" title={ex.reject_reason}>(?)</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 py-8">
+              <div className="text-3xl mb-2">📋</div>
+              <div>暂无执行记录</div>
+              <p className="text-xs mt-1">策略执行后会在此显示订单记录</p>
+            </div>
+          )}
         </div>
       )}
 

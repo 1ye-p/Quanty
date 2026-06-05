@@ -483,6 +483,25 @@ export interface LiveStrategy {
   status: string
 }
 
+export interface LiveExecution {
+  execution_id: string
+  live_id: string
+  strategy_id: string
+  order_id: string
+  asset_id: string
+  side: string
+  qty: number
+  filled_qty: number
+  filled_price: number
+  commission: number
+  stamp_duty: number
+  slippage: number
+  total_cost: number
+  status: string
+  reject_reason: string
+  executed_at: string
+}
+
 export const liveApi = {
   strategies: () => request<{ items: LiveStrategy[]; total: number; display_mode: string }>('/live/strategies'),
   pnl: (id: string, params?: Record<string, string>) => {
@@ -505,6 +524,10 @@ export const liveApi = {
     request<{ live_id: string; status: string }>(`/live/strategies/${liveId}/stop`, { method: 'POST' }),
   deployed: () =>
     request<{ items: LiveDeployment[] }>('/live/deployed'),
+  getExecutions: (liveId: string, limit = 50, offset = 0) =>
+    request<{ items: LiveExecution[]; total: number; live_id: string; strategy_id: string }>(
+      `/live/strategies/${liveId}/executions?limit=${limit}&offset=${offset}`,
+    ),
 }
 
 // ── Factors (extended) ────────────────────────────────────────────────────────

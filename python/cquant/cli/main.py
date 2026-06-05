@@ -373,6 +373,38 @@ def _get_broker(name: str):
         sys.exit(1)
 
 
+def cmd_live_start(args: argparse.Namespace) -> None:
+    """Handle 'live start' command."""
+    from cquant.execution.live_executor import LiveExecutor
+
+    catalog = Catalog(args.catalog)
+    catalog.initialize()
+
+    executor = LiveExecutor(
+        catalog,
+        lot_size=args.lot_size,
+        min_strength=args.min_strength,
+        max_position_pct=args.max_position_pct,
+    )
+
+    if args.once:
+        # Run once
+        print("Running live execution (once)...")
+        summary = executor.run_once()
+        print(f"\n=== Execution Summary ({summary['date']}) ===")
+        print(f"  Executed: {summary['executed']}")
+        print(f"  Skipped:  {summary['skipped']}")
+        if summary["errors"]:
+            print(f"  Errors:   {len(summary['errors'])}")
+            for err in summary["errors"]:
+                print(f"    - {err}")
+    else:
+        # Start scheduler
+        print(f"Starting live executor scheduler (daily at {args.hour:02d}:{args.minute:02d})...")
+        print("Press Ctrl+C to stop.\n")
+        executor.start_scheduler(hour=args.hour, minute=args.minute)
+
+
 def cmd_trade_account(args: argparse.Namespace) -> None:
     """Handle 'trade account' command."""
     broker = _get_broker(args.broker)
@@ -633,6 +665,20 @@ def build_parser() -> argparse.ArgumentParser:
     quote_parser.add_argument("--watch", action="store_true", help="Watch mode (polling)")
     quote_parser.add_argument("--interval", type=float, default=5.0, help="Poll interval in seconds")
     quote_parser.set_defaults(func=cmd_quote)
+
+    # live command
+    live_parser = subparsers.add_parser("live", help="Live execution engine")
+    live_sub = live_parser.add_subparsers(dest="live_cmd", help="Live subcommands")
+
+    # live start
+    live_start = live_sub.add_parser("start", help="Start live execution")
+    live_start.add_argument("--once", action="store_true", help="Run once instead of scheduling")
+    live_start.add_argument("--hour", type=int, default=15, help="Scheduler hour (default: 15)")
+    live_start.add_argument("--minute", type=int, default=30, help="Scheduler minute (default: 30)")
+    live_start.add_argument("--lot-size", type=int, default=100, help="Lot size (default: 100)")
+    live_start.add_argument("--min-strength", type=float, default=0.01, help="Min signal strength")
+    live_start.add_argument("--max-position-pct", type=float, default=0.10, help="Max position as pct of NAV")
+    live_start.set_defaults(func=cmd_live_start)
 
     # trade command
     trade_parser = subparsers.add_parser("trade", help="Trading operations")

@@ -156,6 +156,11 @@ export function BacktestsPage() {
   const [deployStep, setDeployStep] = useState(1)
   const [deployCash, setDeployCash] = useState('1000000')
   const [deployRiskMode, setDeployRiskMode] = useState<'conservative' | 'moderate' | 'aggressive'>('conservative')
+  const [deployChecklist, setDeployChecklist] = useState({
+    confirmBacktest: false,
+    understandPaper: false,
+    reviewRisk: false,
+  })
 
   const deployMutation = useMutation({
     mutationFn: liveApi.deploy,
@@ -163,6 +168,7 @@ export function BacktestsPage() {
       qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
       setShowDeployWizard(false)
       setDeployStep(1)
+      setDeployChecklist({ confirmBacktest: false, understandPaper: false, reviewRisk: false })
       toast.success('策略已部署为模拟实盘，前往"实盘监控"查看')
     },
     onError: (e: Error) => toast.error(`部署失败: ${e.message}`),
@@ -1520,6 +1526,34 @@ export function BacktestsPage() {
                       <option value="aggressive">激进（止损 15%，最大回撤 25%）</option>
                     </select>
                   </div>
+                  {/* Risk mode detail */}
+                  <div className="p-3 bg-gray-50 rounded-lg text-xs space-y-1 text-gray-600">
+                    <div className="font-medium text-gray-700 mb-1">风控参数预览</div>
+                    {deployRiskMode === 'conservative' && (
+                      <>
+                        <div>- 单笔止损：5%（触发后强制平仓）</div>
+                        <div>- 最大回撤：10%（触发后暂停策略）</div>
+                        <div>- 单股仓位上限：10% NAV</div>
+                        <div>- 换手率限制：低频调仓</div>
+                      </>
+                    )}
+                    {deployRiskMode === 'moderate' && (
+                      <>
+                        <div>- 单笔止损：8%（触发后强制平仓）</div>
+                        <div>- 最大回撤：15%（触发后暂停策略）</div>
+                        <div>- 单股仓位上限：15% NAV</div>
+                        <div>- 换手率限制：中频调仓</div>
+                      </>
+                    )}
+                    {deployRiskMode === 'aggressive' && (
+                      <>
+                        <div>- 单笔止损：15%（触发后强制平仓）</div>
+                        <div>- 最大回撤：25%（触发后暂停策略）</div>
+                        <div>- 单股仓位上限：20% NAV</div>
+                        <div>- 换手率限制：不限</div>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1531,9 +1565,31 @@ export function BacktestsPage() {
                     <div>初始资金：<strong>¥{Number(deployCash).toLocaleString()}</strong></div>
                     <div>风控模式：<strong>{deployRiskMode}</strong></div>
                   </div>
+
+                  {/* Deployment checklist */}
+                  <div className="space-y-2">
+                    <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                      <input type="checkbox" checked={deployChecklist.confirmBacktest}
+                        onChange={e => setDeployChecklist(c => ({ ...c, confirmBacktest: e.target.checked }))}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-brand-600" />
+                      <span>我已确认回测结果满意（Sharpe: {Number(detail.metrics?.sharpe_ratio ?? 0).toFixed(3)}，最大回撤: {((detail.metrics?.max_drawdown ?? 0) * 100).toFixed(1)}%）</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                      <input type="checkbox" checked={deployChecklist.understandPaper}
+                        onChange={e => setDeployChecklist(c => ({ ...c, understandPaper: e.target.checked }))}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-brand-600" />
+                      <span>我了解这是模拟实盘（Paper Broker），不会执行真实交易</span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                      <input type="checkbox" checked={deployChecklist.reviewRisk}
+                        onChange={e => setDeployChecklist(c => ({ ...c, reviewRisk: e.target.checked }))}
+                        className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-brand-600" />
+                      <span>我已了解风控规则，策略触发止损/回撤限制后将自动暂停</span>
+                    </label>
+                  </div>
+
                   <p className="text-xs text-gray-500">
-                    ⚠ 这是模拟实盘（Paper Broker），不会执行真实交易。
-                    部署后可在"实盘监控"页面查看策略运行状态。
+                    部署后可在"实盘监控"页面查看策略运行状态和执行记录。
                   </p>
                 </div>
               )}
@@ -1549,6 +1605,7 @@ export function BacktestsPage() {
                     setDeployStep(1)
                     setDeployCash('1000000')
                     setDeployRiskMode('conservative')
+                    setDeployChecklist({ confirmBacktest: false, understandPaper: false, reviewRisk: false })
                   }
                 }}
                 className="btn-secondary text-sm"
@@ -1566,10 +1623,10 @@ export function BacktestsPage() {
                     initial_cash: Number(deployCash),
                     risk_mode: deployRiskMode,
                   })}
-                  disabled={deployMutation.isPending}
+                  disabled={deployMutation.isPending || !deployChecklist.confirmBacktest || !deployChecklist.understandPaper || !deployChecklist.reviewRisk}
                   className="btn-primary text-sm disabled:opacity-40"
                 >
-                  {deployMutation.isPending ? '部署中…' : '🚀 确认部署'}
+                  {deployMutation.isPending ? '部署中…' : '确认部署'}
                 </button>
               )}
             </div>
