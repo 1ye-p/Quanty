@@ -177,6 +177,15 @@ class DataScheduler:
         self._scheduler: Any = None
         self._running = False
 
+        # Ensure run-tracking table exists
+        try:
+            self._catalog.execute(
+                "CREATE TABLE IF NOT EXISTS _scheduler_runs "
+                "(job_id VARCHAR, last_run TIMESTAMP, status VARCHAR)"
+            )
+        except Exception as exc:
+            logger.warning("Failed to create _scheduler_runs table: %s", exc)
+
     # ---- public API -------------------------------------------------------
 
     def start(self) -> None:
@@ -205,10 +214,10 @@ class DataScheduler:
             replace_existing=True,
         )
 
-        # 3. Alerts — hourly
+        # 3. Alerts — daily at 18:00 (placeholder: logging only until riskguard integration)
         sched.add_job(
             self._run_alerts,
-            IntervalTrigger(hours=1, timezone=self._tz),
+            CronTrigger(hour=18, minute=0, timezone=self._tz),
             id="alerts",
             name="Alert Check",
             replace_existing=True,
@@ -281,34 +290,46 @@ class DataScheduler:
 
     def _run_price_ingest(self) -> None:
         logger.info("Running price ingest ...")
-        _with_retry(_job_price_ingest, self._catalog)
-        self._record_run("price_ingest")
+        try:
+            _with_retry(_job_price_ingest, self._catalog)
+            self._record_run("price_ingest")
+        except Exception as exc:
+            logger.error("Price ingest failed after retries: %s", exc)
+            self._record_run("price_ingest", "failure")
 
     def _run_fundamentals(self) -> None:
         logger.info("Running fundamentals update ...")
-        _with_retry(_job_fundamentals, self._catalog)
-        self._record_run("fundamentals")
+        try:
+            _with_retry(_job_fundamentals, self._catalog)
+            self._record_run("fundamentals")
+        except Exception as exc:
+            logger.error("Fundamentals update failed after retries: %s", exc)
+            self._record_run("fundamentals", "failure")
 
     def _run_alerts(self) -> None:
         logger.info("Running alert check ...")
-        _with_retry(_job_alerts, self._catalog)
-        self._record_run("alerts")
+        try:
+            _with_retry(_job_alerts, self._catalog)
+            self._record_run("alerts")
+        except Exception as exc:
+            logger.error("Alert check failed after retries: %s", exc)
+            self._record_run("alerts", "failure")
 
     def _run_health(self) -> None:
         logger.info("Running health check ...")
-        _with_retry(_job_health, self._catalog)
-        self._record_run("health")
+        try:
+            _with_retry(_job_health, self._catalog)
+            self._record_run("health")
+        except Exception as exc:
+            logger.error("Health check failed after retries: %s", exc)
+            self._record_run("health", "failure")
 
-    def _record_run(self, job_id: str) -> None:
+    def _record_run(self, job_id: str, status: str = "success") -> None:
         """Persist last-run metadata into the catalog (best-effort)."""
         try:
             self._catalog.execute(
-                "CREATE TABLE IF NOT EXISTS _scheduler_runs "
-                "(job_id VARCHAR, last_run TIMESTAMP, status VARCHAR)"
-            )
-            self._catalog.execute(
                 "INSERT INTO _scheduler_runs VALUES (?, ?, ?)",
-                [job_id, datetime.now(tz=timezone.utc), "success"],
+                [job_id, datetime.now(tz=timezone.utc), status],
             )
         except Exception:
             logger.debug("Failed to record scheduler run for %s", job_id, exc_info=True)

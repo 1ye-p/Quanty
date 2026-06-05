@@ -28,6 +28,7 @@ dependencies = [
     "yfinance>=0.2",
     "python-dotenv>=1.0",
     "slowapi>=0.1.9",
+    "apscheduler>=3.10",
 ]
 license = { text = "Proprietary" }
 
