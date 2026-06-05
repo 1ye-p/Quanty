@@ -60,7 +60,7 @@ class ExecutionPersister:
             self._catalog.execute(_TABLE_DDL)
             _schema_ensured = True
         except Exception as exc:
-            logger.debug("_ensure_schema: %s", exc)
+            logger.warning("_ensure_schema failed: %s", exc)
 
     def persist_order(self, live_id: str, strategy_id: str, order: Order) -> str:
         """Persist a single order execution result.
@@ -183,3 +183,43 @@ class ExecutionPersister:
             "items": df.to_dicts() if not df.is_empty() else [],
             "total": total,
         }
+
+    def load_portfolio_state(
+        self,
+        live_id: str,
+        initial_cash: float,
+    ) -> tuple[dict[str, int], float]:
+        """Load current positions and cash from execution history.
+
+        Returns
+        -------
+        tuple[dict[str, int], float]
+            (positions dict mapping asset_id to share qty, remaining cash).
+        """
+        df = self._catalog.query(
+            "SELECT asset_id, side, filled_qty, filled_price, total_cost "
+            "FROM gold_live_executions "
+            "WHERE live_id = ? AND status = 'filled' "
+            "ORDER BY executed_at",
+            [live_id],
+        )
+        if df.is_empty():
+            return {}, initial_cash
+
+        positions: dict[str, int] = {}
+        cash = initial_cash
+        for row in df.to_dicts():
+            aid = row["asset_id"]
+            qty = int(row["filled_qty"])
+            price = float(row["filled_price"])
+            cost = float(row["total_cost"])
+            if row["side"] == "buy":
+                positions[aid] = positions.get(aid, 0) + qty
+                cash -= cost
+            else:  # sell
+                positions[aid] = positions.get(aid, 0) - qty
+                cash += qty * price - cost  # proceeds minus costs
+                if positions[aid] <= 0:
+                    positions.pop(aid, None)
+
+        return positions, cash

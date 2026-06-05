@@ -335,8 +335,8 @@ async def deploy_strategy(body: DeployRequest, catalog: CatalogDep) -> dict:
                 status_code=422,
                 detail=f"Strategy type not available for live execution: {exc}",
             )
-        except Exception:
-            pass  # Non-critical, continue with deploy
+        except Exception as exc:
+            logger.debug("Strategy validation warning (non-blocking): %s", exc)
 
     _ensure_live_table(catalog)
 

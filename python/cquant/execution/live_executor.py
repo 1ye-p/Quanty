@@ -8,7 +8,7 @@ and executes via PaperBroker.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
 
 from cquant.datahub.catalog import Catalog
 from cquant.execution.execution_persister import ExecutionPersister
@@ -123,19 +123,25 @@ class LiveExecutor:
             logger.info("No signals from strategy %s", strategy_id)
             return
 
-        # Create broker
-        broker = PaperBroker(initial_cash=initial_cash)
+        # Load portfolio state from execution history
+        current_positions, cash = self._persister.load_portfolio_state(
+            live_id, initial_cash,
+        )
+        logger.info(
+            "Loaded portfolio state: %d positions, cash=%.2f",
+            len(current_positions), cash,
+        )
+
+        # Create broker with actual cash
+        broker = PaperBroker(initial_cash=cash)
 
         # Get current prices for the universe
         prices = self._fetch_prices(signals["asset_id"].to_list())
         broker.update_prices(prices)
 
-        # Get current positions (empty for fresh execution)
-        current_positions = {}
-
-        # Convert signals to orders
+        # Convert signals to orders using actual state
         orders = self._converter.convert(
-            signals, current_positions, initial_cash, prices
+            signals, current_positions, cash, prices
         )
 
         if not orders:
@@ -171,21 +177,21 @@ class LiveExecutor:
 
         placeholders = ",".join("?" for _ in asset_ids)
         df = self._catalog.query(
-            f"SELECT asset_id, close FROM silver_prices_1d "
+            f"SELECT asset_id, close FROM silver_prices_1d s1 "
             f"WHERE asset_id IN ({placeholders}) "
-            f"ORDER BY trade_date DESC LIMIT ?",
-            [*asset_ids, len(asset_ids)],
+            f"AND trade_date = ("
+            f"  SELECT MAX(trade_date) FROM silver_prices_1d s2 "
+            f"  WHERE s2.asset_id = s1.asset_id"
+            f")",
+            asset_ids,
         )
 
         if df.is_empty():
             return {}
 
-        # Take the most recent price per asset
         prices: dict[str, float] = {}
         for row in df.to_dicts():
-            aid = row["asset_id"]
-            if aid not in prices:
-                prices[aid] = float(row["close"])
+            prices[row["asset_id"]] = float(row["close"])
 
         return prices
 
