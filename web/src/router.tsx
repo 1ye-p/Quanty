@@ -17,6 +17,7 @@ import { OptimizePage } from '@/pages/OptimizePage'
 import { RiskPage } from '@/pages/RiskPage'
 import { ScoringPage } from '@/pages/ScoringPage'
 import { AlertsPage } from '@/pages/AlertsPage'
+import { TasksPage } from '@/pages/TasksPage'
 
 export const router = createBrowserRouter([
   {
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
       { path: 'knowledge',  element: <KnowledgePage /> },
       { path: 'advisor',    element: <AdvisorPage /> },
       { path: 'alerts',     element: <AlertsPage /> },
+      { path: 'tasks',      element: <TasksPage /> },
     ],
   },
   {

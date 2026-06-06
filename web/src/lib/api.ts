@@ -91,6 +91,16 @@ export const dashboardApi = {
     request<{
       items: { factor_name: string; mean_ic: number; ir: number; hit_rate: number }[]
     }>(`/factors/ic-leaderboard?limit=${limit}`),
+
+  backtestTrend: (days = 30) =>
+    request<{ items: { date: string; count: number }[]; days: number }>(
+      `/datasets/backtest-trend?days=${days}`,
+    ),
+
+  icTrend: (days = 30) =>
+    request<{ items: { date: string; avg_ic: number }[]; days: number }>(
+      `/factors/ic-trend?days=${days}`,
+    ),
 }
 
 // ── Walk-Forward Config ──────────────────────────────────────────────────────
@@ -927,6 +937,16 @@ export const realtimeApi = {
     })
     return `/api/v1/live/stream?${params}`
   },
+}
+
+// ── Jobs API ──────────────────────────────────────────────────────────────────
+
+export const jobsApi = {
+  cancel: (jobId: string) =>
+    request<{ job_id: string; status: string }>(`/jobs/${jobId}/cancel`, { method: 'POST' }),
+
+  delete: (jobId: string) =>
+    request<{ job_id: string; status: string }>(`/jobs/${jobId}`, { method: 'DELETE' }),
 }
 
 // ── Custom Factors ────────────────────────────────────────────────────────────

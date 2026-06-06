@@ -234,6 +234,28 @@ async def get_data_freshness(catalog: CatalogDep) -> dict:
         return {"last_updated": None, "days_stale": -1}
 
 
+@router.get("/backtest-trend")
+async def get_backtest_trend(catalog: CatalogDep, days: int = 30) -> dict:
+    """返回近 N 天每日回测数量趋势。"""
+    try:
+        df = catalog.query(
+            "SELECT DATE(started_at) as date, COUNT(*) as count "
+            "FROM meta_backtest_runs "
+            "WHERE started_at >= CURRENT_DATE - INTERVAL '? days' "
+            "GROUP BY DATE(started_at) "
+            "ORDER BY date",
+            [days],
+        )
+        items = [
+            {"date": str(r["date"]), "count": r["count"]}
+            for r in df.to_dicts()
+        ] if not df.is_empty() else []
+        return {"items": items, "days": days}
+    except Exception as exc:
+        logger.debug("get_backtest_trend failed: %s", exc)
+        return {"items": [], "days": days}
+
+
 @router.get("/{version_id}")
 async def get_dataset(version_id: str, catalog: CatalogDep) -> dict:
     """Get a specific dataset version."""

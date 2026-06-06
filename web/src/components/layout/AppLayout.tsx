@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { mlApi, backtestsApi, scoringApi, alertsApi } from '@/lib/api'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { mlApi, backtestsApi, scoringApi, alertsApi, jobsApi } from '@/lib/api'
 
 const NAV_ICONS: Record<string, string> = {
   '/factors':    '🔬',
@@ -19,6 +19,7 @@ const NAV_ICONS: Record<string, string> = {
   '/advisor':    '🤖',
   '/':           '🏠',
   '/alerts':    '🔔',
+  '/tasks':     '📋',
 }
 
 const NAV_GROUPS = [
@@ -54,6 +55,7 @@ const NAV_GROUPS = [
     label: '系统',
     items: [
       { to: '/',       label: '总览' },
+      { to: '/tasks',  label: '任务管理' },
       { to: '/alerts', label: '告警中心' },
     ],
   },
@@ -69,6 +71,15 @@ if (import.meta.env.DEV) {
 }
 
 export function AppLayout() {
+  const queryClient = useQueryClient()
+
+  const stopTaskMutation = useMutation({
+    mutationFn: (jobId: string) => jobsApi.cancel(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['layout'] })
+    },
+  })
+
   // 轮询各模块运行中任务数量
   const { data: mlJobs } = useQuery({
     queryKey: ['layout', 'ml-running'],
@@ -114,6 +125,7 @@ export function AppLayout() {
       .map((e: { run_id: string; status: string; started_at?: number | string; trainer_name?: string }) => ({
         type: 'ML训练',
         id: e.run_id.slice(0, 10),
+        fullId: e.run_id,
         status: e.status,
         startedAt: e.started_at,
         detail: e.trainer_name ?? '',
@@ -129,6 +141,7 @@ export function AppLayout() {
       .map((r: { run_id: string; status: string; started_at?: string; strategy_id?: string }) => ({
         type: '回测',
         id: r.run_id.slice(0, 10),
+        fullId: r.run_id,
         status: r.status,
         startedAt: r.started_at,
         detail: r.strategy_id ?? '',
@@ -281,20 +294,37 @@ export function AppLayout() {
                     <ul className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
                       {allRunningTasks.map((task, i) => (
                         <li key={i} className="px-3 py-2 flex items-center justify-between">
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <span className="text-xs font-medium text-gray-700">{task.type}</span>
                             <span className="ml-2 font-mono text-xs text-gray-400">{task.id}…</span>
                             {task.detail && (
-                              <div className="text-xs text-gray-500 truncate max-w-[160px]">{task.detail}</div>
+                              <div className="text-xs text-gray-500 truncate max-w-[140px]">{task.detail}</div>
                             )}
                           </div>
-                          <div className="text-right flex-shrink-0 ml-2">
-                            <span className="text-xs text-gray-400">
-                              {elapsedStr(task.startedAt)}
-                            </span>
-                            <div className="text-xs text-blue-500 mt-0.5">
-                              {task.status}
+                          <div className="text-right flex-shrink-0 ml-2 flex items-center gap-2">
+                            <div>
+                              <span className="text-xs text-gray-400">
+                                {elapsedStr(task.startedAt)}
+                              </span>
+                              <div className="text-xs text-blue-500 mt-0.5">
+                                {task.status}
+                              </div>
                             </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm('确定要停止此任务吗？')) {
+                                  stopTaskMutation.mutate(task.fullId)
+                                }
+                              }}
+                              disabled={stopTaskMutation.isPending}
+                              className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                              title="停止任务"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
                           </div>
                         </li>
                       ))}

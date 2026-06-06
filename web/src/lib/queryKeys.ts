@@ -83,4 +83,8 @@ export const extendedQueryKeys = {
     policies: () => ['risk', 'policies'] as const,
     sizers: () => ['risk', 'sizers'] as const,
   },
+  dashboard: {
+    backtestTrend: (days: number) => ['dashboard', 'backtest-trend', days] as const,
+    icTrend: (days: number) => ['dashboard', 'ic-trend', days] as const,
+  },
 } as const

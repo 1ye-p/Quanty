@@ -819,3 +819,25 @@ async def dsl_functions() -> dict:
             {"name": "价量相关性", "expression": "corr(close, volume, 10)"},
         ],
     }
+
+
+@router.get("/ic-trend")
+async def get_ic_trend(catalog: CatalogDep, days: int = 30) -> dict:
+    """返回近 N 天每日 IC 均值趋势。"""
+    try:
+        df = catalog.query(
+            "SELECT DATE(computed_at) as date, AVG(ABS(mean_ic)) as avg_ic "
+            "FROM gold_factor_ic_summary "
+            "WHERE computed_at >= CURRENT_DATE - INTERVAL '? days' "
+            "GROUP BY DATE(computed_at) "
+            "ORDER BY date",
+            [days],
+        )
+        items = [
+            {"date": str(r["date"]), "avg_ic": round(float(r["avg_ic"]), 6) if r["avg_ic"] else 0.0}
+            for r in df.to_dicts()
+        ] if not df.is_empty() else []
+        return {"items": items, "days": days}
+    except Exception as exc:
+        logger.debug("get_ic_trend failed: %s", exc)
+        return {"items": [], "days": days}
