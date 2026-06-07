@@ -30,6 +30,18 @@ def __getattr__(name: str):
     if name == "qlib_risk_analysis":
         from cquant.qlib_bridge.risk_analysis import qlib_risk_analysis
         return qlib_risk_analysis
+    if name == "StorageFactory":
+        from cquant.qlib_bridge.storage_factory import StorageFactory
+        return StorageFactory
+    if name == "compute_factors_qlib":
+        from cquant.qlib_bridge.factor_bridge import compute_factors_qlib
+        return compute_factors_qlib
+    if name == "train_model_qlib":
+        from cquant.qlib_bridge.ml_bridge import train_model_qlib
+        return train_model_qlib
+    if name == "run_backtest_qlib":
+        from cquant.qlib_bridge.backtest_bridge import run_backtest_qlib
+        return run_backtest_qlib
     raise AttributeError(f"module 'cquant.qlib_bridge' has no attribute {name!r}")
 
 
@@ -44,4 +56,8 @@ __all__ = [
     "ensemble_fold_predictions",
     "init_qlib_with_quantdb",
     "qlib_risk_analysis",
+    "StorageFactory",
+    "compute_factors_qlib",
+    "train_model_qlib",
+    "run_backtest_qlib",
 ]
