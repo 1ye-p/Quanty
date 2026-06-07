@@ -201,9 +201,9 @@ def _parse_func_args(expr: str, func_name: str) -> tuple[str, str]:
 def _default_factors() -> list[str]:
     """Return a default set of common factor expressions."""
     return [
-        "Ref($close, 1) / $close - 1",       # daily return
-        "Ref($close, 5) / $close - 1",       # 5-day return
-        "Ref($close, 20) / $close - 1",      # 20-day return
+        "$close / Ref($close, 1) - 1",       # daily return
+        "$close / Ref($close, 5) - 1",       # 5-day return
+        "$close / Ref($close, 20) - 1",      # 20-day return
         "Std($close, 20)",                    # 20-day volatility
         "Mean($volume, 20)",                  # 20-day avg volume
         "$close / Mean($close, 60) - 1",      # deviation from 60-day mean

@@ -77,22 +77,21 @@ def train_model_qlib(
         if not QLIB_AVAILABLE:
             logger.warning("Qlib not available, falling back to native trainer")
             return _train_native(train_data, valid_data, feature_names, target_name, model_type, params)
-        return _train_qlib_lgbm(train_data, valid_data, feature_names, target_name, params)
+        return _train_lgbm_native(train_data, valid_data, feature_names, target_name, params)
     else:
         return _train_native(train_data, valid_data, feature_names, target_name, model_type, params)
 
 
-def _train_qlib_lgbm(
+def _train_lgbm_native(
     train_data: pl.DataFrame,
     valid_data: pl.DataFrame,
     feature_names: list[str],
     target_name: str,
     params: dict[str, Any],
 ) -> MLTrainResult:
-    """Train using Qlib's LGBModel."""
+    """Train LightGBM with Qlib-compatible parameters (native lgb.train)."""
     try:
         import qlib
-        from qlib.contrib.model.gbdt import LGBModel
 
         logger.info("ml_bridge: training via Qlib LGBModel with %d features", len(feature_names))
 
