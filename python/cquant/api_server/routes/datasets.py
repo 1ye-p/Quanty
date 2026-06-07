@@ -240,8 +240,8 @@ async def get_backtest_trend(catalog: CatalogDep, days: int = 30) -> dict:
     try:
         df = catalog.query(
             "SELECT DATE(started_at) as date, COUNT(*) as count "
-            "FROM meta_backtest_runs "
-            "WHERE started_at >= CURRENT_DATE - INTERVAL '? days' "
+            "FROM gold_backtest_runs "
+            "WHERE started_at >= CURRENT_DATE - ? * INTERVAL '1 DAY' "
             "GROUP BY DATE(started_at) "
             "ORDER BY date",
             [days],

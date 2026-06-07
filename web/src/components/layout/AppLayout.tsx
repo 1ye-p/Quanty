@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, alertsApi, jobsApi } from '@/lib/api'
+import { elapsedStr } from '@/lib/utils'
 
 const NAV_ICONS: Record<string, string> = {
   '/factors':    '🔬',
@@ -150,15 +151,6 @@ export function AppLayout() {
 
   const allRunningTasks = [...(mlRunning ?? []), ...(btRunning ?? [])]
   const runningCount = allRunningTasks.length
-
-  function elapsedStr(startedAt: string | number | undefined): string {
-    if (!startedAt) return ''
-    const start = typeof startedAt === 'number' ? startedAt : new Date(startedAt).getTime()
-    const elapsed = Math.floor((Date.now() - start) / 1000)
-    if (elapsed < 60) return `${elapsed}s`
-    if (elapsed < 3600) return `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
-    return `${Math.floor(elapsed / 3600)}h ${Math.floor((elapsed % 3600) / 60)}m`
-  }
 
   useEffect(() => {
     if (!taskDropdownOpen) return

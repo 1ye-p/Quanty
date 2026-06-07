@@ -828,7 +828,7 @@ async def get_ic_trend(catalog: CatalogDep, days: int = 30) -> dict:
         df = catalog.query(
             "SELECT DATE(computed_at) as date, AVG(ABS(mean_ic)) as avg_ic "
             "FROM gold_factor_ic_summary "
-            "WHERE computed_at >= CURRENT_DATE - INTERVAL '? days' "
+            "WHERE computed_at >= CURRENT_DATE - ? * INTERVAL '1 DAY' "
             "GROUP BY DATE(computed_at) "
             "ORDER BY date",
             [days],

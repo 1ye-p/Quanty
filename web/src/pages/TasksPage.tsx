@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, jobsApi } from '@/lib/api'
+import { elapsedStr } from '@/lib/utils'
 
 interface TaskItem {
   type: string
@@ -87,14 +88,6 @@ export function TasksPage() {
   const completedCount = allTasks.filter(t => t.status === 'completed' || t.status === 'done').length
   const failedCount = allTasks.filter(t => t.status === 'failed' || t.status === 'error').length
 
-  function elapsedStr(startedAt: string | number | undefined): string {
-    if (!startedAt) return '—'
-    const start = typeof startedAt === 'number' ? startedAt : new Date(startedAt).getTime()
-    const elapsed = Math.floor((Date.now() - start) / 1000)
-    if (elapsed < 60) return `${elapsed}s`
-    if (elapsed < 3600) return `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
-    return `${Math.floor(elapsed / 3600)}h ${Math.floor((elapsed % 3600) / 60)}m`
-  }
 
   const statusColor = (status: string) => {
     switch (status) {
@@ -186,7 +179,7 @@ export function TasksPage() {
                   <td className="table-td">
                     {(task.status === 'running' || task.status === 'pending') && (
                       <button
-                        onClick={() => cancelMutation.mutate(task.fullId)}
+                        onClick={() => { if (window.confirm('确定取消该任务？')) cancelMutation.mutate(task.fullId) }}
                         disabled={cancelMutation.isPending}
                         className="text-xs text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
                       >
@@ -195,7 +188,7 @@ export function TasksPage() {
                     )}
                     {(task.status === 'completed' || task.status === 'done' || task.status === 'failed' || task.status === 'error') && (
                       <button
-                        onClick={() => deleteMutation.mutate(task.fullId)}
+                        onClick={() => { if (window.confirm('确定删除该任务记录？')) deleteMutation.mutate(task.fullId) }}
                         disabled={deleteMutation.isPending}
                         className="text-xs text-gray-500 hover:text-gray-700 hover:underline disabled:opacity-50"
                       >
