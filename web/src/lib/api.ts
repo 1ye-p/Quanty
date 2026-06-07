@@ -707,11 +707,45 @@ export const advisorExtApi = {
 
 // ── Portfolio Optimization ─────────────────────────────────────────────────────
 
+export interface SectorLimit {
+  min_weight: number
+  max_weight: number
+}
+
+export interface FactorExposureLimit {
+  min_exposure: number
+  max_exposure: number
+}
+
+export interface ConstraintConfig {
+  long_only?: boolean
+  max_weight?: number
+  min_weight?: number
+  min_weights?: Record<string, number>
+  max_weights?: Record<string, number>
+  max_turnover?: number | null
+  turnover_penalty?: number
+  current_weights?: Record<string, number>
+  target_return?: number | null
+  sector_map?: Record<string, string>
+  sector_limits?: Record<string, SectorLimit>
+  factor_loadings?: Record<string, Record<string, number>>
+  factor_limits?: Record<string, FactorExposureLimit>
+  max_tracking_error?: number | null
+  benchmark_weights?: Record<string, number>
+  exclude_assets?: string[]
+  exclude_st?: boolean
+  st_assets?: string[]
+  exclude_suspended?: boolean
+  suspended_assets?: string[]
+}
+
 export interface OptimizeRequest {
   expected_returns: Record<string, number>
   covariance: Record<string, Record<string, number>>
   optimizer?: 'mean_variance' | 'risk_parity' | 'cost_aware'
   constraints?: Record<string, unknown>
+  constraint_config?: ConstraintConfig
   risk_free_rate?: number
   long_only?: boolean
   cost_rate?: number

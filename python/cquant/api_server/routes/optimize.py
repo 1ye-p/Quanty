@@ -34,11 +34,61 @@ class CovarianceResponse(BaseModel):
     as_of_date: str
 
 
+class SectorLimitSchema(BaseModel):
+    min_weight: float = 0.0
+    max_weight: float = 1.0
+
+
+class FactorExposureLimitSchema(BaseModel):
+    min_exposure: float = -1.0
+    max_exposure: float = 1.0
+
+
+class ConstraintConfigSchema(BaseModel):
+    """Pydantic schema mirroring ConstraintConfig for API input."""
+
+    # Weight bounds
+    long_only: bool = True
+    max_weight: float = 1.0
+    min_weight: float = 0.0
+    min_weights: dict[str, float] = Field(default_factory=dict)
+    max_weights: dict[str, float] = Field(default_factory=dict)
+
+    # Turnover
+    max_turnover: float | None = None
+    turnover_penalty: float = 0.0
+    current_weights: dict[str, float] = Field(default_factory=dict)
+
+    # Target return
+    target_return: float | None = None
+
+    # Sector limits
+    sector_map: dict[str, str] = Field(default_factory=dict)
+    sector_limits: dict[str, SectorLimitSchema] = Field(default_factory=dict)
+
+    # Factor exposure limits
+    factor_loadings: dict[str, dict[str, float]] = Field(default_factory=dict)
+    factor_limits: dict[str, FactorExposureLimitSchema] = Field(default_factory=dict)
+
+    # Tracking error
+    max_tracking_error: float | None = None
+    benchmark_weights: dict[str, float] = Field(default_factory=dict)
+
+    # Asset exclusion
+    exclude_assets: list[str] = Field(default_factory=list)
+    exclude_st: bool = False
+    st_assets: list[str] = Field(default_factory=list)
+    exclude_suspended: bool = False
+    suspended_assets: list[str] = Field(default_factory=list)
+
+
 class OptimizeRequest(BaseModel):
     expected_returns: dict[str, float]  # asset_id -> expected annual return
     covariance: dict[str, dict[str, float]]  # asset_id -> {asset_id -> cov}
     optimizer: Literal["mean_variance", "risk_parity", "cost_aware"] = "mean_variance"
     constraints: dict = Field(default_factory=dict)
+    # Structured constraint config (takes precedence over `constraints` dict when provided)
+    constraint_config: ConstraintConfigSchema | None = None
     # mean_variance / cost_aware params
     risk_free_rate: float = 0.0
     long_only: bool = True
@@ -54,6 +104,86 @@ class OptimizeResponse(BaseModel):
     expected_volatility: float
     sharpe_ratio: float
     metadata: dict
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+def _build_constraint_config(body: OptimizeRequest):  # noqa: C901
+    """Build a ConstraintConfig from the request body.
+
+    If `constraint_config` is provided it is used directly; otherwise we
+    synthesise one from the flat `constraints` dict and top-level fields.
+    """
+    from cquant.portfolio_opt.constraints import (
+        ConstraintConfig,
+        FactorExposureLimit,
+        SectorLimit,
+    )
+
+    if body.constraint_config is not None:
+        cc = body.constraint_config
+        sector_limits = {
+            label: SectorLimit(min_weight=sl.min_weight, max_weight=sl.max_weight)
+            for label, sl in cc.sector_limits.items()
+        }
+        factor_limits = {
+            name: FactorExposureLimit(
+                min_exposure=fl.min_exposure, max_exposure=fl.max_exposure
+            )
+            for name, fl in cc.factor_limits.items()
+        }
+        return ConstraintConfig(
+            long_only=cc.long_only,
+            max_weight=cc.max_weight,
+            min_weight=cc.min_weight,
+            min_weights=cc.min_weights,
+            max_weights=cc.max_weights,
+            max_turnover=cc.max_turnover,
+            turnover_penalty=cc.turnover_penalty,
+            current_weights=cc.current_weights,
+            target_return=cc.target_return,
+            sector_map=cc.sector_map,
+            sector_limits=sector_limits,
+            factor_loadings=cc.factor_loadings,
+            factor_limits=factor_limits,
+            max_tracking_error=cc.max_tracking_error,
+            benchmark_weights=cc.benchmark_weights,
+            exclude_assets=set(cc.exclude_assets),
+            exclude_st=cc.exclude_st,
+            st_assets=set(cc.st_assets),
+            exclude_suspended=cc.exclude_suspended,
+            suspended_assets=set(cc.suspended_assets),
+        )
+
+    # Fallback: synthesise from legacy dict + top-level fields
+    con = dict(body.constraints)
+    if body.current_weights:
+        con.setdefault("current_weights", body.current_weights)
+    con.setdefault("long_only", body.long_only)
+
+    return ConstraintConfig(
+        long_only=con.get("long_only", body.long_only),
+        max_weight=con.get("max_weight", 1.0),
+        min_weight=con.get("min_weight", 0.0),
+        min_weights=con.get("min_weights", {}),
+        max_weights=con.get("max_weights", {}),
+        max_turnover=con.get("max_turnover"),
+        turnover_penalty=con.get("turnover_penalty", 0.0),
+        current_weights=con.get("current_weights", {}),
+        target_return=con.get("target_return"),
+        sector_map=con.get("sector_map", {}),
+        sector_limits=con.get("sector_limits", {}),
+        factor_loadings=con.get("factor_loadings", {}),
+        factor_limits=con.get("factor_limits", {}),
+        max_tracking_error=con.get("max_tracking_error"),
+        benchmark_weights=con.get("benchmark_weights", {}),
+        exclude_assets=set(con.get("exclude_assets", [])),
+        exclude_st=con.get("exclude_st", False),
+        st_assets=set(con.get("st_assets", [])),
+        exclude_suspended=con.get("exclude_suspended", False),
+        suspended_assets=set(con.get("suspended_assets", [])),
+    )
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -100,6 +230,19 @@ async def optimize_portfolio(body: OptimizeRequest) -> dict:
     if not body.expected_returns:
         raise HTTPException(status_code=422, detail="expected_returns cannot be empty")
 
+    # Build and validate constraint config
+    try:
+        cfg = _build_constraint_config(body)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid constraint config: {exc}")
+
+    errors = cfg.validate()
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail="Constraint validation failed: " + "; ".join(errors),
+        )
+
     if body.optimizer == "mean_variance":
         from cquant.portfolio_opt.mean_variance import MeanVarianceOptimizer
 
@@ -123,16 +266,14 @@ async def optimize_portfolio(body: OptimizeRequest) -> dict:
     else:
         raise HTTPException(status_code=422, detail=f"Unknown optimizer: {body.optimizer}")
 
-    constraints = dict(body.constraints)
-    if body.current_weights:
-        constraints["current_weights"] = body.current_weights
-
     try:
         result = optimizer.optimize(
             expected_returns=body.expected_returns,
             covariance=body.covariance,
-            constraints=constraints or None,
+            constraints=cfg,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
         logger.exception("Optimization failed")
         raise HTTPException(status_code=422, detail=f"Optimization failed: {exc}")
