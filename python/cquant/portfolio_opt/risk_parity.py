@@ -86,13 +86,19 @@ class RiskParityOptimizer(PortfolioOptimizer):
         cons: list[dict[str, Any]] = [eq_constraint]
 
         # ── Bounds ────────────────────────────────────────────────────────────
-        bounds = [
-            (
-                max(0.0, cfg.min_weights.get(a, cfg.min_weight)),
-                cfg.max_weights.get(a, cfg.max_weight),
-            )
-            for a in assets
-        ]
+        if cfg.long_only:
+            bounds = [
+                (
+                    max(0.0, cfg.min_weights.get(a, cfg.min_weight)),
+                    cfg.max_weights.get(a, cfg.max_weight),
+                )
+                for a in assets
+            ]
+        else:
+            bounds = [
+                (-cfg.max_weights.get(a, cfg.max_weight), cfg.max_weights.get(a, cfg.max_weight))
+                for a in assets
+            ]
 
         # ── Sector limits ─────────────────────────────────────────────────────
         for sector_label, sector_lim in cfg.sector_limits.items():

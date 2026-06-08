@@ -8,6 +8,8 @@ from typing import Any
 import numpy as np
 from scipy.optimize import minimize
 
+from cquant.portfolio_opt.constraints import ConstraintConfig
+
 from cquant.portfolio_opt.base import OptimizationResult, PortfolioOptimizer
 
 logger = logging.getLogger(__name__)
@@ -41,25 +43,49 @@ class CostAwareOptimizer(PortfolioOptimizer):
         self._cost_rate = cost_rate
         self._turnover_penalty = turnover_penalty
 
+    @staticmethod
+    def _normalise_constraints(
+        constraints: dict[str, Any] | ConstraintConfig | None,
+    ) -> ConstraintConfig:
+        """Accept either a ConstraintConfig or a legacy dict and return a ConstraintConfig."""
+        if constraints is None:
+            return ConstraintConfig()
+        if isinstance(constraints, ConstraintConfig):
+            return constraints
+        return ConstraintConfig(
+            long_only=constraints.get("long_only", True),
+            max_weight=constraints.get("max_weight", 1.0),
+            min_weight=constraints.get("min_weight", 0.0),
+            min_weights=constraints.get("min_weights", {}),
+            max_weights=constraints.get("max_weights", {}),
+            current_weights=constraints.get("current_weights", {}),
+        )
+
     def optimize(
         self,
         expected_returns: dict[str, float],
         covariance: dict[str, dict[str, float]],
-        constraints: dict[str, Any] | None = None,
+        constraints: dict[str, Any] | ConstraintConfig | None = None,
     ) -> OptimizationResult:
         if not expected_returns:
             return OptimizationResult(weights={})
 
+        cfg = self._normalise_constraints(constraints)
         assets, mu, sigma = self._to_arrays(expected_returns, covariance)
         n = len(assets)
 
-        current = (constraints or {}).get("current_weights", {})
-        w_current = np.array([current.get(a, 0.0) for a in assets])
+        w_current = np.array([cfg.current_weights.get(a, 0.0) for a in assets])
 
-        max_weight = (constraints or {}).get("max_weight", 1.0)
-        min_weight = (constraints or {}).get("min_weight", 0.0)
-        min_weights = (constraints or {}).get("min_weights", {})
-        max_weights = (constraints or {}).get("max_weights", {})
+        if cfg.long_only:
+            bounds = [
+                (max(0.0, cfg.min_weights.get(a, cfg.min_weight)), cfg.max_weights.get(a, cfg.max_weight))
+                for a in assets
+            ]
+        else:
+            bounds = [
+                (-cfg.max_weights.get(a, cfg.max_weight), cfg.max_weights.get(a, cfg.max_weight))
+                for a in assets
+            ]
 
         if self._long_only:
             bounds = [

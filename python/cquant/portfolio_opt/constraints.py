@@ -98,8 +98,8 @@ class ConstraintConfig:
         errors: list[str] = []
 
         # Weight bounds
-        if self.max_weight < 0 or self.max_weight > 1:
-            errors.append(f"max_weight must be in [0, 1], got {self.max_weight}")
+        if self.max_weight <= 0 or self.max_weight > 1:
+            errors.append(f"max_weight must be in (0, 1], got {self.max_weight}")
         if self.min_weight < 0 or self.min_weight > 1:
             errors.append(f"min_weight must be in [0, 1], got {self.min_weight}")
         if self.min_weight > self.max_weight:
