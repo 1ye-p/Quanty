@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { backtestsApi, backtestExtApi, liveApi } from '@/lib/api'
+import { backtestsApi, backtestExtApi, liveApi, jobsApi } from '@/lib/api'
 import { DataTable } from '@/components/ui/DataTable'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
@@ -172,6 +172,16 @@ export function BacktestsPage() {
       toast.success('策略已部署为模拟实盘，前往"实盘监控"查看')
     },
     onError: (e: Error) => toast.error(`部署失败: ${e.message}`),
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: (runId: string) => jobsApi.cancel(runId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['backtests'] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (runId: string) => jobsApi.delete(runId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['backtests'] }),
   })
 
   const { data, isLoading, isFetching } = useQuery({
@@ -424,14 +434,14 @@ export function BacktestsPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="table-th w-10"><span className="sr-only">选择</span></th>
-                {['Run ID', '策略', '引擎', '状态', '开始', '结束'].map(h => (
+                {['Run ID', '策略', '引擎', '状态', '开始', '结束', '操作'].map(h => (
                   <th key={h} className="table-th">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {!filteredBacktests.length && (
-                <tr><td colSpan={7} className="table-td text-center text-gray-400 py-8">
+                <tr><td colSpan={8} className="table-td text-center text-gray-400 py-8">
                   {isFetching ? '加载中…' : btSearch ? '未找到匹配的回测记录' : '暂无回测记录'}
                 </td></tr>
               )}
@@ -468,6 +478,20 @@ export function BacktestsPage() {
                   <td className="table-td"><StatusBadge status={r.status} /></td>
                   <td className="table-td text-gray-400">{r.started_at?.slice(0, 16) ?? '—'}</td>
                   <td className="table-td text-gray-400">{r.completed_at?.slice(0, 16) ?? '—'}</td>
+                  <td className="table-td" onClick={e => e.stopPropagation()}>
+                    {(r.status === 'running' || r.status === 'pending') && (
+                      <button
+                        onClick={() => { if (confirm('确定停止此回测？')) cancelMutation.mutate(r.run_id) }}
+                        className="text-red-500 hover:text-red-700 mr-2 text-xs"
+                        title="停止"
+                      >&#9209;</button>
+                    )}
+                    <button
+                      onClick={() => { if (confirm('确定删除此回测记录？')) deleteMutation.mutate(r.run_id) }}
+                      className="text-gray-400 hover:text-gray-600 text-xs"
+                      title="删除"
+                    >&#128465;</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
