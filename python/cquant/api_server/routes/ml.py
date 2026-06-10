@@ -295,8 +295,13 @@ async def list_models(
     model_id: str | None = None,
 ) -> dict:
     """List registered models, optionally filtered by stage or model_id."""
-    from cquant.ml_lab.model_registry import ModelRegistry
+    from cquant.ml_lab.model_registry import VALID_STAGES, ModelRegistry
 
+    if stage is not None and stage not in VALID_STAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid stage '{stage}'. Valid: {VALID_STAGES}",
+        )
     registry = ModelRegistry(catalog)
     models = registry.list_models(stage=stage, model_id=model_id)
     return {"items": models, "total": len(models)}
@@ -372,12 +377,12 @@ async def batch_predict(
         )
 
     model_version = prod["model_version"]
+    from cquant.ml_lab.predict_service import run_online_prediction
     results = []
     errors = []
 
     for date_str in body.dates:
         try:
-            from cquant.ml_lab.predict_service import run_online_prediction
             result = run_online_prediction(
                 catalog=catalog,
                 model_version=model_version,

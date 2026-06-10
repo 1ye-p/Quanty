@@ -7,7 +7,6 @@ Uses the ``meta_model_registry`` DuckDB table for persistence.
 from __future__ import annotations
 
 import logging
-import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -76,6 +75,14 @@ class ModelRegistry:
         now = datetime.now(tz=timezone.utc).isoformat()
         metrics_json = json.dumps(metrics or {})
 
+        # Check if model already exists — reject if not in staging
+        existing = self._get_row(model_id, model_version)
+        if existing is not None and existing.get("stage") != "staging":
+            raise ValueError(
+                f"Model {model_id}/{model_version} already exists in "
+                f"'{existing['stage']}' stage. Only staging models can be re-registered."
+            )
+
         self._catalog.execute(
             """INSERT OR REPLACE INTO meta_model_registry
                (model_id, model_version, trainer_name, artifact_path,
@@ -110,21 +117,25 @@ class ModelRegistry:
 
         now = datetime.now(tz=timezone.utc).isoformat()
 
-        # Demote current production model(s) for this model_id
-        self._catalog.execute(
-            """UPDATE meta_model_registry
-               SET stage = 'archived', archived_at = ?
-               WHERE model_id = ? AND stage = 'production'""",
-            [now, model_id],
-        )
-
-        # Promote target
-        self._catalog.execute(
-            """UPDATE meta_model_registry
-               SET stage = 'production', promoted_at = ?
-               WHERE model_id = ? AND model_version = ?""",
-            [now, model_id, model_version],
-        )
+        # Atomic demote + promote in a single transaction
+        self._catalog.execute("BEGIN")
+        try:
+            self._catalog.execute(
+                """UPDATE meta_model_registry
+                   SET stage = 'archived', archived_at = ?
+                   WHERE model_id = ? AND stage = 'production'""",
+                [now, model_id],
+            )
+            self._catalog.execute(
+                """UPDATE meta_model_registry
+                   SET stage = 'production', promoted_at = ?
+                   WHERE model_id = ? AND model_version = ?""",
+                [now, model_id, model_version],
+            )
+            self._catalog.execute("COMMIT")
+        except Exception:
+            self._catalog.execute("ROLLBACK")
+            raise
 
         logger.info("Promoted model %s/%s to production", model_id, model_version)
         return {

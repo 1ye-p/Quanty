@@ -183,8 +183,8 @@ class AccuracyTracker:
         )
         if df.is_empty():
             return None
-        result: dict[str, float] = {}
-        for row in df.to_dicts():
+        rows = df.to_dicts()
+        result: dict[str, Any] = {"eval_date": str(rows[0]["eval_date"])}
+        for row in rows:
             result[row["metric_name"]] = row["metric_value"]
-        result["eval_date"] = df.to_dicts()[0]["eval_date"]
         return result

@@ -46,14 +46,12 @@ def predict(
 
     def _qlib_predict() -> dict[str, Any]:
         logger.info("Using qlib bridge for prediction (model=%s)", model_version)
+        # qlib prediction path not yet implemented; fall back to native
+        logger.warning(
+            "qlib native prediction path not yet implemented, "
+            "falling back to cQuant predict_service"
+        )
         try:
-            from cquant.qlib_bridge.ml_bridge import train_model_qlib
-            # qlib prediction is integrated through the ml_bridge;
-            # fall back to native if qlib predict path is not yet wired.
-            logger.warning(
-                "qlib native prediction path not yet implemented, "
-                "falling back to cQuant predict_service"
-            )
             return _native_predict(catalog, model_version, target_date, top_n)
         except Exception as exc:
             logger.warning("qlib prediction failed (%s), falling back to native", exc)
