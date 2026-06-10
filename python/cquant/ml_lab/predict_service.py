@@ -120,6 +120,29 @@ def run_online_prediction(
     )
     top_df = result_df.head(top_n)
 
+    # Persist all predictions to gold_predictions
+    try:
+        from cquant.ml_lab.base import persist_predictions, ModelArtifact
+        from datetime import datetime, timezone
+
+        artifact = ModelArtifact(
+            model_id=model_version,
+            trainer_name=trainer_name,
+            feature_names=feature_names,
+            target_name=target_name,
+            trained_at=datetime.now(tz=timezone.utc),
+            metrics={},
+            model_path=artifact_path,
+        )
+        # Build a features DataFrame with asset_id + trade_date for persistence
+        persist_features = pivot_df.select("asset_id").with_columns(
+            pl.lit(pred_date).alias("trade_date"),
+        )
+        persist_predictions(artifact, persist_features, predictions, catalog)
+        logger.info("Persisted %d predictions for model %s on %s", len(predictions), model_version, pred_date)
+    except Exception as exc:
+        logger.warning("Failed to persist predictions: %s", exc)
+
     predictions_list = [
         {"asset_id": row["asset_id"], "prediction": round(float(row["prediction"]), 6), "rank": int(row["rank"])}
         for row in top_df.to_dicts()

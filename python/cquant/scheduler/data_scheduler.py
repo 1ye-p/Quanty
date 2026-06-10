@@ -128,6 +128,42 @@ def _job_alerts(catalog: Any) -> None:
         logger.info("DataScheduler: alert check completed (no snapshot table)")
 
 
+def _job_daily_prediction(catalog: Any) -> None:
+    """Run daily prediction using the production model from the registry."""
+    logger.info("DataScheduler: daily prediction started")
+    try:
+        from cquant.ml_lab.model_registry import ModelRegistry
+
+        registry = ModelRegistry(catalog)
+
+        # Find all production models
+        prod_models = registry.list_models(stage="production")
+        if not prod_models:
+            logger.info("DataScheduler: no production models registered, skipping prediction")
+            return
+
+        from cquant.ml_lab.predict_service import run_online_prediction
+
+        for model in prod_models:
+            model_id = model["model_id"]
+            model_version = model["model_version"]
+            logger.info("DataScheduler: running prediction for %s (%s)", model_id, model_version)
+            try:
+                result = run_online_prediction(
+                    catalog=catalog,
+                    model_version=model_version,
+                    top_n=50,
+                )
+                logger.info(
+                    "DataScheduler: prediction completed for %s — %d assets, date=%s",
+                    model_id, result.get("total_assets", 0), result.get("date", "unknown"),
+                )
+            except Exception as exc:
+                logger.error("DataScheduler: prediction failed for %s: %s", model_id, exc)
+    except Exception as exc:
+        logger.error("DataScheduler: daily prediction job failed: %s", exc)
+
+
 def _job_health(catalog: Any) -> None:
     """Daily health check: verify data freshness and table integrity."""
     logger.info("DataScheduler: health check started")
@@ -232,9 +268,18 @@ class DataScheduler:
             replace_existing=True,
         )
 
+        # 5. Daily Prediction — daily at 18:05 (after market close + data ingest)
+        sched.add_job(
+            self._run_daily_prediction,
+            CronTrigger(hour=18, minute=5, timezone=self._tz),
+            id="daily_prediction",
+            name="Daily Prediction",
+            replace_existing=True,
+        )
+
         self._scheduler = sched
         self._running = True
-        logger.info("DataScheduler started with 4 jobs (tz=%s)", self._tz)
+        logger.info("DataScheduler started with 5 jobs (tz=%s)", self._tz)
 
         try:
             sched.start()
@@ -277,6 +322,7 @@ class DataScheduler:
             "fundamentals": self._run_fundamentals,
             "alerts": self._run_alerts,
             "health": self._run_health,
+            "daily-prediction": self._run_daily_prediction,
         }
         fn = dispatch.get(task_name)
         if fn is None:
@@ -323,6 +369,15 @@ class DataScheduler:
         except Exception as exc:
             logger.error("Health check failed after retries: %s", exc)
             self._record_run("health", "failure")
+
+    def _run_daily_prediction(self) -> None:
+        logger.info("Running daily prediction ...")
+        try:
+            _with_retry(_job_daily_prediction, self._catalog)
+            self._record_run("daily_prediction")
+        except Exception as exc:
+            logger.error("Daily prediction failed after retries: %s", exc)
+            self._record_run("daily_prediction", "failure")
 
     def _record_run(self, job_id: str, status: str = "success") -> None:
         """Persist last-run metadata into the catalog (best-effort)."""

@@ -26,6 +26,23 @@ class PredictRequest(BaseModel):
     top_n: int = Field(default=50, ge=1, le=5000)
 
 
+class RegisterModelRequest(BaseModel):
+    model_id: str = Field(..., min_length=1, max_length=128)
+    model_version: str = Field(..., min_length=1, max_length=128)
+    trainer_name: str = Field(..., min_length=1, max_length=64)
+    artifact_path: str = ""
+    feature_set_version: str = ""
+    target_name: str = ""
+    metrics: dict = {}
+    description: str = ""
+
+
+class BatchPredictRequest(BaseModel):
+    model_id: str = Field(..., min_length=1, max_length=128)
+    dates: list[str] = Field(..., min_length=1, max_length=100)
+    top_n: int = Field(default=50, ge=1, le=5000)
+
+
 class MLJobBody(BaseModel):
     trainer: str                    # 'xgb' | 'lgbm' | 'xgb_clf'
     feature_set_version: str
@@ -265,6 +282,121 @@ async def predict(body: PredictRequest, catalog: CatalogDep) -> dict:
     except Exception as exc:
         logger.exception("Prediction failed for model %s", body.model_version)
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Model Registry endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/models")
+async def list_models(
+    catalog: CatalogDep,
+    stage: str | None = None,
+    model_id: str | None = None,
+) -> dict:
+    """List registered models, optionally filtered by stage or model_id."""
+    from cquant.ml_lab.model_registry import ModelRegistry
+
+    registry = ModelRegistry(catalog)
+    models = registry.list_models(stage=stage, model_id=model_id)
+    return {"items": models, "total": len(models)}
+
+
+@router.post("/models", status_code=201)
+async def register_model(
+    body: RegisterModelRequest,
+    catalog: CatalogDep,
+) -> dict:
+    """Register a model in the registry (staging stage)."""
+    from cquant.ml_lab.model_registry import ModelRegistry
+
+    registry = ModelRegistry(catalog)
+    result = registry.register(
+        model_id=body.model_id,
+        model_version=body.model_version,
+        trainer_name=body.trainer_name,
+        artifact_path=body.artifact_path,
+        feature_set_version=body.feature_set_version,
+        target_name=body.target_name,
+        metrics=body.metrics,
+        description=body.description,
+    )
+    return result
+
+
+@router.put("/models/{model_id}/promote")
+async def promote_model(
+    model_id: str,
+    catalog: CatalogDep,
+    model_version: str | None = None,
+) -> dict:
+    """Promote a model version to production.
+
+    If ``model_version`` is not provided, promotes the latest staging version.
+    """
+    from cquant.ml_lab.model_registry import ModelRegistry
+
+    registry = ModelRegistry(catalog)
+
+    if model_version is None:
+        # Find the latest staging version for this model_id
+        models = registry.list_models(stage="staging", model_id=model_id)
+        if not models:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No staging model found for model_id='{model_id}'",
+            )
+        model_version = models[0]["model_version"]
+
+    try:
+        result = registry.promote(model_id, model_version)
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/predict/batch")
+async def batch_predict(
+    body: BatchPredictRequest,
+    catalog: CatalogDep,
+) -> dict:
+    """Run batch predictions for multiple dates using the production model."""
+    from cquant.ml_lab.model_registry import ModelRegistry
+
+    registry = ModelRegistry(catalog)
+    prod = registry.get_production(body.model_id)
+    if prod is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No production model found for model_id='{body.model_id}'",
+        )
+
+    model_version = prod["model_version"]
+    results = []
+    errors = []
+
+    for date_str in body.dates:
+        try:
+            from cquant.ml_lab.predict_service import run_online_prediction
+            result = run_online_prediction(
+                catalog=catalog,
+                model_version=model_version,
+                target_date=date_str,
+                top_n=body.top_n,
+            )
+            results.append(result)
+        except Exception as exc:
+            logger.warning("Batch prediction failed for date %s: %s", date_str, exc)
+            errors.append({"date": date_str, "error": str(exc)})
+
+    return {
+        "model_id": body.model_id,
+        "model_version": model_version,
+        "results": results,
+        "errors": errors,
+        "total_requested": len(body.dates),
+        "total_succeeded": len(results),
+    }
 
 
 def _extract_feature_importance(trainer, artifact) -> dict[str, float]:

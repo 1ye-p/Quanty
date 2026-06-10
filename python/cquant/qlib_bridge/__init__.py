@@ -42,6 +42,9 @@ def __getattr__(name: str):
     if name == "run_backtest_qlib":
         from cquant.qlib_bridge.backtest_bridge import run_backtest_qlib
         return run_backtest_qlib
+    if name == "predict":
+        from cquant.qlib_bridge.prediction_bridge import predict
+        return predict
     raise AttributeError(f"module 'cquant.qlib_bridge' has no attribute {name!r}")
 
 
@@ -60,4 +63,5 @@ __all__ = [
     "compute_factors_qlib",
     "train_model_qlib",
     "run_backtest_qlib",
+    "predict",
 ]
