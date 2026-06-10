@@ -207,7 +207,7 @@ export function OptimizePage() {
       cost_rate: Number(costRate) || 0.001,
       turnover_penalty: Number(turnoverPenalty) || 0.0005,
       current_weights: {},
-      constraint_config,
+      constraint_config: constraintConfig,
     })
   }
 

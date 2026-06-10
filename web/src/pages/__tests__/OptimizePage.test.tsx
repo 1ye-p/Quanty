@@ -153,7 +153,7 @@ describe('OptimizePage', () => {
 
     // Open advanced constraints and set max turnover
     await user.click(screen.getByText(/高级约束配置/))
-    const maxTurnoverInput = screen.getByPlaceholderText('不限')
+    const maxTurnoverInput = screen.getAllByPlaceholderText('不限')[0]
     await user.type(maxTurnoverInput, '50')
 
     // Run optimization
@@ -165,8 +165,8 @@ describe('OptimizePage', () => {
 
     // Verify the call included constraints with max_turnover
     const callArgs = vi.mocked(optimizeApi.optimize).mock.calls[0][0]
-    expect(callArgs.constraints).toBeDefined()
-    expect(callArgs.constraints!.max_turnover).toBe(0.5)
+    expect(callArgs.constraint_config).toBeDefined()
+    expect(callArgs.constraint_config!.max_turnover).toBe(0.5)
   })
 
   it('shows cost_aware fields when cost_aware optimizer is selected', async () => {
