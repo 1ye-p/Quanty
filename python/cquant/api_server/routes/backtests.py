@@ -970,6 +970,289 @@ def _annual_returns_svg(years: list[str], rets: list[float], width: int = 600, h
     return ''.join(parts)
 
 
+def _drawdown_to_svg(drawdowns: list[dict], width: int = 800, height: int = 200) -> str:
+    """Render drawdown underwater chart as inline SVG polyline.
+
+    Args:
+        drawdowns: list of dicts with 'trade_date' and 'drawdown' keys (drawdown <= 0).
+        width: SVG width in pixels.
+        height: SVG height in pixels.
+    """
+    if not drawdowns:
+        return '<p style="text-align:center;color:#94a3b8;padding:40px">暂无回撤数据</p>'
+    PL, PR, PT, PB = 52, 20, 16, 28
+    cw, ch = width - PL - PR, height - PT - PB
+    vals = [float(d.get("drawdown", 0)) for d in drawdowns]
+    dates = [str(d.get("trade_date", "")) for d in drawdowns]
+    lo = min(vals) if min(vals) < 0 else -0.01
+    hi = 0.0
+    rng = hi - lo
+    n = len(vals)
+
+    def px(i: int) -> float:
+        return PL + i * cw / max(n - 1, 1)
+
+    def py(v: float) -> float:
+        return PT + ch - (v - lo) / rng * ch
+
+    parts: list[str] = [
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">',
+        f'<rect x="{PL}" y="{PT}" width="{cw}" height="{ch}" fill="#fef2f2" rx="4"/>',
+    ]
+    # Y grid
+    for t in range(5):
+        frac = t / 4
+        v = lo + frac * rng
+        y = PT + ch * (1 - frac)
+        parts += [
+            f'<line x1="{PL}" y1="{y:.0f}" x2="{PL + cw}" y2="{y:.0f}" stroke="#fee2e2" stroke-dasharray="3,3"/>',
+            f'<text x="{PL - 6}" y="{y + 4:.0f}" text-anchor="end" font-size="10" fill="#94a3b8">{v * 100:.1f}%</text>',
+        ]
+    # X labels
+    x_step = max(1, n // 6)
+    for i in range(0, n, x_step):
+        lbl = dates[i][:7] if len(dates[i]) >= 7 else dates[i]
+        parts.append(f'<text x="{px(i):.0f}" y="{height - 4}" text-anchor="middle" font-size="10" fill="#94a3b8">{lbl}</text>')
+    # Zero line
+    parts.append(f'<line x1="{PL}" y1="{py(0):.0f}" x2="{PL + cw}" y2="{py(0):.0f}" stroke="#fca5a5" stroke-width="1"/>')
+    # Area fill
+    base_y = float(PT + ch)
+    pts = " ".join(f"{px(i):.1f},{py(v):.1f}" for i, v in enumerate(vals))
+    parts.append(f'<polygon points="{PL:.0f},{base_y:.0f} {pts} {PL + cw:.0f},{base_y:.0f}" fill="rgba(220,38,38,0.12)"/>')
+    # Line
+    parts.append(f'<polyline points="{pts}" fill="none" stroke="#dc2626" stroke-width="1.5" stroke-linejoin="round"/>')
+    # Axes
+    parts += [
+        f'<line x1="{PL}" y1="{PT}" x2="{PL}" y2="{PT + ch}" stroke="#e2e8f0"/>',
+        f'<line x1="{PL}" y1="{PT + ch}" x2="{PL + cw}" y2="{PT + ch}" stroke="#e2e8f0"/>',
+        '</svg>',
+    ]
+    return ''.join(parts)
+
+
+def _rolling_vol_to_svg(data: list[dict], width: int = 800, height: int = 200) -> str:
+    """Render rolling volatility line chart as inline SVG.
+
+    Args:
+        data: list of dicts with 'trade_date' and 'volatility' keys.
+        width: SVG width in pixels.
+        height: SVG height in pixels.
+    """
+    if not data:
+        return '<p style="text-align:center;color:#94a3b8;padding:40px">暂无滚动波动率数据</p>'
+    PL, PR, PT, PB = 52, 20, 16, 28
+    cw, ch = width - PL - PR, height - PT - PB
+    vals = [float(d.get("volatility", 0)) for d in data]
+    dates = [str(d.get("trade_date", "")) for d in data]
+    lo = min(vals)
+    hi = max(vals)
+    rng = (hi - lo) or 0.01
+    n = len(vals)
+
+    def px(i: int) -> float:
+        return PL + i * cw / max(n - 1, 1)
+
+    def py(v: float) -> float:
+        return PT + ch - (v - lo) / rng * ch
+
+    parts: list[str] = [
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">',
+        f'<rect x="{PL}" y="{PT}" width="{cw}" height="{ch}" fill="#f8fafc" rx="4"/>',
+    ]
+    # Y grid
+    for t in range(5):
+        frac = t / 4
+        v = lo + frac * rng
+        y = PT + ch * (1 - frac)
+        parts += [
+            f'<line x1="{PL}" y1="{y:.0f}" x2="{PL + cw}" y2="{y:.0f}" stroke="#e2e8f0" stroke-dasharray="3,3"/>',
+            f'<text x="{PL - 6}" y="{y + 4:.0f}" text-anchor="end" font-size="10" fill="#94a3b8">{v * 100:.1f}%</text>',
+        ]
+    # X labels
+    x_step = max(1, n // 6)
+    for i in range(0, n, x_step):
+        lbl = dates[i][:7] if len(dates[i]) >= 7 else dates[i]
+        parts.append(f'<text x="{px(i):.0f}" y="{height - 4}" text-anchor="middle" font-size="10" fill="#94a3b8">{lbl}</text>')
+    # Area fill
+    base_y = float(PT + ch)
+    pts = " ".join(f"{px(i):.1f},{py(v):.1f}" for i, v in enumerate(vals))
+    parts.append(f'<polygon points="{PL:.0f},{base_y:.0f} {pts} {PL + cw:.0f},{base_y:.0f}" fill="rgba(234,179,8,0.10)"/>')
+    # Line
+    parts.append(f'<polyline points="{pts}" fill="none" stroke="#eab308" stroke-width="1.5" stroke-linejoin="round"/>')
+    # Axes
+    parts += [
+        f'<line x1="{PL}" y1="{PT}" x2="{PL}" y2="{PT + ch}" stroke="#e2e8f0"/>',
+        f'<line x1="{PL}" y1="{PT + ch}" x2="{PL + cw}" y2="{PT + ch}" stroke="#e2e8f0"/>',
+        '</svg>',
+    ]
+    return ''.join(parts)
+
+
+def _return_dist_to_svg(returns: list[float], bins: int = 30, width: int = 800, height: int = 200) -> str:
+    """Render return distribution histogram as inline SVG.
+
+    Args:
+        returns: list of daily return values.
+        bins: number of histogram bins.
+        width: SVG width in pixels.
+        height: SVG height in pixels.
+    """
+    if not returns:
+        return '<p style="text-align:center;color:#94a3b8;padding:40px">暂无收益率数据</p>'
+    PL, PR, PT, PB = 52, 20, 16, 28
+    cw, ch = width - PL - PR, height - PT - PB
+
+    # Manual histogram binning (no numpy dependency)
+    lo_r, hi_r = min(returns), max(returns)
+    if lo_r == hi_r:
+        lo_r -= 0.001
+        hi_r += 0.001
+    bin_w = (hi_r - lo_r) / bins
+    counts = [0] * bins
+    for r in returns:
+        idx = int((r - lo_r) / bin_w)
+        if idx >= bins:
+            idx = bins - 1
+        counts[idx] += 1
+
+    max_count = max(counts) or 1
+    bar_w = max(2, cw / bins - 1)
+    lo_hi_range = hi_r - lo_r
+
+    parts: list[str] = [
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">',
+        f'<rect x="{PL}" y="{PT}" width="{cw}" height="{ch}" fill="#f8fafc" rx="4"/>',
+    ]
+    # Bars
+    for i, cnt in enumerate(counts):
+        x = PL + i * (cw / bins)
+        bh = cnt / max_count * ch
+        by = PT + ch - bh
+        center = lo_r + (i + 0.5) * bin_w
+        color = "#16a34a" if center >= 0 else "#dc2626"
+        parts.append(f'<rect x="{x:.1f}" y="{by:.1f}" width="{bar_w:.1f}" height="{bh:.1f}" fill="{color}" opacity="0.7" rx="1"/>')
+    # Zero line
+    zero_x = PL + (0 - lo_r) / lo_hi_range * cw
+    if PL <= zero_x <= PL + cw:
+        parts.append(f'<line x1="{zero_x:.0f}" y1="{PT}" x2="{zero_x:.0f}" y2="{PT + ch}" stroke="#475569" stroke-width="1" stroke-dasharray="4,2"/>')
+    # X labels
+    for i in range(0, bins, max(1, bins // 8)):
+        val = lo_r + (i + 0.5) * bin_w
+        x = PL + (i + 0.5) * (cw / bins)
+        parts.append(f'<text x="{x:.0f}" y="{height - 4}" text-anchor="middle" font-size="9" fill="#94a3b8">{val * 100:.1f}%</text>')
+    # Axes
+    parts += [
+        f'<line x1="{PL}" y1="{PT}" x2="{PL}" y2="{PT + ch}" stroke="#e2e8f0"/>',
+        f'<line x1="{PL}" y1="{PT + ch}" x2="{PL + cw}" y2="{PT + ch}" stroke="#e2e8f0"/>',
+        '</svg>',
+    ]
+    return ''.join(parts)
+
+
+def _tca_pie_svg(tca: dict, width: int = 400, height: int = 300) -> str:
+    """Render TCA breakdown as inline SVG pie chart.
+
+    Args:
+        tca: dict with keys like 'total_commission', 'total_slippage', 'total_stamp_duty'.
+        width: SVG width in pixels.
+        height: SVG height in pixels.
+    """
+    cx, cy, r = width / 2, (height - 40) / 2, min(width, height - 40) / 2 - 10
+    slices = [
+        ("佣金", float(tca.get("total_commission", 0)), "#3b82f6"),
+        ("滑点", float(tca.get("total_slippage", 0)), "#f59e0b"),
+        ("印花税", float(tca.get("total_stamp_duty", 0)), "#8b5cf6"),
+    ]
+    total = sum(s[1] for s in slices)
+    if total <= 0:
+        return '<p style="text-align:center;color:#94a3b8;padding:40px">暂无交易成本数据</p>'
+
+    parts: list[str] = [
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">',
+    ]
+
+    # Draw pie slices
+    import math
+    angle = -math.pi / 2  # start from top
+    for label, val, color in slices:
+        if val <= 0:
+            continue
+        frac = val / total
+        end_angle = angle + frac * 2 * math.pi
+        large_arc = 1 if frac > 0.5 else 0
+        x1 = cx + r * math.cos(angle)
+        y1 = cy + r * math.sin(angle)
+        x2 = cx + r * math.cos(end_angle)
+        y2 = cy + r * math.sin(end_angle)
+        parts.append(
+            f'<path d="M {cx:.1f},{cy:.1f} L {x1:.1f},{y1:.1f} '
+            f'A {r:.1f},{r:.1f} 0 {large_arc},1 {x2:.1f},{y2:.1f} Z" '
+            f'fill="{color}" stroke="#fff" stroke-width="2"/>'
+        )
+        # Label
+        mid_angle = angle + frac * math.pi
+        lx = cx + (r * 0.65) * math.cos(mid_angle)
+        ly = cy + (r * 0.65) * math.sin(mid_angle)
+        if frac > 0.05:
+            parts.append(
+                f'<text x="{lx:.0f}" y="{ly:.0f}" text-anchor="middle" dominant-baseline="middle" '
+                f'font-size="11" fill="#fff" font-weight="600">{frac * 100:.0f}%</text>'
+            )
+        angle = end_angle
+
+    # Legend
+    legend_y = height - 28
+    legend_x = 20
+    for label, val, color in slices:
+        if val > 0:
+            parts.append(f'<rect x="{legend_x}" y="{legend_y}" width="10" height="10" fill="{color}" rx="2"/>')
+            parts.append(f'<text x="{legend_x + 14}" y="{legend_y + 9}" font-size="11" fill="#475569">{label}: {val:.2f}</text>')
+            legend_x += len(label) * 14 + 60
+
+    parts.append('</svg>')
+    return ''.join(parts)
+
+
+def _attribution_bar_svg(attribution: dict, width: int = 600, height: int = 200) -> str:
+    """Render Brinson attribution as inline SVG bar chart.
+
+    Args:
+        attribution: dict with keys like 'allocation_effect', 'selection_effect', 'interaction_effect'.
+        width: SVG width in pixels.
+        height: SVG height in pixels.
+    """
+    effects = [
+        ("配置效应", float(attribution.get("allocation_effect", 0)), "#3b82f6"),
+        ("选择效应", float(attribution.get("selection_effect", 0)), "#16a34a"),
+        ("交互效应", float(attribution.get("interaction_effect", 0)), "#f59e0b"),
+    ]
+    PL, PR, PT, PB = 80, 20, 16, 36
+    cw, ch = width - PL - PR, height - PT - PB
+
+    max_abs = max(abs(e[1]) for e in effects) or 0.01
+    zero_y = PT + ch / 2
+    scale = ch / 2 / max_abs
+    n = len(effects)
+    bar_w = max(12, cw / n * 0.45)
+    gap = cw / n
+
+    parts: list[str] = [
+        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">',
+        f'<line x1="{PL}" y1="{zero_y:.0f}" x2="{PL + cw}" y2="{zero_y:.0f}" stroke="#e2e8f0"/>',
+    ]
+    for i, (label, val, color) in enumerate(effects):
+        cx_bar = PL + gap * i + gap / 2
+        bh = abs(val) * scale
+        by = zero_y - bh if val >= 0 else zero_y
+        parts += [
+            f'<rect x="{cx_bar - bar_w / 2:.1f}" y="{by:.1f}" width="{bar_w:.1f}" height="{bh:.1f}" fill="{color}" rx="3"/>',
+            f'<text x="{cx_bar:.0f}" y="{PT + ch + 14}" text-anchor="middle" font-size="10" fill="#64748b">{label}</text>',
+            f'<text x="{cx_bar:.0f}" y="{(by - 4 if val >= 0 else by + bh + 13):.0f}" text-anchor="middle" font-size="10" fill="{color}" font-weight="600">{val * 100:.2f}%</text>',
+        ]
+    parts.append('</svg>')
+    return ''.join(parts)
+
+
 @router.get("/{run_id}/export")
 async def export_backtest_report(
     run_id: str,
@@ -1055,13 +1338,88 @@ async def export_backtest_report(
     )
     fills = fills_df.to_dicts() if not fills_df.is_empty() else []
 
-    # 7. 生成服务端 SVG 图表（无外部依赖，离线可用）
+    # 7. 加载回撤数据
+    drawdown_periods: list[dict] = []
+    dd_df = catalog.query(
+        "SELECT * FROM gold_drawdown_periods WHERE run_id = ? ORDER BY period_id",
+        [run_id],
+    )
+    if not dd_df.is_empty():
+        drawdown_periods = dd_df.to_dicts()
+
+    # Compute daily drawdown series for chart
+    drawdown_series: list[dict] = []
+    if nav_dates and nav_values:
+        peak = nav_values[0]
+        for i, (d, v) in enumerate(zip(nav_dates, nav_values)):
+            peak = max(peak, v)
+            dd = (v - peak) / peak if peak > 0 else 0.0
+            drawdown_series.append({"trade_date": d, "drawdown": dd})
+
+    # 8. 加载滚动风险指标
+    rolling_risk: list[dict] = []
+    risk_rolling_df = catalog.query(
+        'SELECT trade_date, rolling_vol AS volatility '
+        'FROM gold_risk_rolling WHERE run_id = ? AND "window" = 60 ORDER BY trade_date',
+        [run_id],
+    )
+    if not risk_rolling_df.is_empty():
+        rolling_risk = risk_rolling_df.to_dicts()
+
+    # 9. 加载收益率分布
+    returns_list: list[float] = []
+    ret_df = catalog.query(
+        "SELECT portfolio_return FROM gold_portfolio_returns WHERE run_id = ? ORDER BY trade_date",
+        [run_id],
+    )
+    if not ret_df.is_empty():
+        returns_list = ret_df["portfolio_return"].to_list()
+
+    # 10. 加载 TCA 数据
+    tca_data: dict = {}
+    tca_df = catalog.query(
+        "SELECT * FROM gold_bt_tca WHERE analysis_run_id IN "
+        "(SELECT analysis_run_id FROM gold_bt_analysis_runs WHERE backtest_run_id = ? "
+        "ORDER BY created_at DESC LIMIT 1)",
+        [run_id],
+    )
+    if not tca_df.is_empty():
+        tca_data = tca_df.to_dicts()[0]
+
+    # 11. 加载归因数据
+    attribution_data: dict = {}
+    attr_df = catalog.query(
+        "SELECT * FROM gold_bt_attribution WHERE analysis_run_id IN "
+        "(SELECT analysis_run_id FROM gold_bt_analysis_runs WHERE backtest_run_id = ? "
+        "ORDER BY created_at DESC LIMIT 1)",
+        [run_id],
+    )
+    if not attr_df.is_empty():
+        row = attr_df.to_dicts()[0]
+        if row.get("daily_json"):
+            row["daily"] = json.loads(row.pop("daily_json"))
+        else:
+            row["daily"] = []
+            row.pop("daily_json", None)
+        if row.get("sector_details_json"):
+            row["sector_details"] = json.loads(row.pop("sector_details_json"))
+        else:
+            row["sector_details"] = {}
+            row.pop("sector_details_json", None)
+        attribution_data = row
+
+    # 12. 生成服务端 SVG 图表（无外部依赖，离线可用）
     nav_svg = _nav_to_svg(nav_dates, nav_values, bm_values=bm_values or None)
     annual_svg = _annual_returns_svg(
         [y for y, _ in annual_returns], [r for _, r in annual_returns]
     )
+    drawdown_svg = _drawdown_to_svg(drawdown_series)
+    rolling_vol_svg = _rolling_vol_to_svg(rolling_risk)
+    return_dist_svg = _return_dist_to_svg(returns_list)
+    tca_svg = _tca_pie_svg(tca_data)
+    attribution_svg = _attribution_bar_svg(attribution_data)
 
-    # 8. 渲染 HTML（启用 autoescape 防止 XSS）
+    # 13. 渲染 HTML（启用 autoescape 防止 XSS）
     tmpl_dir = pathlib.Path(__file__).parent.parent / "templates"
     env = Environment(
         loader=FileSystemLoader(str(tmpl_dir)),
@@ -1083,6 +1441,20 @@ async def export_backtest_report(
         fills=fills,
         has_annual=bool(annual_returns),
         generated_at=dt.now().strftime("%Y-%m-%d %H:%M"),
+        # New sections
+        drawdown_svg=drawdown_svg,
+        drawdown_periods=drawdown_periods,
+        has_drawdown=bool(drawdown_series),
+        rolling_vol_svg=rolling_vol_svg,
+        has_rolling_vol=bool(rolling_risk),
+        return_dist_svg=return_dist_svg,
+        has_return_dist=bool(returns_list),
+        tca_svg=tca_svg,
+        tca_data=tca_data,
+        has_tca=bool(tca_data),
+        attribution_svg=attribution_svg,
+        attribution_data=attribution_data,
+        has_attribution=bool(attribution_data),
     )
 
     # 9. 文件大小守护（PRD: < 2MB）
@@ -1414,10 +1786,6 @@ async def run_sensitivity_analysis(
         detail="Sensitivity analysis is not yet implemented. "
                "Use the CLI `cquant sensitivity` command instead.",
     )
-        "param_grid": body.param_grid,
-        "primary_metric": body.primary_metric,
-        "total_combinations": total_combinations,
-    }
 
 
 # ── Calendar Analysis ───────────────────────────────────────────────────────

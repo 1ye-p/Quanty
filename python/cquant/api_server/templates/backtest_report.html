@@ -26,6 +26,14 @@
   th { text-align: left; padding: 8px 12px; background: #f8fafc; color: #64748b; font-weight: 500; border-bottom: 1px solid #e2e8f0; }
   td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }
   @media (max-width: 700px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+  .cost-table { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+  .cost-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; }
+  .cost-value { font-size: 18px; font-weight: 700; color: #475569; }
+  .cost-label { font-size: 11px; color: #64748b; margin-top: 4px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+  .effect-table { margin-top: 16px; }
+  .dd-table { margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -63,6 +71,101 @@
   <div class="section">
     <h2>年度收益</h2>
     {{ annual_svg | safe }}
+  </div>
+  {% endif %}
+
+  <!-- 回撤分析 -->
+  {% if has_drawdown %}
+  <div class="section">
+    <h2>回撤分析</h2>
+    {{ drawdown_svg | safe }}
+    {% if drawdown_periods %}
+    <div class="dd-table">
+      <table>
+        <thead><tr><th>回撤期</th><th>开始日期</th><th>结束日期</th><th>最大回撤</th><th>恢复日期</th></tr></thead>
+        <tbody>
+          {% for dd in drawdown_periods[:10] %}
+          <tr>
+            <td>#{{ dd.period_id }}</td>
+            <td>{{ dd.start_date }}</td>
+            <td>{{ dd.trough_date or dd.end_date or '—' }}</td>
+            <td class="metric-value negative">{{ "%.2f%%" | format(dd.max_drawdown * 100) if dd.max_drawdown else '—' }}</td>
+            <td>{{ dd.recovery_date or '未恢复' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- 滚动波动率 -->
+  {% if has_rolling_vol %}
+  <div class="section">
+    <h2>滚动波动率（60日窗口）</h2>
+    {{ rolling_vol_svg | safe }}
+  </div>
+  {% endif %}
+
+  <!-- 收益率分布 -->
+  {% if has_return_dist %}
+  <div class="section">
+    <h2>收益率分布</h2>
+    {{ return_dist_svg | safe }}
+  </div>
+  {% endif %}
+
+  <!-- 交易成本分析 (TCA) -->
+  {% if has_tca %}
+  <div class="section">
+    <h2>交易成本分析 (TCA)</h2>
+    <div class="two-col">
+      <div>{{ tca_svg | safe }}</div>
+      <div>
+        <div class="cost-table">
+          <div class="cost-card">
+            <div class="cost-value">{{ "%.2f" | format(tca_data.get('total_commission', 0)) }}</div>
+            <div class="cost-label">佣金总额</div>
+          </div>
+          <div class="cost-card">
+            <div class="cost-value">{{ "%.2f" | format(tca_data.get('total_slippage', 0)) }}</div>
+            <div class="cost-label">滑点总额</div>
+          </div>
+          <div class="cost-card">
+            <div class="cost-value">{{ "%.2f" | format(tca_data.get('total_stamp_duty', 0)) }}</div>
+            <div class="cost-label">印花税总额</div>
+          </div>
+        </div>
+        {% if tca_data.get('total_notional') %}
+        <div style="margin-top:12px;font-size:12px;color:#64748b">
+          成交总额：{{ "%.0f" | format(tca_data.total_notional) }} &nbsp;|&nbsp;
+          成本率：{{ "%.4f%%" | format((tca_data.get('total_commission', 0) + tca_data.get('total_slippage', 0) + tca_data.get('total_stamp_duty', 0)) / tca_data.total_notional * 100) if tca_data.total_notional > 0 else '—' }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Brinson 归因分析 -->
+  {% if has_attribution %}
+  <div class="section">
+    <h2>Brinson 归因分析</h2>
+    <div class="two-col">
+      <div>{{ attribution_svg | safe }}</div>
+      <div class="effect-table">
+        <table>
+          <thead><tr><th>效应类型</th><th>贡献度</th></tr></thead>
+          <tbody>
+            <tr><td>配置效应</td><td>{{ "%.4f%%" | format(attribution_data.get('allocation_effect', 0) * 100) }}</td></tr>
+            <tr><td>选择效应</td><td>{{ "%.4f%%" | format(attribution_data.get('selection_effect', 0) * 100) }}</td></tr>
+            <tr><td>交互效应</td><td>{{ "%.4f%%" | format(attribution_data.get('interaction_effect', 0) * 100) }}</td></tr>
+            <tr><td><strong>超额收益合计</strong></td><td><strong>{{ "%.4f%%" | format(attribution_data.get('total_excess_return', 0) * 100) }}</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
   {% endif %}
 
