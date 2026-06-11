@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from cquant.api_server.deps import CatalogDep
 
@@ -138,21 +138,22 @@ async def news_stats(
 
 
 @router.get("/sentiment/{asset_id}")
-async def get_asset_sentiment(asset_id: str, days: int = 90, catalog: CatalogDep = None) -> dict:
+async def get_asset_sentiment(asset_id: str, catalog: CatalogDep, days: int = Query(default=90, ge=1, le=365)) -> dict:
     """Daily sentiment time series for a specific asset."""
     df = catalog.query(
         "SELECT DATE_TRUNC('day', published_at) as d, "
         "  AVG(sentiment_score) as avg_sentiment, COUNT(*) as n "
         "FROM silver_news_events "
         "WHERE list_contains(asset_ids_mentioned, ?) "
-        "  AND published_at >= CURRENT_DATE - INTERVAL '%s days' "
+        "  AND published_at >= CURRENT_DATE - ? * INTERVAL '1 DAY' "
         "  AND sentiment_score IS NOT NULL "
-        "GROUP BY 1 ORDER BY 1" % days,
-        [asset_id],
+        "GROUP BY 1 ORDER BY 1",
+        [asset_id, days],
     )
+    rows = df.to_dicts()
     return {
         "asset_id": asset_id,
-        "dates": [str(r["d"])[:10] for r in df.to_dicts()],
-        "values": [round(r["avg_sentiment"], 4) for r in df.to_dicts()],
-        "counts": [r["n"] for r in df.to_dicts()],
+        "dates": [str(r["d"])[:10] for r in rows],
+        "values": [round(r["avg_sentiment"], 4) for r in rows],
+        "counts": [r["n"] for r in rows],
     }
