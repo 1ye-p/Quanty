@@ -45,6 +45,15 @@ def __getattr__(name: str):
     if name == "predict":
         from cquant.qlib_bridge.prediction_bridge import predict
         return predict
+    if name == "QLIB_MODELS":
+        from cquant.qlib_bridge.models import QLIB_MODELS
+        return QLIB_MODELS
+    if name == "create_model":
+        from cquant.qlib_bridge.models import create_model
+        return create_model
+    if name == "get_model_category_groups":
+        from cquant.qlib_bridge.models import get_model_category_groups
+        return get_model_category_groups
     raise AttributeError(f"module 'cquant.qlib_bridge' has no attribute {name!r}")
 
 
@@ -64,4 +73,7 @@ __all__ = [
     "train_model_qlib",
     "run_backtest_qlib",
     "predict",
+    "QLIB_MODELS",
+    "create_model",
+    "get_model_category_groups",
 ]

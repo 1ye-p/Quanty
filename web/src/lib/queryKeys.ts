@@ -27,6 +27,8 @@ export const queryKeys = {
     factorExposure: (id: string) => ['backtests', id, 'factor-exposure'] as const,
     stressTest: (id: string) => ['backtests', id, 'stress-test'] as const,
     riskContribution: (id: string) => ['backtests', id, 'risk-contribution'] as const,
+    calendarAnalysis: (id: string) => ['backtests', id, 'calendar-analysis'] as const,
+    tradeAnalysis: (id: string) => ['backtests', id, 'trade-analysis'] as const,
   },
   knowledge: {
     all: ['knowledge'] as const,

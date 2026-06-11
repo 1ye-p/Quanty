@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { factorAnalyticsApi, customFactorApi, alertsApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
@@ -9,6 +9,7 @@ import { FactorDSLEditor } from '@/components/factors/FactorDSLEditor'
 
 export function FactorsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [selectedFactor, setSelectedFactor] = useState<string | null>(null)
   const [featureSetVersion, setFeatureSetVersion] = useState('')
   const [horizonDays, setHorizonDays] = useState(1)
@@ -352,6 +353,13 @@ export function FactorsPage() {
                 onClick={() => matrixMutation.mutate()}
               >
                 {matrixMutation.isPending ? '计算中…' : '计算 IC 矩阵'}
+              </button>
+              <button
+                className="btn-secondary text-sm"
+                disabled={selectedFactors.length === 0}
+                onClick={() => navigate('/scoring', { state: { selectedFactors } })}
+              >
+                发送到打分
               </button>
             </div>
           </div>

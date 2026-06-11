@@ -12,6 +12,13 @@ export function MLLabPage() {
   const [selectedRun, setSelectedRun] = useState<string | null>(null)
   const [compareRuns, setCompareRuns] = useState<string[]>([])
   const [jobForm, setJobForm] = useState({ trainer: 'xgb', feature_set_version: '', target_name: 'ret_5d' })
+  const [dlParams, setDlParams] = useState<Record<string, string>>({})
+  const [tuningEnabled, setTuningEnabled] = useState(false)
+  const [tuningConfig, setTuningConfig] = useState({
+    method: 'grid' as 'grid' | 'random' | 'bayesian',
+    n_trials: 20,
+    metric: 'rmse',
+  })
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [walkForward, setWalkForward] = useState({
     enabled: false,
@@ -101,6 +108,13 @@ export function MLLabPage() {
           params[key] = isNaN(num) ? val : num
         }
       }
+      // Merge DL params
+      for (const [key, val] of Object.entries(dlParams)) {
+        if (val !== '') {
+          const num = Number(val)
+          params[key] = isNaN(num) ? val : num
+        }
+      }
 
       return mlApi.submitJob({
         trainer: jobForm.trainer,
@@ -115,6 +129,13 @@ export function MLLabPage() {
             gap_days: walkForward.gap_days,
             window_type: walkForward.window_type,
             purge_window: 0,
+          },
+        } : {}),
+        ...(tuningEnabled ? {
+          tuning: {
+            method: tuningConfig.method,
+            n_trials: tuningConfig.n_trials,
+            metric: tuningConfig.metric,
           },
         } : {}),
       })
@@ -158,10 +179,22 @@ export function MLLabPage() {
       <div className="card mb-6">
         <h2 className="font-semibold text-gray-800 mb-3">提交训练 Job</h2>
         <div className="grid grid-cols-3 gap-3">
-          <select className="input" value={jobForm.trainer} onChange={e => setJobForm(f => ({ ...f, trainer: e.target.value }))}>
-            <option value="xgb">XGBoost</option>
-            <option value="lgbm">LightGBM</option>
-            <option value="xgb_clf">XGBoost Classifier</option>
+          <select className="input" value={jobForm.trainer} onChange={e => { setJobForm(f => ({ ...f, trainer: e.target.value })); setDlParams({}) }}>
+            <optgroup label="传统模型">
+              <option value="xgb">XGBoost</option>
+              <option value="lgbm">LightGBM</option>
+              <option value="catboost">CatBoost</option>
+              <option value="ridge">Ridge 回归</option>
+              <option value="lasso">Lasso 回归</option>
+            </optgroup>
+            <optgroup label="深度学习">
+              <option value="lstm">LSTM</option>
+              <option value="transformer">Transformer</option>
+              <option value="tabnet">TabNet</option>
+            </optgroup>
+            <optgroup label="集成模型">
+              <option value="xgb_clf">XGBoost Classifier</option>
+            </optgroup>
           </select>
           <select
             className="input"
@@ -268,6 +301,85 @@ export function MLLabPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Deep Learning specific params */}
+            {['lstm', 'transformer', 'tabnet'].includes(jobForm.trainer) && (
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">深度学习参数</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    ...(jobForm.trainer === 'lstm' ? [
+                      { key: 'hidden_size', label: 'Hidden Size', placeholder: '64' },
+                      { key: 'num_layers', label: 'Num Layers', placeholder: '2' },
+                    ] : []),
+                    ...(jobForm.trainer === 'transformer' ? [
+                      { key: 'd_model', label: 'D Model', placeholder: '64' },
+                      { key: 'nhead', label: 'Num Heads', placeholder: '4' },
+                      { key: 'num_layers', label: 'Num Layers', placeholder: '2' },
+                    ] : []),
+                    ...(jobForm.trainer === 'tabnet' ? [
+                      { key: 'n_d', label: 'N Decision', placeholder: '32' },
+                      { key: 'n_a', label: 'N Attention', placeholder: '32' },
+                      { key: 'n_steps', label: 'N Steps', placeholder: '5' },
+                    ] : []),
+                    { key: 'dropout', label: 'Dropout', placeholder: '0.3' },
+                    { key: 'n_epochs', label: 'Epochs', placeholder: '200' },
+                    { key: 'batch_size', label: 'Batch Size', placeholder: '2048' },
+                    { key: 'early_stop', label: 'Early Stop', placeholder: '20' },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key}>
+                      <label className="text-xs text-gray-500">{label}</label>
+                      <input className="input" placeholder={placeholder}
+                        value={dlParams[key] ?? ''}
+                        onChange={e => setDlParams(p => ({ ...p, [key]: e.target.value }))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Hyperparameter Tuning */}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <input
+                  type="checkbox"
+                  checked={tuningEnabled}
+                  onChange={e => setTuningEnabled(e.target.checked)}
+                />
+                启用超参数搜索
+              </label>
+              {tuningEnabled && (
+                <div className="grid grid-cols-3 gap-3 ml-6">
+                  <div>
+                    <label className="text-xs text-gray-500">搜索方法</label>
+                    <select className="input w-full"
+                      value={tuningConfig.method}
+                      onChange={e => setTuningConfig(c => ({ ...c, method: e.target.value as typeof c.method }))}>
+                      <option value="grid">网格搜索</option>
+                      <option value="random">随机搜索</option>
+                      <option value="bayesian">贝叶斯优化</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">试验次数</label>
+                    <input type="number" className="input w-full" min={5} max={200}
+                      value={tuningConfig.n_trials}
+                      onChange={e => setTuningConfig(c => ({ ...c, n_trials: Number(e.target.value) }))} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">优化目标</label>
+                    <select className="input w-full"
+                      value={tuningConfig.metric}
+                      onChange={e => setTuningConfig(c => ({ ...c, metric: e.target.value }))}>
+                      <option value="rmse">RMSE (最小化)</option>
+                      <option value="mae">MAE (最小化)</option>
+                      <option value="sharpe">Sharpe (最大化)</option>
+                      <option value="r2">R² (最大化)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

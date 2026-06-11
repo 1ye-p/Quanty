@@ -267,3 +267,54 @@ async def get_dataset(version_id: str, catalog: CatalogDep) -> dict:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"Dataset version '{version_id}' not found")
     return df.to_dicts()[0]
+
+
+@router.get("/quality/{table_name}")
+async def get_data_quality(
+    table_name: str,
+    catalog: CatalogDep,
+    start_date: str = "2024-01-01",
+    end_date: str = "2025-12-31",
+) -> dict:
+    """Data quality scoring for a market data table."""
+    from fastapi import HTTPException
+    from cquant.datahub.quality_scorer import DataQualityScorer
+
+    # Sanitize table name to prevent SQL injection
+    allowed_tables = {"silver_daily", "silver_fundamentals", "silver_stock_info", "bronze_daily"}
+    if table_name not in allowed_tables:
+        raise HTTPException(status_code=400, detail=f"Table '{table_name}' not in allowed list")
+
+    scorer = DataQualityScorer(catalog)
+    report = scorer.score(table_name, start_date, end_date)
+    return report.to_dict()
+
+
+@router.get("/universe/pit")
+async def get_point_in_time_universe(
+    catalog: CatalogDep,
+    as_of_date: str = "2025-06-30",
+) -> dict:
+    """Get the point-in-time stock universe for a given date."""
+    from cquant.datahub.universe import PointInTimeUniverse
+
+    universe = PointInTimeUniverse(catalog)
+    stocks = universe.get_universe(as_of_date)
+    return {
+        "date": as_of_date,
+        "count": len(stocks),
+        "stocks": [{"asset_id": s.asset_id, "list_date": s.list_date, "delist_date": s.delist_date} for s in stocks[:500]],
+    }
+
+
+@router.get("/universe/stats")
+async def get_universe_stats(
+    catalog: CatalogDep,
+    start_date: str = "2024-01-01",
+    end_date: str = "2025-06-30",
+) -> dict:
+    """Universe statistics: new listings, delistings, survivorship rate."""
+    from cquant.datahub.universe import PointInTimeUniverse
+
+    universe = PointInTimeUniverse(catalog)
+    return universe.get_universe_stats(start_date, end_date)

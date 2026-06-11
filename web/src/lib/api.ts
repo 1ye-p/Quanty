@@ -267,6 +267,10 @@ export const backtestsApi = {
     request<Record<string, unknown>>(`/backtests/${id}/stress-test`),
   getRiskContribution: (id: string, window = 60) =>
     request<Record<string, unknown>>(`/backtests/${id}/risk-contribution?window=${window}`),
+  getCalendarAnalysis: (id: string) =>
+    request<Record<string, unknown>>(`/backtests/${id}/calendar-analysis`),
+  getTradeAnalysis: (id: string) =>
+    request<Record<string, unknown>>(`/backtests/${id}/trade-analysis`),
 }
 
 // ── Knowledge base ────────────────────────────────────────────────────────────

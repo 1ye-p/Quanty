@@ -1418,3 +1418,79 @@ async def run_sensitivity_analysis(
         "primary_metric": body.primary_metric,
         "total_combinations": total_combinations,
     }
+
+
+# ── Calendar Analysis ───────────────────────────────────────────────────────
+
+
+@router.get("/{run_id}/calendar-analysis")
+async def get_calendar_analysis(run_id: str, catalog: CatalogDep):
+    """Calendar effect analysis for a backtest run (month, weekday, month-end)."""
+    from cquant.bt_analyzer.calendar_analysis import CalendarAnalyzer
+    import polars as pl
+
+    _safe = _safe_metrics_path(run_id)
+    if _safe is None:
+        raise HTTPException(status_code=400, detail="Invalid run_id format")
+
+    # Load portfolio returns from the backtest artifacts
+    metrics_path = _ARTIFACTS_BASE / f"{run_id}.json"
+    if not metrics_path.exists():
+        raise HTTPException(status_code=404, detail=f"Backtest run '{run_id}' not found")
+
+    with open(metrics_path) as f:
+        bt_data = json.load(f)
+
+    # Extract nav series and convert to returns
+    snapshots = bt_data.get("snapshots", [])
+    if not snapshots:
+        raise HTTPException(status_code=422, detail="No snapshot data available for calendar analysis")
+
+    nav_data = []
+    prev_nav = None
+    for snap in snapshots:
+        nav = snap.get("nav", 1.0)
+        ret = (nav / prev_nav - 1) if prev_nav and prev_nav > 0 else 0.0
+        nav_data.append({"trade_date": snap.get("trade_date", ""), "returns": ret})
+        prev_nav = nav
+
+    df = pl.DataFrame(nav_data)
+    analyzer = CalendarAnalyzer()
+    result = analyzer.analyze(df)
+    return result.to_dict()
+
+
+# ── Trade Analysis ──────────────────────────────────────────────────────────
+
+
+@router.get("/{run_id}/trade-analysis")
+async def get_trade_analysis(run_id: str, catalog: CatalogDep):
+    """Trade-level analysis: holding periods, win/loss streaks, profit factor."""
+    from cquant.bt_analyzer.trade_analysis import TradeAnalyzer
+    import polars as pl
+
+    _safe = _safe_metrics_path(run_id)
+    if _safe is None:
+        raise HTTPException(status_code=400, detail="Invalid run_id format")
+
+    metrics_path = _ARTIFACTS_BASE / f"{run_id}.json"
+    if not metrics_path.exists():
+        raise HTTPException(status_code=404, detail=f"Backtest run '{run_id}' not found")
+
+    # Load fills from the fills table
+    try:
+        fills_df = catalog.query(
+            "SELECT trade_date, asset_id, side, price, qty, notional "
+            "FROM silver_fills WHERE run_id = ? ORDER BY asset_id, trade_date",
+            [run_id],
+        )
+    except Exception:
+        # Fallback: try loading from artifacts
+        fills_df = None
+
+    if fills_df is None or fills_df.is_empty():
+        raise HTTPException(status_code=422, detail="No trade/fill data available for trade analysis")
+
+    analyzer = TradeAnalyzer()
+    result = analyzer.analyze(fills_df)
+    return result.to_dict()

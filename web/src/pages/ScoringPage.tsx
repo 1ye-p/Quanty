@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { keepPreviousData } from '@tanstack/react-query'
 import { scoringApi, factorAnalyticsApi } from '@/lib/api'
@@ -15,6 +15,7 @@ interface FactorWeightConfig {
 const PAGE_SIZE = 50
 
 export function ScoringPage() {
+  const location = useLocation()
   const [name, setName] = useState('momentum_value_v1')
   const [featureSetVersion, setFeatureSetVersion] = useState('')
   const [startDate, setStartDate] = useState('2024-01-01')
@@ -22,6 +23,19 @@ export function ScoringPage() {
   const [factors, setFactors] = useState<FactorWeightConfig[]>([
     { factor_name: 'ret_20d', weight: 1.0, direction: 'long' },
   ])
+
+  // Pre-fill factors from navigation state (e.g. from FactorsPage)
+  useEffect(() => {
+    const state = location.state as { selectedFactors?: string[] } | null
+    if (state?.selectedFactors && state.selectedFactors.length > 0) {
+      const equalWeight = 1.0 / state.selectedFactors.length
+      setFactors(state.selectedFactors.map(f => ({
+        factor_name: f,
+        weight: equalWeight,
+        direction: 'long' as const,
+      })))
+    }
+  }, [location.state])
   const [winsorize, setWinsorize] = useState<[number, number]>([0.01, 0.99])
   const [fillNull, setFillNull] = useState('median')
   const [activeRunId, setActiveRunId] = useState<string | null>(null)

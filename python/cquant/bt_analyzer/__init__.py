@@ -13,6 +13,7 @@ Usage::
     print(f"PSR={report.psr:.2f}  DSR={report.dsr:.2f}")
 """
 
+from cquant.bt_analyzer.calendar_analysis import CalendarAnalyzer
 from cquant.bt_analyzer.cpcv import CPCVAnalyzer
 from cquant.bt_analyzer.engine import AnalysisEngine
 from cquant.bt_analyzer.models import (
@@ -25,18 +26,21 @@ from cquant.bt_analyzer.multiple_testing import MultipleTestingCorrector
 from cquant.bt_analyzer.sensitivity import SensitivityAnalyzer
 from cquant.bt_analyzer.sharpe import SharpeMetrics
 from cquant.bt_analyzer.stability import StabilityAnalyzer
+from cquant.bt_analyzer.trade_analysis import TradeAnalyzer
 from cquant.bt_analyzer.walk_forward import WalkForwardAnalyzer
 
 __all__ = [
     "AnalysisEngine",
     "AnalysisReport",
     "AnalysisSpec",
+    "CalendarAnalyzer",
     "CPCVAnalyzer",
     "MultipleTestingCorrector",
     "OverfitScore",
     "SensitivityAnalyzer",
     "SharpeMetrics",
     "StabilityAnalyzer",
+    "TradeAnalyzer",
     "ValidationWindow",
     "WalkForwardAnalyzer",
 ]

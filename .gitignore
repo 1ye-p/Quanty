@@ -116,3 +116,5 @@ web/blob-report/
 
 # ── MLflow tracking artifacts ─────────────────────────────────────────────────
 mlruns/
+docs/trading
+node_modules/.vite
