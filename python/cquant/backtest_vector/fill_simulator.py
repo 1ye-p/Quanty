@@ -66,11 +66,13 @@ class AShareFillSimulator:
         market: str = "CN",
         adj_type: str = "forward",
         catalog=None,
+        max_volume_pct: float = 0.1,
     ) -> None:
         self._cost_model = cost_model or CostModel.for_cn()
         self._market = market
         self._adj_type = adj_type
         self._catalog = catalog
+        self._max_volume_pct = max(0.01, min(1.0, max_volume_pct))
         self._rules = None
         self._status_tracker = None
         # Lazy-init market rules if market_calendar is available
@@ -328,6 +330,41 @@ class AShareFillSimulator:
         """Round down to nearest lot (100 shares)."""
         return int(qty // _LOT_SIZE) * _LOT_SIZE
 
+    def _apply_volume_constraint(
+        self, qty: int, td: date, asset_id: str, lookup: dict
+    ) -> tuple[int, float]:
+        """Apply volume participation constraint to order quantity.
+
+        If order qty exceeds volume * max_volume_pct, clip the order and
+        compute additional slippage based on participation rate.
+
+        Returns:
+            Tuple of (clipped_qty, volume_slippage_pct)
+        """
+        data = lookup.get((td, asset_id), {})
+        volume = data.get("volume", 0)
+
+        if volume <= 0 or qty <= 0:
+            return qty, 0.0
+
+        max_qty = int(volume * self._max_volume_pct)
+        max_qty = self._round_lot(max_qty)
+
+        if max_qty <= 0:
+            return 0, 0.0
+
+        clipped_qty = min(qty, max_qty)
+
+        # Volume-based slippage: square-root model
+        # Higher participation rate = higher slippage
+        participation_rate = clipped_qty / volume
+        volume_slippage_pct = 0.0
+        if participation_rate > 0.01:  # Only apply if > 1% participation
+            volume_slippage_pct = 0.001 * (participation_rate / self._max_volume_pct) ** 0.5
+            volume_slippage_pct = min(volume_slippage_pct, 0.01)  # Cap at 1%
+
+        return clipped_qty, volume_slippage_pct
+
     def _calculate_nav(
         self, cash: float, positions: dict[str, int], td: date, lookup: dict
     ) -> float:
@@ -447,17 +484,27 @@ class AShareFillSimulator:
         if price <= 0 or qty <= 0:
             return None
 
-        notional = qty * price
+        # Apply volume participation constraint
+        clipped_qty, volume_slippage_pct = self._apply_volume_constraint(
+            qty, td, asset_id, lookup
+        )
+        if clipped_qty <= 0:
+            return None
+
+        notional = clipped_qty * price
         commission = float(self._cost_model.commission(Decimal(str(notional))))
         stamp_duty = float(self._cost_model.stamp_duty(Decimal(str(notional)), is_sell=True))
-        slippage = float(self._cost_model.slippage(Decimal(str(notional))))
+        base_slippage = float(self._cost_model.slippage(Decimal(str(notional))))
+        # Add volume-based slippage
+        volume_slippage = notional * volume_slippage_pct
+        slippage = base_slippage + volume_slippage
         total_cost = commission + stamp_duty + slippage
 
         return {
             "trade_date": td,
             "asset_id": asset_id,
             "side": "sell",
-            "qty": qty,
+            "qty": clipped_qty,
             "price": price,
             "notional": notional,
             "commission": commission,
@@ -474,17 +521,27 @@ class AShareFillSimulator:
         if price <= 0 or qty <= 0:
             return None
 
-        notional = qty * price
+        # Apply volume participation constraint
+        clipped_qty, volume_slippage_pct = self._apply_volume_constraint(
+            qty, td, asset_id, lookup
+        )
+        if clipped_qty <= 0:
+            return None
+
+        notional = clipped_qty * price
         commission = float(self._cost_model.commission(Decimal(str(notional))))
         stamp_duty = float(self._cost_model.stamp_duty(Decimal(str(notional)), is_sell=False))
-        slippage = float(self._cost_model.slippage(Decimal(str(notional))))
+        base_slippage = float(self._cost_model.slippage(Decimal(str(notional))))
+        # Add volume-based slippage
+        volume_slippage = notional * volume_slippage_pct
+        slippage = base_slippage + volume_slippage
         total_cost = commission + stamp_duty + slippage
 
         return {
             "trade_date": td,
             "asset_id": asset_id,
             "side": "buy",
-            "qty": qty,
+            "qty": clipped_qty,
             "price": price,
             "notional": notional,
             "commission": commission,

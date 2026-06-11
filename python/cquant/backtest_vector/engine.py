@@ -413,7 +413,12 @@ class VectorBacktestEngine:
         weights_df = pl.DataFrame(all_weights)
 
         # Use fill simulator for realistic A-share execution
-        fill_sim = AShareFillSimulator(cost_model=spec.cost_model)
+        # Pass max_volume_pct from spec.extra if configured
+        max_volume_pct = spec.extra.get("max_volume_pct", 0.1)
+        fill_sim = AShareFillSimulator(
+            cost_model=spec.cost_model,
+            max_volume_pct=max_volume_pct,
+        )
         fills_df, snapshots_df = fill_sim.simulate(
             target_weights=weights_df,
             prices=prices,
