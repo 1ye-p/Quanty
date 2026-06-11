@@ -92,6 +92,7 @@ export function AppLayout() {
       queryClient.invalidateQueries({ queryKey: ['backtests'] })
       queryClient.invalidateQueries({ queryKey: ['scoring'] })
     },
+    onError: (e: Error) => toast.error(`删除失败: ${e.message}`),
   })
 
   // 轮询各模块运行中任务数量

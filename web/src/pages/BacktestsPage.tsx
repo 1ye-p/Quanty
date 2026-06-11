@@ -177,11 +177,13 @@ export function BacktestsPage() {
   const cancelMutation = useMutation({
     mutationFn: (runId: string) => jobsApi.cancel(runId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['backtests'] }),
+    onError: (e: Error) => toast.error(`取消失败: ${e.message}`),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (runId: string) => jobsApi.delete(runId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['backtests'] }),
+    onError: (e: Error) => toast.error(`删除失败: ${e.message}`),
   })
 
   const { data, isLoading, isFetching } = useQuery({

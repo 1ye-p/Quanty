@@ -30,7 +30,8 @@ def _find_job(catalog, job_id: str) -> tuple[str, str, str] | None:
             if not df.is_empty():
                 row = df.to_dicts()[0]
                 return table, id_col, row[status_col]
-        except Exception:
+        except Exception as exc:
+            logger.debug("Table %s not accessible: %s", table, exc)
             continue
     return None
 
