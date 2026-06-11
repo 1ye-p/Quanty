@@ -1407,36 +1407,13 @@ async def run_sensitivity_analysis(
 
     # Load backtest spec from artifacts
     # Note: In a real implementation, we'd need to reconstruct the spec
-    # For now, return a placeholder that indicates the analysis was triggered
-    _ensure_job_table(catalog)
-    job_id = str(uuid.uuid4())
-    _save_job(catalog, job_id, job_type="sensitivity", status="running")
-
-    def _run_sensitivity() -> None:
-        try:
-            # Load the original spec (simplified - in production would need full spec reconstruction)
-            from cquant.backtest_vector.sensitivity import GridSearchSensitivity, ParameterGrid
-
-            # For now, we'll return a placeholder result
-            # In a full implementation, we'd reconstruct the BacktestSpec from the run
-            logger.info("Sensitivity analysis triggered for run %s", run_id)
-            logger.info("Parameter grid: %s", body.param_grid)
-            logger.info("Primary metric: %s", body.primary_metric)
-
-            # Simulate analysis completion
-            _save_job(catalog, job_id, "sensitivity", "completed",
-                     run_id=run_id)
-        except Exception as exc:
-            logger.exception("Sensitivity analysis %s failed", job_id)
-            _save_job(catalog, job_id, "sensitivity", "failed",
-                     error=f"Sensitivity analysis failed: {str(exc)[:200]}")
-
-    background_tasks.add_task(_run_sensitivity)
-
-    return {
-        "job_id": job_id,
-        "run_id": run_id,
-        "status": "running",
+    # Sensitivity analysis requires reconstructing the full BacktestSpec,
+    # which is not yet supported. Return 501 until implementation is complete.
+    raise HTTPException(
+        status_code=501,
+        detail="Sensitivity analysis is not yet implemented. "
+               "Use the CLI `cquant sensitivity` command instead.",
+    )
         "param_grid": body.param_grid,
         "primary_metric": body.primary_metric,
         "total_combinations": total_combinations,

@@ -79,7 +79,11 @@ class RankingWeights:
             + self.oos_ratio
             + self.cost_sensitivity
         )
-        if abs(total - 1.0) > 0.01:
+        if abs(total) < 1e-10:
+            logger.warning("All weights are zero, using equal weights")
+            self.sharpe_ratio = self.max_drawdown = self.sortino_ratio = 1 / 7
+            self.calmar_ratio = self.turnover = self.oos_ratio = self.cost_sensitivity = 1 / 7
+        elif abs(total - 1.0) > 0.01:
             logger.warning("Weights sum to %.3f, normalizing to 1.0", total)
             self.sharpe_ratio /= total
             self.max_drawdown /= total
@@ -251,9 +255,10 @@ class StrategyRanker:
         strategy_ids = [s.strategy_id for s in strategies]
 
         # Extract raw values for each dimension
+        # max_drawdown is always <= 0; use abs() so inversion works correctly
         dimensions = {
             "sharpe_ratio": [s.sharpe_ratio for s in strategies],
-            "max_drawdown": [s.max_drawdown for s in strategies],
+            "max_drawdown": [abs(s.max_drawdown) for s in strategies],
             "sortino_ratio": [s.sortino_ratio for s in strategies],
             "calmar_ratio": [s.calmar_ratio for s in strategies],
             "turnover": [s.turnover for s in strategies],

@@ -260,15 +260,13 @@ class TestStrategyRanker:
         ranker = StrategyRanker()
         result = ranker.rank(strategies)
 
-        # The ranking logic inverts max_drawdown and turnover, so:
-        # - max_drawdown: -0.05 is closer to 0 than -0.30, but when inverted,
-        #   the more negative value (-0.30) gets a higher score
-        # - turnover: 0.1 is better than 0.5, and when inverted, 0.1 gets higher score
-        # Since both strategies have same sharpe, the inverted dimensions determine ranking
-        # "bad" has max_drawdown=-0.30 which when inverted becomes higher score
-        # This test verifies the inversion logic is working correctly
-        assert result.ranked_strategies[0]["strategy_id"] == "bad"
-        assert result.ranked_strategies[1]["strategy_id"] == "good"
+        # With abs() on max_drawdown, the inversion works correctly:
+        # - "good" has abs(-0.05)=0.05, inverted → 1.0 (better)
+        # - "bad" has abs(-0.30)=0.30, inverted → 0.0 (worse)
+        # - turnover: 0.1 inverted → 1.0, 0.5 inverted → 0.0
+        # "good" wins on both drawdown and turnover
+        assert result.ranked_strategies[0]["strategy_id"] == "good"
+        assert result.ranked_strategies[1]["strategy_id"] == "bad"
 
 
 # ── GridSearchSensitivity Tests ──────────────────────────────────────────────
