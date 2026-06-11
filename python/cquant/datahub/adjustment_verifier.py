@@ -108,6 +108,12 @@ class AdjustmentVerifier:
         -------
         VerificationReport
         """
+        _ALLOWED_TABLES = {"silver_daily", "silver_prices_1d", "silver_fundamentals"}
+        if source_a not in _ALLOWED_TABLES:
+            raise ValueError(f"source_a '{source_a}' not in allowed tables: {_ALLOWED_TABLES}")
+        if source_b is not None and source_b not in _ALLOWED_TABLES:
+            raise ValueError(f"source_b '{source_b}' not in allowed tables: {_ALLOWED_TABLES}")
+
         anomalies: list[AdjustmentAnomaly] = []
 
         # Load primary data

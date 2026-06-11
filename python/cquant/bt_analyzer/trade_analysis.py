@@ -328,6 +328,7 @@ class TradeAnalyzer:
         current_length = 0
         current_start = ""
         current_pnl = 0.0
+        prev_sell_date = ""
 
         for row in sorted_rt.iter_rows(named=True):
             is_win = row["pnl"] > 0
@@ -343,7 +344,7 @@ class TradeAnalyzer:
                         type=current_type,
                         length=current_length,
                         start_date=current_start,
-                        end_date=row["sell_date"],
+                        end_date=prev_sell_date,
                         total_pnl=round(current_pnl, 4),
                     )
                     if current_type == "win":
@@ -355,6 +356,8 @@ class TradeAnalyzer:
                 current_length = 1
                 current_start = row["buy_date"]
                 current_pnl = row["pnl"]
+
+            prev_sell_date = row["sell_date"]
 
         # Final streak
         if current_type and current_length > 0:
@@ -402,9 +405,5 @@ class TradeAnalyzer:
 def _parse_date(date_str: str):
     """Parse a date string to a date object."""
     from datetime import datetime
-    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d"):
-        try:
-            return datetime.strptime(date_str[:10], fmt[:len(date_str[:10])+2]).date()
-        except ValueError:
-            continue
-    raise ValueError(f"Cannot parse date: {date_str}")
+    cleaned = str(date_str)[:10].replace("/", "-")
+    return datetime.strptime(cleaned, "%Y-%m-%d").date()

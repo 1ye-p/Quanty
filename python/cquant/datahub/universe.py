@@ -64,6 +64,9 @@ class PointInTimeUniverse:
         catalog: Any,
         metadata_table: str = "silver_stock_info",
     ):
+        _ALLOWED_TABLES = {"silver_stock_info", "silver_fundamentals"}
+        if metadata_table not in _ALLOWED_TABLES:
+            raise ValueError(f"metadata_table '{metadata_table}' not in allowed tables: {_ALLOWED_TABLES}")
         self.catalog = catalog
         self.metadata_table = metadata_table
 

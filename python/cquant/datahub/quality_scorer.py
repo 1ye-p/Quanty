@@ -358,9 +358,8 @@ class DataQualityScorer:
 def _parse_date(date_str: str):
     """Parse a date string."""
     from datetime import datetime as dt
-    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d"):
-        try:
-            return dt.strptime(str(date_str)[:10], fmt[:len(str(date_str)[:10])+2]).date()
-        except (ValueError, TypeError):
-            continue
-    return None
+    try:
+        cleaned = str(date_str)[:10].replace("/", "-")
+        return dt.strptime(cleaned, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None

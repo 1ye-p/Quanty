@@ -1429,12 +1429,11 @@ async def get_calendar_analysis(run_id: str, catalog: CatalogDep):
     from cquant.bt_analyzer.calendar_analysis import CalendarAnalyzer
     import polars as pl
 
-    _safe = _safe_metrics_path(run_id)
-    if _safe is None:
+    metrics_path = _safe_metrics_path(run_id)
+    if metrics_path is None:
         raise HTTPException(status_code=400, detail="Invalid run_id format")
 
     # Load portfolio returns from the backtest artifacts
-    metrics_path = _ARTIFACTS_BASE / f"{run_id}.json"
     if not metrics_path.exists():
         raise HTTPException(status_code=404, detail=f"Backtest run '{run_id}' not found")
 
@@ -1469,11 +1468,10 @@ async def get_trade_analysis(run_id: str, catalog: CatalogDep):
     from cquant.bt_analyzer.trade_analysis import TradeAnalyzer
     import polars as pl
 
-    _safe = _safe_metrics_path(run_id)
-    if _safe is None:
+    metrics_path = _safe_metrics_path(run_id)
+    if metrics_path is None:
         raise HTTPException(status_code=400, detail="Invalid run_id format")
 
-    metrics_path = _ARTIFACTS_BASE / f"{run_id}.json"
     if not metrics_path.exists():
         raise HTTPException(status_code=404, detail=f"Backtest run '{run_id}' not found")
 
