@@ -13,6 +13,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 # Tables to check for jobs, in priority order
 _JOB_TABLES = [
+    ("_api_jobs", "job_id", "status"),
     ("meta_ml_jobs", "job_id", "status"),
     ("gold_backtest_runs", "run_id", "status"),
     ("meta_factor_analytics", "job_id", "status"),
