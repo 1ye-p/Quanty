@@ -365,6 +365,8 @@ export const newsApi = {
   },
   get: (id: string) => request<NewsEvent & { body?: string }>(`/news/events/${id}`),
   stats: () => request<NewsStats>('/news/stats'),
+  getAssetSentiment: (assetId: string, days = 90) =>
+    request<Record<string, unknown>>(`/news/sentiment/${encodeURIComponent(assetId)}?days=${days}`),
 }
 
 // ── Strategies ────────────────────────────────────────────────────────────────

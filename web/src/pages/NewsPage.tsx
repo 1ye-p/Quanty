@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { newsApi, type NewsEvent } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine,
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine,
   ResponsiveContainer, Legend
 } from 'recharts'
 
@@ -40,6 +40,7 @@ export function NewsPage() {
   const [eventType, setEventType] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [assetId, setAssetId] = useState('')
 
   const params: Record<string, string> = {}
   if (source) params.source = source
@@ -53,6 +54,12 @@ export function NewsPage() {
   const { data: stats } = useQuery({
     queryKey: extendedQueryKeys.news.stats(),
     queryFn: newsApi.stats,
+  })
+
+  const { data: assetSentiment, isLoading: sentimentLoading } = useQuery({
+    queryKey: ['news', 'assetSentiment', assetId],
+    queryFn: () => newsApi.getAssetSentiment(assetId),
+    enabled: assetId.trim().length > 0,
   })
 
   const sources = Object.keys(stats?.source_counts ?? {})
@@ -279,6 +286,89 @@ export function NewsPage() {
           </div>
         )
       })()}
+
+      {/* Asset Sentiment */}
+      <div className="card mt-4">
+        <h2 className="font-semibold text-gray-800 mb-3">资产情绪分析</h2>
+        <div className="flex gap-2 mb-4 items-center">
+          <input
+            className="input max-w-[200px]"
+            placeholder="输入资产ID，如 000001.SZ"
+            value={assetId}
+            onChange={e => setAssetId(e.target.value)}
+          />
+          {assetId && sentimentLoading && <span className="text-xs text-gray-400">加载中...</span>}
+        </div>
+        {assetSentiment && !sentimentLoading && (assetSentiment.dates as string[]).length > 0 && (() => {
+          const dates = assetSentiment.dates as string[]
+          const values = assetSentiment.values as number[]
+          const counts = assetSentiment.counts as number[]
+          const chartData = dates.map((d, i) => ({ date: d, sentiment: values[i], count: counts[i] }))
+          return (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm text-gray-600 mb-2">每日情绪均值</h3>
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={chartData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={v => String(v).slice(5)}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis tick={{ fontSize: 10 }} domain={[-1, 1]} tickFormatter={v => v.toFixed(1)} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null
+                        const d = payload[0].payload as { date: string; sentiment: number; count: number }
+                        return (
+                          <div className="bg-white border rounded-lg shadow-lg px-3 py-2 text-xs">
+                            <div className="font-medium mb-1">{d.date}</div>
+                            <div>情绪: {d.sentiment.toFixed(4)}</div>
+                            <div>新闻数: {d.count}</div>
+                          </div>
+                        )
+                      }}
+                    />
+                    <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
+                    <Line type="monotone" dataKey="sentiment" name="情绪" stroke="#3b82f6" dot={false} strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div>
+                <h3 className="text-sm text-gray-600 mb-2">每日新闻数量</h3>
+                <ResponsiveContainer width="100%" height={120}>
+                  <BarChart data={chartData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={v => String(v).slice(5)}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null
+                        const d = payload[0].payload as { date: string; count: number }
+                        return (
+                          <div className="bg-white border rounded-lg shadow-lg px-3 py-2 text-xs">
+                            <div className="font-medium">{d.date}</div>
+                            <div>新闻数: {d.count}</div>
+                          </div>
+                        )
+                      }}
+                    />
+                    <Bar dataKey="count" name="新闻数" fill="#6366f1" radius={[2, 2, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )
+        })()}
+        {assetSentiment && !sentimentLoading && (assetSentiment.dates as string[]).length === 0 && assetId.trim().length > 0 && (
+          <p className="text-sm text-gray-400">该资产暂无情绪数据</p>
+        )}
+      </div>
 
       {/* Filters */}
       <div className="flex gap-2 mb-4 items-center">
