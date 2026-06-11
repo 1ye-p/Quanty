@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
+import math
 import pathlib
 import re
 import uuid
@@ -919,7 +921,7 @@ def _nav_to_svg(
     # X labels (up to 6)
     x_step = max(1, n // 6)
     for i in range(0, n, x_step):
-        lbl = nav_dates[i][:7] if len(nav_dates[i]) >= 7 else nav_dates[i]
+        lbl = html.escape(nav_dates[i][:7] if len(nav_dates[i]) >= 7 else nav_dates[i])
         parts.append(f'<text x="{px(i):.0f}" y="{height - 4}" text-anchor="middle" font-size="10" fill="#94a3b8">{lbl}</text>')
     # Benchmark
     if bm_values:
@@ -1011,7 +1013,7 @@ def _drawdown_to_svg(drawdowns: list[dict], width: int = 800, height: int = 200)
     # X labels
     x_step = max(1, n // 6)
     for i in range(0, n, x_step):
-        lbl = dates[i][:7] if len(dates[i]) >= 7 else dates[i]
+        lbl = html.escape(dates[i][:7] if len(dates[i]) >= 7 else dates[i])
         parts.append(f'<text x="{px(i):.0f}" y="{height - 4}" text-anchor="middle" font-size="10" fill="#94a3b8">{lbl}</text>')
     # Zero line
     parts.append(f'<line x1="{PL}" y1="{py(0):.0f}" x2="{PL + cw}" y2="{py(0):.0f}" stroke="#fca5a5" stroke-width="1"/>')
@@ -1071,7 +1073,7 @@ def _rolling_vol_to_svg(data: list[dict], width: int = 800, height: int = 200) -
     # X labels
     x_step = max(1, n // 6)
     for i in range(0, n, x_step):
-        lbl = dates[i][:7] if len(dates[i]) >= 7 else dates[i]
+        lbl = html.escape(dates[i][:7] if len(dates[i]) >= 7 else dates[i])
         parts.append(f'<text x="{px(i):.0f}" y="{height - 4}" text-anchor="middle" font-size="10" fill="#94a3b8">{lbl}</text>')
     # Area fill
     base_y = float(PT + ch)
@@ -1172,23 +1174,29 @@ def _tca_pie_svg(tca: dict, width: int = 400, height: int = 300) -> str:
     ]
 
     # Draw pie slices
-    import math
     angle = -math.pi / 2  # start from top
     for label, val, color in slices:
         if val <= 0:
             continue
         frac = val / total
         end_angle = angle + frac * 2 * math.pi
-        large_arc = 1 if frac > 0.5 else 0
-        x1 = cx + r * math.cos(angle)
-        y1 = cy + r * math.sin(angle)
-        x2 = cx + r * math.cos(end_angle)
-        y2 = cy + r * math.sin(end_angle)
-        parts.append(
-            f'<path d="M {cx:.1f},{cy:.1f} L {x1:.1f},{y1:.1f} '
-            f'A {r:.1f},{r:.1f} 0 {large_arc},1 {x2:.1f},{y2:.1f} Z" '
-            f'fill="{color}" stroke="#fff" stroke-width="2"/>'
-        )
+        if frac >= 0.999:
+            # Full circle — draw a circle element instead of a degenerate arc
+            parts.append(
+                f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" '
+                f'fill="{color}" stroke="#fff" stroke-width="2"/>'
+            )
+        else:
+            large_arc = 1 if frac > 0.5 else 0
+            x1 = cx + r * math.cos(angle)
+            y1 = cy + r * math.sin(angle)
+            x2 = cx + r * math.cos(end_angle)
+            y2 = cy + r * math.sin(end_angle)
+            parts.append(
+                f'<path d="M {cx:.1f},{cy:.1f} L {x1:.1f},{y1:.1f} '
+                f'A {r:.1f},{r:.1f} 0 {large_arc},1 {x2:.1f},{y2:.1f} Z" '
+                f'fill="{color}" stroke="#fff" stroke-width="2"/>'
+            )
         # Label
         mid_angle = angle + frac * math.pi
         lx = cx + (r * 0.65) * math.cos(mid_angle)

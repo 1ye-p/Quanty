@@ -146,7 +146,7 @@ class TestTcaPieSvg:
         tca = {"total_commission": 100, "total_slippage": 0, "total_stamp_duty": 0}
         result = _tca_pie_svg(tca)
         assert "<svg" in result
-        assert "path" in result
+        assert "circle" in result  # 100% slice renders as full circle
 
     def test_custom_dimensions(self):
         tca = {"total_commission": 50, "total_slippage": 30, "total_stamp_duty": 20}
