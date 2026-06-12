@@ -991,9 +991,25 @@ export const jobsApi = {
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
 
+export interface PipelineStage {
+  status: string
+  error?: string
+  [key: string]: unknown
+}
+
+export interface PipelineStatusResponse {
+  status: string
+  detail?: string
+  run_id?: string
+  started_at?: string
+  finished_at?: string
+  duration_seconds?: number
+  stages?: Record<string, PipelineStage>
+}
+
 export const pipelineApi = {
-  status: () => request<Record<string, unknown>>('/pipeline/status'),
-  run: () => request<{ status: string }>('/pipeline/run', { method: 'POST' }),
+  status: () => request<PipelineStatusResponse>('/pipeline/status'),
+  run: () => request<{ status: string; detail?: string }>('/pipeline/run', { method: 'POST' }),
 }
 
 // ── Custom Factors ────────────────────────────────────────────────────────────
