@@ -1,10 +1,11 @@
 """cquant.scheduler.data_scheduler — APScheduler-based data pipeline scheduler.
 
-Runs four recurring jobs:
+Runs five recurring jobs:
   1. Price ingest       — daily at 16:35 CST
   2. Fundamentals update — daily at 17:00 CST
   3. Alert check        — hourly
   4. Health check       — daily at 08:00 CST
+  5. Weekly retrain     — Sunday 20:00 CST (full ML pipeline)
 """
 
 from __future__ import annotations
@@ -192,6 +193,28 @@ def _job_health(catalog: Any) -> None:
     logger.info("DataScheduler: health check completed")
 
 
+def _job_weekly_retrain(catalog: Any) -> None:
+    """Weekly retrain: run the full automated ML pipeline."""
+    logger.info("DataScheduler: weekly retrain started")
+    try:
+        from cquant.pipeline.config import PipelineConfig
+        from cquant.pipeline.orchestrator import PipelineOrchestrator
+
+        config = PipelineConfig()
+        orchestrator = PipelineOrchestrator(catalog, config)
+        result = orchestrator.run_full_pipeline()
+
+        logger.info(
+            "DataScheduler: weekly retrain completed — run_id=%s, status=%s, duration=%.1fs",
+            result.get("run_id", "?"),
+            result.get("status", "?"),
+            result.get("duration_seconds", 0),
+        )
+    except Exception as exc:
+        logger.error("DataScheduler: weekly retrain failed: %s", exc)
+        raise
+
+
 # ---------------------------------------------------------------------------
 # DataScheduler
 # ---------------------------------------------------------------------------
@@ -277,9 +300,18 @@ class DataScheduler:
             replace_existing=True,
         )
 
+        # 6. Weekly Retrain — Sunday 20:00 (full ML pipeline)
+        sched.add_job(
+            self._run_weekly_retrain,
+            CronTrigger(day_of_week="sun", hour=20, minute=0, timezone=self._tz),
+            id="weekly_retrain",
+            name="Weekly Retrain",
+            replace_existing=True,
+        )
+
         self._scheduler = sched
         self._running = True
-        logger.info("DataScheduler started with 5 jobs (tz=%s)", self._tz)
+        logger.info("DataScheduler started with 6 jobs (tz=%s)", self._tz)
 
         try:
             sched.start()
@@ -323,6 +355,7 @@ class DataScheduler:
             "alerts": self._run_alerts,
             "health": self._run_health,
             "daily-prediction": self._run_daily_prediction,
+            "weekly-retrain": self._run_weekly_retrain,
         }
         fn = dispatch.get(task_name)
         if fn is None:
@@ -378,6 +411,15 @@ class DataScheduler:
         except Exception as exc:
             logger.error("Daily prediction failed after retries: %s", exc)
             self._record_run("daily_prediction", "failure")
+
+    def _run_weekly_retrain(self) -> None:
+        logger.info("Running weekly retrain ...")
+        try:
+            _with_retry(_job_weekly_retrain, self._catalog)
+            self._record_run("weekly_retrain")
+        except Exception as exc:
+            logger.error("Weekly retrain failed after retries: %s", exc)
+            self._record_run("weekly_retrain", "failure")
 
     def _record_run(self, job_id: str, status: str = "success") -> None:
         """Persist last-run metadata into the catalog (best-effort)."""
