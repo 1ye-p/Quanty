@@ -57,11 +57,13 @@ async def run_pipeline(catalog: CatalogDep, background_tasks: BackgroundTasks) -
     """
     global _is_running
 
-    if _is_running:
-        return {
-            "status": "already_running",
-            "detail": "A pipeline run is already in progress. Check /pipeline/status.",
-        }
+    with _pipeline_lock:
+        if _is_running:
+            return {
+                "status": "already_running",
+                "detail": "A pipeline run is already in progress. Check /pipeline/status.",
+            }
+        _is_running = True
 
     background_tasks.add_task(_run_pipeline_bg, catalog)
     return {"status": "started", "detail": "Pipeline started in background."}

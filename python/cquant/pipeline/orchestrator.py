@@ -67,18 +67,19 @@ class PipelineOrchestrator:
         logger.info("Pipeline %s started — feature_set=%s, models=%s", run_id, cfg.feature_set_version, cfg.model_types)
 
         # Stage 1: Factors
+        # Build stages incrementally so later stages can read earlier results
         stages["factors"] = self._stage_factors(run_id)
+        self._last_run = {"stages": stages}
 
-        # Stage 2: ML training
         stages["ml"] = self._stage_ml(run_id)
+        self._last_run = {"stages": stages}
 
-        # Stage 3: Backtest
         stages["backtest"] = self._stage_backtest(run_id)
+        self._last_run = {"stages": stages}
 
-        # Stage 4: Analysis
         stages["analysis"] = self._stage_analysis(run_id)
+        self._last_run = {"stages": stages}
 
-        # Stage 5: Promotion
         stages["promotion"] = self._stage_promotion(run_id)
 
         # Check for failures

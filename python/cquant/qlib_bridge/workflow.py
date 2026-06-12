@@ -195,6 +195,5 @@ def _fallback_train(
         "n_splits": n_splits,
         "start_time": start_time,
         "end_time": end_time,
-        "validator": wfv,
-        "message": "qlib not available — use cQuant native WalkForwardValidator",
+        "message": "qlib not available — use cQuant native WalkForwardValidator directly",
     }
