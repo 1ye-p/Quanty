@@ -5,6 +5,7 @@ from cquant.ai_advisor.tools.analysis_report import AnalysisReportTool
 from cquant.ai_advisor.tools.backtest_result import BacktestResultTool
 from cquant.ai_advisor.tools.backtest_run import BacktestRunTool
 from cquant.ai_advisor.tools.base import AdvisorTool, ToolContext, ToolResult
+from cquant.ai_advisor.tools.factor_analysis import FactorAnalysisTool
 from cquant.ai_advisor.tools.knowledge_entity import EntityRelationTool
 from cquant.ai_advisor.tools.knowledge_report import ReportSummaryTool
 from cquant.ai_advisor.tools.knowledge_search import KnowledgeSearchTool
@@ -20,6 +21,7 @@ __all__ = [
     "BacktestResultTool",
     "BacktestRunTool",
     "EntityRelationTool",
+    "FactorAnalysisTool",
     "KnowledgeSearchTool",
     "MLPredictionTool",
     "OptimizeResultTool",

@@ -2,6 +2,162 @@ import { useState, useRef, useEffect } from 'react'
 import { useAdvisorStream } from '@/hooks/useAdvisorStream'
 import { advisorApi } from '@/lib/api'
 import { toast } from 'sonner'
+import {
+  ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend,
+  BarChart, Bar,
+  PieChart, Pie, Cell,
+} from 'recharts'
+
+// ── Chart rendering helpers ─────────────────────────────────────────────────
+
+interface ChartPayload {
+  chart_type: string
+  title: string
+  data: Record<string, unknown>[]
+  config?: Record<string, unknown>
+}
+
+const PIE_COLORS = ['#3b82f6', '#f97316', '#ef4444', '#22c55e', '#a855f7', '#06b6d4', '#eab308', '#ec4899']
+
+function MetricCards({ title, data }: { title: string; data: Record<string, unknown>[] }) {
+  return (
+    <div className="mb-3">
+      <div className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">{title}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {data.map((card, i) => (
+          <div key={i} className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+            <div className="text-xs text-gray-500">{String(card.label ?? '')}</div>
+            <div className="text-lg font-semibold text-gray-800">{String(card.value ?? '')}</div>
+            {card.delta !== undefined && (
+              <div className={`text-xs ${Number(card.delta) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {Number(card.delta) >= 0 ? '+' : ''}{String(card.delta)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function LineChartWidget({ title, data, config }: { title: string; data: Record<string, unknown>[]; config?: Record<string, unknown> }) {
+  const xKey = String(config?.x_key ?? 'date')
+  const yKeys = (config?.y_keys as string[]) ?? Object.keys(data[0] ?? {}).filter(k => k !== xKey)
+  if (!data.length || !yKeys.length) return null
+  return (
+    <div className="mb-3">
+      <div className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">{title}</div>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <XAxis dataKey={xKey} tick={{ fontSize: 10 }} />
+          <YAxis tick={{ fontSize: 10 }} />
+          <RechartsTooltip />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          {yKeys.map((key, i) => (
+            <Line key={key} type="monotone" dataKey={key} stroke={PIE_COLORS[i % PIE_COLORS.length]} dot={false} strokeWidth={1.5} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function BarChartWidget({ title, data, config }: { title: string; data: Record<string, unknown>[]; config?: Record<string, unknown> }) {
+  const xKey = String(config?.x_key ?? 'category')
+  const yKey = String(config?.y_key ?? 'value')
+  if (!data.length) return null
+  return (
+    <div className="mb-3">
+      <div className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">{title}</div>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <XAxis dataKey={xKey} tick={{ fontSize: 10 }} />
+          <YAxis tick={{ fontSize: 10 }} />
+          <RechartsTooltip />
+          <Bar dataKey={yKey} fill="#3b82f6" radius={[3, 3, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function PieChartWidget({ title, data, config }: { title: string; data: Record<string, unknown>[]; config?: Record<string, unknown> }) {
+  const nameKey = String(config?.name_key ?? 'name')
+  const valueKey = String(config?.value_key ?? 'value')
+  if (!data.length) return null
+  return (
+    <div className="mb-3">
+      <div className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">{title}</div>
+      <ResponsiveContainer width="100%" height={220}>
+        <PieChart>
+          <Pie data={data} dataKey={valueKey} nameKey={nameKey} cx="50%" cy="50%" outerRadius={80} label>
+            {data.map((_, i) => (
+              <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+            ))}
+          </Pie>
+          <RechartsTooltip />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function ChartRenderer({ payload }: { payload: ChartPayload }) {
+  switch (payload.chart_type) {
+    case 'metric_cards':
+      return <MetricCards title={payload.title} data={payload.data} />
+    case 'line':
+      return <LineChartWidget title={payload.title} data={payload.data} config={payload.config} />
+    case 'bar':
+      return <BarChartWidget title={payload.title} data={payload.data} config={payload.config} />
+    case 'pie':
+      return <PieChartWidget title={payload.title} data={payload.data} config={payload.config} />
+    default:
+      return null
+  }
+}
+
+/** Parse [CHART:type:json] markers from text and render charts inline. */
+function RichContent({ content }: { content: string }) {
+  const parts: { type: 'text' | 'chart'; value: string; payload?: ChartPayload }[] = []
+  const regex = /\[CHART:(\w+):([\s\S]*?)\]/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', value: content.slice(lastIndex, match.index) })
+    }
+    try {
+      const payload = JSON.parse(match[2]) as ChartPayload
+      parts.push({ type: 'chart', value: match[0], payload })
+    } catch {
+      parts.push({ type: 'text', value: match[0] })
+    }
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < content.length) {
+    parts.push({ type: 'text', value: content.slice(lastIndex) })
+  }
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.type === 'chart' && part.payload ? (
+          <ChartRenderer key={i} payload={part.payload} />
+        ) : (
+          <span key={i}>{part.value}</span>
+        )
+      )}
+    </>
+  )
+}
+
+// ── Session sidebar ─────────────────────────────────────────────────────────
 
 interface SessionEntry {
   id: string
@@ -75,7 +231,11 @@ function AgentCard({ role, content, isActive }: { role: string; content?: string
           <span className="animate-spin inline-block">⟳</span> 分析中…
         </div>
       )}
-      {content && <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{content}</p>}
+      {content && (
+        <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+          <RichContent content={content} />
+        </div>
+      )}
       {!content && !isActive && <p className="text-sm text-gray-300">等待中</p>}
     </div>
   )
@@ -274,7 +434,10 @@ export function AdvisorPage() {
                       )}
                     </div>
                     <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                      {stream.report || <span className="text-gray-300">生成中…</span>}
+                      {stream.report
+                        ? <RichContent content={stream.report} />
+                        : <span className="text-gray-300">生成中…</span>
+                      }
                     </div>
                   </div>
                 )}
@@ -314,7 +477,7 @@ export function AdvisorPage() {
                     ? 'bg-brand-600 text-white rounded-br-sm'
                     : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm'
                 }`}>
-                  {m.content}
+                  {m.role === 'assistant' ? <RichContent content={m.content} /> : m.content}
                 </div>
               </div>
             ))}

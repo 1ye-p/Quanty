@@ -167,7 +167,7 @@ class AdvisorOrchestrator:
         return {
             "research": ResearchAgent(
                 self._provider, self._safety, tool_context=self._tool_ctx,
-                tools=tools("knowledge_search", "report_summary", "backtest_result", "analysis_report", "ml_prediction", "optimize_guidance"),
+                tools=tools("knowledge_search", "report_summary", "backtest_result", "analysis_report", "ml_prediction", "optimize_guidance", "similar_documents", "entity_relation"),
                 max_tokens=2048,
             ),
             "risk": RiskAgent(

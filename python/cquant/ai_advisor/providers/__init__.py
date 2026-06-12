@@ -2,6 +2,7 @@
 
 from cquant.ai_advisor.providers.base import FallbackProvider, LLMProvider, Message, ModelResponse
 from cquant.ai_advisor.providers.claude import ClaudeProvider
+from cquant.ai_advisor.providers.ollama import OllamaProvider
 from cquant.ai_advisor.providers.openai_provider import OpenAIProvider
 
 __all__ = [
@@ -10,5 +11,6 @@ __all__ = [
     "LLMProvider",
     "Message",
     "ModelResponse",
+    "OllamaProvider",
     "OpenAIProvider",
 ]
