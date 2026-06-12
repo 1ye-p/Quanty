@@ -124,8 +124,17 @@ class PipelineOrchestrator:
                 start_date=date(2024, 1, 1),
                 end_date=date(2024, 12, 31),
             )
-            result = mat.run(spec)
-            return {"status": "success", "rows": result.get("total_rows", 0)}
+            feature_set_version = mat.run(spec)
+            # Query row count from the materialized table
+            try:
+                count_df = self._catalog.query(
+                    "SELECT COUNT(*) AS n FROM gold_factor_values WHERE feature_set_version = ?",
+                    [feature_set_version],
+                )
+                rows = int(count_df["n"][0]) if not count_df.is_empty() else 0
+            except Exception:
+                rows = 0
+            return {"status": "success", "feature_set_version": feature_set_version, "rows": rows}
         except Exception as exc:
             logger.error("[%s] Factor stage failed: %s", run_id, exc)
             return {"status": "error", "error": str(exc)}
