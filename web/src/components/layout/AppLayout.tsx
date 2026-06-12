@@ -136,6 +136,7 @@ export function AppLayout() {
   if ((scoringJobs ?? 0) > 0) runningBadges['/scoring'] = scoringJobs as number
 
   const [taskDropdownOpen, setTaskDropdownOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Detailed running task queries for topbar
   const { data: mlRunning } = useQuery({
@@ -283,9 +284,62 @@ export function AppLayout() {
         </div>
       </nav>
 
+      {/* Mobile drawer */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div
+            className="fixed inset-0 bg-black/30"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="fixed left-0 top-0 bottom-0 w-64 bg-brand-600 shadow-xl p-4 overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <Link to="/" className="text-white font-bold text-lg" onClick={() => setMobileMenuOpen(false)}>
+                cQuant
+              </Link>
+              <button onClick={() => setMobileMenuOpen(false)} className="text-blue-200 hover:text-white">
+                ✕
+              </button>
+            </div>
+            {NAV_GROUPS.map(group => (
+              <div key={group.label} className="mb-4">
+                <div className="px-2 py-1 text-xs font-semibold text-blue-200 uppercase tracking-wider">
+                  {group.label}
+                </div>
+                <ul className="space-y-0.5">
+                  {group.items.map(({ to, label }) => (
+                    <li key={to}>
+                      <NavLink
+                        to={to}
+                        end={to === '/'}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
+                            isActive
+                              ? 'bg-white/20 text-white font-semibold'
+                              : 'text-blue-100 hover:bg-white/10 hover:text-white'
+                          }`
+                        }
+                      >
+                        {NAV_ICONS[to] ?? label[0]} {label}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Topbar */}
           <header className="h-10 bg-white border-b border-gray-200 flex items-center justify-end px-4 flex-shrink-0 relative z-10">
+            <button
+              className="md:hidden p-2 mr-1 hover:bg-gray-100 rounded-lg"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              ☰
+            </button>
             <button onClick={toggle} className="p-2 rounded-lg hover:bg-gray-100 mr-2" title="切换主题">
               {theme === 'light' ? '\u{1F319}' : '\u{2600}\u{FE0F}'}
             </button>
