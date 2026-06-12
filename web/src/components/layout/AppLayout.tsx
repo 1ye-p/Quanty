@@ -1,5 +1,6 @@
 import { useState, useEffect, Suspense } from 'react'
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, alertsApi, jobsApi } from '@/lib/api'
 import { elapsedStr } from '@/lib/utils'
@@ -73,6 +74,9 @@ if (import.meta.env.DEV) {
 
 export function AppLayout() {
   const queryClient = useQueryClient()
+  const location = useLocation()
+  const isRelevantPage = ['/ml', '/backtests', '/scoring', '/tasks'].includes(location.pathname)
+  const pollInterval = isRelevantPage ? 10_000 : 60_000
 
   const stopTaskMutation = useMutation({
     mutationFn: (jobId: string) => jobsApi.cancel(jobId),
@@ -99,7 +103,7 @@ export function AppLayout() {
   const { data: mlJobs } = useQuery({
     queryKey: ['layout', 'ml-running'],
     queryFn: () => mlApi.experiments(100),
-    refetchInterval: 10_000,
+    refetchInterval: pollInterval,
     select: (d) => d.items?.filter(
       (e: { status: string }) => e.status === 'running' || e.status === 'pending'
     ).length ?? 0,
@@ -108,7 +112,7 @@ export function AppLayout() {
   const { data: btJobs } = useQuery({
     queryKey: ['layout', 'bt-running'],
     queryFn: () => backtestsApi.list(0, 50),
-    refetchInterval: 10_000,
+    refetchInterval: pollInterval,
     select: (d) => d.items?.filter(
       (r: { status: string }) => r.status === 'running' || r.status === 'pending'
     ).length ?? 0,
@@ -117,7 +121,7 @@ export function AppLayout() {
   const { data: scoringJobs } = useQuery({
     queryKey: ['layout', 'scoring-running'],
     queryFn: () => scoringApi.listSnapshots(20),
-    refetchInterval: 10_000,
+    refetchInterval: pollInterval,
     select: (d) => d.items?.filter(
       (s: { status: string }) => s.status === 'running' || s.status === 'pending'
     ).length ?? 0,
@@ -134,7 +138,7 @@ export function AppLayout() {
   const { data: mlRunning } = useQuery({
     queryKey: ['layout', 'ml-running-details'],
     queryFn: () => mlApi.experiments(50),
-    refetchInterval: 10_000,
+    refetchInterval: pollInterval,
     select: (d) => (d.items ?? [])
       .filter((e: { status: string }) => e.status === 'running' || e.status === 'pending')
       .map((e: { run_id: string; status: string; started_at?: number | string; trainer_name?: string }) => ({
@@ -150,7 +154,7 @@ export function AppLayout() {
   const { data: btRunning } = useQuery({
     queryKey: ['layout', 'bt-running-details'],
     queryFn: () => backtestsApi.list(0, 50),
-    refetchInterval: 10_000,
+    refetchInterval: pollInterval,
     select: (d) => (d.items ?? [])
       .filter((r: { status: string }) => r.status === 'running' || r.status === 'pending')
       .map((r: { run_id: string; status: string; started_at?: string; strategy_id?: string }) => ({
