@@ -24,6 +24,7 @@ const NAV_ICONS: Record<string, string> = {
   '/':           '🏠',
   '/alerts':    '🔔',
   '/tasks':     '📋',
+  '/pipeline':  '🔄',
 }
 
 const NAV_GROUPS = [
@@ -58,9 +59,10 @@ const NAV_GROUPS = [
   {
     label: '系统',
     items: [
-      { to: '/',       label: '总览' },
-      { to: '/tasks',  label: '任务管理' },
-      { to: '/alerts', label: '告警中心' },
+      { to: '/',         label: '总览' },
+      { to: '/tasks',    label: '任务管理' },
+      { to: '/alerts',   label: '告警中心' },
+      { to: '/pipeline', label: '自动化管道' },
     ],
   },
 ]

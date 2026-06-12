@@ -26,6 +26,7 @@ const RiskPage      = named(() => import('@/pages/RiskPage'), 'RiskPage')
 const ScoringPage   = named(() => import('@/pages/ScoringPage'), 'ScoringPage')
 const AlertsPage    = named(() => import('@/pages/AlertsPage'), 'AlertsPage')
 const TasksPage     = named(() => import('@/pages/TasksPage'), 'TasksPage')
+const PipelinePage  = named(() => import('@/pages/PipelinePage'), 'PipelinePage')
 
 export const router = createBrowserRouter([
   {
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
       { path: 'advisor',    element: <AdvisorPage /> },
       { path: 'alerts',     element: <AlertsPage /> },
       { path: 'tasks',      element: <TasksPage /> },
+      { path: 'pipeline',   element: <PipelinePage /> },
     ],
   },
   {

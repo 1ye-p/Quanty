@@ -989,6 +989,13 @@ export const jobsApi = {
     request<{ job_id: string; status: string }>(`/jobs/${jobId}`, { method: 'DELETE' }),
 }
 
+// ── Pipeline ──────────────────────────────────────────────────────────────────
+
+export const pipelineApi = {
+  status: () => request<Record<string, unknown>>('/pipeline/status'),
+  run: () => request<{ status: string }>('/pipeline/run', { method: 'POST' }),
+}
+
 // ── Custom Factors ────────────────────────────────────────────────────────────
 
 export interface CustomFactor {
