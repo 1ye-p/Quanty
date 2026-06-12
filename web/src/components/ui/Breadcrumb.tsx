@@ -28,14 +28,24 @@ export function Breadcrumb() {
   return (
     <nav className="flex items-center gap-1 text-xs text-gray-400 mb-4">
       <Link to="/" className="hover:text-gray-600 transition-colors">首页</Link>
-      {crumbs.map((crumb, i) => (
-        <span key={i} className="flex items-center gap-1">
-          <span>/</span>
-          <span className={i === crumbs.length - 1 ? 'text-gray-700 font-medium' : 'hover:text-gray-600'}>
-            {ROUTE_LABELS[crumb] || crumb}
+      {crumbs.map((crumb, i) => {
+        const isLast = i === crumbs.length - 1
+        const to = '/' + crumbs.slice(0, i + 1).join('/')
+        return (
+          <span key={i} className="flex items-center gap-1">
+            <span>/</span>
+            {isLast ? (
+              <span className="text-gray-700 font-medium">
+                {ROUTE_LABELS[crumb] || crumb}
+              </span>
+            ) : (
+              <Link to={to} className="hover:text-gray-600 transition-colors">
+                {ROUTE_LABELS[crumb] || crumb}
+              </Link>
+            )}
           </span>
-        </span>
-      ))}
+        )
+      })}
     </nav>
   )
 }
