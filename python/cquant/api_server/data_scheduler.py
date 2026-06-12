@@ -59,8 +59,16 @@ def run_incremental_ingest(catalog) -> None:
             return
 
         logger.info("DataScheduler: ingesting %s ~ %s", start_date, end_date)
+        from cquant.core.enums import Market, Frequency
         orchestrator = MarketIngestionOrchestrator(catalog, [AKShareConnector()])
-        orchestrator.ingest(IngestionSpec(start_date=start_date, end_date=end_date))
+        spec = IngestionSpec(
+            market=Market.CN,
+            symbols=[],
+            start_date=start_date,
+            end_date=end_date,
+            frequency=Frequency.D1,
+        )
+        orchestrator.ingest(spec)
         _SCHEDULER_STATE["last_status"] = "success"
         _SCHEDULER_STATE["last_error"] = None
         logger.info("DataScheduler: ingest completed")
