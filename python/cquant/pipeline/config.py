@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 
 
 @dataclass
@@ -15,6 +16,10 @@ class PipelineConfig:
     # --- Factor stage ---
     feature_set_version: str = "tdx_bulk_v1"
     factor_names: list[str] = field(default_factory=list)
+
+    # --- Date range (shared by factor + backtest stages) ---
+    start_date: date = field(default_factory=lambda: date(2024, 1, 1))
+    end_date: date = field(default_factory=lambda: date(2024, 12, 31))
 
     # --- ML stage ---
     model_types: list[str] = field(default_factory=lambda: ["lgbm"])

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { pipelineApi, type PipelineStatusResponse } from '@/lib/api'
 
 const STAGE_META: Record<string, { name: string; icon: string }> = {
@@ -43,6 +44,7 @@ export function PipelinePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipeline'] })
     },
+    onError: (e: Error) => toast.error(`Pipeline 启动失败: ${e.message}`),
   })
 
   const overallStatus = status?.status ?? 'idle'

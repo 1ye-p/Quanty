@@ -106,6 +106,35 @@ class PipelineOrchestrator:
         return self._last_run
 
     # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _load_prices(self, asset_ids: list[str]) -> "pl.DataFrame":
+        """Load price data from catalog for the configured date range."""
+        if not asset_ids:
+            return pl.DataFrame()
+        placeholders = ",".join(["?"] * len(asset_ids))
+        return self._catalog.query(
+            f"SELECT asset_id, trade_date, close FROM silver_prices_1d "
+            f"WHERE asset_id IN ({placeholders}) "
+            f"AND trade_date >= ? AND trade_date <= ? "
+            f"ORDER BY trade_date",
+            [*asset_ids, str(self._config.start_date), str(self._config.end_date)],
+        )
+
+    def _load_backtest_metrics(self, bt_run_id: str) -> dict[str, Any] | None:
+        """Load metrics from a backtest run's artifact file."""
+        import json
+        import pathlib
+        artifacts_base = pathlib.Path("data/backtest_artifacts").resolve()
+        metrics_path = artifacts_base / f"{bt_run_id}.json"
+        if not metrics_path.exists():
+            return None
+        with open(metrics_path) as f:
+            data = json.load(f)
+        return data.get("metrics", {})
+
+    # ------------------------------------------------------------------
     # Stages
     # ------------------------------------------------------------------
 
@@ -121,8 +150,8 @@ class PipelineOrchestrator:
             spec = FactorMaterializationSpec(
                 dataset_version=self._config.feature_set_version,
                 factor_names=self._config.factor_names or ["ret_5d"],
-                start_date=date(2024, 1, 1),
-                end_date=date(2024, 12, 31),
+                start_date=self._config.start_date,
+                end_date=self._config.end_date,
             )
             feature_set_version = mat.run(spec)
             # Query row count from the materialized table
@@ -191,7 +220,7 @@ class PipelineOrchestrator:
                 return {"status": "error", "error": "No model_ids from ML stage"}
 
             # Use the first model_id for the strategy
-            model_id = model_ids[0] if model_ids else "default"
+            model_id = model_ids[0]
 
             strategy = MLModelStrategy(
                 strategy_id=f"pipeline_{model_id}",
@@ -200,11 +229,17 @@ class PipelineOrchestrator:
             )
 
             engine = VectorBacktestEngine()
+
+            # Load prices from catalog for the backtest period
+            prices = self._load_prices(model_ids)
+            if prices.is_empty():
+                return {"status": "skipped", "reason": "No price data available for backtest"}
+
             spec = BacktestSpec(
                 strategy=strategy,
-                prices=pl.DataFrame(),  # TODO: load from catalog
-                start_date=date(2024, 1, 1),
-                end_date=date(2024, 12, 31),
+                prices=prices,
+                start_date=self._config.start_date,
+                end_date=self._config.end_date,
                 initial_cash=self._config.initial_cash,
             )
             result = engine.run(spec)
@@ -217,20 +252,20 @@ class PipelineOrchestrator:
         """Stage 4: Compute performance metrics."""
         logger.info("[%s] Stage 4/5: analysis", run_id)
         try:
-            from cquant.bt_analyzer.engine import AnalysisEngine
-
             bt_run_id = self._last_run.get("stages", {}).get("backtest", {}).get("run_id", "")
             if not bt_run_id:
-                return {"status": "error", "error": "No backtest run_id available"}
+                return {"status": "skipped", "reason": "No backtest run_id available"}
 
-            # AnalysisEngine expects a BacktestResult, not a run_id
-            # This is a placeholder - in production, we need to retrieve the backtest result
-            # For now, return placeholder metrics
+            # Load metrics from the backtest artifacts
+            metrics = self._load_backtest_metrics(bt_run_id)
+            if metrics is None:
+                return {"status": "skipped", "reason": f"Backtest result not found for {bt_run_id}"}
+
             return {
                 "status": "success",
-                "sharpe": 0.0,
-                "annual_return": 0.0,
-                "max_drawdown": 0.0,
+                "sharpe": metrics.get("sharpe_ratio", 0),
+                "annual_return": metrics.get("annualized_return", 0),
+                "max_drawdown": metrics.get("max_drawdown", 0),
             }
         except Exception as exc:
             logger.error("[%s] Analysis stage failed: %s", run_id, exc)
