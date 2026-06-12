@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, alertsApi, jobsApi } from '@/lib/api'
 import { elapsedStr } from '@/lib/utils'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
+import { useTheme } from '@/hooks/useTheme'
 
 const NAV_ICONS: Record<string, string> = {
   '/factors':    '🔬',
@@ -76,6 +77,7 @@ if (import.meta.env.DEV) {
 export function AppLayout() {
   const queryClient = useQueryClient()
   const location = useLocation()
+  const { theme, toggle } = useTheme()
   const isRelevantPage = ['/ml', '/backtests', '/scoring', '/tasks'].includes(location.pathname)
   const pollInterval = isRelevantPage ? 10_000 : 60_000
 
@@ -284,6 +286,9 @@ export function AppLayout() {
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Topbar */}
           <header className="h-10 bg-white border-b border-gray-200 flex items-center justify-end px-4 flex-shrink-0 relative z-10">
+            <button onClick={toggle} className="p-2 rounded-lg hover:bg-gray-100 mr-2" title="切换主题">
+              {theme === 'light' ? '\u{1F319}' : '\u{2600}\u{FE0F}'}
+            </button>
             {runningCount > 0 ? (
               <div className="relative">
                 <button
