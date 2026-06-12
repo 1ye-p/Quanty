@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, alertsApi, jobsApi } from '@/lib/api'
 import { elapsedStr } from '@/lib/utils'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 const NAV_ICONS: Record<string, string> = {
   '/factors':    '🔬',
@@ -367,6 +368,7 @@ export function AppLayout() {
 
           {/* Main content */}
           <main className="flex-1 overflow-y-auto p-8 bg-gray-50">
+            <Breadcrumb />
             <Suspense fallback={
               <div className="flex items-center justify-center h-64">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
