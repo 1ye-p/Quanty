@@ -36,6 +36,8 @@ class OllamaProvider(LLMProvider):
     ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
+        self._available_cache: bool | None = None
+        self._available_since: float = 0.0
 
     # ------------------------------------------------------------------
     # Public API
@@ -76,23 +78,41 @@ class OllamaProvider(LLMProvider):
             return {"error": str(exc)}
 
     async def is_available(self) -> bool:
-        """Check whether the Ollama server is reachable and the model is loaded."""
+        """Check whether the Ollama server is reachable and the model is loaded.
+
+        Results are cached for 60 seconds to avoid repeated HTTP requests.
+        """
+        import time
+
+        now = time.monotonic()
+        if self._available_cache is not None and (now - self._available_since) < 60:
+            return self._available_cache
+
         try:
             import httpx
         except ImportError:
+            self._available_cache = False
+            self._available_since = now
             return False
 
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(f"{self.base_url}/api/tags")
                 if resp.status_code != 200:
+                    self._available_cache = False
+                    self._available_since = now
                     return False
                 models = resp.json().get("models", [])
-                return any(
+                result = any(
                     m.get("name", "").startswith(self.model.split(":")[0])
                     for m in models
                 )
+                self._available_cache = result
+                self._available_since = now
+                return result
         except Exception:
+            self._available_cache = False
+            self._available_since = now
             return False
 
     # ------------------------------------------------------------------

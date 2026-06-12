@@ -124,7 +124,7 @@ function ChartRenderer({ payload }: { payload: ChartPayload }) {
 /** Parse [CHART:type:json] markers from text and render charts inline. */
 function RichContent({ content }: { content: string }) {
   const parts: { type: 'text' | 'chart'; value: string; payload?: ChartPayload }[] = []
-  const regex = /\[CHART:(\w+):([\s\S]*?)\]/g
+  const regex = /\[CHART:(\w+):([\s\S]+)\]/g
   let lastIndex = 0
   let match: RegExpExecArray | null
 

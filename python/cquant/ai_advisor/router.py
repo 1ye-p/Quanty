@@ -14,6 +14,10 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cquant.ai_advisor.providers.base import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +94,7 @@ class IntentRouter:
     def __init__(
         self,
         rules: list[RoutingRule] | None = None,
-        llm_provider: object | None = None,
+        llm_provider: LLMProvider | None = None,
     ) -> None:
         self._rules: list[RoutingRule] = rules if rules is not None else ROUTING_TABLE
         self._llm = llm_provider

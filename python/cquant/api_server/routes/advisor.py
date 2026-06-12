@@ -98,14 +98,17 @@ def _recent_history(session: AdvisorSession, n: int = 20) -> list[AgentTurn]:
 
 
 def _build_provider() -> FallbackProvider:
-    return FallbackProvider([ClaudeProvider(), OpenAIProvider()])
+    from cquant.ai_advisor.providers.ollama import OllamaProvider
+    return FallbackProvider([ClaudeProvider(), OpenAIProvider(), OllamaProvider()])
 
 
 def _build_tools() -> list:
+    from cquant.ai_advisor.tools.factor_analysis import FactorAnalysisTool
     return [
         KnowledgeSearchTool(), ReportSummaryTool(), BacktestResultTool(),
         AnalysisReportTool(), RiskSnapshotTool(), BacktestRunTool(),
         MLPredictionTool(), OptimizeResultTool(), AlertStatusTool(),
+        FactorAnalysisTool(),
     ]
 
 
