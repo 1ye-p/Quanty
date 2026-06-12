@@ -146,10 +146,16 @@ class PipelineOrchestrator:
             from cquant.ml_lab.pipeline import run_ml_prediction_pipeline
             from cquant.ml_lab.datasets import MLDataset
 
+            # Use feature_set_version from factors stage result
+            factors_result = self._last_run.get("stages", {}).get("factors", {})
+            feature_set_version = factors_result.get("feature_set_version")
+            if not feature_set_version:
+                return {"status": "error", "error": "No feature_set_version from factors stage"}
+
             # Load features from catalog using MLDataset
             dataset = MLDataset.from_catalog(
                 catalog=self._catalog,
-                feature_set_version=self._config.feature_set_version,
+                feature_set_version=feature_set_version,
                 feature_names=self._config.factor_names or ["ret_5d"],  # default feature
             )
 
