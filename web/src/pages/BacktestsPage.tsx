@@ -6,6 +6,7 @@ import { DataTable } from '@/components/ui/DataTable'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { PnLChart, type PnLDataPoint } from '@/components/charts/PnLChart'
 import {
   BarChart, Bar, LineChart, Line, Legend,
@@ -143,6 +144,7 @@ export function BacktestsPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(initialRunId)
   const [tab, setTab] = useState<Tab>('overview')
+  const [confirmAction, setConfirmAction] = useState<{ type: 'cancel' | 'delete'; runId: string } | null>(null)
   const [page, setPage] = useState(0)
   const pageSize = 20
   const [fillsPage, setFillsPage] = useState(0)
@@ -499,13 +501,13 @@ export function BacktestsPage() {
                   <td className="table-td" onClick={e => e.stopPropagation()}>
                     {(r.status === 'running' || r.status === 'pending') && (
                       <button
-                        onClick={() => { if (confirm('确定停止此回测？')) cancelMutation.mutate(r.run_id) }}
+                        onClick={() => setConfirmAction({ type: 'cancel', runId: r.run_id })}
                         className="text-red-500 hover:text-red-700 mr-2 text-xs"
                         title="停止"
                       >&#9209;</button>
                     )}
                     <button
-                      onClick={() => { if (confirm('确定删除此回测记录？')) deleteMutation.mutate(r.run_id) }}
+                      onClick={() => setConfirmAction({ type: 'delete', runId: r.run_id })}
                       className="text-gray-400 hover:text-gray-600 text-xs"
                       title="删除"
                     >&#128465;</button>
@@ -2000,6 +2002,22 @@ export function BacktestsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmAction !== null}
+        title={confirmAction?.type === 'cancel' ? '确认停止回测' : '确认删除回测'}
+        message={confirmAction?.type === 'cancel' ? '确定停止此回测？' : '确定删除此回测记录？此操作不可撤销。'}
+        confirmLabel={confirmAction?.type === 'cancel' ? '停止' : '删除'}
+        variant="danger"
+        onConfirm={() => {
+          if (confirmAction) {
+            if (confirmAction.type === 'cancel') cancelMutation.mutate(confirmAction.runId)
+            else deleteMutation.mutate(confirmAction.runId)
+          }
+          setConfirmAction(null)
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   )
 }

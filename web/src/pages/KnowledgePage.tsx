@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { knowledgeApi, type SearchHit } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
+import { DataState } from '@/components/ui/DataState'
 
 export function KnowledgePage() {
   const [searchText, setSearchText] = useState('')
@@ -110,32 +111,30 @@ export function KnowledgePage() {
       )}
 
       <h2 className="text-lg font-semibold text-gray-800 mb-3">所有文档（{docs?.total ?? 0}）</h2>
-      {isLoading && <p className="text-gray-400">Loading…</p>}
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              {['标题', '来源', '类型', '语言', '入库时间'].map(h => (
-                <th key={h} className="table-th">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {!docs?.items.length && (
-              <tr><td colSpan={5} className="table-td text-center text-gray-400 py-8">暂无文档，请先导入</td></tr>
-            )}
-            {docs?.items.map(d => (
-              <tr key={d.doc_id} className="table-row">
-                <td className="table-td font-medium">{d.title || <em className="text-gray-400">无标题</em>}</td>
-                <td className="table-td text-gray-500">{d.source_name || '—'}</td>
-                <td className="table-td">{d.logical_type}</td>
-                <td className="table-td">{d.language}</td>
-                <td className="table-td text-gray-400 text-xs">{d.ingested_at?.slice(0, 16) ?? '—'}</td>
+      <DataState isLoading={isLoading} isEmpty={!isLoading && !docs?.items.length} emptyText="暂无文档，请先导入">
+        <div className="card p-0 overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                {['标题', '来源', '类型', '语言', '入库时间'].map(h => (
+                  <th key={h} className="table-th">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {docs?.items.map(d => (
+                <tr key={d.doc_id} className="table-row">
+                  <td className="table-td font-medium">{d.title || <em className="text-gray-400">无标题</em>}</td>
+                  <td className="table-td text-gray-500">{d.source_name || '—'}</td>
+                  <td className="table-td">{d.logical_type}</td>
+                  <td className="table-td">{d.language}</td>
+                  <td className="table-td text-gray-400 text-xs">{d.ingested_at?.slice(0, 16) ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </DataState>
     </div>
   )
 }

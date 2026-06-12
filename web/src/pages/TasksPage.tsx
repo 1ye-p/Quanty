@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, jobsApi } from '@/lib/api'
 import { elapsedStr } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 interface TaskItem {
   type: string
@@ -15,6 +16,7 @@ interface TaskItem {
 export function TasksPage() {
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState<'all' | 'running' | 'completed' | 'failed'>('all')
+  const [confirmAction, setConfirmAction] = useState<{ type: 'cancel' | 'delete'; taskId: string } | null>(null)
 
   const { data: mlExperiments } = useQuery({
     queryKey: ['tasks', 'ml'],
@@ -179,7 +181,7 @@ export function TasksPage() {
                   <td className="table-td">
                     {(task.status === 'running' || task.status === 'pending') && (
                       <button
-                        onClick={() => { if (window.confirm('确定取消该任务？')) cancelMutation.mutate(task.fullId) }}
+                        onClick={() => setConfirmAction({ type: 'cancel', taskId: task.fullId })}
                         disabled={cancelMutation.isPending}
                         className="text-xs text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
                       >
@@ -188,7 +190,7 @@ export function TasksPage() {
                     )}
                     {(task.status === 'completed' || task.status === 'done' || task.status === 'failed' || task.status === 'error') && (
                       <button
-                        onClick={() => { if (window.confirm('确定删除该任务记录？')) deleteMutation.mutate(task.fullId) }}
+                        onClick={() => setConfirmAction({ type: 'delete', taskId: task.fullId })}
                         disabled={deleteMutation.isPending}
                         className="text-xs text-gray-500 hover:text-gray-700 hover:underline disabled:opacity-50"
                       >
@@ -202,6 +204,22 @@ export function TasksPage() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmAction !== null}
+        title={confirmAction?.type === 'cancel' ? '确认取消任务' : '确认删除任务'}
+        message={confirmAction?.type === 'cancel' ? '确定取消该任务？' : '确定删除该任务记录？此操作不可撤销。'}
+        confirmLabel={confirmAction?.type === 'cancel' ? '取消任务' : '删除'}
+        variant="danger"
+        onConfirm={() => {
+          if (confirmAction) {
+            if (confirmAction.type === 'cancel') cancelMutation.mutate(confirmAction.taskId)
+            else deleteMutation.mutate(confirmAction.taskId)
+          }
+          setConfirmAction(null)
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   )
 }
