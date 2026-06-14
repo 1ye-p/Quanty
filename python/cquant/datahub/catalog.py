@@ -225,6 +225,113 @@ class Catalog:
             "suspended_count": int(row["suspended_count"] or 0),
         }
 
+    # ------------------------------------------------------------------
+    # Factor descriptions
+    # ------------------------------------------------------------------
+
+    _CREATE_FACTOR_DESCRIPTIONS = """\
+CREATE TABLE IF NOT EXISTS meta_factor_descriptions (
+    factor_name         VARCHAR PRIMARY KEY,
+    description         TEXT,
+    category            VARCHAR,
+    formula             TEXT,
+    data_source         VARCHAR,
+    lookback_days       INTEGER,
+    notes               TEXT,
+    created_at          TIMESTAMPTZ NOT NULL,
+    updated_at          TIMESTAMPTZ NOT NULL
+);"""
+
+    def write_meta_factor_descriptions(self, df: pl.DataFrame) -> int:
+        """Upsert factor descriptions into ``meta_factor_descriptions``.
+
+        Creates the table on first call.  Expects *df* to contain at least a
+        ``factor_name`` column.  Missing optional columns are filled with
+        ``None`` / current timestamp.
+
+        Returns the number of rows written.
+        """
+        if df.is_empty():
+            return 0
+
+        self.execute(self._CREATE_FACTOR_DESCRIPTIONS)
+
+        now = datetime.now(tz=timezone.utc).isoformat()
+        df = df.with_columns(
+            pl.col("created_at").fill_null(pl.lit(now)) if "created_at" in df.columns else pl.lit(now).alias("created_at"),
+            pl.col("updated_at").fill_null(pl.lit(now)) if "updated_at" in df.columns else pl.lit(now).alias("updated_at"),
+        )
+
+        columns = df.columns
+        rows = [tuple(row) for row in df.iter_rows()]
+        conflict_cols = ["factor_name"]
+        self.upsert("meta_factor_descriptions", columns, rows, conflict_cols)
+        return len(rows)
+
+    def read_meta_factor_descriptions(
+        self, factor_names: list[str] | None = None
+    ) -> pl.DataFrame:
+        """Read factor descriptions.
+
+        If *factor_names* is provided, returns only matching rows.  Otherwise
+        returns all rows.
+        """
+        if factor_names:
+            placeholders = ", ".join(["?"] * len(factor_names))
+            return self.query(
+                f"SELECT * FROM meta_factor_descriptions WHERE factor_name IN ({placeholders})",
+                factor_names,
+            )
+        return self.query("SELECT * FROM meta_factor_descriptions")
+
+    # ------------------------------------------------------------------
+    # Model registry
+    # ------------------------------------------------------------------
+
+    _CREATE_MODEL_REGISTRY = """\
+CREATE TABLE IF NOT EXISTS meta_model_registry (
+    model_name          VARCHAR PRIMARY KEY,
+    model_type          VARCHAR NOT NULL,
+    framework           VARCHAR,
+    version             VARCHAR,
+    params_json         JSON,
+    metrics_json        JSON,
+    artifact_path       VARCHAR,
+    status              VARCHAR DEFAULT 'registered',
+    description         TEXT,
+    created_at          TIMESTAMPTZ NOT NULL,
+    updated_at          TIMESTAMPTZ NOT NULL
+);"""
+
+    def write_meta_model_registry(self, df: pl.DataFrame) -> int:
+        """Upsert model entries into ``meta_model_registry``.
+
+        Creates the table on first call.  Expects *df* to contain at least
+        ``model_name`` and ``model_type`` columns.
+
+        Returns the number of rows written.
+        """
+        if df.is_empty():
+            return 0
+
+        self.execute(self._CREATE_MODEL_REGISTRY)
+
+        now = datetime.now(tz=timezone.utc).isoformat()
+        df = df.with_columns(
+            pl.col("created_at").fill_null(pl.lit(now)) if "created_at" in df.columns else pl.lit(now).alias("created_at"),
+            pl.col("updated_at").fill_null(pl.lit(now)) if "updated_at" in df.columns else pl.lit(now).alias("updated_at"),
+        )
+
+        columns = df.columns
+        rows = [tuple(row) for row in df.iter_rows()]
+        conflict_cols = ["model_name"]
+        self.upsert("meta_model_registry", columns, rows, conflict_cols)
+        return len(rows)
+
+    def read_meta_model_registry(self) -> pl.DataFrame:
+        """Read all entries from the model registry."""
+        return self.query("SELECT * FROM meta_model_registry")
+
     def close(self) -> None:
         self._backend.close()
 

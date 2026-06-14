@@ -38,3 +38,29 @@ CREATE TABLE IF NOT EXISTS meta_ml_jobs (
     submitted_at        TIMESTAMPTZ NOT NULL,
     completed_at        TIMESTAMPTZ
 );
+
+CREATE TABLE IF NOT EXISTS meta_factor_descriptions (
+    factor_name         VARCHAR PRIMARY KEY,
+    description         TEXT,
+    category            VARCHAR,
+    formula             TEXT,
+    data_source         VARCHAR,
+    lookback_days       INTEGER,
+    notes               TEXT,
+    created_at          TIMESTAMPTZ NOT NULL,
+    updated_at          TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS meta_model_registry (
+    model_name          VARCHAR PRIMARY KEY,
+    model_type          VARCHAR NOT NULL,
+    framework           VARCHAR,
+    version             VARCHAR,
+    params_json         JSON,
+    metrics_json        JSON,
+    artifact_path       VARCHAR,
+    status              VARCHAR DEFAULT 'registered',
+    description         TEXT,
+    created_at          TIMESTAMPTZ NOT NULL,
+    updated_at          TIMESTAMPTZ NOT NULL
+);
