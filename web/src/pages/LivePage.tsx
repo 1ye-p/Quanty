@@ -82,7 +82,8 @@ export function LivePage() {
 
     // Compute total NAV from positions
     const totalValue = positions.items.reduce((sum, p) => {
-      const price = quotes[p.asset_id.split(':')[1]]?.price ?? p.avg_cost
+      const ticker = p.asset_id.includes(':') ? p.asset_id.split(':')[1] : p.asset_id
+      const price = quotes[ticker]?.price ?? p.avg_cost
       return sum + (p.qty * price)
     }, 0) + (account?.cash ?? 0)
 
@@ -91,7 +92,8 @@ export function LivePage() {
     // Sort positions by value descending
     const sortedPositions = [...positions.items]
       .map(p => {
-        const price = quotes[p.asset_id.split(':')[1]]?.price ?? p.avg_cost
+        const ticker = p.asset_id.includes(':') ? p.asset_id.split(':')[1] : p.asset_id
+      const price = quotes[ticker]?.price ?? p.avg_cost
         return {
           ...p,
           value: p.qty * price,

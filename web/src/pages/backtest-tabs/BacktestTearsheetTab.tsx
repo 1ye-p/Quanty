@@ -52,8 +52,8 @@ export function BacktestTearsheetTab() {
     const yearMap = new Map<number, (number | null | undefined)[]>()
 
     for (const [yearMonth, { startNav, endNav }] of monthlyNavs) {
-      const year = parseInt(yearMonth.slice(0, 4))
-      const month = parseInt(yearMonth.slice(5, 7)) - 1 // 0-indexed
+      const year = parseInt(yearMonth.slice(0, 4), 10)
+      const month = parseInt(yearMonth.slice(5, 7), 10) - 1 // 0-indexed
 
       if (!yearMap.has(year)) {
         yearMap.set(year, new Array(12).fill(null))
@@ -90,15 +90,15 @@ export function BacktestTearsheetTab() {
     const bestReturn = Math.max(...allReturns)
     const worstReturn = Math.min(...allReturns)
 
-    // Find best/worst month labels
+    // Find best/worst month labels (break on first match to avoid duplicates)
     let bestMonth = ''
     let worstMonth = ''
     for (const row of monthlyReturns) {
       for (let i = 0; i < row.months.length; i++) {
-        if (row.months[i] === bestReturn) {
+        if (row.months[i] === bestReturn && !bestMonth) {
           bestMonth = `${row.year}-${String(i + 1).padStart(2, '0')}`
         }
-        if (row.months[i] === worstReturn) {
+        if (row.months[i] === worstReturn && !worstMonth) {
           worstMonth = `${row.year}-${String(i + 1).padStart(2, '0')}`
         }
       }
