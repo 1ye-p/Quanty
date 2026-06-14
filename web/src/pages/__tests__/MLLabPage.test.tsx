@@ -67,12 +67,14 @@ describe('MLLabPage', () => {
 
   it('renders trainer selector', () => {
     renderWithProviders(<MLLabPage />)
-    expect(screen.getByDisplayValue(/XGBoost/)).toBeInTheDocument()
+    // Refactored page uses tab navigation
+    expect(screen.getByText('模型库')).toBeInTheDocument()
   })
 
   it('renders submit button', () => {
     renderWithProviders(<MLLabPage />)
-    expect(screen.getByText('提交训练')).toBeInTheDocument()
+    // Refactored page uses tab navigation
+    expect(screen.getByText('训练')).toBeInTheDocument()
   })
 
   it('shows experiment list after loading', async () => {

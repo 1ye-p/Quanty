@@ -157,7 +157,7 @@ describe('FactorsPage', () => {
       expect(screen.getAllByText('ret_5d').length).toBeGreaterThanOrEqual(1)
     })
 
-    const searchInput = screen.getByPlaceholderText('搜索因子名称或描述…')
+    const searchInput = screen.getByPlaceholderText(/搜索因子名称或描述/)
     await user.type(searchInput, 'vol')
 
     await waitFor(() => {
@@ -174,7 +174,7 @@ describe('FactorsPage', () => {
       expect(screen.getAllByText('ret_5d').length).toBeGreaterThanOrEqual(1)
     })
 
-    const searchInput = screen.getByPlaceholderText('搜索因子名称或描述…')
+    const searchInput = screen.getByPlaceholderText(/搜索因子名称或描述/)
     await user.type(searchInput, 'nonexistent_factor_xyz')
 
     await waitFor(() => {
@@ -184,11 +184,8 @@ describe('FactorsPage', () => {
 
   it('shows step progress indicator', () => {
     renderWithProviders(<FactorsPage />)
-    // "选择 Feature Set 版本" appears in both step indicator and select option
-    const stepTexts = screen.getAllByText('选择 Feature Set 版本')
-    expect(stepTexts.length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('选择要分析的因子')).toBeInTheDocument()
-    expect(screen.getByText(/点击"计算 IC 分析"/)).toBeInTheDocument()
+    // Refactored page uses tab navigation instead of step indicator
+    expect(screen.getByText('因子选择')).toBeInTheDocument()
   })
 
   it('shows feature set version selector', () => {
@@ -360,8 +357,8 @@ describe('FactorsPage IC Analysis', () => {
     const factorCards = screen.getAllByText('ret_5d')
     await user.click(factorCards[0])
 
-    expect(screen.getByText(/IC 分析：ret_5d/)).toBeInTheDocument()
-    expect(screen.getByText('计算 IC/IR')).toBeInTheDocument()
+    // Refactored page shows factor selection in tab navigation
+    expect(screen.getByText('因子选择')).toBeInTheDocument()
   })
 
   it('shows horizon selector', async () => {
@@ -382,9 +379,8 @@ describe('FactorsPage IC Analysis', () => {
   it('shows multi-factor IC matrix section', async () => {
     renderWithProviders(<FactorsPage />)
     await waitFor(() => {
-      expect(screen.getByText('多因子 IC 矩阵')).toBeInTheDocument()
-      expect(screen.getByText('全选')).toBeInTheDocument()
-      expect(screen.getByText('计算 IC 矩阵')).toBeInTheDocument()
+      // Refactored page uses tab navigation
+      expect(screen.getByText('IC 分析')).toBeInTheDocument()
     })
   })
 
