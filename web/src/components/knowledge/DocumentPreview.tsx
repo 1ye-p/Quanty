@@ -114,9 +114,17 @@ export function DocumentPreview({ docId, fileName }: DocumentPreviewProps) {
   )
 }
 
-/** Minimal markdown to HTML converter for preview */
+/** Minimal markdown to HTML converter for preview. HTML-escapes input first to prevent XSS. */
 function simpleMarkdownToHtml(md: string): string {
-  return md
+  // Escape HTML entities BEFORE applying markdown transformations
+  const escaped = md
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+  return escaped
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')

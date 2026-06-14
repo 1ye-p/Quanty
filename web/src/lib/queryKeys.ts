@@ -32,7 +32,7 @@ export const queryKeys = {
   },
   knowledge: {
     all: ['knowledge'] as const,
-    list: (type?: string) => ['knowledge', 'list', type] as const,
+    list: (params?: { tag?: string; logical_type?: string }) => ['knowledge', 'list', params] as const,
     detail: (id: string) => ['knowledge', id] as const,
     content: (id: string) => ['knowledge', id, 'content'] as const,
     tags: () => ['knowledge', 'tags'] as const,

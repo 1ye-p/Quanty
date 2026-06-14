@@ -98,6 +98,7 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
         <input
           ref={inputRef}
           type="file"
+          accept=".pdf,.doc,.docx,.md,.py,.ipynb,.txt,.csv,.json,.xlsx"
           className="hidden"
           onChange={handleFileChange}
         />
@@ -169,13 +170,11 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
         </div>
       </div>
 
-      {/* Progress */}
+      {/* Upload indicator */}
       {uploadMutation.isPending && (
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-brand-600 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${Math.max(progress, 30)}%` }}
-          />
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
+          <div className="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+          上传中...
         </div>
       )}
 

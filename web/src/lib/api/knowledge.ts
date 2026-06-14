@@ -54,9 +54,11 @@ export const knowledgeApi = {
     form.append('file', file)
     if (metadata.tags?.length) form.append('tags', JSON.stringify(metadata.tags))
     if (metadata.description) form.append('description', metadata.description)
+    // Clear Content-Type so browser sets multipart/form-data with boundary
     return request<KnowledgeDoc>('/knowledge/upload', {
       method: 'POST',
       body: form as unknown as BodyInit,
+      headers: {},
       ...config,
     })
   },

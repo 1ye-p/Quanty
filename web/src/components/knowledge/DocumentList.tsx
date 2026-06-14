@@ -20,7 +20,7 @@ function getFileIcon(logicalType: string, sourceName: string): string {
 
 export function DocumentList({ tag, selectedId, onSelect }: DocumentListProps) {
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.knowledge.list(tag ?? undefined),
+    queryKey: queryKeys.knowledge.list(tag ? { tag } : undefined),
     queryFn: () => knowledgeApi.list({ tag: tag ?? undefined }),
   })
 
