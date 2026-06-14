@@ -76,7 +76,11 @@ class MarketIngestionOrchestrator:
         connector = self._select_connector(spec)
         batches = self._fetch_batches(connector, spec)
         if not batches:
-            raise IngestError(f"No data returned for {spec.symbols} ({spec.market.value})")
+            symbols = self._resolve_symbols(spec)
+            raise IngestError(
+                f"No data returned for {symbols} ({spec.market.value}). "
+                f"Ensure silver_assets is populated (run bootstrap) or provide explicit symbols."
+            )
 
         frame = self._normalize_batches(batches)
         self._validate_schema(frame)
@@ -101,11 +105,36 @@ class MarketIngestionOrchestrator:
             )
         return connector
 
+    def _resolve_symbols(self, spec: IngestionSpec) -> list[str]:
+        """Resolve an empty symbols list to all known assets from the catalog."""
+        if spec.symbols:
+            return spec.symbols
+
+        try:
+            df = self._catalog.query(
+                "SELECT asset_id FROM silver_assets WHERE status = 'active' ORDER BY asset_id"
+            )
+        except Exception as exc:
+            logger.warning("Failed to resolve symbols from silver_assets: %s", exc)
+            return []
+
+        if df.is_empty():
+            logger.warning("No active assets found in silver_assets; cannot ingest")
+            return []
+
+        symbols = df["asset_id"].to_list()
+        logger.info("Resolved %d symbols from silver_assets for ingestion", len(symbols))
+        return symbols
+
     def _fetch_batches(
         self, connector: DataConnector, spec: IngestionSpec
     ) -> list[RawBatch]:
+        symbols = self._resolve_symbols(spec)
+        if not symbols:
+            return []
+
         data_spec = DataSpec(
-            symbols=spec.symbols,
+            symbols=symbols,
             start_date=spec.start_date,
             end_date=spec.end_date,
             frequency=spec.frequency,
