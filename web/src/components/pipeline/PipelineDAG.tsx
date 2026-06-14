@@ -4,7 +4,7 @@
  * Color-codes nodes by type and supports click-to-configure and edit mode
  * for adding connections.
  */
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import {
   ReactFlow,
   Background,
@@ -102,26 +102,19 @@ export function PipelineDAG({
   const [edges, setEdges, onEdgesChangeInternal] = useEdgesState(initialEdges)
 
   // Sync when initial props change (e.g. status updates)
-  useMemo(() => {
+  useEffect(() => {
     setNodes(initialNodes)
   }, [initialNodes, setNodes])
 
-  useMemo(() => {
+  useEffect(() => {
     setEdges(initialEdges)
   }, [initialEdges, setEdges])
 
   const handleEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
       onEdgesChangeInternal(changes)
-      // notify parent after tick so state has updated
-      setTimeout(() => {
-        setEdges((eds) => {
-          onEdgesChangeProp?.(eds)
-          return eds
-        })
-      }, 0)
     },
-    [onEdgesChangeInternal, onEdgesChangeProp, setEdges],
+    [onEdgesChangeInternal],
   )
 
   const handleConnect: OnConnect = useCallback(

@@ -83,7 +83,7 @@ export { liveApi } from './live'
 export type { LiveDeployment, LiveStrategy, LiveExecution } from './live'
 
 export { alertsApi } from './alerts'
-export type { AlertRule, AlertHistory, NotificationChannel } from './alerts'
+export type { AlertRule, AlertHistory, NotificationChannel, SilenceRule } from './alerts'
 
 export { tradingApi } from './trading'
 export type {

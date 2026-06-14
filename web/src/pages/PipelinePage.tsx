@@ -5,7 +5,7 @@
  * 数据准备 → 因子计算 → 模型训练 → 回测验证 → 组合优化
  */
 import { useState, useMemo, useCallback } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { pipelineApi } from '@/lib/api'
 import type { Node, Edge } from '@xyflow/react'
@@ -88,24 +88,34 @@ export function PipelinePage() {
   const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, unknown>>>({})
   const [editable, setEditable] = useState(false)
 
+  // Poll pipeline status to drive DAG node colors
+  const { data: pipelineStatus } = useQuery({
+    queryKey: ['pipeline', 'status'],
+    queryFn: () => pipelineApi.status(),
+    refetchInterval: 10_000,
+  })
+
   // Build nodes with merged configs and live status
-  const nodes: Node<PipelineNodeData>[] = useMemo(
-    () =>
-      DEFAULT_NODES.map((n) => ({
+  const nodes: Node<PipelineNodeData>[] = useMemo(() => {
+    const stageStatus = (pipelineStatus as Record<string, unknown>)?.stages as Record<string, { status?: string }> | undefined
+    return DEFAULT_NODES.map((n) => {
+      const liveStatus = stageStatus?.[n.id]?.status
+      return {
         ...n,
         data: {
           ...n.data,
+          status: (liveStatus as PipelineNodeData['status']) ?? n.data.status,
           config: { ...n.data.config, ...nodeConfigs[n.id] },
         },
-      })),
-    [nodeConfigs],
-  )
+      }
+    })
+  }, [nodeConfigs, pipelineStatus])
 
   const edges = DEFAULT_EDGES
 
-  // Run pipeline mutation
+  // Run pipeline mutation (includes node configs)
   const runMutation = useMutation({
-    mutationFn: () => pipelineApi.run(),
+    mutationFn: () => pipelineApi.run({ node_configs: nodeConfigs }),
     onSuccess: () => {
       toast.success('管道已启动')
       queryClient.invalidateQueries({ queryKey: ['pipeline'] })
@@ -157,6 +167,7 @@ export function PipelinePage() {
               onClick={() => runMutation.mutate()}
               disabled={runMutation.isPending}
               className="btn-primary text-sm"
+              title="管道在后台异步运行，可重复触发"
             >
               {runMutation.isPending ? '提交中...' : '运行管道'}
             </button>

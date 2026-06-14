@@ -34,6 +34,13 @@ export interface NotificationChannel {
   created_at: string
 }
 
+export interface SilenceRule {
+  rule_id: string
+  name: string
+  duration_minutes: number
+  created_at: string
+}
+
 // ── API ────────────────────────────────────────────────────────────────────
 
 export const alertsApi = {
@@ -74,6 +81,25 @@ export const alertsApi = {
     config?: RequestConfig,
   ) => api.post<{ channel_id: string; status: string }>('/alerts/channels', body, config),
 
+  updateChannel: (id: string, body: Record<string, unknown>, config?: RequestConfig) =>
+    api.put<{ channel_id: string; status: string }>(`/alerts/channels/${id}`, body, config),
+
+  testChannel: (id: string, config?: RequestConfig) =>
+    api.post<{ status: string; message: string }>(`/alerts/channels/${id}/test`, undefined, config),
+
   deleteChannel: (id: string, config?: RequestConfig) =>
     api.delete<{ channel_id: string; status: string }>(`/alerts/channels/${id}`, config),
+
+  // ── Silence Rules ──────────────────────────────────────────────────────────
+
+  silenceRules: (config?: RequestConfig) =>
+    api.get<{ items: SilenceRule[] }>('/alerts/silence-rules', config),
+
+  createSilenceRule: (
+    body: { name: string; duration_minutes: number },
+    config?: RequestConfig,
+  ) => api.post<{ rule_id: string; status: string }>('/alerts/silence-rules', body, config),
+
+  deleteSilenceRule: (id: string, config?: RequestConfig) =>
+    api.delete<{ rule_id: string; status: string }>(`/alerts/silence-rules/${id}`, config),
 }
