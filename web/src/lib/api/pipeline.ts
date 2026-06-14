@@ -28,6 +28,6 @@ export const pipelineApi = {
   status: (config?: RequestConfig) =>
     api.get<PipelineStatusResponse>('/pipeline/status', config),
 
-  run: (config?: RequestConfig) =>
-    api.post<{ status: string; detail?: string }>('/pipeline/run', undefined, config),
+  run: (body?: { node_configs?: Record<string, Record<string, unknown>> }, config?: RequestConfig) =>
+    api.post<{ status: string; detail?: string }>('/pipeline/run', body, config),
 }

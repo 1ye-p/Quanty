@@ -82,7 +82,7 @@ export function FactorsPage() {
         factorICResults: icResults,
       })
     }
-  }, [jobResult?.status, currentWorkflow])
+  }, [jobResult?.status, currentWorkflow, selectedFactors, icSummary, updateContext])
 
   // Filtered factors
   const filteredFactorDefs = useMemo(() => {

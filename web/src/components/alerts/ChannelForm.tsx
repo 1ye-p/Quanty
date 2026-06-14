@@ -103,6 +103,14 @@ export function ChannelForm({ channel, onClose }: ChannelFormProps) {
 
   function handleSubmit() {
     const config = buildConfig()
+    // Validate required fields for the selected channel type
+    const fields = CHANNEL_FORMS[chType] ?? []
+    const requiredKeys = fields.filter(f => !f.label.includes('可选')).map(f => f.key)
+    const missing = requiredKeys.filter(k => !config[k])
+    if (missing.length > 0) {
+      toast.error(`请填写必填字段: ${missing.join(', ')}`)
+      return
+    }
     if (isEdit && channel) {
       updateMutation.mutate({
         id: channel.channel_id,

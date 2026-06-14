@@ -89,9 +89,10 @@ export function OptimizePage() {
     mutationFn: optimizeApi.optimize,
     onSuccess: (data) => {
       setOptResult(data)
-      // Workflow integration: update context on optimize completion
-      if (currentWorkflow === 'optimize') {
-        updateContext({ optimizeResults: data })
+      // Workflow integration: use getState() to avoid stale closure
+      const { currentWorkflow: wf, updateContext: uc } = useWorkflowStore.getState()
+      if (wf === 'optimize') {
+        uc({ optimizeResults: data })
       }
     },
   })
