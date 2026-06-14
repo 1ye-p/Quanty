@@ -1,17 +1,32 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { tradingApi, liveApi, type RealtimeQuote, type LiveExecution } from '@/lib/api'
+import { tradingApi, liveApi, type RealtimeQuote } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { OrderForm } from '@/components/trading/OrderForm'
 import { PositionTable } from '@/components/trading/PositionTable'
 import { OrderBook } from '@/components/trading/OrderBook'
 import { PositionConcentration, type ConcentrationSnapshot } from '@/components/charts/PositionConcentration'
+import { DeploymentCard } from '@/components/live/DeploymentCard'
+import { FundCurve } from '@/components/live/FundCurve'
+import { PositionPnL } from '@/components/live/PositionPnL'
+import { ExecutionLog } from '@/components/live/ExecutionLog'
+import { RiskMonitor } from '@/components/live/RiskMonitor'
 import { toast } from 'sonner'
+
+type LiveTab = 'overview' | 'positions' | 'executions' | 'risk'
+
+const TAB_LABELS: Record<LiveTab, string> = {
+  overview: '总览',
+  positions: '持仓',
+  executions: '执行日志',
+  risk: '风险监控',
+}
 
 export function LivePage() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('')
   const [selectedLiveId, setSelectedLiveId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<LiveTab>('overview')
   const [broker] = useState('paper')
 
   const qc = useQueryClient()
@@ -23,8 +38,6 @@ export function LivePage() {
       toast.success('策略已停止')
     },
     onError: (e: Error) => {
-      // Refresh list on any error — 409 means already stopped on server,
-      // so the local status may be stale
       qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
       toast.error(`停止失败: ${e.message}`)
     },
@@ -50,19 +63,12 @@ export function LivePage() {
     queryFn: () => tradingApi.positions(broker),
   })
 
-  // Deployed strategies
+  // Deployed strategies (30s refresh)
   const { data: deployed } = useQuery({
     queryKey: ['live', 'deployed'],
     queryFn: liveApi.deployed,
+    refetchInterval: 30_000,
     staleTime: 30_000,
-  })
-
-  // Execution history for selected live strategy
-  const { data: executions } = useQuery({
-    queryKey: ['live', 'executions', selectedLiveId],
-    queryFn: () => liveApi.getExecutions(selectedLiveId!, 20),
-    enabled: !!selectedLiveId,
-    staleTime: 10_000,
   })
 
   // Real-time quotes for held positions
@@ -76,11 +82,13 @@ export function LivePage() {
   // Selected symbol quote
   const selectedQuote = selectedSymbol ? quotes[selectedSymbol] : null
 
+  // Selected deployment
+  const selectedDeployment = deployed?.items?.find(d => d.live_id === selectedLiveId) ?? null
+
   // Compute position concentration from current positions
   const concentrationData = useMemo((): ConcentrationSnapshot[] => {
     if (!positions?.items || positions.items.length === 0) return []
 
-    // Compute total NAV from positions
     const totalValue = positions.items.reduce((sum, p) => {
       const ticker = p.asset_id.includes(':') ? p.asset_id.split(':')[1] : p.asset_id
       const price = quotes[ticker]?.price ?? p.avg_cost
@@ -89,11 +97,10 @@ export function LivePage() {
 
     if (totalValue <= 0) return []
 
-    // Sort positions by value descending
     const sortedPositions = [...positions.items]
       .map(p => {
         const ticker = p.asset_id.includes(':') ? p.asset_id.split(':')[1] : p.asset_id
-      const price = quotes[ticker]?.price ?? p.avg_cost
+        const price = quotes[ticker]?.price ?? p.avg_cost
         return {
           ...p,
           value: p.qty * price,
@@ -102,14 +109,10 @@ export function LivePage() {
       })
       .sort((a, b) => b.weight - a.weight)
 
-    // Compute top-N weights
     const top5Weight = sortedPositions.slice(0, 5).reduce((sum, p) => sum + p.weight, 0)
     const top10Weight = sortedPositions.slice(0, 10).reduce((sum, p) => sum + p.weight, 0)
     const top20Weight = sortedPositions.slice(0, 20).reduce((sum, p) => sum + p.weight, 0)
-
-    // Compute HHI (Herfindahl-Hirschman Index)
     const hhi = sortedPositions.reduce((sum, p) => sum + Math.pow(p.weight * 100, 2), 0)
-
     const today = new Date().toISOString().slice(0, 10)
 
     return [{
@@ -135,146 +138,100 @@ export function LivePage() {
         </div>
       </div>
 
-      {/* 已部署的模拟策略 */}
+      {/* Deployed Strategies Grid */}
       {deployed?.items && deployed.items.length > 0 && (
-        <div className="card">
+        <div>
           <h2 className="font-semibold text-gray-800 mb-3">
             模拟策略（{deployed.items.filter(d => d.status === 'active').length} 个激活中）
           </h2>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {deployed.items.map(d => (
-              <div key={d.live_id}
-                className={`p-3 rounded-lg border flex items-center justify-between ${
-                  d.status === 'active' ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
-                }`}>
-                <div>
-                  <span className="font-medium text-gray-800">{d.strategy_id}</span>
-                  <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                    d.status === 'active' ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-600'
-                  }`}>{d.status === 'active' ? '● 运行中' : '■ 已停止'}</span>
-                  <div className="text-xs text-gray-500 mt-0.5 space-x-3">
-                    <span>初始资金：¥{d.initial_cash?.toLocaleString()}</span>
-                    <span>风控：{d.risk_mode}</span>
-                    <span>部署：{d.deployed_at?.slice(0, 10)}</span>
-                    {d.metrics?.sharpe != null && <span>Sharpe：{Number(d.metrics.sharpe).toFixed(3)}</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-                  <button
-                    onClick={() => setSelectedLiveId(selectedLiveId === d.live_id ? null : d.live_id)}
-                    className="btn-secondary text-xs"
-                  >
-                    {selectedLiveId === d.live_id ? '隐藏记录' : '执行记录'}
-                  </button>
-                  {d.status === 'active' && (
-                    <button
-                      disabled={stopMutation.isPending}
-                      onClick={() => {
-                        if (!confirm(`确认停止模拟策略 ${d.strategy_id}？`)) return
-                        stopMutation.mutate(d.live_id)
-                      }}
-                      className="btn-secondary text-xs disabled:opacity-50"
-                    >
-                      {stopMutation.isPending ? '停止中…' : '停止'}
-                    </button>
-                  )}
-                </div>
-              </div>
+              <DeploymentCard
+                key={d.live_id}
+                deployment={d}
+                selected={selectedLiveId === d.live_id}
+                onSelect={() => {
+                  setSelectedLiveId(selectedLiveId === d.live_id ? null : d.live_id)
+                  setActiveTab('overview')
+                }}
+                onStop={() => stopMutation.mutate(d.live_id)}
+                stopPending={stopMutation.isPending}
+              />
             ))}
           </div>
         </div>
       )}
 
-      {/* Execution History */}
-      {selectedLiveId && executions && (
+      {/* Tab Navigation for Selected Deployment */}
+      {selectedLiveId && (
         <div className="card">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-800">
-              执行记录
-              <span className="text-xs text-gray-500 ml-2">共 {executions.total} 条</span>
-            </h2>
-            <span className="text-xs text-gray-400 font-mono">{selectedLiveId}</span>
+          <div className="flex items-center gap-1 border-b border-gray-200 mb-4">
+            {(Object.keys(TAB_LABELS) as LiveTab[]).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  activeTab === tab
+                    ? 'border-brand-500 text-brand-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {TAB_LABELS[tab]}
+              </button>
+            ))}
           </div>
 
-          {/* Execution summary cards */}
-          {executions.items.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <div className="text-center p-2 bg-gray-50 rounded-lg">
-                <div className="text-lg font-bold text-brand-600">{executions.items.length}</div>
-                <div className="text-xs text-gray-500">总订单</div>
-              </div>
-              <div className="text-center p-2 bg-green-50 rounded-lg">
-                <div className="text-lg font-bold text-green-600">
-                  {executions.items.filter(e => e.status === 'filled').length}
+          {/* Tab Content */}
+          {activeTab === 'overview' && (
+            <div className="space-y-4">
+              {selectedDeployment && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-lg font-bold text-brand-600">
+                      ¥{selectedDeployment.initial_cash?.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-500">初始资金</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-lg font-bold">
+                      {selectedDeployment.risk_mode}
+                    </div>
+                    <div className="text-xs text-gray-500">风控模式</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-lg font-bold">
+                      {selectedDeployment.metrics?.sharpe != null
+                        ? Number(selectedDeployment.metrics.sharpe).toFixed(3)
+                        : '--'}
+                    </div>
+                    <div className="text-xs text-gray-500">Sharpe</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className={`text-lg font-bold ${
+                      (selectedDeployment.metrics?.cagr ?? 0) >= 0 ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {selectedDeployment.metrics?.cagr != null
+                        ? `${(Number(selectedDeployment.metrics.cagr) * 100).toFixed(2)}%`
+                        : '--'}
+                    </div>
+                    <div className="text-xs text-gray-500">收益率</div>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500">已成交</div>
-              </div>
-              <div className="text-center p-2 bg-red-50 rounded-lg">
-                <div className="text-lg font-bold text-red-600">
-                  {executions.items.filter(e => e.status === 'rejected').length}
-                </div>
-                <div className="text-xs text-gray-500">已拒绝</div>
-              </div>
-              <div className="text-center p-2 bg-gray-50 rounded-lg">
-                <div className="text-lg font-bold text-gray-600">
-                  {executions.items.reduce((sum, e) => sum + e.total_cost, 0).toFixed(2)}
-                </div>
-                <div className="text-xs text-gray-500">总费用</div>
-              </div>
+              )}
+              <FundCurve deploymentId={selectedLiveId} />
             </div>
           )}
 
-          {/* Execution log table */}
-          {executions.items.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="table-th">时间</th>
-                    <th className="table-th">资产</th>
-                    <th className="table-th">方向</th>
-                    <th className="table-th text-right">数量</th>
-                    <th className="table-th text-right">成交价</th>
-                    <th className="table-th text-right">费用</th>
-                    <th className="table-th">状态</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {executions.items.map((ex: LiveExecution) => (
-                    <tr key={ex.execution_id} className="table-row">
-                      <td className="table-td text-gray-400">{ex.executed_at?.slice(0, 16) ?? '—'}</td>
-                      <td className="table-td font-mono">{ex.asset_id}</td>
-                      <td className="table-td">
-                        <span className={`badge ${ex.side === 'buy' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                          {ex.side === 'buy' ? '买入' : '卖出'}
-                        </span>
-                      </td>
-                      <td className="table-td text-right">{ex.filled_qty.toLocaleString()}</td>
-                      <td className="table-td text-right">{ex.filled_price.toFixed(2)}</td>
-                      <td className="table-td text-right text-gray-500">{ex.total_cost.toFixed(2)}</td>
-                      <td className="table-td">
-                        <span className={`badge ${
-                          ex.status === 'filled' ? 'bg-green-100 text-green-800' :
-                          ex.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-600'
-                        }`}>
-                          {ex.status === 'filled' ? '已成交' : ex.status === 'rejected' ? '已拒绝' : ex.status}
-                        </span>
-                        {ex.reject_reason && (
-                          <span className="ml-1 text-red-500" title={ex.reject_reason}>(?)</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center text-gray-400 py-8">
-              <div className="text-3xl mb-2">📋</div>
-              <div>暂无执行记录</div>
-              <p className="text-xs mt-1">策略执行后会在此显示订单记录</p>
-            </div>
+          {activeTab === 'positions' && (
+            <PositionPnL deploymentId={selectedLiveId} />
+          )}
+
+          {activeTab === 'executions' && (
+            <ExecutionLog deploymentId={selectedLiveId} />
+          )}
+
+          {activeTab === 'risk' && (
+            <RiskMonitor deploymentId={selectedLiveId} />
           )}
         </div>
       )}
@@ -296,13 +253,13 @@ export function LivePage() {
           </div>
           <div className="card text-center">
             <div className={`text-xl font-bold ${(pnlData?.total_pnl ?? 0) >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {pnlData ? `${pnlData.total_pnl >= 0 ? '+' : ''}${pnlData.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+              {pnlData ? `${pnlData.total_pnl >= 0 ? '+' : ''}${pnlData.total_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '--'}
             </div>
             <div className="text-xs text-gray-500 mt-1">总盈亏</div>
           </div>
           <div className="card text-center">
             <div className={`text-xl font-bold ${(pnlData?.return_pct ?? 0) >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {pnlData ? `${pnlData.return_pct >= 0 ? '+' : ''}${pnlData.return_pct.toFixed(2)}%` : '—'}
+              {pnlData ? `${pnlData.return_pct >= 0 ? '+' : ''}${pnlData.return_pct.toFixed(2)}%` : '--'}
             </div>
             <div className="text-xs text-gray-500 mt-1">收益率</div>
           </div>
