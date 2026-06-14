@@ -69,4 +69,62 @@ export const datasetsApi = {
       '/datasets/freshness',
       config,
     ),
+
+  // ── New endpoints for enhanced DatasetsPage ─────────────────────────────
+
+  getPreview: (
+    id: string,
+    params?: { offset?: number; limit?: number },
+    config?: RequestConfig,
+  ) => {
+    const offset = params?.offset ?? 0
+    const limit = params?.limit ?? 50
+    return api.get<{
+      columns: string[]
+      rows: Record<string, unknown>[]
+      total: number
+      offset: number
+      limit: number
+    }>(`/datasets/${id}/preview?offset=${offset}&limit=${limit}`, config)
+  },
+
+  getFieldStats: (id: string, config?: RequestConfig) =>
+    api.get<{
+      fields: {
+        name: string
+        type: string
+        count: number
+        null_count: number
+        null_rate: number
+        unique_count: number
+        min: number | string | null
+        max: number | string | null
+        mean: number | null
+        std: number | null
+      }[]
+    }>(`/datasets/${id}/field-stats`, config),
+
+  getQualityReport: (id: string, config?: RequestConfig) =>
+    api.get<{
+      score: number
+      total_rows: number
+      total_fields: number
+      issues: {
+        field: string
+        type: string
+        count: number
+        percentage: number
+      }[]
+      suggestions: string[]
+    }>(`/datasets/${id}/quality-report`, config),
+
+  getAnomalies: (id: string, config?: RequestConfig) =>
+    api.get<{
+      anomalies: {
+        type: 'outlier' | 'missing' | 'duplicate' | 'invalid'
+        field: string
+        count: number
+        examples: string[]
+      }[]
+    }>(`/datasets/${id}/anomalies`, config),
 }
