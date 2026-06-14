@@ -2,7 +2,6 @@
  * Advanced constraints configuration for portfolio optimization.
  * Includes per-asset bounds, sector limits, factor exposure limits, and tracking error.
  */
-import type { } from 'react'
 
 interface SectorEntry {
   label: string

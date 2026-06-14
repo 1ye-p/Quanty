@@ -67,7 +67,7 @@ export function ExperimentsTab({
             className="text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
             <option value="all">All Status</option>
-            <option value="done">Completed</option>
+            <option value="completed">Completed</option>
             <option value="running">Running</option>
             <option value="error">Failed</option>
             <option value="pending">Pending</option>

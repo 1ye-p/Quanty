@@ -28,6 +28,9 @@ export function RiskBudgetTab({ resultWeights, covariance }: RiskBudgetTabProps)
     const totalWeight = Object.values(resultWeights).reduce((a, b) => a + b, 0)
     if (totalWeight === 0) return null
 
+    // Simplified risk contribution: weight * volatility (diagonal only)
+    // Full marginal risk = w_i * (Σw)_i / sqrt(w'Σw), but we approximate
+    // with per-asset volatility for the UI display
     const contributions = assets.map(asset => {
       const w = resultWeights[asset] ?? 0
       const variance = covariance[asset]?.[asset] ?? 0

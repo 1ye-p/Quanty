@@ -29,7 +29,7 @@ export function ICAnalysisTab({ selectedFactor, featureSetVersion }: ICAnalysisT
 
   const { data: jobResult } = useQuery({
     queryKey: extendedQueryKeys.factorAnalytics.icJob(activeJobId ?? ''),
-    queryFn: () => factorAnalyticsApi.icJob(activeJobId!),
+    queryFn: () => factorAnalyticsApi.icJob(activeJobId as string),
     enabled: !!activeJobId,
     refetchInterval: (query) => {
       const d = query.state.data
@@ -72,7 +72,7 @@ export function ICAnalysisTab({ selectedFactor, featureSetVersion }: ICAnalysisT
       )}
 
       {jobResult?.status === 'error' && (
-        <p className="text-red-500 text-sm">Failed: {(jobResult as unknown as { error_text?: string }).error_text}</p>
+        <p className="text-red-500 text-sm">Failed: {(jobResult as Record<string, unknown>)?.error_text as string ?? 'Unknown error'}</p>
       )}
 
       {icSummary && (

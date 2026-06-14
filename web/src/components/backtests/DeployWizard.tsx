@@ -79,7 +79,7 @@ export function DeployWizard({ selectedId, detail, onClose }: DeployWizardProps)
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Initial Capital</label>
                 <input type="number" value={cash} onChange={e => setCash(e.target.value)}
-                  className="input w-full" min={10000} step={10000} />
+                  className="input w-full" min={10000} max={1_000_000_000} step={10000} />
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Risk Mode</label>
