@@ -53,6 +53,30 @@ class _A158Ext(Factor):
             return f"{name[4:]} 日距最高价天数"
         if name.startswith("IMIN"):
             return f"{name[4:]} 日距最低价天数"
+        if name.startswith("CORR"):
+            return f"{name[4:]} 日 close-volume Pearson 相关系数"
+        if name.startswith("CORD"):
+            return f"{name[4:]} 日 CORR 变化率"
+        if name.startswith("CNTP"):
+            return f"{name[4:]} 日上涨天数比例"
+        if name.startswith("CNTN"):
+            return f"{name[4:]} 日下跌天数比例"
+        if name.startswith("CNTD"):
+            return f"{name[4:]} 日上涨-下跌天数差比例"
+        if name.startswith("SUMP"):
+            return f"{name[4:]} 日正向变动占比（类 RSI）"
+        if name.startswith("SUMN"):
+            return f"{name[4:]} 日负向变动占比"
+        if name.startswith("SUMD"):
+            return f"{name[4:]} 日正-负向变动差"
+        if name.startswith("WVMA"):
+            return f"{name[4:]} 日加权成交量波动率"
+        if name.startswith("VSUMP"):
+            return f"{name[5:]} 日上涨成交量占比"
+        if name.startswith("VSUMN"):
+            return f"{name[5:]} 日下跌成交量占比"
+        if name.startswith("VSUMD"):
+            return f"{name[5:]} 日上涨-下跌成交量差占比"
         return (self.__class__.__doc__ or "").strip().split("\n")[0]
 
     @property
@@ -66,6 +90,14 @@ class _Vol(Factor):
     @property
     def description(self) -> str:
         name = self.__class__.__name__
+        if "VSUMP" in name:
+            return f"{self._n} 日上涨成交量占比"
+        if "VSUMN" in name:
+            return f"{self._n} 日下跌成交量占比"
+        if "VSUMD" in name:
+            return f"{self._n} 日上涨-下跌成交量差占比"
+        if "WVMA" in name:
+            return f"{self._n} 日加权成交量波动率"
         if "VMA" in name:
             return f"{self._n} 日成交量均线比值"
         if "VSTD" in name:
@@ -994,17 +1026,658 @@ class IMXD60(_ImaxMin):
         super().__init__(60)
 
 
+# ── CORR / CORD：close-volume 相关性 ─────────────────────────────────────────
+#
+#  CORR = Pearson correlation of close and volume over rolling window
+#  CORD = corr(t) / corr(t-1) - 1  (rate of change of CORR)
+
+
+class _Corr(_A158Ext):
+    """Close-volume 滚动相关性因子基类（CORR / CORD）。
+
+    子类通过 _mode 指定类型：
+        "corr"  → rolling Pearson correlation
+        "cord"  → rate of change of corr
+    """
+
+    _mode: str = "corr"
+
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    @property
+    def name(self) -> str:
+        prefix = "CORR" if self._mode == "corr" else "CORD"
+        return f"{prefix}{self._n}"
+
+    @property
+    def lookback_days(self) -> int:
+        return self._n * 2
+
+    def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
+        n = self._n
+        out = (
+            frame.sort(["asset_id", "trade_date"])
+            .with_columns(
+                pl.rolling_corr("close", "volume", window_size=n, min_samples=n)
+                .over("asset_id")
+                .alias("_corr_tmp")
+            )
+        )
+        if self._mode == "corr":
+            return out["_corr_tmp"].alias(self.name)
+        else:  # cord
+            out = out.with_columns(
+                (pl.col("_corr_tmp") / pl.col("_corr_tmp").shift(1).over("asset_id") - 1)
+                .alias(self.name)
+            )
+            return out[self.name]
+
+
+class CORR5(_Corr):
+    _mode = "corr"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class CORR10(_Corr):
+    _mode = "corr"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class CORR20(_Corr):
+    _mode = "corr"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class CORR30(_Corr):
+    _mode = "corr"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class CORR60(_Corr):
+    _mode = "corr"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class CORD5(_Corr):
+    _mode = "cord"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class CORD10(_Corr):
+    _mode = "cord"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class CORD20(_Corr):
+    _mode = "cord"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class CORD30(_Corr):
+    _mode = "cord"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class CORD60(_Corr):
+    _mode = "cord"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+# ── CNTP / CNTN / CNTD：涨跌天数统计 ────────────────────────────────────────
+#
+#  CNTP = proportion of up days (close > prev_close) in window
+#  CNTN = proportion of down days (close < prev_close) in window
+#  CNTD = CNTP - CNTN
+
+
+class _Cnt(_A158Ext):
+    """涨跌天数比例因子基类（CNTP / CNTN / CNTD）。
+
+    子类通过 _mode 指定类型：
+        "cntp"  → 上涨天数占比
+        "cntn"  → 下跌天数占比
+        "cntd"  → 上涨 - 下跌天数占比
+    """
+
+    _mode: str = "cntp"
+
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    @property
+    def name(self) -> str:
+        prefix = {"cntp": "CNTP", "cntn": "CNTN", "cntd": "CNTD"}[self._mode]
+        return f"{prefix}{self._n}"
+
+    @property
+    def lookback_days(self) -> int:
+        return self._n * 2
+
+    def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
+        n = self._n
+        mode = self._mode
+        return (
+            frame.sort(["asset_id", "trade_date"])
+            .with_columns(
+                (pl.col("close") - pl.col("close").shift(1).over("asset_id"))
+                .alias("_chg_tmp")
+            )
+            .with_columns([
+                (pl.col("_chg_tmp") > 0).cast(pl.Float64).alias("_up_tmp"),
+                (pl.col("_chg_tmp") < 0).cast(pl.Float64).alias("_dn_tmp"),
+            ])
+            .with_columns([
+                pl.col("_up_tmp").rolling_mean(window_size=n).over("asset_id").alias("_cntp"),
+                pl.col("_dn_tmp").rolling_mean(window_size=n).over("asset_id").alias("_cntn"),
+            ])
+            .with_columns(
+                pl.when(pl.lit(mode == "cntp"))
+                .then(pl.col("_cntp"))
+                .when(pl.lit(mode == "cntn"))
+                .then(pl.col("_cntn"))
+                .otherwise(pl.col("_cntp") - pl.col("_cntn"))
+                .alias(self.name)
+            )
+        )[self.name]
+
+
+class CNTP5(_Cnt):
+    _mode = "cntp"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class CNTP10(_Cnt):
+    _mode = "cntp"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class CNTP20(_Cnt):
+    _mode = "cntp"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class CNTP30(_Cnt):
+    _mode = "cntp"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class CNTP60(_Cnt):
+    _mode = "cntp"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class CNTN5(_Cnt):
+    _mode = "cntn"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class CNTN10(_Cnt):
+    _mode = "cntn"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class CNTN20(_Cnt):
+    _mode = "cntn"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class CNTN30(_Cnt):
+    _mode = "cntn"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class CNTN60(_Cnt):
+    _mode = "cntn"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class CNTD5(_Cnt):
+    _mode = "cntd"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class CNTD10(_Cnt):
+    _mode = "cntd"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class CNTD20(_Cnt):
+    _mode = "cntd"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class CNTD30(_Cnt):
+    _mode = "cntd"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class CNTD60(_Cnt):
+    _mode = "cntd"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+# ── SUMP / SUMN / SUMD：RSI-like 正负变动占比 ──────────────────────────────
+#
+#  SUMP = sum(positive changes) / sum(abs(changes))   (like RSI)
+#  SUMN = sum(negative changes) / sum(abs(changes))
+#  SUMD = SUMP - SUMN
+
+
+class _Sum(_A158Ext):
+    """RSI-like 正负变动占比因子基类（SUMP / SUMN / SUMD）。
+
+    子类通过 _mode 指定类型：
+        "sump"  → 正向变动 / 总绝对变动
+        "sumn"  → 负向变动 / 总绝对变动
+        "sumd"  → sump - sumn
+    """
+
+    _mode: str = "sump"
+
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    @property
+    def name(self) -> str:
+        prefix = {"sump": "SUMP", "sumn": "SUMN", "sumd": "SUMD"}[self._mode]
+        return f"{prefix}{self._n}"
+
+    @property
+    def lookback_days(self) -> int:
+        return self._n * 2
+
+    def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
+        n = self._n
+        mode = self._mode
+        return (
+            frame.sort(["asset_id", "trade_date"])
+            .with_columns(
+                (pl.col("close") - pl.col("close").shift(1).over("asset_id"))
+                .alias("_chg_tmp")
+            )
+            .with_columns([
+                pl.col("_chg_tmp").clip(lower_bound=0).alias("_pos_tmp"),
+                pl.col("_chg_tmp").clip(upper_bound=0).abs().alias("_neg_tmp"),
+                pl.col("_chg_tmp").abs().alias("_abs_tmp"),
+            ])
+            .with_columns([
+                pl.col("_pos_tmp").rolling_sum(window_size=n).over("asset_id").alias("_spos"),
+                pl.col("_neg_tmp").rolling_sum(window_size=n).over("asset_id").alias("_sneg"),
+                pl.col("_abs_tmp").rolling_sum(window_size=n).over("asset_id").alias("_sabs"),
+            ])
+            .with_columns(
+                pl.when(pl.lit(mode == "sump"))
+                .then(pl.col("_spos") / (pl.col("_sabs") + 1e-12))
+                .when(pl.lit(mode == "sumn"))
+                .then(pl.col("_sneg") / (pl.col("_sabs") + 1e-12))
+                .otherwise(
+                    (pl.col("_spos") - pl.col("_sneg")) / (pl.col("_sabs") + 1e-12)
+                )
+                .alias(self.name)
+            )
+        )[self.name]
+
+
+class SUMP5(_Sum):
+    _mode = "sump"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class SUMP10(_Sum):
+    _mode = "sump"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class SUMP20(_Sum):
+    _mode = "sump"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class SUMP30(_Sum):
+    _mode = "sump"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class SUMP60(_Sum):
+    _mode = "sump"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class SUMN5(_Sum):
+    _mode = "sumn"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class SUMN10(_Sum):
+    _mode = "sumn"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class SUMN20(_Sum):
+    _mode = "sumn"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class SUMN30(_Sum):
+    _mode = "sumn"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class SUMN60(_Sum):
+    _mode = "sumn"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class SUMD5(_Sum):
+    _mode = "sumd"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class SUMD10(_Sum):
+    _mode = "sumd"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class SUMD20(_Sum):
+    _mode = "sumd"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class SUMD30(_Sum):
+    _mode = "sumd"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class SUMD60(_Sum):
+    _mode = "sumd"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+# ── WVMA：加权成交量波动率 ───────────────────────────────────────────────────
+#
+#  WVMA = rolling_std(abs(returns) * volume, n) / close
+#  即 |收益率| * 成交量 的滚动标准差，归一化
+
+
+class _WVMA(_Vol):
+    """加权成交量波动率因子。
+
+    WVMA = rolling_std(|returns| * volume, n) / close
+    """
+
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    @property
+    def name(self) -> str:
+        return f"WVMA{self._n}"
+
+    @property
+    def lookback_days(self) -> int:
+        return self._n * 2
+
+    def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
+        n = self._n
+        return (
+            frame.sort(["asset_id", "trade_date"])
+            .with_columns(
+                ((pl.col("close") / pl.col("close").shift(1).over("asset_id") - 1)
+                 .abs() * pl.col("volume"))
+                .alias("_wvma_tmp")
+            )
+            .with_columns(
+                (pl.col("_wvma_tmp").rolling_std(window_size=n).over("asset_id") /
+                 pl.col("close").clip(lower_bound=1e-12))
+                .alias(self.name)
+            )
+        )[self.name]
+
+
+class WVMA5(_WVMA):
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class WVMA10(_WVMA):
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class WVMA20(_WVMA):
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class WVMA30(_WVMA):
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class WVMA60(_WVMA):
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+# ── VMA60 / VSTD60：扩展成交量因子到 60 窗口 ────────────────────────────────
+
+
+class VMA60(_VMA):
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class VSTD60(_VSTD):
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+# ── VSUMP / VSUMN / VSUMD：成交量 RSI ───────────────────────────────────────
+#
+#  VSUMP = sum(volume on up days) / sum(volume) in window
+#  VSUMN = sum(volume on down days) / sum(volume) in window
+#  VSUMD = VSUMP - VSUMN
+
+
+class _VSum(_Vol):
+    """成交量 RSI 因子基类（VSUMP / VSUMN / VSUMD）。
+
+    子类通过 _mode 指定类型：
+        "vsump"  → 上涨日成交量占比
+        "vsumn"  → 下跌日成交量占比
+        "vsumd"  → 上涨 - 下跌成交量占比
+    """
+
+    _mode: str = "vsump"
+
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    @property
+    def name(self) -> str:
+        prefix = {"vsump": "VSUMP", "vsumn": "VSUMN", "vsumd": "VSUMD"}[self._mode]
+        return f"{prefix}{self._n}"
+
+    @property
+    def lookback_days(self) -> int:
+        return self._n * 2
+
+    def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
+        n = self._n
+        mode = self._mode
+        return (
+            frame.sort(["asset_id", "trade_date"])
+            .with_columns(
+                (pl.col("close") - pl.col("close").shift(1).over("asset_id"))
+                .alias("_chg_tmp")
+            )
+            .with_columns([
+                pl.when(pl.col("_chg_tmp") > 0).then(pl.col("volume")).otherwise(0)
+                .alias("_vup_tmp"),
+                pl.when(pl.col("_chg_tmp") < 0).then(pl.col("volume")).otherwise(0)
+                .alias("_vdn_tmp"),
+            ])
+            .with_columns([
+                pl.col("_vup_tmp").rolling_sum(window_size=n).over("asset_id").alias("_svup"),
+                pl.col("_vdn_tmp").rolling_sum(window_size=n).over("asset_id").alias("_svdn"),
+                pl.col("volume").rolling_sum(window_size=n).over("asset_id").alias("_svol"),
+            ])
+            .with_columns(
+                pl.when(pl.lit(mode == "vsump"))
+                .then(pl.col("_svup") / (pl.col("_svol") + 1e-12))
+                .when(pl.lit(mode == "vsumn"))
+                .then(pl.col("_svdn") / (pl.col("_svol") + 1e-12))
+                .otherwise(
+                    (pl.col("_svup") - pl.col("_svdn")) / (pl.col("_svol") + 1e-12)
+                )
+                .alias(self.name)
+            )
+        )[self.name]
+
+
+class VSUMP5(_VSum):
+    _mode = "vsump"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class VSUMP10(_VSum):
+    _mode = "vsump"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class VSUMP20(_VSum):
+    _mode = "vsump"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class VSUMP30(_VSum):
+    _mode = "vsump"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class VSUMP60(_VSum):
+    _mode = "vsump"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class VSUMN5(_VSum):
+    _mode = "vsumn"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class VSUMN10(_VSum):
+    _mode = "vsumn"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class VSUMN20(_VSum):
+    _mode = "vsumn"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class VSUMN30(_VSum):
+    _mode = "vsumn"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class VSUMN60(_VSum):
+    _mode = "vsumn"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class VSUMD5(_VSum):
+    _mode = "vsumd"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class VSUMD10(_VSum):
+    _mode = "vsumd"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class VSUMD20(_VSum):
+    _mode = "vsumd"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class VSUMD30(_VSum):
+    _mode = "vsumd"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class VSUMD60(_VSum):
+    _mode = "vsumd"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
 # ── 合并所有 Alpha158 因子 ───────────────────────────────────────────────────
 # 9 KBAR + 16 Rolling + 6 MAX/MIN扩展 + 3 ROC/MA/STD-60
-# + 4 VMA + 4 VSTD + 4 VROC + 4 RSV + 15 REG(BETA/RSQR/RESI)
-# + 10 QTLU/QTLD + 5 RANK + 15 IMAX/IMIN/IMXD = 95
+# + 5 VMA + 5 VSTD + 4 VROC + 4 RSV + 15 REG(BETA/RSQR/RESI)
+# + 10 QTLU/QTLD + 5 RANK + 15 IMAX/IMIN/IMXD
+# + 10 CORR/CORD + 15 CNTP/CNTN/CNTD + 15 SUMP/SUMN/SUMD
+# + 5 WVMA + 15 VSUMP/VSUMN/VSUMD = 165
 
 _EXTENDED: list[Factor] = [
     MAX10(), MAX30(), MAX60(),
     MIN10(), MIN30(), MIN60(),
     ROC60(), MA60(), STD60(),
-    VMA5(), VMA10(), VMA20(), VMA30(),
-    VSTD5(), VSTD10(), VSTD20(), VSTD30(),
+    VMA5(), VMA10(), VMA20(), VMA30(), VMA60(),
+    VSTD5(), VSTD10(), VSTD20(), VSTD30(), VSTD60(),
     VROC5(), VROC10(), VROC20(), VROC30(),
     RSV5(), RSV10(), RSV20(), RSV30(),
     BETA5(), BETA10(), BETA20(), BETA30(), BETA60(),
@@ -1016,6 +1689,18 @@ _EXTENDED: list[Factor] = [
     IMAX5(), IMAX10(), IMAX20(), IMAX30(), IMAX60(),
     IMIN5(), IMIN10(), IMIN20(), IMIN30(), IMIN60(),
     IMXD5(), IMXD10(), IMXD20(), IMXD30(), IMXD60(),
+    CORR5(), CORR10(), CORR20(), CORR30(), CORR60(),
+    CORD5(), CORD10(), CORD20(), CORD30(), CORD60(),
+    CNTP5(), CNTP10(), CNTP20(), CNTP30(), CNTP60(),
+    CNTN5(), CNTN10(), CNTN20(), CNTN30(), CNTN60(),
+    CNTD5(), CNTD10(), CNTD20(), CNTD30(), CNTD60(),
+    SUMP5(), SUMP10(), SUMP20(), SUMP30(), SUMP60(),
+    SUMN5(), SUMN10(), SUMN20(), SUMN30(), SUMN60(),
+    SUMD5(), SUMD10(), SUMD20(), SUMD30(), SUMD60(),
+    WVMA5(), WVMA10(), WVMA20(), WVMA30(), WVMA60(),
+    VSUMP5(), VSUMP10(), VSUMP20(), VSUMP30(), VSUMP60(),
+    VSUMN5(), VSUMN10(), VSUMN20(), VSUMN30(), VSUMN60(),
+    VSUMD5(), VSUMD10(), VSUMD20(), VSUMD30(), VSUMD60(),
 ]
 
 ALPHA158_FACTORS: list[Factor] = (
