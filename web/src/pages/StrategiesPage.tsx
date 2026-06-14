@@ -541,6 +541,21 @@ function BacktestRunModal({
   const [mlLabelName, setMlLabelName] = useState(
     (parsed as Record<string, unknown>).label_name as string ?? 'ret_5d'
   )
+  // ML one-click config
+  const [mlTrainMode, setMlTrainMode] = useState<'existing' | 'new'>(
+    (parsed as Record<string, unknown>).ml_config
+      ? ((parsed as Record<string, unknown>).ml_config as Record<string, unknown>).train_mode as 'existing' | 'new' ?? 'existing'
+      : 'existing'
+  )
+  const [mlModelType, setMlModelType] = useState(
+    ((parsed as Record<string, unknown>).ml_config as Record<string, unknown>)?.model_type as string ?? 'lgbm'
+  )
+  const [mlNfolds, setMlNfolds] = useState(
+    ((parsed as Record<string, unknown>).ml_config as Record<string, unknown>)?.n_splits as number ?? 3
+  )
+  const [mlGapDays, setMlGapDays] = useState(
+    ((parsed as Record<string, unknown>).ml_config as Record<string, unknown>)?.gap_days as number ?? 5
+  )
 
   // Data split mode
   const [splitMode, setSplitMode] = useState<'none' | 'oos' | 'walkforward'>('none')
@@ -573,6 +588,13 @@ function BacktestRunModal({
     select: (data) => data.items?.filter(
       (e: { status: string }) => e.status === 'done'
     ) ?? [],
+  })
+
+  const { data: modelsCatalog } = useQuery({
+    queryKey: ['ml', 'models', 'catalog'],
+    queryFn: mlApi.modelsCatalog,
+    enabled: parsed.strategy_type === 'MLModelStrategy',
+    staleTime: 300_000,
   })
 
   // Load pending scoring run from sessionStorage
@@ -732,41 +754,131 @@ function BacktestRunModal({
           {parsed.strategy_type === 'MLModelStrategy' && (
             <div className="border rounded-lg p-3 bg-blue-50 space-y-3">
               <h4 className="text-sm font-medium text-blue-800">ML 模型配置</h4>
+
+              {/* Train mode radio */}
               <div>
-                <label className="block text-xs text-gray-600 mb-1">选择已训练模型</label>
-                <select
-                  value={mlModelVersion}
-                  onChange={e => {
-                    setMlModelVersion(e.target.value)
-                    const exp = mlExperiments?.find(
-                      (ex: { run_id: string; model_id?: string }) =>
-                        ex.run_id === e.target.value || ex.model_id === e.target.value
-                    )
-                    if (exp?.target_name) setMlLabelName(exp.target_name)
-                  }}
-                  className="input w-full text-sm"
-                >
-                  <option value="">— 选择已完成的实验 —</option>
-                  {mlExperiments?.map((exp: {
-                    run_id: string
-                    model_id?: string
-                    trainer_name?: string
-                    target_name?: string
-                    metrics?: { sharpe?: number }
-                    started_at?: string | number
-                  }) => (
-                    <option key={exp.run_id} value={exp.model_id ?? exp.run_id}>
-                      {exp.run_id.slice(0, 10)}… · {exp.trainer_name ?? '—'} · target={exp.target_name ?? '—'}
-                      {exp.metrics?.sharpe != null ? ` · Sharpe=${exp.metrics.sharpe.toFixed(2)}` : ''}
-                    </option>
-                  ))}
-                </select>
-                {mlExperiments !== undefined && mlExperiments.length === 0 && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    暂无已完成实验，请先在"机器学习"页面训练模型
-                  </p>
-                )}
+                <label className="block text-xs text-gray-600 mb-1">训练模式</label>
+                <div className="flex gap-4 text-sm">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="ml-train-mode"
+                      checked={mlTrainMode === 'existing'}
+                      onChange={() => setMlTrainMode('existing')}
+                      className="accent-blue-600"
+                    />
+                    <span>使用已有模型</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="ml-train-mode"
+                      checked={mlTrainMode === 'new'}
+                      onChange={() => setMlTrainMode('new')}
+                      className="accent-blue-600"
+                    />
+                    <span>新建训练 + 回测</span>
+                  </label>
+                </div>
               </div>
+
+              {/* Existing model selector */}
+              {mlTrainMode === 'existing' && (
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">选择已训练模型</label>
+                  <select
+                    value={mlModelVersion}
+                    onChange={e => {
+                      setMlModelVersion(e.target.value)
+                      const exp = mlExperiments?.find(
+                        (ex: { run_id: string; model_id?: string }) =>
+                          ex.run_id === e.target.value || ex.model_id === e.target.value
+                      )
+                      if (exp?.target_name) setMlLabelName(exp.target_name)
+                    }}
+                    className="input w-full text-sm"
+                  >
+                    <option value="">— 选择已完成的实验 —</option>
+                    {mlExperiments?.map((exp: {
+                      run_id: string
+                      model_id?: string
+                      trainer_name?: string
+                      target_name?: string
+                      metrics?: { sharpe?: number }
+                      started_at?: string | number
+                    }) => (
+                      <option key={exp.run_id} value={exp.model_id ?? exp.run_id}>
+                        {exp.run_id.slice(0, 10)}… · {exp.trainer_name ?? '—'} · target={exp.target_name ?? '—'}
+                        {exp.metrics?.sharpe != null ? ` · Sharpe=${exp.metrics.sharpe.toFixed(2)}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {mlExperiments !== undefined && mlExperiments.length === 0 && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      暂无已完成实验，请先在"机器学习"页面训练模型
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* New training config */}
+              {mlTrainMode === 'new' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">模型类型</label>
+                    <select
+                      value={mlModelType}
+                      onChange={e => setMlModelType(e.target.value)}
+                      className="input w-full text-sm"
+                    >
+                      {modelsCatalog
+                        ? Object.entries(modelsCatalog).map(([key, info]) => (
+                            <option key={key} value={info.model_type}>
+                              {info.display_name} ({key})
+                            </option>
+                          ))
+                        : <>
+                            <option value="lgbm">LightGBM</option>
+                            <option value="xgb">XGBoost</option>
+                          </>
+                      }
+                    </select>
+                    {modelsCatalog && modelsCatalog[mlModelType]?.description && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        {modelsCatalog[mlModelType].description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Walk-Forward Folds</label>
+                      <input
+                        type="number"
+                        className="input w-full text-sm"
+                        value={mlNfolds}
+                        onChange={e => setMlNfolds(Number(e.target.value))}
+                        min={2}
+                        max={10}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">间隔天数（Purge Gap）</label>
+                      <input
+                        type="number"
+                        className="input w-full text-sm"
+                        value={mlGapDays}
+                        onChange={e => setMlGapDays(Number(e.target.value))}
+                        min={0}
+                        max={30}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-600 bg-blue-100 rounded px-2 py-1">
+                    将自动训练模型并运行回测，Walk-Forward {mlNfolds} 折滚动评估
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs text-gray-600 mb-1">预测标签</label>
                 <select
@@ -923,13 +1035,23 @@ function BacktestRunModal({
                 body.combo_method = parsed.combo_method ?? 'equal_weight'
               }
               if (parsed.strategy_type === 'MLModelStrategy') {
-                body.model_version = mlModelVersion
-                  || (parsed as Record<string, unknown>).model_version
-                  || (parsed as Record<string, unknown>).model_id
-                  || ''
+                if (mlTrainMode === 'existing') {
+                  body.model_version = mlModelVersion
+                    || (parsed as Record<string, unknown>).model_version
+                    || (parsed as Record<string, unknown>).model_id
+                    || ''
+                }
                 body.label_name = mlLabelName
                   || (parsed as Record<string, unknown>).label_name
                   || 'ret_5d'
+                body.ml_config = {
+                  train_mode: mlTrainMode,
+                  ...(mlTrainMode === 'new' ? {
+                    model_type: mlModelType,
+                    n_splits: mlNfolds,
+                    gap_days: mlGapDays,
+                  } : {}),
+                }
               }
               if (parsed.strategy_type === 'CustomWeightStrategy') {
                 body.custom_weights = (parsed as Record<string, unknown>).custom_weights ?? {}

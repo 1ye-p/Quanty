@@ -185,6 +185,15 @@ export const backtestsApi = {
     train_end_date?: string
     walk_forward?: WalkForwardConfig
     eval_mode?: string
+    // One-click ML train+backtest
+    ml_config?: {
+      train_mode: 'existing' | 'new'
+      model_type?: string
+      model_id_prefix?: string
+      n_splits?: number
+      gap_days?: number
+      model_params?: Record<string, unknown>
+    }
     // MarketNeutral
     short_n?: number
     // SectorRotation
