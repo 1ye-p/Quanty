@@ -117,7 +117,6 @@ export function MLLabPage() {
             <div className="card">
               <h2 className="font-semibold text-gray-800 mb-4">提交训练任务</h2>
               <TrainForm
-                modelsCatalog={modelsCatalog}
                 groupedModels={groupedModels}
                 onSubmitted={() => { refetch(); setActiveTab('experiments') }}
               />

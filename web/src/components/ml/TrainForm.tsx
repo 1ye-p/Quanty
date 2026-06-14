@@ -9,7 +9,6 @@ import { extendedQueryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
 
 interface TrainFormProps {
-  modelsCatalog: Record<string, { name: string; display_name: string; engine: string; category_label?: string }> | undefined
   groupedModels: { label: string; models: { name: string; display_name: string; engine: string }[] }[]
   onSubmitted?: () => void
 }
