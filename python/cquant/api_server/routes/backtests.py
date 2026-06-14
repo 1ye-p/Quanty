@@ -151,6 +151,19 @@ def _load_job(catalog, job_id: str) -> dict | None:
 from cquant.api_server.schemas.common import WalkForwardConfig
 
 
+class MLTrainConfig(BaseModel):
+    """Configuration for one-click ML training before backtest.
+
+    Only used when strategy_type == "MLModelStrategy" and train_mode == "new".
+    """
+    train_mode: str = "existing"  # "existing" | "new"
+    model_type: str = "lgbm"  # "lgbm" | "xgb" | qlib model types
+    model_id_prefix: str = "ml"  # prefix for the generated model_id
+    n_splits: int = 3  # walk-forward folds
+    gap_days: int = 5  # purge gap between train/validation
+    model_params: dict | None = None  # hyperparameter overrides
+
+
 class BacktestCreateBody(BaseModel):
     strategy_id: str
     dataset_version: str
@@ -161,8 +174,10 @@ class BacktestCreateBody(BaseModel):
     feature_set_version: str = ""
     # ML strategy support
     strategy_type: str = "StaticTopN"  # "StaticTopN" | "MLModelStrategy" | "MultiFactor" | "MarketNeutral" | "SectorRotation" | "Combo"
-    model_version: str = ""  # required when strategy_type == "MLModelStrategy"
+    model_version: str = ""  # required when strategy_type == "MLModelStrategy" (and train_mode != "new")
     label_name: str = "ret_5d"  # prediction label for MLModelStrategy
+    # One-click ML train+backtest config
+    ml_config: MLTrainConfig | None = None
     # Dataset split (OOS)
     train_end_date: str = ""  # if set, backtest only runs on data after this date (OOS)
     # Walk-forward config (optional)
@@ -228,6 +243,75 @@ async def create_backtest(
     strategy_type = body.strategy_type if body.strategy_type != "StaticTopN" else parsed.get("strategy_type", "StaticTopN")
     model_version = body.model_version or parsed.get("model_id", "")
     label_name = body.label_name if body.label_name != "ret_5d" else parsed.get("label_name", "ret_5d")
+
+    # ── One-click ML train+backtest ───────────────────────────────────────────
+    # If strategy_type == "MLModelStrategy" and ml_config.train_mode == "new",
+    # train the model first and inject model_id into backtest.
+    ml_config = body.ml_config
+    if strategy_type == "MLModelStrategy" and ml_config and ml_config.train_mode == "new":
+        # Auto-detect feature_set_version for ML training if not set
+        ml_feature_set = body.feature_set_version
+        if not ml_feature_set:
+            fsv_df = catalog.query(
+                "SELECT feature_set_version FROM gold_factor_values "
+                "GROUP BY feature_set_version ORDER BY MAX(trade_date) DESC LIMIT 1"
+            )
+            if not fsv_df.is_empty():
+                ml_feature_set = fsv_df["feature_set_version"].item()
+        if not ml_feature_set:
+            raise HTTPException(
+                status_code=422,
+                detail="ML train_mode='new' requires feature_set_version. "
+                       "Run the factor pipeline first or provide feature_set_version.",
+            )
+
+        # Infer feature names from factor values
+        factor_df = catalog.query(
+            "SELECT DISTINCT factor_name FROM gold_factor_values WHERE feature_set_version = ?",
+            [ml_feature_set],
+        )
+        all_factors = factor_df["factor_name"].to_list() if not factor_df.is_empty() else []
+        feature_names = [f for f in all_factors if f != label_name]
+        if not feature_names:
+            raise HTTPException(
+                status_code=422,
+                detail=f"No factor values found for feature_set_version='{ml_feature_set}'. "
+                       "Run the factor pipeline first.",
+            )
+
+        # Load dataset
+        from cquant.ml_lab.datasets import MLDataset
+
+        dataset = MLDataset.from_catalog(
+            catalog=catalog,
+            feature_set_version=ml_feature_set,
+            feature_names=feature_names,
+            target_name=label_name,
+        )
+
+        # Run the ML pipeline synchronously (inside the async endpoint via to_thread)
+        from cquant.ml_lab.pipeline import run_ml_prediction_pipeline
+
+        try:
+            model_version = await asyncio.to_thread(
+                run_ml_prediction_pipeline,
+                catalog=catalog,
+                features=dataset.data,
+                target_col=label_name,
+                model_id_prefix=ml_config.model_id_prefix,
+                n_splits=ml_config.n_splits,
+                gap_days=ml_config.gap_days,
+                model_type=ml_config.model_type,
+                model_params=ml_config.model_params,
+            )
+            logger.info("One-click ML training completed: model_id=%s", model_version)
+        except Exception as exc:
+            logger.exception("One-click ML training failed")
+            raise HTTPException(
+                status_code=500,
+                detail=f"ML training failed: {str(exc)[:300]}",
+            )
+    # ── End one-click ML train+backtest ───────────────────────────────────────
 
     # MarketNeutral / SectorRotation / Combo params
     short_n = body.short_n if body.short_n != 10 else parsed.get("short_n", 10)
