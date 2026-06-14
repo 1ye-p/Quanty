@@ -8,6 +8,9 @@ import { toast } from 'sonner'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { PnLChart, type PnLDataPoint } from '@/components/charts/PnLChart'
+import { ModelCompareTab } from '@/components/ModelCompareTab'
+import { FeatureImportanceTab } from '@/components/FeatureImportanceTab'
+import { ModelDiagnosticsTab } from '@/components/ModelDiagnosticsTab'
 import {
   BarChart, Bar, LineChart, Line, Legend,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -25,7 +28,7 @@ function rebalanceLabel(r?: string) {
   return { '1d': '每日', '5d': '每周', '20d': '每月' }[r ?? '1d'] ?? r ?? '每日'
 }
 
-type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills' | 'walkforward' | 'tca' | 'attribution' | 'risk' | 'advanced'
+type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills' | 'walkforward' | 'tca' | 'attribution' | 'risk' | 'advanced' | 'model_compare' | 'feature_importance' | 'model_diagnostics'
 
 /** 将 JSON 对象导出为 .json 文件下载 */
 function downloadJson(data: unknown, filename: string) {
@@ -415,6 +418,9 @@ export function BacktestsPage() {
     { id: 'attribution', label: '归因分析' },
     { id: 'risk', label: '风险分析' },
     { id: 'advanced', label: '高级分析' },
+    { id: 'model_compare', label: '模型对比' },
+    { id: 'feature_importance', label: '特征重要性' },
+    { id: 'model_diagnostics', label: '模型诊断' },
   ]
 
   return (
@@ -1449,6 +1455,21 @@ export function BacktestsPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Model Compare Tab */}
+          {tab === 'model_compare' && selectedId && (
+            <ModelCompareTab backtestId={selectedId} selectedModels={compareIds} />
+          )}
+
+          {/* Feature Importance Tab */}
+          {tab === 'feature_importance' && selectedId && (
+            <FeatureImportanceTab modelVersion={selectedId} />
+          )}
+
+          {/* Model Diagnostics Tab */}
+          {tab === 'model_diagnostics' && selectedId && (
+            <ModelDiagnosticsTab modelVersion={selectedId} />
           )}
 
           {/* Advanced Analysis Tab */}
