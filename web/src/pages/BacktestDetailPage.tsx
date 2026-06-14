@@ -16,6 +16,7 @@ const TABS: TabDef[] = [
   { id: 'tca', label: 'TCA', path: 'tca' },
   { id: 'attribution', label: 'Attribution', path: 'attribution' },
   { id: 'risk', label: 'Risk', path: 'risk' },
+  { id: 'calendar', label: 'Calendar', path: 'calendar' },
   { id: 'advanced', label: 'Advanced', path: 'advanced' },
   { id: 'model-compare', label: 'Model Compare', path: 'model-compare' },
   { id: 'feature-importance', label: 'Feature Importance', path: 'feature-importance' },

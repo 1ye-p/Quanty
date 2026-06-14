@@ -23,6 +23,7 @@ const BacktestWalkForwardTab = named(() => import('@/pages/backtest-tabs/Backtes
 const BacktestTcaTab = named(() => import('@/pages/backtest-tabs/BacktestTcaTab'), 'BacktestTcaTab')
 const BacktestAttributionTab = named(() => import('@/pages/backtest-tabs/BacktestAttributionTab'), 'BacktestAttributionTab')
 const BacktestRiskTab = named(() => import('@/pages/backtest-tabs/BacktestRiskTab'), 'BacktestRiskTab')
+const BacktestCalendarTab = named(() => import('@/pages/backtest-tabs/BacktestCalendarTab'), 'BacktestCalendarTab')
 const BacktestAdvancedTab = named(() => import('@/pages/backtest-tabs/BacktestAdvancedTab'), 'BacktestAdvancedTab')
 const BacktestModelCompareTab = named(() => import('@/pages/backtest-tabs/BacktestModelCompareTab'), 'BacktestModelCompareTab')
 const BacktestFeatureImportanceTab = named(() => import('@/pages/backtest-tabs/BacktestFeatureImportanceTab'), 'BacktestFeatureImportanceTab')
@@ -73,6 +74,7 @@ export const router = createBrowserRouter([
               { path: 'tca', element: <BacktestTcaTab /> },
               { path: 'attribution', element: <BacktestAttributionTab /> },
               { path: 'risk', element: <BacktestRiskTab /> },
+              { path: 'calendar', element: <BacktestCalendarTab /> },
               { path: 'advanced', element: <BacktestAdvancedTab /> },
               { path: 'model-compare', element: <BacktestModelCompareTab /> },
               { path: 'feature-importance', element: <BacktestFeatureImportanceTab /> },
