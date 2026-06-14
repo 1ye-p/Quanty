@@ -109,7 +109,7 @@ v2 报告提出 6 个 P0 + 5 个 P1 改进项。本轮迭代**全部 P0 已解�
 
 | 页面 | 核心能力 | 状态 |
 |------|---------|------|
-| **Backtests（体系）** | List + Detail + Compare + 12 tabs + 7 专业图表 + 工作流集成 | ✅ 功能完整 |
+| **Backtests（体系）** | List + Detail + Compare + 12 tabs + 7 专业图表 + 工作流集成 + 部署向导 | ✅ 功能最完整的模块 |
 | **StrategiesPage** | CRUD + Monaco Editor + 版本管理 + 组件提取 | ✅ 功能完整 |
 | **FactorsPage** | IC 分析 + 相关性矩阵 + 分层收益 + IC 衰减 + 因子创建 + DSL 编辑器 + 工作流集成 | ✅ 70% 瘦身 |
 | **MLLabPage** | 实验对比 + 模型列表 + 预测 + 训练表单 + 工作流集成 | ✅ 53% 瘦身 |
@@ -197,3 +197,94 @@ v3 迭代**彻底解决了所有 P0 问题**：
 5. **5 个骨架页面中的 4 个升级为完整功能**，仅 Tasks 仍较薄
 
 **无 P0 遗留问题。** 下一步聚焦 P1：StrategiesPage 和 OptimizePage 组件继续提取，ScoringPage 历史对比，RiskPage 实时风控。
+
+---
+
+## 七、回测功能深度分析（补充）
+
+### 回测模块架构
+
+```
+前端（2,500 行）
+├── BacktestsListPage (356)    — 列表 + 搜索 + 分页 + 多选对比
+├── BacktestDetailPage (92)    — Tab 容器（12 个 tab）
+├── BacktestComparePage (68)   — 多策略对比（指标表 + NAV 图）
+├── backtest-tabs/
+│   ├── OverviewTab (420)      — 核心指标 + 部署向导 + 导出 + 过拟合评分
+│   ├── TearsheetTab (356)     — NAV 图 + 月度收益热力图 + 回撤 + 滚动统计
+│   ├── RiskTab (369)          — 滚动风险 + 回撤分析 + 收益分布 + 相关性 + 因子暴露 + 压力测试
+│   ├── AdvancedTab (217)      — 高级分析
+│   ├── OverfittingTab (196)   — Walk-Forward fold 指标 + 过拟合评分 + CPCV
+│   ├── FillsTab (148)         — 成交明细 + TradeScatter 散点图
+│   ├── AttributionTab (108)   — 因子/行业归因分解
+│   ├── WalkForwardTab (89)    — Walk-Forward fold 详情
+│   ├── TcaTab (49)            — 交易成本分析（占位）
+│   ├── ModelCompareTab (175)  — 模型对比
+│   ├── FeatureImportanceTab (94) — 特征重要性
+│   └── ModelDiagnosticsTab (236) — 模型诊断
+└── components/
+    ├── DeployWizard (155)     — 从回测到实盘的部署向导
+    ├── MonthlyHeatmap (89)    — 月度收益热力图
+    ├── FoldMetricsCard (32)   — Walk-Forward fold 指标卡片
+    ├── OverfitScore (23)      — 过拟合评分进度条
+    └── compare/
+        ├── CompareMetricsTable (72) — 多策略指标对比表
+        └── CompareNavChart (60)     — 多策略 NAV 叠加图
+
+后端 API（1,954 行，25+ 端点）
+├── CRUD: list / get / create / delete
+├── 分析: analysis / triggerAnalysis / compare
+├── 风险: risk / riskRolling / drawdowns / drawdownTimeseries
+├── 收益: returnDistribution / calendarAnalysis
+├── 相关: correlation / factorExposure / riskContribution
+├── 压力: stressTest
+├── 成交: fills / tca / tradeAnalysis / attribution
+├── 验证: walkForwardFolds / validationWindows / multipleTesting
+└── 扩展: tearsheet / bestRecent
+
+回测引擎（Python，Polars）
+├── VectorBacktestEngine — 向量化回测核心
+├── BacktestMetrics — 21 个指标（含 IR/TE/Alpha/Omega/Tail/HHI）
+├── CostModel — A 股佣金 + 印花税 + 滑点
+├── RiskPolicy — 止损/熔断/行业限制/因子暴露
+└── PositionSizer — Kelly/MVO/波动率平价/等权
+```
+
+### 回测功能评估
+
+| 功能 | 前端 | 后端 | 评价 |
+|------|------|------|------|
+| **核心指标** | 21 个指标卡片（MetricCard）| ✅ compute_metrics | ✅ 完整（含 IR/TE/Alpha/Omega/Tail/HHI）|
+| **NAV 图表** | ✅ PnLChart（TradingView）| ✅ snapshots API | ✅ 专业级 |
+| **月度收益热力图** | ✅ MonthlyReturnHeatmap | ✅ 从 snapshots 计算 | ✅ 完整 |
+| **回撤分析** | ✅ 回撤面积图 + Top N 回撤表 | ✅ drawdowns + drawdownTimeseries | ✅ 完整 |
+| **滚动风险** | ✅ 滚动 Sharpe/Vol/MaxDD 图 | ✅ riskRolling | ✅ 完整 |
+| **收益分布** | ✅ 直方图 | ✅ returnDistribution | ✅ 完整 |
+| **相关性矩阵** | ✅ 热力图 | ✅ correlation | ✅ 完整 |
+| **因子暴露** | ✅ 时序图 | ✅ factorExposure | ✅ 完整 |
+| **压力测试** | ✅ 表格展示 | ✅ stressTest | ✅ 完整 |
+| **风险贡献** | ✅ 图表 | ✅ riskContribution | ✅ 完整 |
+| **Walk-Forward** | ✅ Fold 指标卡片 + 详情 | ✅ walkForwardFolds | ✅ 完整 |
+| **CPCV** | ✅ 颜色格 | ✅ validationWindows | ✅ 完整 |
+| **多重检验** | ✅ 展示 | ✅ multipleTesting | ✅ 完整 |
+| **过拟合评分** | ✅ 进度条 + PSR/DSR | ✅ analysis | ✅ 完整 |
+| **成交明细** | ✅ 表格 + TradeScatter 散点图 | ✅ fills | ✅ 完整 |
+| **交易成本分析** | ⚠️ TcaTab 仅 49 行 | ✅ tca API | ⚠️ 前端展示浅 |
+| **归因分析** | ✅ AttributionBreakdown 图表 | ✅ attribution | ✅ 完整 |
+| **日历分析** | ❌ 无前端 | ✅ calendarAnalysis API | ❌ 后端有 API 但前端未实现 |
+| **交易分析** | ❌ 无前端 | ✅ tradeAnalysis API | ❌ 后端有 API 但前端未实现 |
+| **多策略对比** | ✅ 指标表 + NAV 图 | ✅ compare | ✅ 完整 |
+| **部署向导** | ✅ DeployWizard | ✅ liveApi.deploy | ✅ 完整（回测→实盘）|
+| **导出** | ✅ JSON 导出 | — | ✅ 完整 |
+| **基准对比** | ❌ 无 | ❌ 无 | ❌ 缺 benchmark 对比图 |
+
+### 回测模块待改进项
+
+| 优先级 | 改进项 | 原因 |
+|--------|--------|------|
+| **P1** | TcaTab 深化（滑点分析、成本分解图表）| 后端 API 已有，前端仅 49 行占位 |
+| **P1** | 实现 calendarAnalysis 前端（日历效应图）| 后端 API 已有，前端未实现 |
+| **P1** | 实现 tradeAnalysis 前端（交易分析）| 后端 API 已有，前端未实现 |
+| **P2** | 基准对比图（策略 vs 基准 NAV + Alpha + TE）| 量化研究核心需求，当前无基准对比 |
+| **P2** | BacktestsListPage 增加筛选（按策略/状态/日期/引擎）| 当前仅文本搜索 |
+| **P3** | 回测结果 PDF 报告导出 | 当前仅 JSON 导出 |
