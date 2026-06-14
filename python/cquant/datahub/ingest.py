@@ -74,9 +74,8 @@ class MarketIngestionOrchestrator:
         self._catalog.initialize()
 
         connector = self._select_connector(spec)
-        batches = self._fetch_batches(connector, spec)
+        batches, symbols = self._fetch_batches(connector, spec)
         if not batches:
-            symbols = self._resolve_symbols(spec)
             raise IngestError(
                 f"No data returned for {symbols} ({spec.market.value}). "
                 f"Ensure silver_assets is populated (run bootstrap) or provide explicit symbols."
@@ -111,8 +110,10 @@ class MarketIngestionOrchestrator:
             return spec.symbols
 
         try:
+            market = spec.market.value if hasattr(spec.market, 'value') else str(spec.market)
             df = self._catalog.query(
-                "SELECT asset_id FROM silver_assets WHERE status = 'active' ORDER BY asset_id"
+                "SELECT asset_id FROM silver_assets WHERE status = 'active' AND market = ? ORDER BY asset_id",
+                [market],
             )
         except Exception as exc:
             logger.warning("Failed to resolve symbols from silver_assets: %s", exc)
@@ -128,10 +129,11 @@ class MarketIngestionOrchestrator:
 
     def _fetch_batches(
         self, connector: DataConnector, spec: IngestionSpec
-    ) -> list[RawBatch]:
+    ) -> tuple[list[RawBatch], list[str]]:
+        """Fetch data batches. Returns (batches, resolved_symbols)."""
         symbols = self._resolve_symbols(spec)
         if not symbols:
-            return []
+            return [], []
 
         data_spec = DataSpec(
             symbols=symbols,
@@ -142,7 +144,7 @@ class MarketIngestionOrchestrator:
         )
         batches = list(connector.fetch(data_spec))
         logger.info("Fetched %d batch(es) from %s", len(batches), connector.source_name)
-        return batches
+        return batches, symbols
 
     def _normalize_batches(self, batches: list[RawBatch]) -> pl.DataFrame:
         frames = [self._normalizer.normalize(b) for b in batches]

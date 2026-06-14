@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
+import type { BacktestFill } from '@/lib/types'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
@@ -59,16 +60,16 @@ export function BacktestTcaTab() {
   ].filter(d => d.value > 0)
 
   // Compute per-asset cost from fills
-  const fills = (fillsData?.items ?? []) as Record<string, unknown>[]
+  const fills = (fillsData?.items ?? []) as BacktestFill[]
   const assetCostMap = new Map<string, { commission: number; stamp: number; slippage: number; total: number }>()
   const timeCostMap = new Map<string, { commission: number; stamp: number; slippage: number; total: number }>()
 
   for (const f of fills) {
-    const asset = String(f.asset_id ?? 'unknown')
-    const date = String(f.trade_date ?? '')
-    const commission = Number(f.commission ?? 0)
-    const stamp = Number(f.stamp_duty ?? 0)
-    const slippage = Number(f.slippage ?? 0)
+    const asset = f.asset_id
+    const date = f.trade_date
+    const commission = f.commission ?? 0
+    const stamp = f.stamp_duty ?? 0
+    const slippage = f.slippage ?? 0
     const total = commission + stamp + slippage
 
     // Per asset
