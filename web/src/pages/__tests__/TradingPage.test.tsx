@@ -1,7 +1,6 @@
+import { renderWithProviders } from '../../test-utils'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { screen } from '@testing-library/react'
 import { TradingPage } from '../TradingPage'
 
 vi.mock('@/lib/api', () => ({
@@ -27,17 +26,6 @@ vi.mock('@/lib/api', () => ({
 vi.mock('@/hooks/useRealtimeQuote', () => ({
   useRealtimeQuote: () => ({ quotes: {}, connected: false }),
 }))
-
-function renderWithProviders(ui: React.ReactElement) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter>{ui}</MemoryRouter>
-    </QueryClientProvider>,
-  )
-}
 
 describe('TradingPage', () => {
   it('renders page title', () => {

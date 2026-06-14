@@ -1,5 +1,8 @@
 /**
  * Strategy / backtest sharing utilities.
+ *
+ * TODO: Backend POST /share and GET /share/:id endpoints not yet implemented.
+ * These functions will 404 until the backend routes are added.
  */
 
 import { api } from '@/lib/api/client'

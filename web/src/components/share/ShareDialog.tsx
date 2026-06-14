@@ -54,10 +54,10 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={handleClose}>
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-5"
+        className="bg-bg-primary rounded-xl shadow-xl w-full max-w-md p-6 space-y-5"
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-text-primary">
           分享{type === 'backtest' ? '回测结果' : '策略配置'}
         </h2>
 
@@ -65,21 +65,21 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
           <>
             {/* Permissions */}
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm text-text-secondary">
                 <input
                   type="checkbox"
                   checked={showConfig}
                   onChange={e => setShowConfig(e.target.checked)}
-                  className="rounded border-gray-300"
+                  className="rounded border-border-primary"
                 />
                 显示策略配置
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm text-text-secondary">
                 <input
                   type="checkbox"
                   checked={showResults}
                   onChange={e => setShowResults(e.target.checked)}
-                  className="rounded border-gray-300"
+                  className="rounded border-border-primary"
                 />
                 显示回测结果
               </label>
@@ -87,7 +87,7 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
 
             {/* Expiry */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">有效期</label>
+              <label className="block text-sm font-medium text-text-secondary mb-1">有效期</label>
               <select
                 value={expiresInHours ?? ''}
                 onChange={e => {
@@ -115,7 +115,7 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
         ) : (
           <>
             {/* Link created */}
-            <div className="bg-gray-50 rounded-lg p-3 break-all text-sm font-mono text-gray-700">
+            <div className="bg-bg-secondary rounded-lg p-3 break-all text-sm font-mono text-text-secondary">
               {link.url}
             </div>
             {link.expiresAt && (
