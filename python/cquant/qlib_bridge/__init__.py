@@ -48,9 +48,27 @@ def __getattr__(name: str):
     if name == "QLIB_MODELS":
         from cquant.qlib_bridge.models import QLIB_MODELS
         return QLIB_MODELS
+    if name == "ALL_MODELS":
+        from cquant.qlib_bridge.models import ALL_MODELS
+        return ALL_MODELS
+    if name == "ModelInfo":
+        from cquant.qlib_bridge.models import ModelInfo
+        return ModelInfo
     if name == "create_model":
         from cquant.qlib_bridge.models import create_model
         return create_model
+    if name == "get_model_info":
+        from cquant.qlib_bridge.models import get_model_info
+        return get_model_info
+    if name == "get_models_by_type":
+        from cquant.qlib_bridge.models import get_models_by_type
+        return get_models_by_type
+    if name == "get_all_models":
+        from cquant.qlib_bridge.models import get_all_models
+        return get_all_models
+    if name == "is_qlib_model":
+        from cquant.qlib_bridge.models import is_qlib_model
+        return is_qlib_model
     if name == "get_model_category_groups":
         from cquant.qlib_bridge.models import get_model_category_groups
         return get_model_category_groups
@@ -74,6 +92,12 @@ __all__ = [
     "run_backtest_qlib",
     "predict",
     "QLIB_MODELS",
+    "ALL_MODELS",
+    "ModelInfo",
     "create_model",
+    "get_model_info",
+    "get_models_by_type",
+    "get_all_models",
+    "is_qlib_model",
     "get_model_category_groups",
 ]
