@@ -1,19 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useThemeStore } from '../stores/themeStore';
 
+/** @deprecated Use useThemeStore directly */
 export function useTheme() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
-    }
-    return 'light'
-  })
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-    localStorage.setItem('theme', theme)
-  }, [theme])
-
-  const toggle = () => setTheme(t => t === 'light' ? 'dark' : 'light')
-
-  return { theme, setTheme, toggle }
+  const { mode, toggle, setMode } = useThemeStore();
+  return { theme: mode, toggle, setTheme: setMode };
 }

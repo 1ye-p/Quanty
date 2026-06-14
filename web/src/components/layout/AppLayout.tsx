@@ -5,7 +5,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, alertsApi, jobsApi } from '@/lib/api'
 import { elapsedStr } from '@/lib/utils'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
-import { useTheme } from '@/hooks/useTheme'
+import { useThemeStore } from '@/stores/themeStore'
+import { useSidebarStore } from '@/stores/sidebarStore'
+import { useWorkflowStore } from '@/stores/workflowStore'
+import { WorkflowBar } from '@/components/workflow/WorkflowBar'
 
 const NAV_ICONS: Record<string, string> = {
   '/factors':    '🔬',
@@ -79,7 +82,9 @@ if (import.meta.env.DEV) {
 export function AppLayout() {
   const queryClient = useQueryClient()
   const location = useLocation()
-  const { theme, toggle } = useTheme()
+  const { mode, toggle: toggleTheme } = useThemeStore()
+  const { collapsed, toggle: toggleCollapsed, mobileOpen, openMobile, closeMobile } = useSidebarStore()
+  const { currentWorkflow, currentStep, steps, nextStep, prevStep, reset: resetWorkflow } = useWorkflowStore()
   const isRelevantPage = ['/ml', '/backtests', '/scoring', '/tasks'].includes(location.pathname)
   const pollInterval = isRelevantPage ? 10_000 : 60_000
 
@@ -138,7 +143,6 @@ export function AppLayout() {
   if ((scoringJobs ?? 0) > 0) runningBadges['/scoring'] = scoringJobs as number
 
   const [taskDropdownOpen, setTaskDropdownOpen] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Detailed running task queries for topbar
   const { data: mlRunning } = useQuery({
@@ -190,20 +194,18 @@ export function AppLayout() {
     select: (d) => d.unread_count,
   })
 
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try { return localStorage.getItem('sidebar_collapsed') === 'true' } catch { return false }
-  })
-
-  const toggleCollapsed = () => {
-    setCollapsed(prev => {
-      const next = !prev
-      try { localStorage.setItem('sidebar_collapsed', String(next)) } catch {}
-      return next
-    })
-  }
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {currentWorkflow && currentStep && steps.length > 0 && (
+        <WorkflowBar
+          steps={steps}
+          currentStep={currentStep}
+          onPrev={prevStep}
+          onNext={nextStep}
+          onReset={resetWorkflow}
+        />
+      )}
       <nav className={`${
         collapsed ? 'w-12' : 'w-56'
       } bg-brand-600 text-gray-100 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto transition-[width] duration-200`}>
@@ -287,18 +289,18 @@ export function AppLayout() {
       </nav>
 
       {/* Mobile drawer */}
-      {mobileMenuOpen && (
+      {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div
             className="fixed inset-0 bg-black/30"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={closeMobile}
           />
           <div className="fixed left-0 top-0 bottom-0 w-64 bg-brand-600 shadow-xl p-4 overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <Link to="/" className="text-white font-bold text-lg" onClick={() => setMobileMenuOpen(false)}>
+              <Link to="/" className="text-white font-bold text-lg" onClick={closeMobile}>
                 cQuant
               </Link>
-              <button onClick={() => setMobileMenuOpen(false)} className="text-blue-200 hover:text-white">
+              <button onClick={closeMobile} className="text-blue-200 hover:text-white">
                 ✕
               </button>
             </div>
@@ -313,7 +315,7 @@ export function AppLayout() {
                       <NavLink
                         to={to}
                         end={to === '/'}
-                        onClick={() => setMobileMenuOpen(false)}
+                        onClick={closeMobile}
                         className={({ isActive }) =>
                           `flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                             isActive
@@ -338,12 +340,12 @@ export function AppLayout() {
           <header className="h-10 bg-white border-b border-gray-200 flex items-center justify-end px-4 flex-shrink-0 relative z-10">
             <button
               className="md:hidden p-2 mr-1 hover:bg-gray-100 rounded-lg"
-              onClick={() => setMobileMenuOpen(true)}
+              onClick={openMobile}
             >
               ☰
             </button>
-            <button onClick={toggle} className="p-2 rounded-lg hover:bg-gray-100 mr-2" title="切换主题">
-              {theme === 'light' ? '\u{1F319}' : '\u{2600}\u{FE0F}'}
+            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-gray-100 mr-2" title="切换主题">
+              {mode === 'light' ? '\u{1F319}' : '\u{2600}\u{FE0F}'}
             </button>
             {runningCount > 0 ? (
               <div className="relative">
