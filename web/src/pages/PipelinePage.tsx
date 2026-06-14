@@ -1,145 +1,188 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+/**
+ * PipelinePage — Enhanced with DAG editor, node configuration, and status display.
+ *
+ * Uses React Flow for a visual pipeline DAG with default 5-stage pipeline:
+ * 数据准备 → 因子计算 → 模型训练 → 回测验证 → 组合优化
+ */
+import { useState, useMemo, useCallback } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { pipelineApi, type PipelineStatusResponse } from '@/lib/api'
+import { pipelineApi } from '@/lib/api'
+import type { Node, Edge } from '@xyflow/react'
+import { PipelineDAG, type PipelineNodeData } from '@/components/pipeline/PipelineDAG'
+import { NodeConfig } from '@/components/pipeline/NodeConfig'
+import { PipelineStatus } from '@/components/pipeline/PipelineStatus'
 
-const STAGE_META: Record<string, { name: string; icon: string }> = {
-  factors: { name: '因子计算', icon: '🧮' },
-  ml: { name: '模型训练', icon: '🧠' },
-  backtest: { name: '回测验证', icon: '📈' },
-  analysis: { name: '分析报告', icon: '📊' },
-  promotion: { name: '模型发布', icon: '🚀' },
-}
+// ── Default pipeline definition ─────────────────────────────────────────────
 
-const STATUS_LABELS: Record<string, string> = {
-  success: '成功',
-  running: '运行中',
-  error: '失败',
-  partial_failure: '部分失败',
-  idle: '空闲',
-  started: '已启动',
-  already_running: '运行中',
-  skipped: '跳过',
-}
+const DEFAULT_NODES: Node<PipelineNodeData>[] = [
+  {
+    id: 'data',
+    type: 'dagNode',
+    position: { x: 250, y: 0 },
+    data: {
+      label: '数据准备',
+      nodeType: 'data',
+      status: 'pending',
+      config: { source: 'tdx', start_date: '2024-01-01', end_date: '2025-12-31' },
+    },
+  },
+  {
+    id: 'factor',
+    type: 'dagNode',
+    position: { x: 250, y: 120 },
+    data: {
+      label: '因子计算',
+      nodeType: 'factor',
+      status: 'pending',
+      config: { factor_set: 'alpha158', universe: 'hs300' },
+    },
+  },
+  {
+    id: 'model',
+    type: 'dagNode',
+    position: { x: 250, y: 240 },
+    data: {
+      label: '模型训练',
+      nodeType: 'model',
+      status: 'pending',
+      config: { model_name: 'lightgbm', n_folds: 5 },
+    },
+  },
+  {
+    id: 'backtest',
+    type: 'dagNode',
+    position: { x: 250, y: 360 },
+    data: {
+      label: '回测验证',
+      nodeType: 'backtest',
+      status: 'pending',
+      config: { strategy_type: 'top_n', top_n: 10 },
+    },
+  },
+  {
+    id: 'optimize',
+    type: 'dagNode',
+    position: { x: 250, y: 480 },
+    data: {
+      label: '组合优化',
+      nodeType: 'optimize',
+      status: 'pending',
+      config: { method: 'mvo', max_weight: 0.1 },
+    },
+  },
+]
 
-function statusBadgeClass(status: string): string {
-  if (status === 'success') return 'bg-green-100 text-green-700'
-  if (status === 'running' || status === 'started' || status === 'already_running')
-    return 'bg-blue-100 text-blue-700'
-  if (status === 'error' || status === 'partial_failure') return 'bg-red-100 text-red-700'
-  if (status === 'skipped') return 'bg-yellow-100 text-yellow-700'
-  return 'bg-gray-100 text-gray-500'
-}
+const DEFAULT_EDGES: Edge[] = [
+  { id: 'e-data-factor', source: 'data', target: 'factor', animated: true, style: { stroke: '#6366f1' } },
+  { id: 'e-factor-model', source: 'factor', target: 'model', animated: true, style: { stroke: '#6366f1' } },
+  { id: 'e-model-backtest', source: 'model', target: 'backtest', animated: true, style: { stroke: '#6366f1' } },
+  { id: 'e-backtest-optimize', source: 'backtest', target: 'optimize', animated: true, style: { stroke: '#6366f1' } },
+]
+
+// ── Page component ──────────────────────────────────────────────────────────
 
 export function PipelinePage() {
   const queryClient = useQueryClient()
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, unknown>>>({})
+  const [editable, setEditable] = useState(false)
 
-  const { data: status, isLoading } = useQuery<PipelineStatusResponse>({
-    queryKey: ['pipeline', 'status'],
-    queryFn: () => pipelineApi.status(),
-    refetchInterval: 30_000,
-  })
+  // Build nodes with merged configs and live status
+  const nodes: Node<PipelineNodeData>[] = useMemo(
+    () =>
+      DEFAULT_NODES.map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
+          config: { ...n.data.config, ...nodeConfigs[n.id] },
+        },
+      })),
+    [nodeConfigs],
+  )
 
+  const edges = DEFAULT_EDGES
+
+  // Run pipeline mutation
   const runMutation = useMutation({
     mutationFn: () => pipelineApi.run(),
     onSuccess: () => {
+      toast.success('管道已启动')
       queryClient.invalidateQueries({ queryKey: ['pipeline'] })
     },
-    onError: (e: Error) => toast.error(`Pipeline 启动失败: ${e.message}`),
+    onError: (e: Error) => toast.error(`管道启动失败: ${e.message}`),
   })
 
-  const overallStatus = status?.status ?? 'idle'
-  const isRunning = overallStatus === 'running'
-  const stages = status?.stages ?? {}
+  // Node click → open config panel
+  const handleNodeClick = useCallback((nodeId: string, _data: PipelineNodeData) => {
+    setSelectedNodeId(nodeId)
+  }, [])
 
-  // Build ordered stage list: known stages first, then any extras from the backend
-  const knownKeys = Object.keys(STAGE_META)
-  const allStageKeys = [
-    ...knownKeys.filter((k) => k in stages),
-    ...Object.keys(stages).filter((k) => !knownKeys.includes(k)),
-  ]
+  // Save node config
+  const handleSaveConfig = useCallback((nodeId: string, config: Record<string, unknown>) => {
+    setNodeConfigs((prev) => ({ ...prev, [nodeId]: config }))
+    setSelectedNodeId(null)
+    toast.success('节点配置已保存')
+  }, [])
+
+  // Selected node data for config panel
+  const selectedNode = selectedNodeId
+    ? nodes.find((n) => n.id === selectedNodeId) ?? null
+    : null
 
   return (
     <div>
       <h1 className="page-title">自动化回测管道</h1>
-      <p className="page-subtitle">端到端自动化：因子计算 → 模型训练 → 回测验证 → 分析报告 → 模型发布</p>
+      <p className="page-subtitle">
+        端到端自动化：数据准备 → 因子计算 → 模型训练 → 回测验证 → 组合优化
+      </p>
 
-      {/* Status card */}
+      {/* Status summary */}
+      <div className="mb-4">
+        <PipelineStatus />
+      </div>
+
+      {/* Toolbar */}
       <div className="card p-4 mb-4">
         <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm text-gray-500">管道状态</div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`badge ${statusBadgeClass(overallStatus)}`}>
-                {STATUS_LABELS[overallStatus] ?? overallStatus}
-              </span>
-              {status?.run_id && (
-                <span className="text-xs text-gray-400 font-mono">run: {status.run_id}</span>
-              )}
-            </div>
-            {status?.detail && (
-              <p className="text-sm text-gray-500 mt-1">{status.detail}</p>
-            )}
-            {status?.started_at && (
-              <div className="text-xs text-gray-400 mt-1">
-                开始: {new Date(status.started_at).toLocaleString('zh-CN')}
-                {status.finished_at && (
-                  <> &middot; 结束: {new Date(status.finished_at).toLocaleString('zh-CN')}</>
-                )}
-                {status.duration_seconds != null && (
-                  <> &middot; 耗时: {status.duration_seconds.toFixed(1)}s</>
-                )}
-              </div>
-            )}
+          <div className="text-sm font-medium text-gray-700">管道 DAG</div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEditable((v) => !v)}
+              className={`btn-secondary text-sm ${editable ? 'ring-2 ring-indigo-400' : ''}`}
+            >
+              {editable ? '退出编辑' : '编辑模式'}
+            </button>
+            <button
+              onClick={() => runMutation.mutate()}
+              disabled={runMutation.isPending}
+              className="btn-primary text-sm"
+            >
+              {runMutation.isPending ? '提交中...' : '运行管道'}
+            </button>
           </div>
-          <button
-            onClick={() => runMutation.mutate()}
-            disabled={runMutation.isPending || isRunning}
-            className="btn-primary"
-          >
-            {runMutation.isPending ? '提交中...' : isRunning ? '运行中...' : '立即运行'}
-          </button>
         </div>
       </div>
 
-      {/* Pipeline stages */}
-      <div className="card p-4 mb-4">
-        <div className="text-sm font-medium mb-3">管道阶段</div>
-        {allStageKeys.length === 0 ? (
-          <div className="text-center text-gray-400 py-4">
-            {isLoading ? '加载中...' : '暂无阶段数据 — 请先运行管道'}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {allStageKeys.map((key) => {
-              const meta = STAGE_META[key]
-              const stage = stages[key]
-              const stageStatus = stage?.status ?? 'pending'
-              return (
-                <div key={key} className="flex items-center gap-3">
-                  <span className="text-lg">{meta?.icon ?? '⚙️'}</span>
-                  <span className="text-sm font-medium flex-1">{meta?.name ?? key}</span>
-                  <span className={`badge ${statusBadgeClass(stageStatus)}`}>
-                    {STATUS_LABELS[stageStatus] ?? stageStatus}
-                  </span>
-                  {stage?.error && (
-                    <span className="text-xs text-red-500 max-w-xs truncate" title={stage.error}>
-                      {stage.error}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+      {/* DAG editor */}
+      <div className="mb-4">
+        <PipelineDAG
+          initialNodes={nodes}
+          initialEdges={edges}
+          onNodeClick={handleNodeClick}
+          editable={editable}
+        />
       </div>
 
-      {/* History placeholder — backend does not yet provide history */}
-      <div className="card p-4">
-        <div className="text-sm font-medium mb-3">历史记录</div>
-        <div className="text-center text-gray-400 py-8">
-          历史记录功能即将上线
-        </div>
-      </div>
+      {/* Node config side panel */}
+      {selectedNode && (
+        <NodeConfig
+          nodeId={selectedNodeId!}
+          data={selectedNode.data}
+          onSave={handleSaveConfig}
+          onClose={() => setSelectedNodeId(null)}
+        />
+      )}
     </div>
   )
 }
