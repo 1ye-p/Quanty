@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom'
 import { backtestExtApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { PnLChart, type PnLDataPoint } from '@/components/charts/PnLChart'
+import { MonthlyReturnHeatmap, type MonthlyReturnRow } from '@/components/charts/MonthlyReturnHeatmap'
 import {
   LineChart, Line, Legend,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -22,6 +23,96 @@ export function BacktestTearsheetTab() {
   })
 
   const snapshots = (tearsheet as Record<string, unknown>)?.snapshots as Record<string, unknown>[] ?? []
+
+  // Compute monthly returns from snapshots
+  const monthlyReturns = useMemo((): MonthlyReturnRow[] => {
+    if (!snapshots || snapshots.length === 0) return []
+
+    // Group snapshots by year-month
+    const monthlyNavs = new Map<string, { startNav: number; endNav: number }>()
+    const sortedSnapshots = [...snapshots].sort((a, b) =>
+      String(a.trade_date ?? '').localeCompare(String(b.trade_date ?? ''))
+    )
+
+    for (const snapshot of sortedSnapshots) {
+      const dateStr = String(snapshot.trade_date ?? '').slice(0, 10)
+      if (!dateStr) continue
+
+      const yearMonth = dateStr.slice(0, 7) // YYYY-MM
+      const nav = Number(snapshot.nav ?? 1)
+
+      if (!monthlyNavs.has(yearMonth)) {
+        monthlyNavs.set(yearMonth, { startNav: nav, endNav: nav })
+      } else {
+        monthlyNavs.get(yearMonth)!.endNav = nav
+      }
+    }
+
+    // Group by year and compute monthly returns
+    const yearMap = new Map<number, (number | null | undefined)[]>()
+
+    for (const [yearMonth, { startNav, endNav }] of monthlyNavs) {
+      const year = parseInt(yearMonth.slice(0, 4))
+      const month = parseInt(yearMonth.slice(5, 7)) - 1 // 0-indexed
+
+      if (!yearMap.has(year)) {
+        yearMap.set(year, new Array(12).fill(null))
+      }
+
+      const monthlyReturn = startNav > 0 ? (endNav / startNav) - 1 : 0
+      yearMap.get(year)![month] = monthlyReturn
+    }
+
+    // Convert to MonthlyReturnRow array
+    return Array.from(yearMap.entries())
+      .map(([year, months]) => ({ year, months }))
+      .sort((a, b) => b.year - a.year)
+  }, [snapshots])
+
+  // Compute monthly return stats
+  const monthlyStats = useMemo(() => {
+    if (monthlyReturns.length === 0) return null
+
+    const allReturns: number[] = []
+    for (const row of monthlyReturns) {
+      for (const ret of row.months) {
+        if (ret != null && isFinite(ret)) {
+          allReturns.push(ret)
+        }
+      }
+    }
+
+    if (allReturns.length === 0) return null
+
+    const positiveMonths = allReturns.filter(r => r > 0).length
+    const winRate = (positiveMonths / allReturns.length) * 100
+
+    const bestReturn = Math.max(...allReturns)
+    const worstReturn = Math.min(...allReturns)
+
+    // Find best/worst month labels
+    let bestMonth = ''
+    let worstMonth = ''
+    for (const row of monthlyReturns) {
+      for (let i = 0; i < row.months.length; i++) {
+        if (row.months[i] === bestReturn) {
+          bestMonth = `${row.year}-${String(i + 1).padStart(2, '0')}`
+        }
+        if (row.months[i] === worstReturn) {
+          worstMonth = `${row.year}-${String(i + 1).padStart(2, '0')}`
+        }
+      }
+    }
+
+    return {
+      winRate,
+      bestReturn,
+      bestMonth,
+      worstReturn,
+      worstMonth,
+      totalMonths: allReturns.length,
+    }
+  }, [monthlyReturns])
 
   const pnlData: PnLDataPoint[] = snapshots.length > 0
     ? (() => {
@@ -65,6 +156,39 @@ export function BacktestTearsheetTab() {
           <div>Tearsheet data loading...</div>
           <div className="text-xs mt-1">Requires complete portfolio_returns storage for NAV curve display</div>
         </div>
+      )}
+
+      {/* Monthly Returns Heatmap */}
+      {monthlyReturns.length > 0 && (
+        <>
+          {/* Monthly Stats Cards */}
+          {monthlyStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <MetricCard
+                label="Monthly Win Rate"
+                value={`${monthlyStats.winRate.toFixed(1)}%`}
+                sub={`${monthlyStats.totalMonths} months`}
+              />
+              <MetricCard
+                label="Best Month"
+                value={`${(monthlyStats.bestReturn * 100).toFixed(2)}%`}
+                sub={monthlyStats.bestMonth}
+              />
+              <MetricCard
+                label="Worst Month"
+                value={`${(monthlyStats.worstReturn * 100).toFixed(2)}%`}
+                sub={monthlyStats.worstMonth}
+                warn={monthlyStats.worstReturn < 0}
+              />
+              <MetricCard
+                label="Positive Months"
+                value={String(Math.round(monthlyStats.totalMonths * monthlyStats.winRate / 100))}
+                sub={`of ${monthlyStats.totalMonths}`}
+              />
+            </div>
+          )}
+          <MonthlyReturnHeatmap data={monthlyReturns} />
+        </>
       )}
 
       {/* Benchmark overlay chart */}

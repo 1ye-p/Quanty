@@ -1,8 +1,10 @@
 import { MetricCard } from '../../components/ui/MetricCard'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
+import { AttributionBreakdown, type AttributionEntry } from '@/components/charts/AttributionBreakdown'
 
 
 export function BacktestAttributionTab() {
@@ -13,6 +15,44 @@ export function BacktestAttributionTab() {
     queryFn: () => backtestsApi.getAttribution(selectedId!),
     enabled: !!selectedId,
   })
+
+  // Transform sector_details into AttributionEntry format
+  const attributionEntries = useMemo((): AttributionEntry[] => {
+    if (!attributionData?.sector_details) return []
+
+    const sectorDetails = attributionData.sector_details as Record<string, Record<string, number>>
+    const entries: AttributionEntry[] = []
+
+    for (const [sector, data] of Object.entries(sectorDetails)) {
+      // Compute sector-level effects from weights and returns
+      const portWeight = data.port_weight ?? 0
+      const benchWeight = data.bench_weight ?? 0
+      const portReturn = data.port_return ?? 0
+      const benchReturn = data.bench_return ?? 0
+
+      // Brinson attribution effects at sector level
+      // Allocation: (wp - wb) * (rb - Rb) - we approximate using sector returns
+      const allocationEffect = (portWeight - benchWeight) * benchReturn
+      // Selection: wb * (rp - rb)
+      const selectionEffect = benchWeight * (portReturn - benchReturn)
+      // Interaction: (wp - wb) * (rp - rb)
+      const interactionEffect = (portWeight - benchWeight) * (portReturn - benchReturn)
+
+      entries.push({
+        name: sector,
+        allocation_effect: allocationEffect,
+        selection_effect: selectionEffect,
+        interaction_effect: interactionEffect,
+      })
+    }
+
+    // Sort by absolute total effect descending
+    return entries.sort((a, b) => {
+      const totalA = Math.abs(a.allocation_effect + a.selection_effect + a.interaction_effect)
+      const totalB = Math.abs(b.allocation_effect + b.selection_effect + b.interaction_effect)
+      return totalB - totalA
+    })
+  }, [attributionData])
 
   if (!selectedId) return null
 
@@ -26,6 +66,12 @@ export function BacktestAttributionTab() {
             <MetricCard label="Selection Effect" value={`${(Number(attributionData.selection_effect ?? 0) * 100).toFixed(2)}%`} />
             <MetricCard label="Interaction Effect" value={`${(Number(attributionData.interaction_effect ?? 0) * 100).toFixed(2)}%`} />
           </div>
+
+          {/* Attribution Breakdown Chart */}
+          {attributionEntries.length > 0 && (
+            <AttributionBreakdown data={attributionEntries} stacked={true} />
+          )}
+
           {Object.keys(attributionData.sector_details as Record<string, unknown> ?? {}).length > 0 && (
             <div className="card p-4">
               <div className="text-sm font-medium text-gray-700 mb-3">Sector Attribution Detail</div>

@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
+// PositionConcentration import kept for future use when API endpoint is implemented
+// import { PositionConcentration, type ConcentrationSnapshot } from '@/components/charts/PositionConcentration'
 import {
   LineChart, Line, Legend,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -64,6 +66,13 @@ export function BacktestRiskTab() {
     enabled: !!selectedId,
   })
 
+  // TODO: Add API endpoint for position concentration data
+  // const { data: concentrationData } = useQuery({
+  //   queryKey: queryKeys.backtests.positionConcentration(selectedId!),
+  //   queryFn: () => backtestsApi.getPositionConcentration(selectedId!),
+  //   enabled: !!selectedId,
+  // })
+
   if (!selectedId) return null
 
   return (
@@ -84,6 +93,12 @@ export function BacktestRiskTab() {
               </div>
             )
           })()}
+
+          {/* Position Concentration Chart */}
+          {/* TODO: Uncomment when position_concentration API endpoint is implemented */}
+          {/* {concentrationData?.data && concentrationData.data.length > 0 && (
+            <PositionConcentration data={concentrationData.data as ConcentrationSnapshot[]} />
+          )} */}
 
           {/* Window selector */}
           <div className="flex items-center gap-2 text-sm">

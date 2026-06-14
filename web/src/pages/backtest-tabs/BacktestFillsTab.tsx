@@ -1,13 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
 import { DataTable } from '@/components/ui/DataTable'
+import { TradeScatter, type TradePoint } from '@/components/charts/TradeScatter'
 import { queryKeys } from '@/lib/queryKeys'
 import { downloadCsv } from '@/lib/download'
-  a.click()
-  URL.revokeObjectURL(url)
-}
 
 export function BacktestFillsTab() {
   const { id: selectedId } = useParams<{ id: string }>()
@@ -22,10 +20,76 @@ export function BacktestFillsTab() {
     placeholderData: keepPreviousData,
   })
 
+  // Transform fills data for TradeScatter chart
+  const tradePoints = useMemo((): TradePoint[] => {
+    if (!fillsData?.items || fillsData.items.length === 0) return []
+
+    // Group trades by asset to compute P&L
+    const tradesByAsset = new Map<string, typeof fillsData.items>()
+    for (const fill of fillsData.items) {
+      const assetId = fill.asset_id
+      if (!tradesByAsset.has(assetId)) {
+        tradesByAsset.set(assetId, [])
+      }
+      tradesByAsset.get(assetId)!.push(fill)
+    }
+
+    const points: TradePoint[] = []
+
+    for (const [assetId, assetFills] of tradesByAsset) {
+      // Sort by date
+      const sorted = [...assetFills].sort((a, b) =>
+        String(a.trade_date ?? '').localeCompare(String(b.trade_date ?? ''))
+      )
+
+      // Track positions to compute P&L
+      let position = 0
+      let avgCost = 0
+
+      for (const fill of sorted) {
+        const side = fill.side as 'buy' | 'sell'
+        const price = Number(fill.price ?? 0)
+        const qty = Number(fill.qty ?? 0)
+
+        // Compute P&L for sells
+        let pnl: number | undefined = undefined
+        if (side === 'sell' && position > 0 && avgCost > 0) {
+          pnl = (price - avgCost) / avgCost
+        }
+
+        points.push({
+          date: String(fill.trade_date ?? '').slice(0, 10),
+          price,
+          side,
+          pnl,
+          symbol: assetId.split(':').pop() ?? assetId,
+          quantity: qty,
+        })
+
+        // Update position tracking
+        if (side === 'buy') {
+          const totalCost = avgCost * position + price * qty
+          position += qty
+          avgCost = position > 0 ? totalCost / position : 0
+        } else {
+          position = Math.max(0, position - qty)
+        }
+      }
+    }
+
+    // Sort by date for display
+    return points.sort((a, b) => a.date.localeCompare(b.date))
+  }, [fillsData])
+
   if (!selectedId) return null
 
   return (
     <div className="space-y-3">
+      {/* Trade Scatter Chart */}
+      {tradePoints.length > 0 && (
+        <TradeScatter data={tradePoints} title="Trade Timing" />
+      )}
+
       {fillsData && fillsData.items.length > 0 && (
         <div className="flex justify-end">
           <button

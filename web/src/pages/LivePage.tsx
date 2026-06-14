@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tradingApi, liveApi, type RealtimeQuote, type LiveExecution } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
@@ -6,6 +6,7 @@ import { useRealtimeQuote } from '@/hooks/useRealtimeQuote'
 import { OrderForm } from '@/components/trading/OrderForm'
 import { PositionTable } from '@/components/trading/PositionTable'
 import { OrderBook } from '@/components/trading/OrderBook'
+import { PositionConcentration, type ConcentrationSnapshot } from '@/components/charts/PositionConcentration'
 import { toast } from 'sonner'
 
 export function LivePage() {
@@ -74,6 +75,49 @@ export function LivePage() {
 
   // Selected symbol quote
   const selectedQuote = selectedSymbol ? quotes[selectedSymbol] : null
+
+  // Compute position concentration from current positions
+  const concentrationData = useMemo((): ConcentrationSnapshot[] => {
+    if (!positions?.items || positions.items.length === 0) return []
+
+    // Compute total NAV from positions
+    const totalValue = positions.items.reduce((sum, p) => {
+      const price = quotes[p.asset_id.split(':')[1]]?.price ?? p.avg_cost
+      return sum + (p.qty * price)
+    }, 0) + (account?.cash ?? 0)
+
+    if (totalValue <= 0) return []
+
+    // Sort positions by value descending
+    const sortedPositions = [...positions.items]
+      .map(p => {
+        const price = quotes[p.asset_id.split(':')[1]]?.price ?? p.avg_cost
+        return {
+          ...p,
+          value: p.qty * price,
+          weight: (p.qty * price) / totalValue,
+        }
+      })
+      .sort((a, b) => b.weight - a.weight)
+
+    // Compute top-N weights
+    const top5Weight = sortedPositions.slice(0, 5).reduce((sum, p) => sum + p.weight, 0)
+    const top10Weight = sortedPositions.slice(0, 10).reduce((sum, p) => sum + p.weight, 0)
+    const top20Weight = sortedPositions.slice(0, 20).reduce((sum, p) => sum + p.weight, 0)
+
+    // Compute HHI (Herfindahl-Hirschman Index)
+    const hhi = sortedPositions.reduce((sum, p) => sum + Math.pow(p.weight * 100, 2), 0)
+
+    const today = new Date().toISOString().slice(0, 10)
+
+    return [{
+      date: today,
+      top5_weight: top5Weight,
+      top10_weight: top10Weight,
+      top20_weight: top20Weight,
+      hhi,
+    }]
+  }, [positions, quotes, account])
 
   return (
     <div className="space-y-6">
@@ -267,6 +311,11 @@ export function LivePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Positions + Orders */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Position Concentration Chart */}
+          {concentrationData.length > 0 && (
+            <PositionConcentration data={concentrationData} title="持仓集中度" />
+          )}
+
           {/* Real-time Quotes for Positions */}
           {symbols.length > 0 && Object.keys(quotes).length > 0 && (
             <div className="card">
