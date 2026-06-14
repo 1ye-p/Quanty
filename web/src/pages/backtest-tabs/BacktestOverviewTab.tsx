@@ -2,9 +2,10 @@ import { MetricCard } from '../../components/ui/MetricCard'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
-import { backtestsApi, liveApi } from '@/lib/api'
+import { backtestsApi, backtestExtApi, liveApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
+import { BenchmarkCompare } from '@/components/charts/BenchmarkCompare'
 
 function marketLabel(m?: string) {
   return { CN: 'A股', US: '美股', HK: '港股' }[m ?? 'CN'] ?? 'A股'
@@ -66,10 +67,27 @@ export function BacktestOverviewTab() {
     staleTime: 60_000,
   })
 
+  const { data: tearsheetData } = useQuery({
+    queryKey: queryKeys.backtests.tearsheet(selectedId!),
+    queryFn: () => backtestExtApi.tearsheet(selectedId!),
+    enabled: !!selectedId,
+    staleTime: 60_000,
+    retry: false,
+  })
+
   const analysis = analysisData as Record<string, unknown> | null | undefined
   const overfitScore = Number(analysis?.overall_overfit_score ?? 0)
   const psr = Number(analysis?.psr ?? 0)
   const dsr = Number(analysis?.dsr ?? 0)
+
+  // Extract NAV data from tearsheet for benchmark comparison
+  const tearsheet = tearsheetData as Record<string, unknown> | null | undefined
+  const strategyNav = ((tearsheet?.snapshots as Record<string, unknown>[] ?? [])).map(s => ({
+    date: String(s.trade_date ?? '').slice(0, 10),
+    nav: Number(s.nav ?? 1),
+  })).filter(d => d.date)
+  const benchmarkNav = (tearsheet?.benchmark_nav as { date: string; nav: number }[] ?? [])
+  const benchmarkLabel = String(tearsheet?.benchmark_asset_id ?? 'Benchmark')
 
   if (!selectedId) return null
 
@@ -256,6 +274,15 @@ export function BacktestOverviewTab() {
             <p className="text-gray-600">{String(analysis.summary ?? 'No analysis summary available')}</p>
           </div>
         </div>
+      )}
+
+      {/* Benchmark comparison */}
+      {strategyNav.length > 0 && benchmarkNav.length > 0 && (
+        <BenchmarkCompare
+          strategyNav={strategyNav}
+          benchmarkNav={benchmarkNav}
+          benchmarkLabel={benchmarkLabel}
+        />
       )}
 
       {!detail?.metrics && !analysis && (
