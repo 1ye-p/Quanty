@@ -3,19 +3,69 @@
 @tailwind utilities;
 
 :root {
+  /* Background */
   --bg-primary: #ffffff;
   --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+
+  /* Text */
   --text-primary: #111827;
   --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+
+  /* Border */
   --border: #e5e7eb;
+  --border-light: #f3f4f6;
+
+  /* Brand */
+  --brand-50: #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-500: #4f63d2;
+  --brand-600: #2d3561;
+  --brand-700: #1e2548;
+
+  /* Semantic */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+
+  /* Financial (CN convention: red = up, green = down) */
+  --price-up: #dc2626;
+  --price-down: #16a34a;
 }
 
 .dark {
+  /* Background */
   --bg-primary: #111827;
   --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+
+  /* Text */
   --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
+  --text-secondary: #d1d5db;
+  --text-muted: #6b7280;
+
+  /* Border */
   --border: #374151;
+  --border-light: #1f2937;
+
+  /* Brand */
+  --brand-50: #1e1b4b;
+  --brand-100: #312e81;
+  --brand-500: #818cf8;
+  --brand-600: #a5b4fc;
+  --brand-700: #c7d2fe;
+
+  /* Semantic */
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #60a5fa;
+
+  /* Financial */
+  --price-up: #f87171;
+  --price-down: #4ade80;
 }
 
 @layer base {
