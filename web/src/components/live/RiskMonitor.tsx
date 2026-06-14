@@ -111,7 +111,7 @@ export function RiskMonitor({ deploymentId }: RiskMonitorProps) {
           <div className="space-y-1.5 max-h-32 overflow-y-auto">
             {alerts.map((alert, idx) => (
               <div
-                key={idx}
+                key={String(alert.id ?? alert.type ?? idx)}
                 className="text-xs p-2 rounded bg-yellow-50 text-yellow-800 border border-yellow-200"
               >
                 {String(alert.alert ?? alert.warning ?? alert.message)}

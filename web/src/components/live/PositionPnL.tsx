@@ -50,13 +50,14 @@ export function PositionPnL({ deploymentId }: PositionPnLProps) {
             </tr>
           </thead>
           <tbody>
-            {data.items.map((pos: Record<string, unknown>, idx: number) => {
+            {data.items.map((pos: Record<string, unknown>) => {
               const pnl = Number(pos.pnl ?? pos.unrealized_pnl ?? 0)
               const pnlPct = Number(pos.pnl_pct ?? pos.unrealized_pnl_pct ?? 0)
               const pnlColor = pnl >= 0 ? 'text-red-600' : 'text-green-600'
+              const posKey = String(pos.asset_id ?? pos.symbol ?? pos.id ?? Math.random())
 
               return (
-                <tr key={idx} className="table-row">
+                <tr key={posKey} className="table-row">
                   <td className="table-td font-mono">
                     {String(pos.asset_id ?? pos.ticker ?? '--')}
                   </td>

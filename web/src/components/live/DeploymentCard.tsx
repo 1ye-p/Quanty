@@ -85,16 +85,6 @@ export function DeploymentCard({
           </div>
         )}
       </div>
-
-      <button
-        onClick={e => {
-          e.stopPropagation()
-          onSelect()
-        }}
-        className="mt-2 text-xs text-brand-600 hover:text-brand-700"
-      >
-        查看详情 →
-      </button>
     </div>
   )
 }

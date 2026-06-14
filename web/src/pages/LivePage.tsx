@@ -31,13 +31,19 @@ export function LivePage() {
 
   const qc = useQueryClient()
 
+  const [stoppingId, setStoppingId] = useState<string | null>(null)
   const stopMutation = useMutation({
-    mutationFn: (liveId: string) => liveApi.stopDeployed(liveId),
+    mutationFn: (liveId: string) => {
+      setStoppingId(liveId)
+      return liveApi.stopDeployed(liveId)
+    },
     onSuccess: () => {
+      setStoppingId(null)
       qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
       toast.success('策略已停止')
     },
     onError: (e: Error) => {
+      setStoppingId(null)
       qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
       toast.error(`停止失败: ${e.message}`)
     },
@@ -155,7 +161,7 @@ export function LivePage() {
                   setActiveTab('overview')
                 }}
                 onStop={() => stopMutation.mutate(d.live_id)}
-                stopPending={stopMutation.isPending}
+                stopPending={stoppingId === d.live_id}
               />
             ))}
           </div>
