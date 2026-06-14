@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { mlApi } from '@/lib/api'
@@ -9,6 +9,7 @@ import { ModelsTab } from '@/components/ml/ModelsTab'
 import { ExperimentsTab } from '@/components/ml/ExperimentsTab'
 import { PredictionsTab } from '@/components/ml/PredictionsTab'
 import { TrainForm } from '@/components/ml/TrainForm'
+import { useWorkflowStore } from '@/stores/workflowStore'
 
 type TabKey = 'models' | 'train' | 'experiments' | 'predictions'
 
@@ -84,6 +85,18 @@ export function MLLabPage() {
     enabled: !!predictRunId && showPredictModal,
     staleTime: 60_000,
   })
+
+  // Workflow integration: update context when experiment is selected
+  const { currentWorkflow, updateContext } = useWorkflowStore()
+  useEffect(() => {
+    if (selectedExperiment && currentWorkflow === 'ml-pipeline' && selectedExperiment.status === 'completed') {
+      updateContext({
+        modelId: selectedExperiment.model_id,
+        modelVersion: selectedExperiment.run_id,
+        experimentId: selectedExperiment.run_id,
+      })
+    }
+  }, [selectedExperiment, currentWorkflow])
 
   return (
     <div>

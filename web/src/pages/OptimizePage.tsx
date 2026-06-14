@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { optimizeApi, mlApi } from '@/lib/api'
 import type { OptimizeResult, ConstraintConfig, SectorLimit, FactorExposureLimit } from '@/lib/api'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { useWorkflowStore } from '@/stores/workflowStore'
 
 const COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
@@ -86,8 +87,24 @@ export function OptimizePage() {
 
   const optMutation = useMutation({
     mutationFn: optimizeApi.optimize,
-    onSuccess: (data) => setOptResult(data),
+    onSuccess: (data) => {
+      setOptResult(data)
+      // Workflow integration: update context on optimize completion
+      if (currentWorkflow === 'optimize') {
+        updateContext({ optimizeResults: data })
+      }
+    },
   })
+
+  // Workflow integration
+  const { currentWorkflow, updateContext } = useWorkflowStore()
+
+  // Update workflow context when covariance is computed
+  useEffect(() => {
+    if (covResult && currentWorkflow === 'optimize') {
+      updateContext({ optimizeConfig: { assets: Object.keys(covResult), optimizer } })
+    }
+  }, [covResult, currentWorkflow])
 
   // Fetch ML predictions for the current covariance assets (lazy — only when covResult exists)
   const covAssets = covResult ? Object.keys(covResult) : []

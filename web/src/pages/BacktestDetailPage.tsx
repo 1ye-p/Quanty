@@ -2,6 +2,8 @@ import { NavLink, Outlet, useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { backtestsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
+import { useEffect } from 'react'
+import { useWorkflowStore } from '@/stores/workflowStore'
 
 type TabDef = { id: string; label: string; path: string }
 
@@ -32,6 +34,18 @@ export function BacktestDetailPage() {
 
   const isWalkForward = detail?.engine === 'walk_forward'
   const visibleTabs = isWalkForward ? TABS : TABS.filter(t => t.id !== 'walkforward')
+
+  // Workflow integration: update context when backtest detail loads
+  const { currentWorkflow, updateContext } = useWorkflowStore()
+  useEffect(() => {
+    if (detail && currentWorkflow) {
+      updateContext({
+        backtestId: id,
+        backtestResults: detail.metrics ?? null,
+        strategyId: detail.strategy_id,
+      })
+    }
+  }, [detail, id, currentWorkflow])
 
   if (!id) return null
 

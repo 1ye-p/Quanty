@@ -10,6 +10,7 @@ import { CorrelationTab } from '@/components/factors/CorrelationTab'
 import { ICDecayTab } from '@/components/factors/ICDecayTab'
 import { CreateFactorModal } from '@/components/factors/CreateFactorModal'
 import { ICAlertModal } from '@/components/factors/ICAlertModal'
+import { useWorkflowStore } from '@/stores/workflowStore'
 
 type TabKey = 'selection' | 'ic' | 'quintile' | 'correlation' | 'decay'
 
@@ -65,6 +66,23 @@ export function FactorsPage() {
   })
 
   const icSummary = jobResult?.status === 'done' ? jobResult.summary_json : undefined
+
+  // Workflow integration: update context when IC job completes
+  const { currentWorkflow, updateContext } = useWorkflowStore()
+  useEffect(() => {
+    if (jobResult?.status === 'done' && currentWorkflow === 'factor-to-backtest' && selectedFactors.length > 0) {
+      const icResults: Record<string, number> = {}
+      if (icSummary?.mean_ic != null) {
+        for (const f of selectedFactors) {
+          icResults[f] = icSummary.mean_ic
+        }
+      }
+      updateContext({
+        selectedFactors,
+        factorICResults: icResults,
+      })
+    }
+  }, [jobResult?.status, currentWorkflow])
 
   // Filtered factors
   const filteredFactorDefs = useMemo(() => {
