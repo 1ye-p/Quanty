@@ -833,8 +833,8 @@ function BacktestRunModal({
                     >
                       {modelsCatalog
                         ? Object.entries(modelsCatalog).map(([key, info]) => (
-                            <option key={key} value={info.model_type}>
-                              {info.display_name} ({key})
+                            <option key={key} value={key}>
+                              {info.display_name} ({info.model_type})
                             </option>
                           ))
                         : <>

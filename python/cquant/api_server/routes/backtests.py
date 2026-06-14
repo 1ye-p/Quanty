@@ -309,7 +309,7 @@ async def create_backtest(
             logger.exception("One-click ML training failed")
             raise HTTPException(
                 status_code=500,
-                detail=f"ML training failed: {str(exc)[:300]}",
+                detail="ML training failed. Check server logs for details.",
             )
     # ── End one-click ML train+backtest ───────────────────────────────────────
 

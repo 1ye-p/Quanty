@@ -151,6 +151,7 @@ class QlibModelTrainer(Trainer):
         except TypeError:
             # Some qlib models have different fit() signatures; try
             # fitting with just train data as fallback
+            logger.warning("Model %s does not accept validation data, fitting without it", model_name)
             model.fit(X_train, y_train)
 
         # Generate validation predictions for metrics
@@ -197,10 +198,20 @@ class QlibModelTrainer(Trainer):
         """Generate predictions from *features* using the persisted model.
 
         Returns a ``pl.Series`` named ``"prediction"`` with one value per row.
+
+        .. warning::
+
+            ``model_path`` must point to a trusted file. ``pickle.load`` can
+            execute arbitrary code if the file has been tampered with.
         """
         import pickle
+        import pathlib
 
-        with open(model_artifact.model_path, "rb") as f:
+        model_path = pathlib.Path(model_artifact.model_path)
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model artifact not found: {model_path}")
+
+        with open(model_path, "rb") as f:
             model = pickle.load(f)
 
         X = frame_to_matrix(features, model_artifact.feature_names)
