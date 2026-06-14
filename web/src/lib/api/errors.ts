@@ -151,10 +151,14 @@ export async function createApiErrorFromResponse(res: Response): Promise<ApiErro
   const code = statusCodeToErrorCode(res.status)
   const retryable = res.status === 429 || res.status >= 500
 
+  // Capture Retry-After header for 429 responses
+  const retryAfter = res.headers.get('Retry-After')
+  const details = retryAfter ? { ...body, 'retry-after': retryAfter } : body
+
   return new ApiError(message, {
     status: res.status,
     code,
-    details: body,
+    details,
     retryable,
   })
 }

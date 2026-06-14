@@ -11,17 +11,11 @@ import type {
   BacktestJobStatus,
   BacktestCompareRun,
   WalkForwardFold,
+  WalkForwardConfig,
 } from '../types'
 
-// ── Types (not yet in types/) ────────────────────────────────────────────────
-
-interface WalkForwardConfig {
-  n_splits: number
-  gap_days: number
-  window_type: 'expanding' | 'sliding'
-  step_days?: number
-  purge_window: number
-}
+// Re-export types for backward compatibility
+export type { Backtest as BacktestRun, BacktestFill, WalkForwardConfig, WalkForwardFold }
 
 // ── API ──────────────────────────────────────────────────────────────────────
 

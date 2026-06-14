@@ -10,7 +10,19 @@ import type {
   TrainParams,
   DiagnosticsData,
   WalkForwardConfig,
+  TrainingCurvePoint,
+  PredictionBin,
 } from '../types'
+
+// Re-export types for backward compatibility
+export type {
+  ModelInfo as ModelCatalogInfo,
+  Experiment as MLExperiment,
+  MLJob,
+  TrainingCurvePoint,
+  PredictionBin,
+  DiagnosticsData,
+}
 
 // ── API ──────────────────────────────────────────────────────────────────────
 

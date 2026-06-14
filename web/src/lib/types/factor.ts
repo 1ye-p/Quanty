@@ -12,6 +12,7 @@ export const FactorSchema = z.object({
 })
 
 export type Factor = z.infer<typeof FactorSchema>
+// Alias: Factor and FactorDefinition are the same shape
 
 // ── ICResult ───────────────────────────────────────────────────────────────
 
