@@ -412,6 +412,18 @@ export const strategiesApi = {
 
 // ── ML ────────────────────────────────────────────────────────────────────────
 
+export interface ModelCatalogInfo {
+  name: string
+  display_name: string
+  model_type: string
+  engine: string
+  description: string
+  category_label: string
+  default_params: Record<string, unknown>
+  tunable_params: string[]
+  requires_alpha360: boolean
+}
+
 export interface MLExperiment {
   run_id: string
   experiment_name?: string
@@ -441,6 +453,8 @@ export interface MLJob {
 }
 
 export const mlApi = {
+  modelsCatalog: () =>
+    request<Record<string, ModelCatalogInfo>>('/ml/models/catalog'),
   experiments: (limit = 50) =>
     request<{ items: MLExperiment[]; total: number; source: string }>(
       `/ml/experiments?limit=${limit}`,

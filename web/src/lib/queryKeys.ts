@@ -50,6 +50,7 @@ export const extendedQueryKeys = {
     detail: (id: string) => ['strategies', id] as const,
   },
   ml: {
+    modelsCatalog: () => ['ml', 'models', 'catalog'] as const,
     experiments: (limit: number) => ['ml', 'experiments', limit] as const,
     experiment: (id: string) => ['ml', 'experiment', id] as const,
     featureImportance: (id: string) => ['ml', 'fi', id] as const,

@@ -50,6 +50,37 @@ export function MLLabPage() {
     queryFn: () => mlApi.experiments(50),
   })
 
+  const { data: modelsCatalog } = useQuery({
+    queryKey: extendedQueryKeys.ml.modelsCatalog(),
+    queryFn: () => mlApi.modelsCatalog(),
+    staleTime: 300_000,
+  })
+
+  const groupedModels = useMemo(() => {
+    if (!modelsCatalog) return []
+    const groups: Record<string, { name: string; display_name: string; engine: string; description: string }[]> = {}
+    const order = ['传统模型', '深度学习', '集成模型', '线性模型', '在线模型', '专用模型']
+    for (const info of Object.values(modelsCatalog)) {
+      const label = info.category_label || '其他'
+      if (!groups[label]) groups[label] = []
+      groups[label].push({
+        name: info.name,
+        display_name: info.display_name,
+        engine: info.engine,
+        description: info.description,
+      })
+    }
+    // Sort groups by predefined order, unknown labels go last
+    return order
+      .filter(label => groups[label])
+      .map(label => ({ label, models: groups[label] }))
+      .concat(
+        Object.entries(groups)
+          .filter(([label]) => !order.includes(label))
+          .map(([label, models]) => ({ label, models }))
+      )
+  }, [modelsCatalog])
+
   const { data: fi } = useQuery({
     queryKey: extendedQueryKeys.ml.featureImportance(selectedRun ?? ''),
     queryFn: () => mlApi.featureImportance(selectedRun!),
@@ -180,21 +211,35 @@ export function MLLabPage() {
         <h2 className="font-semibold text-gray-800 mb-3">提交训练 Job</h2>
         <div className="grid grid-cols-3 gap-3">
           <select className="input" value={jobForm.trainer} onChange={e => { setJobForm(f => ({ ...f, trainer: e.target.value })); setDlParams({}) }}>
-            <optgroup label="传统模型">
-              <option value="xgb">XGBoost</option>
-              <option value="lgbm">LightGBM</option>
-              <option value="catboost">CatBoost</option>
-              <option value="ridge">Ridge 回归</option>
-              <option value="lasso">Lasso 回归</option>
-            </optgroup>
-            <optgroup label="深度学习">
-              <option value="lstm">LSTM</option>
-              <option value="transformer">Transformer</option>
-              <option value="tabnet">TabNet</option>
-            </optgroup>
-            <optgroup label="集成模型">
-              <option value="xgb_clf">XGBoost Classifier</option>
-            </optgroup>
+            {groupedModels.length > 0 ? (
+              groupedModels.map(group => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.models.map(m => (
+                    <option key={m.name} value={m.name}>
+                      {m.display_name}{m.engine === 'qlib' ? ' [qlib]' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              ))
+            ) : (
+              <>
+                <optgroup label="传统模型">
+                  <option value="xgb">XGBoost</option>
+                  <option value="lgbm">LightGBM</option>
+                  <option value="catboost">CatBoost</option>
+                  <option value="ridge">Ridge 回归</option>
+                  <option value="lasso">Lasso 回归</option>
+                </optgroup>
+                <optgroup label="深度学习">
+                  <option value="lstm">LSTM</option>
+                  <option value="transformer">Transformer</option>
+                  <option value="tabnet">TabNet</option>
+                </optgroup>
+                <optgroup label="集成模型">
+                  <option value="xgb_clf">XGBoost Classifier</option>
+                </optgroup>
+              </>
+            )}
           </select>
           <select
             className="input"

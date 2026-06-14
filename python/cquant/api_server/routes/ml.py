@@ -307,6 +307,28 @@ async def list_models(
     return {"items": models, "total": len(models)}
 
 
+@router.get("/models/catalog")
+async def models_catalog() -> dict:
+    """Return the full model catalog with metadata (type, engine, etc.)."""
+    from cquant.qlib_bridge.models import get_all_models
+
+    all_models = get_all_models()
+    result = {}
+    for name, info in all_models.items():
+        result[name] = {
+            "name": info.name,
+            "display_name": info.display_name,
+            "model_type": info.model_type,
+            "engine": info.engine,
+            "description": info.description,
+            "category_label": info.category_label,
+            "default_params": info.default_params,
+            "tunable_params": list(info.tunable_params),
+            "requires_alpha360": info.requires_alpha360,
+        }
+    return result
+
+
 @router.post("/models", status_code=201)
 async def register_model(
     body: RegisterModelRequest,
