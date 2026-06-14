@@ -41,6 +41,18 @@ class _A158Ext(Factor):
             return f"{name[4:]} 日线性回归 R²"
         if name.startswith("RESI"):
             return f"{name[4:]} 日线性回归残差"
+        if name.startswith("QTLU"):
+            return f"{name[4:]} 日 80 分位 / close"
+        if name.startswith("QTLD"):
+            return f"{name[4:]} 日 20 分位 / close"
+        if name.startswith("RANK"):
+            return f"{name[4:]} 日滚动排名百分位"
+        if name.startswith("IMXD"):
+            return f"{name[4:]} 日 IMAX - IMIN（极值位置差）"
+        if name.startswith("IMAX"):
+            return f"{name[4:]} 日距最高价天数"
+        if name.startswith("IMIN"):
+            return f"{name[4:]} 日距最低价天数"
         return (self.__class__.__doc__ or "").strip().split("\n")[0]
 
     @property
@@ -625,9 +637,367 @@ class RESI60(_Reg):
         super().__init__(60)
 
 
+# ── QTLU / QTLD：滚动分位数 ──────────────────────────────────────────────────
+#
+#  QTLU = rolling_quantile(close, q=0.8, n) / close
+#  QTLD = rolling_quantile(close, q=0.2, n) / close
+
+
+class _Qtl(_A158Ext):
+    """滚动分位数因子基类（QTLU / QTLD）。
+
+    子类通过 _quantile 指定分位数（0.0~1.0）。
+    """
+
+    _quantile: float = 0.5
+
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    @property
+    def name(self) -> str:
+        prefix = "QTLU" if self._quantile >= 0.5 else "QTLD"
+        return f"{prefix}{self._n}"
+
+    @property
+    def lookback_days(self) -> int:
+        return self._n * 2
+
+    def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
+        return (
+            frame.sort(["asset_id", "trade_date"])
+            .with_columns(
+                (pl.col("close")
+                 .rolling_quantile(self._quantile, window_size=self._n)
+                 .over("asset_id") /
+                 pl.col("close").clip(lower_bound=1e-12))
+                .alias(self.name)
+            )
+        )[self.name]
+
+
+class QTLU5(_Qtl):
+    _quantile = 0.8
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class QTLU10(_Qtl):
+    _quantile = 0.8
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class QTLU20(_Qtl):
+    _quantile = 0.8
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class QTLU30(_Qtl):
+    _quantile = 0.8
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class QTLU60(_Qtl):
+    _quantile = 0.8
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class QTLD5(_Qtl):
+    _quantile = 0.2
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class QTLD10(_Qtl):
+    _quantile = 0.2
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class QTLD20(_Qtl):
+    _quantile = 0.2
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class QTLD30(_Qtl):
+    _quantile = 0.2
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class QTLD60(_Qtl):
+    _quantile = 0.2
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+# ── RANK：当前价格在滚动窗口中的排名百分位 ──────────────────────────────────
+#
+#  RANK = (close < current_close).sum() / window_size
+#  使用 Polars rank 然后归一化到 [0, 1]
+
+
+class _Rank(_A158Ext):
+    """滚动窗口内排名百分位因子。
+
+    RANK = (count of close_j < close_i in window) / window_size，
+    值在 [0, 1] 之间，1 表示当前 close 是窗口内最高。
+    使用 map_batches + numpy 实现滚动 rank。
+    """
+
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    @property
+    def name(self) -> str:
+        return f"RANK{self._n}"
+
+    @property
+    def lookback_days(self) -> int:
+        return self._n * 2
+
+    def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
+        import numpy as np
+
+        n = self._n
+
+        def _rolling_rank(arr: np.ndarray) -> np.ndarray:
+            """Rolling rank percentile: (count of values < current) / window_size."""
+            result = np.full(len(arr), np.nan)
+            for i in range(n - 1, len(arr)):
+                win = arr[i - n + 1: i + 1]
+                current = win[-1]
+                result[i] = np.sum(win < current) / n
+            return result
+
+        return (
+            frame.sort(["asset_id", "trade_date"])
+            .with_columns(
+                pl.col("close")
+                .map_batches(
+                    lambda s: _rolling_rank(s.to_numpy()),
+                    return_dtype=pl.Float64,
+                )
+                .over("asset_id")
+                .alias(self.name)
+            )
+        )[self.name]
+
+
+class RANK5(_Rank):
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class RANK10(_Rank):
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class RANK20(_Rank):
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class RANK30(_Rank):
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class RANK60(_Rank):
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+# ── IMAX / IMIN / IMXD：滚动窗口内极值位置 ──────────────────────────────────
+#
+#  IMAX = days since highest high in rolling window (0 = today is the max)
+#  IMIN = days since lowest low in rolling window (0 = today is the min)
+#  IMXD = IMAX - IMIN
+#
+#  使用 map_batches + numpy 实现 rolling argmax/argmin from end
+
+
+class _ImaxMin(_A158Ext):
+    """滚动窗口内极值位置因子基类（IMAX / IMIN / IMXD）。
+
+    子类通过 _mode 指定类型：
+        "imax"  → 天数 since 最高价
+        "imin"  → 天数 since 最低价
+        "imxd"  → IMAX - IMIN
+    """
+
+    _mode: str = "imax"
+
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    @property
+    def name(self) -> str:
+        prefix = {"imax": "IMAX", "imin": "IMIN", "imxd": "IMXD"}[self._mode]
+        return f"{prefix}{self._n}"
+
+    @property
+    def lookback_days(self) -> int:
+        return self._n * 2
+
+    def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
+        import numpy as np
+
+        n = self._n
+        mode = self._mode
+
+        def _rolling_days_since_extreme(arr: np.ndarray, kind: str) -> np.ndarray:
+            """Compute days since max/min in rolling window from the end."""
+            result = np.full(len(arr), np.nan)
+            for i in range(n - 1, len(arr)):
+                win = arr[i - n + 1: i + 1]
+                if kind == "max":
+                    arg = np.argmax(win)
+                else:
+                    arg = np.argmin(win)
+                result[i] = n - 1 - arg
+            return result
+
+        if mode in ("imax", "imin"):
+            col = "high" if mode == "imax" else "low"
+            kind = "max" if mode == "imax" else "min"
+            return (
+                frame.sort(["asset_id", "trade_date"])
+                .with_columns(
+                    pl.col(col)
+                    .map_batches(
+                        lambda s: _rolling_days_since_extreme(s.to_numpy(), kind),
+                        return_dtype=pl.Float64,
+                    )
+                    .over("asset_id")
+                    .alias(self.name)
+                )
+            )[self.name]
+        else:  # imxd
+            return (
+                frame.sort(["asset_id", "trade_date"])
+                .with_columns([
+                    pl.col("high")
+                    .map_batches(
+                        lambda s: _rolling_days_since_extreme(s.to_numpy(), "max"),
+                        return_dtype=pl.Float64,
+                    )
+                    .over("asset_id")
+                    .alias("_imax_tmp"),
+                    pl.col("low")
+                    .map_batches(
+                        lambda s: _rolling_days_since_extreme(s.to_numpy(), "min"),
+                        return_dtype=pl.Float64,
+                    )
+                    .over("asset_id")
+                    .alias("_imin_tmp"),
+                ])
+                .with_columns(
+                    (pl.col("_imax_tmp") - pl.col("_imin_tmp")).alias(self.name)
+                )
+            )[self.name]
+
+
+class IMAX5(_ImaxMin):
+    _mode = "imax"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class IMAX10(_ImaxMin):
+    _mode = "imax"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class IMAX20(_ImaxMin):
+    _mode = "imax"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class IMAX30(_ImaxMin):
+    _mode = "imax"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class IMAX60(_ImaxMin):
+    _mode = "imax"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class IMIN5(_ImaxMin):
+    _mode = "imin"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class IMIN10(_ImaxMin):
+    _mode = "imin"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class IMIN20(_ImaxMin):
+    _mode = "imin"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class IMIN30(_ImaxMin):
+    _mode = "imin"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class IMIN60(_ImaxMin):
+    _mode = "imin"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class IMXD5(_ImaxMin):
+    _mode = "imxd"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class IMXD10(_ImaxMin):
+    _mode = "imxd"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class IMXD20(_ImaxMin):
+    _mode = "imxd"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class IMXD30(_ImaxMin):
+    _mode = "imxd"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class IMXD60(_ImaxMin):
+    _mode = "imxd"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
 # ── 合并所有 Alpha158 因子 ───────────────────────────────────────────────────
 # 9 KBAR + 16 Rolling + 6 MAX/MIN扩展 + 3 ROC/MA/STD-60
-# + 4 VMA + 4 VSTD + 4 VROC + 4 RSV + 15 REG(BETA/RSQR/RESI) = 65
+# + 4 VMA + 4 VSTD + 4 VROC + 4 RSV + 15 REG(BETA/RSQR/RESI)
+# + 10 QTLU/QTLD + 5 RANK + 15 IMAX/IMIN/IMXD = 95
 
 _EXTENDED: list[Factor] = [
     MAX10(), MAX30(), MAX60(),
@@ -640,6 +1010,12 @@ _EXTENDED: list[Factor] = [
     BETA5(), BETA10(), BETA20(), BETA30(), BETA60(),
     RSQR5(), RSQR10(), RSQR20(), RSQR30(), RSQR60(),
     RESI5(), RESI10(), RESI20(), RESI30(), RESI60(),
+    QTLU5(), QTLU10(), QTLU20(), QTLU30(), QTLU60(),
+    QTLD5(), QTLD10(), QTLD20(), QTLD30(), QTLD60(),
+    RANK5(), RANK10(), RANK20(), RANK30(), RANK60(),
+    IMAX5(), IMAX10(), IMAX20(), IMAX30(), IMAX60(),
+    IMIN5(), IMIN10(), IMIN20(), IMIN30(), IMIN60(),
+    IMXD5(), IMXD10(), IMXD20(), IMXD30(), IMXD60(),
 ]
 
 ALPHA158_FACTORS: list[Factor] = (
