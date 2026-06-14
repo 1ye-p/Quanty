@@ -14,6 +14,7 @@ const OverviewPage  = named(() => import('@/pages/OverviewPage'), 'OverviewPage'
 const DatasetsPage  = named(() => import('@/pages/DatasetsPage'), 'DatasetsPage')
 const BacktestsListPage = named(() => import('@/pages/BacktestsListPage'), 'BacktestsListPage')
 const BacktestDetailPage = named(() => import('@/pages/BacktestDetailPage'), 'BacktestDetailPage')
+const BacktestComparePage = named(() => import('@/pages/BacktestComparePage'), 'BacktestComparePage')
 const BacktestOverviewTab = named(() => import('@/pages/backtest-tabs/BacktestOverviewTab'), 'BacktestOverviewTab')
 const BacktestTearsheetTab = named(() => import('@/pages/backtest-tabs/BacktestTearsheetTab'), 'BacktestTearsheetTab')
 const BacktestOverfittingTab = named(() => import('@/pages/backtest-tabs/BacktestOverfittingTab'), 'BacktestOverfittingTab')
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
         path: 'backtests',
         children: [
           { index: true, element: <BacktestsListPage /> },
+          { path: 'compare', element: <BacktestComparePage /> },
           {
             path: ':id',
             element: <BacktestDetailPage />,
