@@ -1,7 +1,7 @@
 /**
  * cQuant API — Unified client module.
  *
- * Re-exports error classes, client utilities, and domain-specific API objects.
+ * Re-exports error classes, client utilities, and all domain APIs.
  */
 
 // Error classes and utilities
@@ -32,13 +32,29 @@ export {
 } from './client'
 
 // Domain APIs
-export { backtestsApi } from './backtests'
-export { mlApi } from './ml'
-export { factorsApi } from './factors'
-export { strategiesApi } from './strategies'
-export { optimizeApi } from './optimize'
+export { backtestsApi, backtestExtApi } from './backtests'
+export type {
+  WalkForwardConfig,
+  BacktestRun,
+  BacktestFill,
+} from './backtests'
 
-// Domain types
+export { mlApi } from './ml'
+export type {
+  ModelCatalogInfo,
+  MLExperiment,
+  MLJob,
+  TrainingCurvePoint,
+  PredictionBin,
+  WalkForwardFold,
+  DiagnosticsData,
+} from './ml'
+
+export { factorsApi, factorAnalyticsApi, customFactorApi, dslApi } from './factors'
+
+export { strategiesApi } from './strategies'
+
+export { optimizeApi } from './optimize'
 export type {
   SectorLimit,
   FactorExposureLimit,
@@ -48,3 +64,51 @@ export type {
   CovarianceRequest,
   CovarianceResult,
 } from './optimize'
+
+export { datasetsApi } from './datasets'
+export type { DatasetVersion } from './datasets'
+
+export { dashboardApi } from './dashboard'
+
+export { knowledgeApi } from './knowledge'
+export type { KnowledgeDoc, SearchHit, SearchResponse } from './knowledge'
+
+export { advisorApi, advisorExtApi } from './advisor'
+export type { ChatResponse } from './advisor'
+
+export { newsApi } from './news'
+export type { NewsEvent, NewsStats } from './news'
+
+export { liveApi } from './live'
+export type { LiveDeployment, LiveStrategy, LiveExecution } from './live'
+
+export { alertsApi } from './alerts'
+export type { AlertRule, AlertHistory, NotificationChannel } from './alerts'
+
+export { tradingApi } from './trading'
+export type {
+  TradeOrder,
+  TradePosition,
+  TradeAccount,
+  TradePnL,
+} from './trading'
+
+export { realtimeApi } from './realtime'
+export type { RealtimeQuote } from './realtime'
+
+export { scoringApi } from './scoring'
+export type { ScoringRun, ScoringResult, ScoringConfigBody } from './scoring'
+
+export { jobsApi } from './jobs'
+
+export { pipelineApi } from './pipeline'
+export type { PipelineStage, PipelineStatusResponse } from './pipeline'
+
+export { riskApi } from './risk'
+export type {
+  PolicyParam,
+  PolicyInfo,
+  SizerInfo,
+  RiskCheckRequest,
+  RiskCheckResult,
+} from './risk'

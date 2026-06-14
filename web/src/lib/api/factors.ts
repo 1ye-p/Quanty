@@ -99,7 +99,7 @@ export const factorsApi = {
     }>(`/factors/ic-status?${qs}`, config)
   },
 
-  // Custom factors
+  // Custom factors (also available as nested `custom`)
   custom: {
     list: (config?: RequestConfig) =>
       api.get<{ items: CustomFactor[] }>('/factors/custom', config),
@@ -131,7 +131,7 @@ export const factorsApi = {
       }>('/factors/custom/preview', body, config),
   },
 
-  // DSL
+  // DSL (also available as nested `dsl`)
   dsl: {
     functions: (config?: RequestConfig) =>
       api.get<{
@@ -141,3 +141,15 @@ export const factorsApi = {
       }>('/factors/dsl/functions', config),
   },
 }
+
+// ── Backward-compatible aliases ──────────────────────────────────────────────
+// These match the names exported from the old monolithic api.ts.
+
+/** @deprecated Use `factorsApi` with its nested `custom` property instead. */
+export const customFactorApi = factorsApi.custom
+
+/** @deprecated Use `factorsApi` with its nested `dsl` property instead. */
+export const dslApi = factorsApi.dsl
+
+/** @deprecated Use `factorsApi` instead. */
+export const factorAnalyticsApi = factorsApi

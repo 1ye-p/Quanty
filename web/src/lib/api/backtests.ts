@@ -144,3 +144,12 @@ export const backtestsApi = {
       config,
     ),
 }
+
+// ── Backward-compatible alias ───────────────────────────────────────────────
+
+/** @deprecated Use `backtestsApi` which now includes tearsheet/validationWindows/multipleTesting. */
+export const backtestExtApi = {
+  tearsheet: backtestsApi.tearsheet,
+  validationWindows: backtestsApi.validationWindows,
+  multipleTesting: backtestsApi.multipleTesting,
+}
