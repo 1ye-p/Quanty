@@ -34,6 +34,8 @@ export const queryKeys = {
     all: ['knowledge'] as const,
     list: (type?: string) => ['knowledge', 'list', type] as const,
     detail: (id: string) => ['knowledge', id] as const,
+    content: (id: string) => ['knowledge', id, 'content'] as const,
+    tags: () => ['knowledge', 'tags'] as const,
     search: (text: string) => ['knowledge', 'search', text] as const,
   },
 } as const
@@ -56,6 +58,7 @@ export const extendedQueryKeys = {
     featureImportance: (id: string) => ['ml', 'fi', id] as const,
     job: (id: string) => ['ml', 'job', id] as const,
     predict: (id: string) => ['ml', 'predict', id] as const,
+    diagnostics: (id: string) => ['ml', 'diagnostics', id] as const,
   },
   live: {
     strategies: () => ['live', 'strategies'] as const,

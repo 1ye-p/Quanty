@@ -1,43 +1,38 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { knowledgeApi, type SearchHit } from '@/lib/api'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { knowledgeApi, type KnowledgeDoc, type SearchHit } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
-import { DataState } from '@/components/ui/DataState'
+import { useQuery } from '@tanstack/react-query'
+import { DocumentUpload } from '@/components/knowledge/DocumentUpload'
+import { DocumentPreview } from '@/components/knowledge/DocumentPreview'
+import { DocumentTags } from '@/components/knowledge/DocumentTags'
+import { DocumentList } from '@/components/knowledge/DocumentList'
 
 export function KnowledgePage() {
+  const [showUpload, setShowUpload] = useState(false)
   const [searchText, setSearchText] = useState('')
   const [submitted, setSubmitted] = useState('')
-  const [ingestUri, setIngestUri] = useState('')
-  const [ingestTitle, setIngestTitle] = useState('')
-  const [ingestSource, setIngestSource] = useState('')
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [selectedDoc, setSelectedDoc] = useState<KnowledgeDoc | null>(null)
   const qc = useQueryClient()
 
-  const ingestMutation = useMutation({
-    mutationFn: () => knowledgeApi.ingest({
-      uri: ingestUri,
-      title: ingestTitle || undefined,
-      source_name: ingestSource || undefined,
-    }),
-    onSuccess: () => {
-      toast.success('文档已导入并索引')
-      qc.invalidateQueries({ queryKey: queryKeys.knowledge.list() })
-      setIngestUri('')
-      setIngestTitle('')
-      setIngestSource('')
-    },
-    onError: (err: Error) => toast.error(`导入失败：${err.message}`),
-  })
-
-  const { data: docs, isLoading } = useQuery({
-    queryKey: queryKeys.knowledge.list(),
-    queryFn: () => knowledgeApi.list(),
-  })
-
+  // Search
   const { data: results, isFetching: searching } = useQuery({
     queryKey: queryKeys.knowledge.search(submitted),
     queryFn: () => knowledgeApi.search(submitted),
     enabled: submitted.length > 0,
+  })
+
+  // Delete
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => knowledgeApi.delete(id),
+    onSuccess: () => {
+      toast.success('文档已删除')
+      setSelectedDoc(null)
+      qc.invalidateQueries({ queryKey: queryKeys.knowledge.all })
+    },
+    onError: (err: Error) => toast.error(`删除失败：${err.message}`),
   })
 
   function handleSearch(e: React.FormEvent) {
@@ -46,95 +41,123 @@ export function KnowledgePage() {
   }
 
   return (
-    <div>
-      <h1 className="page-title">知识库</h1>
-      <p className="page-subtitle">研报、策略文档、笔记管理与语义检索</p>
-
-      <form onSubmit={handleSearch} className="flex gap-2 mb-6">
-        <input
-          type="text"
-          value={searchText}
-          onChange={e => setSearchText(e.target.value)}
-          placeholder="搜索文档…（语义 + 关键词混合检索）"
-          className="input flex-1"
-        />
-        <button type="submit" className="btn-primary">搜索</button>
-      </form>
-
-      {/* Ingest section */}
-      <div className="card mb-6">
-        <h2 className="font-semibold text-gray-800 mb-3">导入知识文档</h2>
-        <div className="grid grid-cols-3 gap-3 mb-3">
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex-shrink-0 mb-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">文档路径/URL</label>
-            <input type="text" className="input w-full" placeholder="/path/to/file.pdf 或 https://..."
-              value={ingestUri} onChange={e => setIngestUri(e.target.value)} />
+            <h1 className="page-title">知识库</h1>
+            <p className="page-subtitle">研报、策略文档、笔记管理与语义检索</p>
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">标题（可选）</label>
-            <input type="text" className="input w-full" placeholder="文档标题"
-              value={ingestTitle} onChange={e => setIngestTitle(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">来源标签</label>
-            <input type="text" className="input w-full" placeholder="研报/策略/笔记"
-              value={ingestSource} onChange={e => setIngestSource(e.target.value)} />
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <button className="btn-primary" disabled={!ingestUri || ingestMutation.isPending}
-            onClick={() => ingestMutation.mutate()}>
-            {ingestMutation.isPending ? '导入中…' : '导入并索引'}
+          <button
+            className="btn-primary"
+            onClick={() => setShowUpload(prev => !prev)}
+          >
+            {showUpload ? '收起' : '上传文档'}
           </button>
         </div>
+
+        {/* Search */}
+        <form onSubmit={handleSearch} className="flex gap-2 mb-4">
+          <input
+            type="text"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            placeholder="搜索文档…（语义 + 关键词混合检索）"
+            className="input flex-1"
+          />
+          <button type="submit" className="btn-primary">搜索</button>
+        </form>
+
+        {/* Upload (conditional) */}
+        {showUpload && (
+          <div className="mb-4">
+            <DocumentUpload onSuccess={() => setShowUpload(false)} />
+          </div>
+        )}
+
+        {/* Search results */}
+        {submitted && (
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-gray-600 mb-3">
+              {searching ? '搜索中…' : `"${submitted}" 的结果（${results?.total_found ?? 0} 条）`}
+            </h3>
+            <div className="space-y-2">
+              {results?.hits.map((hit: SearchHit) => (
+                <div
+                  key={hit.doc_id}
+                  className="card cursor-pointer hover:bg-gray-50"
+                  onClick={() => {
+                    setSelectedDoc({
+                      doc_id: hit.doc_id,
+                      title: hit.title,
+                      source_name: hit.source_name,
+                      logical_type: hit.logical_type,
+                      language: '',
+                      ingested_at: '',
+                    })
+                    setSubmitted('')
+                    setSearchText('')
+                  }}
+                >
+                  <div className="font-medium text-gray-900">{hit.title || '无标题'}</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {hit.source_name} · {hit.logical_type} · 相关度 {hit.score.toFixed(3)}
+                  </div>
+                  {hit.headline && (
+                    <div className="mt-2 text-sm text-gray-600 italic">{hit.headline}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tags filter */}
+        <DocumentTags selectedTag={selectedTag} onTagSelect={setSelectedTag} />
       </div>
 
-      {submitted && (
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-600 mb-3">
-            {searching ? '搜索中…' : `"${submitted}" 的结果（${results?.total_found ?? 0} 条）`}
-          </h3>
-          <div className="space-y-3">
-            {results?.hits.map((hit: SearchHit) => (
-              <div key={hit.doc_id} className="card">
-                <div className="font-medium text-gray-900">{hit.title || '无标题'}</div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {hit.source_name} · {hit.logical_type} · 相关度 {hit.score.toFixed(3)}
-                </div>
-                {hit.headline && (
-                  <div className="mt-2 text-sm text-gray-600 italic">{hit.headline}</div>
-                )}
+      {/* Main content: 3-column layout */}
+      <div className="flex-1 grid grid-cols-3 gap-4 min-h-0">
+        {/* Left: Document list */}
+        <div className="col-span-1 card overflow-auto p-3">
+          <DocumentList
+            tag={selectedTag}
+            selectedId={selectedDoc?.doc_id ?? null}
+            onSelect={setSelectedDoc}
+          />
+        </div>
+
+        {/* Right: Preview (2 cols) */}
+        <div className="col-span-2 flex flex-col min-h-0">
+          {/* Action bar */}
+          {selectedDoc && (
+            <div className="flex items-center justify-between mb-2 px-1">
+              <div className="text-sm font-medium text-gray-700 truncate">
+                {selectedDoc.title || selectedDoc.source_name}
               </div>
-            ))}
+              <button
+                className="text-sm text-red-500 hover:text-red-700 transition-colors"
+                disabled={deleteMutation.isPending}
+                onClick={() => {
+                  if (confirm('确定删除该文档？')) {
+                    deleteMutation.mutate(selectedDoc.doc_id)
+                  }
+                }}
+              >
+                {deleteMutation.isPending ? '删除中…' : '删除'}
+              </button>
+            </div>
+          )}
+          {/* Preview */}
+          <div className="flex-1 min-h-0">
+            <DocumentPreview
+              docId={selectedDoc?.doc_id ?? null}
+              fileName={selectedDoc?.source_name}
+            />
           </div>
         </div>
-      )}
-
-      <h2 className="text-lg font-semibold text-gray-800 mb-3">所有文档（{docs?.total ?? 0}）</h2>
-      <DataState isLoading={isLoading} isEmpty={!isLoading && !docs?.items.length} emptyText="暂无文档，请先导入">
-        <div className="card p-0 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                {['标题', '来源', '类型', '语言', '入库时间'].map(h => (
-                  <th key={h} className="table-th">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {docs?.items.map(d => (
-                <tr key={d.doc_id} className="table-row">
-                  <td className="table-td font-medium">{d.title || <em className="text-gray-400">无标题</em>}</td>
-                  <td className="table-td text-gray-500">{d.source_name || '—'}</td>
-                  <td className="table-td">{d.logical_type}</td>
-                  <td className="table-td">{d.language}</td>
-                  <td className="table-td text-gray-400 text-xs">{d.ingested_at?.slice(0, 16) ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </DataState>
+      </div>
     </div>
   )
 }
