@@ -40,8 +40,11 @@ export function DatasetsPage() {
   })
 
   const handleSelectVersion = (id: string) => {
-    setSelectedVersion(prev => (prev === id ? '' : id))
-    if (id !== selectedVersion) setActiveTab('preview')
+    setSelectedVersion(prev => {
+      if (prev === id) return ''
+      setActiveTab('preview')
+      return id
+    })
   }
 
   return (

@@ -14,6 +14,7 @@ export function FieldStats({ datasetId }: FieldStatsProps) {
     queryKey: ['datasets', datasetId, 'field-stats'],
     queryFn: () => datasetsApi.getFieldStats(datasetId),
     enabled: !!datasetId,
+    staleTime: 60_000,
   })
 
   const chartData = data?.fields.map(f => ({

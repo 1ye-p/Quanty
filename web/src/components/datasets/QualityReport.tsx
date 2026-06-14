@@ -29,6 +29,7 @@ export function QualityReport({ datasetId }: QualityReportProps) {
     queryKey: ['datasets', datasetId, 'quality-report'],
     queryFn: () => datasetsApi.getQualityReport(datasetId),
     enabled: !!datasetId,
+    staleTime: 60_000,
   })
 
   return (

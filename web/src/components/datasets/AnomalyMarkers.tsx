@@ -18,6 +18,7 @@ export function AnomalyMarkers({ datasetId }: AnomalyMarkersProps) {
     queryKey: ['datasets', datasetId, 'anomalies'],
     queryFn: () => datasetsApi.getAnomalies(datasetId),
     enabled: !!datasetId,
+    staleTime: 60_000,
   })
 
   const anomalies = data?.anomalies ?? []

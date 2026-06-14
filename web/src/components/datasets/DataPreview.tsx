@@ -17,6 +17,7 @@ export function DataPreview({ datasetId }: DataPreviewProps) {
     queryKey: ['datasets', datasetId, 'preview', offset, PAGE_SIZE],
     queryFn: () => datasetsApi.getPreview(datasetId, { offset, limit: PAGE_SIZE }),
     enabled: !!datasetId,
+    staleTime: 60_000,
   })
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0

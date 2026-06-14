@@ -85,7 +85,7 @@ export const datasetsApi = {
       total: number
       offset: number
       limit: number
-    }>(`/datasets/${id}/preview?offset=${offset}&limit=${limit}`, config)
+    }>(`/datasets/${encodeURIComponent(id)}/preview?offset=${offset}&limit=${limit}`, config)
   },
 
   getFieldStats: (id: string, config?: RequestConfig) =>
@@ -102,7 +102,7 @@ export const datasetsApi = {
         mean: number | null
         std: number | null
       }[]
-    }>(`/datasets/${id}/field-stats`, config),
+    }>(`/datasets/${encodeURIComponent(id)}/field-stats`, config),
 
   getQualityReport: (id: string, config?: RequestConfig) =>
     api.get<{
@@ -116,7 +116,7 @@ export const datasetsApi = {
         percentage: number
       }[]
       suggestions: string[]
-    }>(`/datasets/${id}/quality-report`, config),
+    }>(`/datasets/${encodeURIComponent(id)}/quality-report`, config),
 
   getAnomalies: (id: string, config?: RequestConfig) =>
     api.get<{
@@ -126,5 +126,5 @@ export const datasetsApi = {
         count: number
         examples: string[]
       }[]
-    }>(`/datasets/${id}/anomalies`, config),
+    }>(`/datasets/${encodeURIComponent(id)}/anomalies`, config),
 }
