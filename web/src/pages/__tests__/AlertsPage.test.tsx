@@ -88,7 +88,10 @@ describe('AlertsPage', () => {
   })
 
   it('renders alert history with read/unread styling', async () => {
+    const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
+    // Click on history tab
+    await user.click(screen.getByText('告警历史'))
     await waitFor(() => {
       expect(screen.getByText('数据已过期 3 天')).toBeInTheDocument()
     })
@@ -232,12 +235,17 @@ describe('AlertsPage', () => {
       unread_count: 0,
     })
 
+    const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
     await waitFor(() => {
       expect(screen.getByText('暂无告警规则，点击"+ 新增规则"配置')).toBeInTheDocument()
+    })
+
+    // Click on history tab to see history empty state
+    await user.click(screen.getByText('告警历史'))
+    await waitFor(() => {
       expect(screen.getByText('暂无告警历史')).toBeInTheDocument()
-      expect(screen.getByText('无未读告警')).toBeInTheDocument()
     })
   })
 })
