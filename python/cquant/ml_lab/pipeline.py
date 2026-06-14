@@ -15,6 +15,38 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _create_trainer(model_type: str, model_params: dict | None = None):
+    """Create the appropriate trainer based on model type.
+
+    Parameters
+    ----------
+    model_type:
+        Model registry key (e.g. ``"lgbm"``, ``"xgb"``, ``"lstm"``, ``"transformer"``).
+    model_params:
+        Optional hyperparameter overrides for qlib models.
+
+    Returns
+    -------
+    A ``Trainer`` instance — either a native tree trainer or ``QlibModelTrainer``.
+    """
+    from cquant.qlib_bridge.models import is_qlib_model
+
+    if is_qlib_model(model_type):
+        from cquant.ml_lab.trainers.qlib_trainer import QlibModelTrainer
+
+        logger.info("Routing model %r to QlibModelTrainer", model_type)
+        return QlibModelTrainer(model_type, model_params)
+
+    # Native tree models
+    if model_type == "xgb":
+        from cquant.ml_lab.trainers.xgb import XGBTrainer
+        return XGBTrainer()
+
+    # Default to LightGBM
+    from cquant.ml_lab.trainers.lgbm import LGBMTrainer
+    return LGBMTrainer()
+
+
 def run_ml_prediction_pipeline(
     catalog: "Catalog",
     features: pl.DataFrame,
@@ -23,13 +55,23 @@ def run_ml_prediction_pipeline(
     n_splits: int = 3,
     gap_days: int = 5,
     horizon: str = "5d",
+    model_type: str = "lgbm",
+    model_params: dict | None = None,
 ) -> str:
-    """训练 LightGBM 模型并将每个 fold 的 OOS 预测写入 gold_predictions。
+    """训练模型并将每个 fold 的 OOS 预测写入 gold_predictions。
 
     Walk-forward 训练流程：
     1. 将数据按时间分割为 n_splits 个 fold
     2. 对每个 fold：训练模型 → 只在 OOS 期间生成预测 → 持久化
     3. 返回组合 model_id（MLModelStrategy 按前缀匹配所有 fold）
+
+    支持的 model_type：
+    - 原生模型：``"lgbm"``（默认）、``"xgb"``
+    - qlib DL 模型：``"lstm"``, ``"transformer"``, ``"tabnet"``, ``"mlp"``, ``"gru"``,
+      ``"tcn"``, ``"wavelet_net"``, ``"double_adapt"``, ``"tra"``, ``"localformer"``
+    - qlib 集成模型：``"catboost_ensemble"``, ``"bagging"``, ``"stacking"``,
+      ``"voting"``, ``"blending"``
+    - qlib 线性模型：``"linear"``, ``"ridge"``, ``"lasso"``, ``"elastic_net"``, ...
 
     参数
     ----
@@ -48,13 +90,16 @@ def run_ml_prediction_pipeline(
         训练集末尾与验证集开头之间的间隔天数（防泄漏）。
     horizon:
         预测周期标签，写入 gold_predictions.horizon 字段。
+    model_type:
+        模型类型，自动路由到对应的 Trainer。
+    model_params:
+        传递给模型的超参数（qlib 模型使用 ModelInfo.default_params 作为基础）。
 
     返回
     ----
     组合 model_id（格式：``"{prefix}_wf_{n_splits}folds"``）。
     MLModelStrategy 使用此前缀查询所有 fold 的预测。
     """
-    from cquant.ml_lab.trainers.lgbm import LGBMTrainer
     from cquant.ml_lab.walk_forward import WalkForwardValidator
 
     required = {"asset_id", "trade_date", target_col}
@@ -65,7 +110,7 @@ def run_ml_prediction_pipeline(
     wfv = WalkForwardValidator(n_splits=n_splits, gap_days=gap_days)
     splits = wfv.split(features)
 
-    trainer = LGBMTrainer()
+    trainer = _create_trainer(model_type, model_params)
     composite_id = f"{model_id_prefix}_wf_{n_splits}folds"
 
     for i, (train_df, valid_df) in enumerate(splits):
