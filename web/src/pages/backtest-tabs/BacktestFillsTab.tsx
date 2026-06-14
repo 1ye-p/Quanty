@@ -4,25 +4,7 @@ import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
 import { DataTable } from '@/components/ui/DataTable'
 import { queryKeys } from '@/lib/queryKeys'
-
-function downloadCsv(rows: Record<string, unknown>[], filename: string) {
-  if (rows.length === 0) return
-  const headers = Object.keys(rows[0])
-  const lines = [
-    headers.join(','),
-    ...rows.map(row =>
-      headers.map(h => {
-        const v = row[h]
-        const s = v === null || v === undefined ? '' : String(v)
-        return s.includes(',') ? `"${s}"` : s
-      }).join(','),
-    ),
-  ]
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
+import { downloadCsv } from '@/lib/download'
   a.click()
   URL.revokeObjectURL(url)
 }

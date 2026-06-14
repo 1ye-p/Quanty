@@ -1,19 +1,9 @@
+import { MetricCard } from '../../components/ui/MetricCard'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 
-function MetricCard({ label, value, sub, warn = false }: {
-  label: string; value: string | number; sub?: string; warn?: boolean
-}) {
-  return (
-    <div className={`card text-center py-4 ${warn ? 'border-l-4 border-red-400' : ''}`}>
-      <div className={`text-xl font-bold ${warn ? 'text-red-600' : 'text-brand-600'}`}>{value}</div>
-      <div className="text-xs text-gray-500 mt-1">{label}</div>
-      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
-    </div>
-  )
-}
 
 export function BacktestTcaTab() {
   const { id: selectedId } = useParams<{ id: string }>()

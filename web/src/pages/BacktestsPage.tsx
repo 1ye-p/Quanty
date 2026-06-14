@@ -28,53 +28,10 @@ function rebalanceLabel(r?: string) {
   return { '1d': '每日', '5d': '每周', '20d': '每月' }[r ?? '1d'] ?? r ?? '每日'
 }
 
+import { downloadJson, downloadCsv } from '@/lib/download'
+import { MetricCard } from '@/components/ui/MetricCard'
+
 type Tab = 'overview' | 'tearsheet' | 'overfitting' | 'fills' | 'walkforward' | 'tca' | 'attribution' | 'risk' | 'advanced' | 'model_compare' | 'feature_importance' | 'model_diagnostics'
-
-/** 将 JSON 对象导出为 .json 文件下载 */
-function downloadJson(data: unknown, filename: string) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-/** 将对象数组转为 CSV 并触发下载 */
-function downloadCsv(rows: Record<string, unknown>[], filename: string) {
-  if (rows.length === 0) return
-  const headers = Object.keys(rows[0])
-  const lines = [
-    headers.join(','),
-    ...rows.map(row =>
-      headers.map(h => {
-        const v = row[h]
-        const s = v === null || v === undefined ? '' : String(v)
-        return s.includes(',') ? `"${s}"` : s
-      }).join(','),
-    ),
-  ]
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-function MetricCard({ label, value, sub, warn = false }: {
-  label: string; value: string | number; sub?: string; warn?: boolean
-}) {
-  return (
-    <div className={`card text-center py-4 ${warn ? 'border-l-4 border-red-400' : ''}`}>
-      <div className={`text-xl font-bold ${warn ? 'text-red-600' : 'text-brand-600'}`}>{value}</div>
-      <div className="text-xs text-gray-500 mt-1">{label}</div>
-      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
-    </div>
-  )
-}
 
 function FoldMetricsCard({ folds }: { folds: Record<string, unknown>[] }) {
   if (!folds || folds.length === 0) return null

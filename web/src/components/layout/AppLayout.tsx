@@ -208,7 +208,7 @@ export function AppLayout() {
       )}
       <nav className={`${
         collapsed ? 'w-12' : 'w-56'
-      } bg-brand-600 text-gray-100 flex flex-col flex-shrink-0 sticky top-0 h-screen overflow-y-auto transition-[width] duration-200`}>
+      } bg-brand-600 text-gray-100 flex flex-col flex-shrink-0 sticky ${currentWorkflow ? 'top-10' : 'top-0'} h-screen overflow-y-auto transition-[width] duration-200`}>
 
         {collapsed ? (
           <button
@@ -430,7 +430,7 @@ export function AppLayout() {
           </header>
 
           {/* Main content */}
-          <main className="flex-1 overflow-y-auto p-8 bg-gray-50">
+          <main className={`flex-1 overflow-y-auto p-8 bg-gray-50 ${currentWorkflow ? 'pt-18' : ''}`}>
             <Breadcrumb />
             <Suspense fallback={
               <div className="flex items-center justify-center h-64">

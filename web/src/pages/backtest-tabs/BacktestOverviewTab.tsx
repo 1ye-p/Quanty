@@ -1,3 +1,4 @@
+import { MetricCard } from '../../components/ui/MetricCard'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -15,28 +16,8 @@ function rebalanceLabel(r?: string) {
   return { '1d': '每日', '5d': '每周', '20d': '每月' }[r ?? '1d'] ?? r ?? '每日'
 }
 
-function MetricCard({ label, value, sub, warn = false }: {
-  label: string; value: string | number; sub?: string; warn?: boolean
-}) {
-  return (
-    <div className={`card text-center py-4 ${warn ? 'border-l-4 border-red-400' : ''}`}>
-      <div className={`text-xl font-bold ${warn ? 'text-red-600' : 'text-brand-600'}`}>{value}</div>
-      <div className="text-xs text-gray-500 mt-1">{label}</div>
-      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
-    </div>
-  )
-}
 
-/** Export object to .json download */
-function downloadJson(data: unknown, filename: string) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
+import { downloadJson } from '@/lib/download'
 
 export function BacktestOverviewTab() {
   const { id: selectedId } = useParams<{ id: string }>()
