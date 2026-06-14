@@ -4,6 +4,7 @@
  * Shows stacked area chart of top 5/10/20 weights and an HHI gauge.
  * HHI legend: <1000 low concentration, 1000-1800 medium, >1800 high.
  */
+import { useId } from 'react'
 import {
   AreaChart,
   Area,
@@ -71,6 +72,7 @@ function HHITooltip({ active, payload, label }: TooltipProps<number, string>) {
 }
 
 export function PositionConcentration({ data, title = 'Position Concentration' }: Props) {
+  const uid = useId()
   if (!data || data.length === 0) {
     return (
       <div className="card">
@@ -100,15 +102,15 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
       <ResponsiveContainer width="100%" height={280}>
         <AreaChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
           <defs>
-            <linearGradient id="gradTop5" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="{uid}-gradTop5" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
               <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
             </linearGradient>
-            <linearGradient id="gradTop10" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="{uid}-gradTop10" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
               <stop offset="100%" stopColor="#10b981" stopOpacity={0.05} />
             </linearGradient>
-            <linearGradient id="gradTop20" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="{uid}-gradTop20" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.3} />
               <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.05} />
             </linearGradient>
@@ -133,7 +135,7 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
             name="Top 20"
             stackId="weights"
             stroke="#f59e0b"
-            fill="url(#gradTop20)"
+            fill="url(#{uid}-gradTop20)"
             strokeWidth={1.5}
           />
           <Area
@@ -142,7 +144,7 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
             name="Top 10"
             stackId="weights"
             stroke="#10b981"
-            fill="url(#gradTop10)"
+            fill="url(#{uid}-gradTop10)"
             strokeWidth={1.5}
           />
           <Area
@@ -151,7 +153,7 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
             name="Top 5"
             stackId="weights"
             stroke="#3b82f6"
-            fill="url(#gradTop5)"
+            fill="url(#{uid}-gradTop5)"
             strokeWidth={1.5}
           />
         </AreaChart>

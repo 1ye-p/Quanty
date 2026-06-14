@@ -46,28 +46,20 @@ function icColor(ic: number): { bg: string; text: string } {
   return { bg: 'bg-gray-50', text: 'text-gray-400' }
 }
 
-function filterByGranularity(data: ICDataPoint[], _gran: Granularity): ICDataPoint[] {
-  // The period string already encodes the granularity (W/week, YYYY-MM/month, Q/quarter).
-  // In practice the upstream data source should provide pre-aggregated data per granularity.
-  // Here we just pass through; filtering by prefix could be added if needed.
-  return data
-}
-
 export function ICTimeseriesHeatmap({ data, title = 'IC Timeseries Heatmap' }: Props) {
   const [granularity, setGranularity] = useState<Granularity>('month')
 
   const { periods, factors, matrix } = useMemo(() => {
-    const filtered = filterByGranularity(data, granularity)
-    if (filtered.length === 0) return { periods: [], factors: [], matrix: new Map<string, number>() }
+    if (data.length === 0) return { periods: [], factors: [], matrix: new Map<string, number>() }
 
     // Unique periods (sorted descending to show latest first)
-    const periodSet = new Set(filtered.map(d => d.period))
+    const periodSet = new Set(data.map(d => d.period))
     const allPeriods = Array.from(periodSet).sort().reverse().slice(0, MAX_PERIODS)
     const periods = allPeriods.reverse() // chronological order for display
 
     // Rank factors by average absolute IC, take top N
     const factorIcMap = new Map<string, number[]>()
-    for (const d of filtered) {
+    for (const d of data) {
       const arr = factorIcMap.get(d.factor) ?? []
       arr.push(d.ic)
       factorIcMap.set(d.factor, arr)
@@ -83,7 +75,7 @@ export function ICTimeseriesHeatmap({ data, title = 'IC Timeseries Heatmap' }: P
 
     // Build lookup matrix
     const matrix = new Map<string, number>()
-    for (const d of filtered) {
+    for (const d of data) {
       if (factorRanking.includes(d.factor) && periods.includes(d.period)) {
         matrix.set(`${d.factor}::${d.period}`, d.ic)
       }
