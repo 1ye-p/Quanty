@@ -35,6 +35,12 @@ class _A158Ext(Factor):
             return f"{name[3:]} 日收盘价标准差 / close"
         if name.startswith("RSV"):
             return f"{name[3:]} 日 RSV（未成熟随机值）"
+        if name.startswith("BETA"):
+            return f"{name[4:]} 日线性回归斜率（close vs time）"
+        if name.startswith("RSQR"):
+            return f"{name[4:]} 日线性回归 R²"
+        if name.startswith("RESI"):
+            return f"{name[4:]} 日线性回归残差"
         return (self.__class__.__doc__ or "").strip().split("\n")[0]
 
     @property
@@ -442,9 +448,186 @@ class RSV30(_RSV):
         super().__init__(30)
 
 
+# ── BETA / RSQR / RESI：滚动线性回归（close vs time index）──────────────────
+#
+#  对每个滚动窗口，以 [0, 1, ..., n-1] 为自变量 x，close 为因变量 y，
+#  计算 OLS 回归的斜率（BETA）、决定系数 R²（RSQR）、末期残差（RESI）。
+#
+#  使用 Polars 表达式避免 Python 循环：
+#    sum_x  = n*(n-1)/2        (常数)
+#    sum_x2 = n*(n-1)*(2n-1)/6 (常数)
+#    slope  = (n*Σxy - Σx*Σy) / (n*Σx2 - (Σx)²)
+#    预测值 ŷ_i = intercept + slope * x_i
+#    residual = y_last - ŷ_last
+#    R² = 1 - SS_res / SS_tot
+
+
+class _Reg(_A158Ext):
+    """线性回归因子基类（BETA / RSQR / RESI）。
+
+    子类通过 _mode 指定输出类型：
+        "beta"  → 斜率
+        "rsqr"  → R²
+        "resi"  → 末期残差
+    """
+
+    _mode: str = "beta"
+
+    def __init__(self, n: int) -> None:
+        self._n = n
+
+    @property
+    def name(self) -> str:
+        prefix = {"beta": "BETA", "rsqr": "RSQR", "resi": "RESI"}[self._mode]
+        return f"{prefix}{self._n}"
+
+    @property
+    def lookback_days(self) -> int:
+        return self._n * 2
+
+    def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
+        import numpy as np
+
+        n = self._n
+        x = np.arange(n, dtype=np.float64)
+        sum_x = x.sum()
+        sum_x2 = (x**2).sum()
+        denom = n * sum_x2 - sum_x * sum_x
+        mode = self._mode
+
+        def _ols(close_arr: np.ndarray) -> np.ndarray:
+            """Vectorised rolling OLS over a single asset's close series."""
+            result = np.full(len(close_arr), np.nan)
+            for i in range(n - 1, len(close_arr)):
+                win = close_arr[i - n + 1: i + 1]
+                sum_y = win.sum()
+                sum_xy = (x * win).sum()
+                slope = (n * sum_xy - sum_x * sum_y) / denom
+                intercept = (sum_y - slope * sum_x) / n
+
+                if mode == "beta":
+                    result[i] = slope
+                elif mode == "rsqr":
+                    mean_y = sum_y / n
+                    pred = intercept + slope * x
+                    ss_res = ((win - pred) ** 2).sum()
+                    ss_tot = ((win - mean_y) ** 2).sum()
+                    result[i] = 1.0 - ss_res / (ss_tot + 1e-30)
+                else:  # resi
+                    last_pred = intercept + slope * (n - 1)
+                    result[i] = win[-1] - last_pred
+            return result
+
+        return (
+            frame.sort(["asset_id", "trade_date"])
+            .with_columns(
+                pl.col("close")
+                .map_batches(
+                    lambda s: _ols(s.to_numpy()),
+                    return_dtype=pl.Float64,
+                )
+                .over("asset_id")
+                .alias(self.name)
+            )
+        )[self.name]
+
+
+# Concrete classes: BETA / RSQR / RESI × windows [5, 10, 20, 30, 60]
+
+
+class BETA5(_Reg):
+    _mode = "beta"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class BETA10(_Reg):
+    _mode = "beta"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class BETA20(_Reg):
+    _mode = "beta"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class BETA30(_Reg):
+    _mode = "beta"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class BETA60(_Reg):
+    _mode = "beta"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class RSQR5(_Reg):
+    _mode = "rsqr"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class RSQR10(_Reg):
+    _mode = "rsqr"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class RSQR20(_Reg):
+    _mode = "rsqr"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class RSQR30(_Reg):
+    _mode = "rsqr"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class RSQR60(_Reg):
+    _mode = "rsqr"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
+class RESI5(_Reg):
+    _mode = "resi"
+    def __init__(self) -> None:
+        super().__init__(5)
+
+
+class RESI10(_Reg):
+    _mode = "resi"
+    def __init__(self) -> None:
+        super().__init__(10)
+
+
+class RESI20(_Reg):
+    _mode = "resi"
+    def __init__(self) -> None:
+        super().__init__(20)
+
+
+class RESI30(_Reg):
+    _mode = "resi"
+    def __init__(self) -> None:
+        super().__init__(30)
+
+
+class RESI60(_Reg):
+    _mode = "resi"
+    def __init__(self) -> None:
+        super().__init__(60)
+
+
 # ── 合并所有 Alpha158 因子 ───────────────────────────────────────────────────
 # 9 KBAR + 16 Rolling + 6 MAX/MIN扩展 + 3 ROC/MA/STD-60
-# + 4 VMA + 4 VSTD + 4 VROC + 4 RSV = 50
+# + 4 VMA + 4 VSTD + 4 VROC + 4 RSV + 15 REG(BETA/RSQR/RESI) = 65
 
 _EXTENDED: list[Factor] = [
     MAX10(), MAX30(), MAX60(),
@@ -454,6 +637,9 @@ _EXTENDED: list[Factor] = [
     VSTD5(), VSTD10(), VSTD20(), VSTD30(),
     VROC5(), VROC10(), VROC20(), VROC30(),
     RSV5(), RSV10(), RSV20(), RSV30(),
+    BETA5(), BETA10(), BETA20(), BETA30(), BETA60(),
+    RSQR5(), RSQR10(), RSQR20(), RSQR30(), RSQR60(),
+    RESI5(), RESI10(), RESI20(), RESI30(), RESI60(),
 ]
 
 ALPHA158_FACTORS: list[Factor] = (
