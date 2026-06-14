@@ -12,7 +12,20 @@ const named = <T extends Record<string, unknown>>(
 
 const OverviewPage  = named(() => import('@/pages/OverviewPage'), 'OverviewPage')
 const DatasetsPage  = named(() => import('@/pages/DatasetsPage'), 'DatasetsPage')
-const BacktestsPage = named(() => import('@/pages/BacktestsPage'), 'BacktestsPage')
+const BacktestsListPage = named(() => import('@/pages/BacktestsListPage'), 'BacktestsListPage')
+const BacktestDetailPage = named(() => import('@/pages/BacktestDetailPage'), 'BacktestDetailPage')
+const BacktestOverviewTab = named(() => import('@/pages/backtest-tabs/BacktestOverviewTab'), 'BacktestOverviewTab')
+const BacktestTearsheetTab = named(() => import('@/pages/backtest-tabs/BacktestTearsheetTab'), 'BacktestTearsheetTab')
+const BacktestOverfittingTab = named(() => import('@/pages/backtest-tabs/BacktestOverfittingTab'), 'BacktestOverfittingTab')
+const BacktestFillsTab = named(() => import('@/pages/backtest-tabs/BacktestFillsTab'), 'BacktestFillsTab')
+const BacktestWalkForwardTab = named(() => import('@/pages/backtest-tabs/BacktestWalkForwardTab'), 'BacktestWalkForwardTab')
+const BacktestTcaTab = named(() => import('@/pages/backtest-tabs/BacktestTcaTab'), 'BacktestTcaTab')
+const BacktestAttributionTab = named(() => import('@/pages/backtest-tabs/BacktestAttributionTab'), 'BacktestAttributionTab')
+const BacktestRiskTab = named(() => import('@/pages/backtest-tabs/BacktestRiskTab'), 'BacktestRiskTab')
+const BacktestAdvancedTab = named(() => import('@/pages/backtest-tabs/BacktestAdvancedTab'), 'BacktestAdvancedTab')
+const BacktestModelCompareTab = named(() => import('@/pages/backtest-tabs/BacktestModelCompareTab'), 'BacktestModelCompareTab')
+const BacktestFeatureImportanceTab = named(() => import('@/pages/backtest-tabs/BacktestFeatureImportanceTab'), 'BacktestFeatureImportanceTab')
+const BacktestModelDiagnosticsTab = named(() => import('@/pages/backtest-tabs/BacktestModelDiagnosticsTab'), 'BacktestModelDiagnosticsTab')
 const KnowledgePage = named(() => import('@/pages/KnowledgePage'), 'KnowledgePage')
 const AdvisorPage   = named(() => import('@/pages/AdvisorPage'), 'AdvisorPage')
 const FactorsPage   = named(() => import('@/pages/FactorsPage'), 'FactorsPage')
@@ -41,7 +54,30 @@ export const router = createBrowserRouter([
       { path: 'factors',    element: <FactorsPage /> },
       { path: 'strategies', element: <StrategiesPage /> },
       { path: 'ml',         element: <MLLabPage /> },
-      { path: 'backtests',  element: <BacktestsPage /> },
+      {
+        path: 'backtests',
+        children: [
+          { index: true, element: <BacktestsListPage /> },
+          {
+            path: ':id',
+            element: <BacktestDetailPage />,
+            children: [
+              { index: true, element: <BacktestOverviewTab /> },
+              { path: 'tearsheet', element: <BacktestTearsheetTab /> },
+              { path: 'overfitting', element: <BacktestOverfittingTab /> },
+              { path: 'fills', element: <BacktestFillsTab /> },
+              { path: 'walkforward', element: <BacktestWalkForwardTab /> },
+              { path: 'tca', element: <BacktestTcaTab /> },
+              { path: 'attribution', element: <BacktestAttributionTab /> },
+              { path: 'risk', element: <BacktestRiskTab /> },
+              { path: 'advanced', element: <BacktestAdvancedTab /> },
+              { path: 'model-compare', element: <BacktestModelCompareTab /> },
+              { path: 'feature-importance', element: <BacktestFeatureImportanceTab /> },
+              { path: 'model-diagnostics', element: <BacktestModelDiagnosticsTab /> },
+            ],
+          },
+        ],
+      },
       { path: 'live',       element: <LivePage /> },
       { path: 'trading',    element: <TradingPage /> },
       { path: 'news',       element: <NewsPage /> },
