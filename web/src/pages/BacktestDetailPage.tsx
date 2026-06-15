@@ -21,6 +21,7 @@ const TABS: TabDef[] = [
   { id: 'model-compare', label: 'Model Compare', path: 'model-compare' },
   { id: 'feature-importance', label: 'Feature Importance', path: 'feature-importance' },
   { id: 'model-diagnostics', label: 'Model Diagnostics', path: 'model-diagnostics' },
+  { id: 'trade-analysis', label: 'Trade Analysis', path: 'trade-analysis' },
 ]
 
 export function BacktestDetailPage() {

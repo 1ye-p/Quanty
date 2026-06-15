@@ -28,6 +28,7 @@ const BacktestAdvancedTab = named(() => import('@/pages/backtest-tabs/BacktestAd
 const BacktestModelCompareTab = named(() => import('@/pages/backtest-tabs/BacktestModelCompareTab'), 'BacktestModelCompareTab')
 const BacktestFeatureImportanceTab = named(() => import('@/pages/backtest-tabs/BacktestFeatureImportanceTab'), 'BacktestFeatureImportanceTab')
 const BacktestModelDiagnosticsTab = named(() => import('@/pages/backtest-tabs/BacktestModelDiagnosticsTab'), 'BacktestModelDiagnosticsTab')
+const BacktestTradeAnalysisTab = named(() => import('@/pages/backtest-tabs/BacktestTradeAnalysisTab'), 'BacktestTradeAnalysisTab')
 const KnowledgePage = named(() => import('@/pages/KnowledgePage'), 'KnowledgePage')
 const AdvisorPage   = named(() => import('@/pages/AdvisorPage'), 'AdvisorPage')
 const FactorsPage   = named(() => import('@/pages/FactorsPage'), 'FactorsPage')
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
               { path: 'model-compare', element: <BacktestModelCompareTab /> },
               { path: 'feature-importance', element: <BacktestFeatureImportanceTab /> },
               { path: 'model-diagnostics', element: <BacktestModelDiagnosticsTab /> },
+              { path: 'trade-analysis', element: <BacktestTradeAnalysisTab /> },
             ],
           },
         ],
