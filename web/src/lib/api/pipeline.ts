@@ -12,6 +12,15 @@ export interface PipelineStage {
   [key: string]: unknown
 }
 
+export interface PipelineExecution {
+  id: string
+  status: 'running' | 'success' | 'failed' | 'cancelled'
+  started_at: string
+  completed_at?: string
+  duration_seconds?: number
+  params?: Record<string, unknown>
+}
+
 export interface PipelineStatusResponse {
   status: string
   detail?: string
@@ -30,4 +39,7 @@ export const pipelineApi = {
 
   run: (body?: { node_configs?: Record<string, Record<string, unknown>> }, config?: RequestConfig) =>
     api.post<{ status: string; detail?: string }>('/pipeline/run', body, config),
+
+  getExecutions: (config?: RequestConfig) =>
+    api.get<PipelineExecution[]>('/pipeline/executions', config),
 }

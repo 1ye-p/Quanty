@@ -95,4 +95,7 @@ export const extendedQueryKeys = {
     backtestTrend: (days: number) => ['dashboard', 'backtest-trend', days] as const,
     icTrend: (days: number) => ['dashboard', 'ic-trend', days] as const,
   },
+  pipeline: {
+    executions: () => ['pipeline', 'executions'] as const,
+  },
 } as const
