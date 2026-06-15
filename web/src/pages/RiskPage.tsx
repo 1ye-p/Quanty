@@ -50,7 +50,8 @@ export function RiskPage() {
       for (const p of selectedPolicy.params) {
         const val = policyParams[p.key]
         if (val !== undefined && val !== '') {
-          params[p.key] = Number(val) || val
+          const num = Number(val)
+          params[p.key] = isNaN(num) ? val : num
         }
       }
     }
