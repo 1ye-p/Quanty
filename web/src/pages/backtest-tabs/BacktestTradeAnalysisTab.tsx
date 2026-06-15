@@ -21,6 +21,7 @@ export function BacktestTradeAnalysisTab() {
     queryKey: queryKeys.backtests.tradeAnalysis(id!),
     queryFn: () => backtestsApi.getTradeAnalysis(id!),
     enabled: !!id,
+    staleTime: 120_000,
   })
 
   if (!id) return null

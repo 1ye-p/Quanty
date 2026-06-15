@@ -21,7 +21,7 @@ export function BacktestAdvancedTab() {
   })
 
   const { data: tradeAnalysisData } = useQuery({
-    queryKey: ['backtests', 'trade-analysis', selectedId!],
+    queryKey: queryKeys.backtests.tradeAnalysis(selectedId!),
     queryFn: () => backtestsApi.getTradeAnalysis(selectedId!),
     enabled: !!selectedId,
     staleTime: 120_000,
