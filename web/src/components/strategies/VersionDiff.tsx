@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { DiffEditor } from '@monaco-editor/react'
 
 interface Version {
@@ -14,6 +15,13 @@ interface VersionDiffProps {
 }
 
 export function VersionDiff({ oldVersion, newVersion, onClose }: VersionDiffProps) {
+  // Escape key to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   const formatConfig = (text: string) => {
     try {
       return JSON.stringify(JSON.parse(text), null, 2)
@@ -26,8 +34,8 @@ export function VersionDiff({ oldVersion, newVersion, onClose }: VersionDiffProp
   const newContent = formatConfig(newVersion.config_text)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-lg w-4/5 h-4/5 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-lg w-4/5 h-4/5 flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
           <h3 className="font-medium text-gray-800">
@@ -50,13 +58,6 @@ export function VersionDiff({ oldVersion, newVersion, onClose }: VersionDiffProp
               fontSize: 14,
             }}
           />
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-2 p-4 border-t">
-          <button onClick={onClose} className="btn-secondary">
-            关闭
-          </button>
         </div>
       </div>
     </div>
