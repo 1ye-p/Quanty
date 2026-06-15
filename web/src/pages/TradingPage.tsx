@@ -14,11 +14,13 @@ const tabs = [
   { id: 'account', label: '账户' },
   { id: 'orders', label: '订单历史' },
   { id: 'trades', label: '成交回报' },
-]
+] as const
+
+type TradingTab = typeof tabs[number]['id']
 
 export function TradingPage() {
   const [broker, setBroker] = useState('paper')
-  const [activeTab, setActiveTab] = useState('order')
+  const [activeTab, setActiveTab] = useState<TradingTab>('order')
   const [lookupSymbol, setLookupSymbol] = useState('')
   const [showLookup, setShowLookup] = useState(false)
   const queryClient = useQueryClient()
