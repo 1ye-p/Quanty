@@ -1,12 +1,6 @@
 import { useEffect } from 'react'
 import { DiffEditor } from '@monaco-editor/react'
-
-interface Version {
-  version_id: string
-  config_text: string
-  summary: string
-  created_at: string
-}
+import type { Version } from './types'
 
 interface VersionDiffProps {
   oldVersion: Version

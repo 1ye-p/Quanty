@@ -1,13 +1,6 @@
 import { useState } from 'react'
 import { VersionDiff } from './VersionDiff'
-
-interface Version {
-  version_id: string
-  config_text: string
-  config_format: string
-  summary: string
-  created_at: string
-}
+import type { Version } from './types'
 
 interface Props {
   versions: Version[]
@@ -55,13 +48,22 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
                 <div className="flex gap-2 ml-3">
                   <button
                     className="text-xs text-brand-600 hover:underline"
-                    onClick={() => setDiffTarget(diffTarget === v.version_id ? null : v.version_id)}
+                    onClick={() => {
+                      setDiffTarget(diffTarget === v.version_id ? null : v.version_id)
+                      setDiffVersions(null) // close diff modal if open
+                    }}
                   >
                     查看
                   </button>
                   <button
                     className="text-xs text-blue-600 hover:underline disabled:text-gray-300"
-                    onClick={() => { const older = versions[i + 1]; if (older) setDiffVersions({ old: older, new: v }) }}
+                    onClick={() => {
+                      const older = versions[i + 1]
+                      if (older) {
+                        setDiffVersions({ old: older, new: v })
+                        setDiffTarget(null) // close config modal if open
+                      }
+                    }}
                     disabled={i === versions.length - 1}
                   >
                     对比上一版本
