@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { pipelineApi } from '@/lib/api/pipeline'
@@ -13,11 +13,15 @@ export function RunDialog({ open, onClose }: RunDialogProps) {
   const [paramsText, setParamsText] = useState('{}')
   const [parseError, setParseError] = useState(false)
 
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open, onClose])
+
   const runMutation = useMutation({
-    mutationFn: () => {
-      const params = JSON.parse(paramsText)
-      return pipelineApi.run(params)
-    },
+    mutationFn: (params: Record<string, unknown>) => pipelineApi.run(params),
     onSuccess: () => {
       toast.success('管道已触发')
       queryClient.invalidateQueries({ queryKey: ['pipeline'] })
@@ -30,9 +34,9 @@ export function RunDialog({ open, onClose }: RunDialogProps) {
 
   const handleRun = () => {
     try {
-      JSON.parse(paramsText)
+      const params = JSON.parse(paramsText)
       setParseError(false)
-      runMutation.mutate()
+      runMutation.mutate(params)
     } catch {
       setParseError(true)
     }
