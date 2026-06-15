@@ -5,7 +5,7 @@
  * 数据准备 → 因子计算 → 模型训练 → 回测验证 → 组合优化
  */
 import { useState, useMemo, useCallback } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { pipelineApi } from '@/lib/api'
 import type { Node, Edge } from '@xyflow/react'
@@ -94,7 +94,6 @@ type PipelineTab = typeof tabs[number]['id']
 // ── Page component ──────────────────────────────────────────────────────────
 
 export function PipelinePage() {
-  const queryClient = useQueryClient()
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, unknown>>>({})
   const [editable, setEditable] = useState(false)
@@ -126,16 +125,6 @@ export function PipelinePage() {
 
   const edges = DEFAULT_EDGES
 
-  // Run pipeline mutation (includes node configs)
-  const runMutation = useMutation({
-    mutationFn: () => pipelineApi.run({ node_configs: nodeConfigs }),
-    onSuccess: () => {
-      toast.success('管道已启动')
-      queryClient.invalidateQueries({ queryKey: ['pipeline'] })
-    },
-    onError: (e: Error) => toast.error(`管道启动失败: ${e.message}`),
-  })
-
   // Node click → open config panel
   const handleNodeClick = useCallback((nodeId: string, _data: PipelineNodeData) => {
     setSelectedNodeId(nodeId)
@@ -149,9 +138,7 @@ export function PipelinePage() {
   }, [])
 
   // Selected node data for config panel
-  const selectedNode = selectedNodeId
-    ? nodes.find((n) => n.id === selectedNodeId) ?? null
-    : null
+  const selectedNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : undefined
 
   return (
     <div>
@@ -197,11 +184,10 @@ export function PipelinePage() {
                 </button>
                 <button
                   onClick={() => setShowRunDialog(true)}
-                  disabled={runMutation.isPending}
                   className="btn-primary text-sm"
                   title="管道在后台异步运行，可重复触发"
                 >
-                  {runMutation.isPending ? '提交中...' : '运行管道'}
+                  运行管道
                 </button>
               </div>
             </div>
@@ -220,7 +206,7 @@ export function PipelinePage() {
           {/* Node config side panel */}
           {selectedNode && (
             <NodeConfig
-              nodeId={selectedNodeId!}
+              nodeId={selectedNode.id}
               data={selectedNode.data}
               onSave={handleSaveConfig}
               onClose={() => setSelectedNodeId(null)}
@@ -233,7 +219,7 @@ export function PipelinePage() {
 
       {/* Run dialog */}
       {showRunDialog && (
-        <RunDialog open={showRunDialog} onClose={() => setShowRunDialog(false)} />
+        <RunDialog open={showRunDialog} onClose={() => setShowRunDialog(false)} initialParams={nodeConfigs} />
       )}
     </div>
   )

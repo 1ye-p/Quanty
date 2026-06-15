@@ -6,11 +6,14 @@ import { pipelineApi } from '@/lib/api/pipeline'
 interface RunDialogProps {
   open: boolean
   onClose: () => void
+  initialParams?: Record<string, Record<string, unknown>>
 }
 
-export function RunDialog({ open, onClose }: RunDialogProps) {
+export function RunDialog({ open, onClose, initialParams }: RunDialogProps) {
   const queryClient = useQueryClient()
-  const [paramsText, setParamsText] = useState('{}')
+  const [paramsText, setParamsText] = useState(() =>
+    initialParams ? JSON.stringify({ node_configs: initialParams }, null, 2) : '{}'
+  )
   const [parseError, setParseError] = useState(false)
 
   useEffect(() => {
