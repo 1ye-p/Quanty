@@ -61,7 +61,7 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
                   </button>
                   <button
                     className="text-xs text-blue-600 hover:underline disabled:text-gray-300"
-                    onClick={() => setDiffVersions({ old: versions[i + 1], new: v })}
+                    onClick={() => { const older = versions[i + 1]; if (older) setDiffVersions({ old: older, new: v }) }}
                     disabled={i === versions.length - 1}
                   >
                     对比上一版本
