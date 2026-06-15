@@ -46,6 +46,30 @@ export interface RiskCheckResult {
   reasons: string[]
 }
 
+export interface PositionRisk {
+  asset_id: string
+  weight: number
+  market_value?: number
+  beta?: number
+  volatility: number
+  var_95: number
+}
+
+export interface PortfolioRisk {
+  positions: PositionRisk[]
+  hhi: number
+  max_weight: number
+  sector_concentration: number
+}
+
+export interface RiskEvent {
+  id: string
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  title: string
+  description: string
+  created_at: string
+}
+
 // ── API ────────────────────────────────────────────────────────────────────
 
 export const riskApi = {
@@ -57,4 +81,10 @@ export const riskApi = {
 
   check: (body: RiskCheckRequest, config?: RequestConfig) =>
     api.post<RiskCheckResult>('/risk/check', body, config),
+
+  getPositions: (config?: RequestConfig) =>
+    api.get<PortfolioRisk>('/risk/positions', config),
+
+  getEvents: (config?: RequestConfig) =>
+    api.get<RiskEvent[]>('/risk/events', config),
 }

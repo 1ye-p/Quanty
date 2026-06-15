@@ -2,6 +2,11 @@
  * Shared utility functions.
  */
 
+/** Merge class names, filtering out falsy values. */
+export function cn(...inputs: (string | false | null | undefined)[]): string {
+  return inputs.filter(Boolean).join(' ')
+}
+
 /** Format elapsed seconds since a timestamp as human-readable string. */
 export function elapsedStr(startedAt: string | number | undefined): string {
   if (!startedAt) return '—'
