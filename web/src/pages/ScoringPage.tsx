@@ -5,6 +5,7 @@ import { keepPreviousData } from '@tanstack/react-query'
 import { scoringApi, factorAnalyticsApi } from '@/lib/api'
 import { DataTable } from '@/components/ui/DataTable'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { ScoreHistory } from '@/components/scoring/ScoreHistory'
 
 interface FactorWeightConfig {
   factor_name: string
@@ -14,8 +15,11 @@ interface FactorWeightConfig {
 
 const PAGE_SIZE = 50
 
+type TabKey = 'current' | 'history'
+
 export function ScoringPage() {
   const location = useLocation()
+  const [activeTab, setActiveTab] = useState<TabKey>('current')
   const [name, setName] = useState('momentum_value_v1')
   const [featureSetVersion, setFeatureSetVersion] = useState('')
   const [startDate, setStartDate] = useState('2024-01-01')
@@ -117,9 +121,37 @@ export function ScoringPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">截面打分</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-800">截面打分</h1>
+        <div className="flex bg-gray-100 rounded-lg p-1">
+          <button
+            onClick={() => setActiveTab('current')}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+              activeTab === 'current'
+                ? 'bg-white text-gray-800 shadow-sm font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            当前打分
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+              activeTab === 'history'
+                ? 'bg-white text-gray-800 shadow-sm font-medium'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            历史对比
+          </button>
+        </div>
+      </div>
 
-      {/* 配置区 */}
+      {activeTab === 'history' ? (
+        <ScoreHistory />
+      ) : (
+        <>
+          {/* 配置区 */}
       <div className="card">
         <h2 className="font-semibold text-gray-800 mb-4">评分方案配置</h2>
         <div className="grid grid-cols-2 gap-4">
@@ -397,6 +429,8 @@ export function ScoringPage() {
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
     </div>
   )
