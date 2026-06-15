@@ -7,7 +7,7 @@ interface SnapshotScores {
   run_id: string
   created_at: string
   config_name: string
-  scores: Map<string, { score: number; rank: number }>
+  scores: Record<string, { score: number; rank: number }>
 }
 
 export function ScoreHistory() {
@@ -30,31 +30,32 @@ export function ScoreHistory() {
   }, [completedSnapshots])
 
   const { data: snapshotScores, isLoading: scoresLoading } = useQuery({
-    queryKey: ['scoring', 'history', 'scores', selectedSnapshots],
+    queryKey: ['scoring', 'history', 'scores', selectedSnapshots.slice().sort().join(',')],
     queryFn: async () => {
-      const results: SnapshotScores[] = []
-      for (const runId of selectedSnapshots) {
+      // Fetch all snapshots in parallel
+      const fetches = selectedSnapshots.map(async (runId) => {
         const snapshot = completedSnapshots.find(s => s.run_id === runId)
-        if (!snapshot) continue
+        if (!snapshot) return null
         try {
           const data = await scoringApi.getResult(runId, 0, 10000)
-          const scoresMap = new Map<string, { score: number; rank: number }>()
+          const scores: Record<string, { score: number; rank: number }> = {}
           for (const r of data.results) {
             if (r.score !== null && r.rank !== null) {
-              scoresMap.set(r.asset_id, { score: r.score, rank: r.rank })
+              scores[r.asset_id] = { score: r.score, rank: r.rank }
             }
           }
-          results.push({
+          return {
             run_id: runId,
             created_at: snapshot.created_at || '',
             config_name: snapshot.config_name,
-            scores: scoresMap,
-          })
+            scores,
+          }
         } catch (e) {
           console.error(`Failed to load scores for ${runId}`, e)
+          return null
         }
-      }
-      return results
+      })
+      return (await Promise.all(fetches)).filter((r): r is SnapshotScores => r !== null)
     },
     enabled: selectedSnapshots.length > 0,
     staleTime: 120_000,
@@ -77,7 +78,7 @@ export function ScoreHistory() {
       .slice()
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
       .map(ss => {
-        const entry = ss.scores.get(selectedAsset)
+        const entry = ss.scores[selectedAsset]
         return {
           date: ss.created_at.slice(0, 10),
           config: ss.config_name,
@@ -94,7 +95,7 @@ export function ScoreHistory() {
     const latest = sorted[sorted.length - 1]
     if (!latest) return []
 
-    const rankedAssets = Array.from(latest.scores.entries())
+    const rankedAssets = Object.entries(latest.scores)
       .sort((a, b) => (a[1].rank ?? Infinity) - (b[1].rank ?? Infinity))
       .slice(0, 10)
 
@@ -102,15 +103,21 @@ export function ScoreHistory() {
       const row: Record<string, unknown> = { asset_id: assetId, latest_rank: latestEntry.rank }
       for (let i = 0; i < sorted.length; i++) {
         const ss = sorted[i]
-        const entry = ss.scores.get(assetId)
+        const entry = ss.scores[assetId]
         row[`snap_${i}`] = entry?.rank ?? '-'
         row[`snap_${i}_label`] = ss.created_at.slice(0, 10)
       }
       const prev = sorted[sorted.length - 2]
-      const prevEntry = prev?.scores.get(assetId)
+      const prevEntry = prev?.scores[assetId]
       row['rank_change'] = prevEntry ? (prevEntry.rank ?? 0) - (latestEntry.rank ?? 0) : null
       return row
     })
+  }, [snapshotScores])
+
+  // Sorted snapshots (chronological) for consistent column ordering
+  const sortedSnapshots = useMemo(() => {
+    if (!snapshotScores || snapshotScores.length < 2) return []
+    return snapshotScores.slice().sort((a, b) => a.created_at.localeCompare(b.created_at))
   }, [snapshotScores])
 
   const handleToggleSnapshot = (runId: string) => {
@@ -285,7 +292,7 @@ export function ScoreHistory() {
                 <thead>
                   <tr className="text-left text-gray-500 border-b">
                     <th className="py-2 pr-4">资产</th>
-                    {last5Snapshots.slice(0, selectedSnapshots.length).map((s, i) => (
+                    {sortedSnapshots.map((s, i) => (
                       <th key={i} className="py-2 px-2 text-center">
                         <span className="text-xs text-gray-400">{s.created_at?.slice(5, 10)}</span>
                       </th>
@@ -297,7 +304,7 @@ export function ScoreHistory() {
                   {rankChangeData.map((row) => (
                     <tr key={String(row.asset_id)} className="border-b hover:bg-gray-50">
                       <td className="py-2 pr-4 font-mono text-xs">{String(row.asset_id)}</td>
-                      {last5Snapshots.slice(0, selectedSnapshots.length).map((_, i) => (
+                      {sortedSnapshots.map((_, i) => (
                         <td key={i} className="py-2 px-2 text-center text-xs">
                           {String(row[`snap_${i}`] ?? '-')}
                         </td>
