@@ -51,8 +51,8 @@ export interface PositionRisk {
   weight: number
   market_value?: number
   beta?: number
-  volatility: number
-  var_95: number
+  volatility?: number
+  var_95?: number
 }
 
 export interface PortfolioRisk {

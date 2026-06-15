@@ -90,8 +90,8 @@ export const PositionRiskDashboard: React.FC = () => {
                   <td className="p-2 text-right">{(pos.weight * 100).toFixed(2)}%</td>
                   <td className="p-2 text-right">{pos.market_value?.toFixed(2) ?? '-'}</td>
                   <td className="p-2 text-right">{pos.beta?.toFixed(2) ?? '-'}</td>
-                  <td className="p-2 text-right">{(pos.volatility * 100).toFixed(1)}%</td>
-                  <td className="p-2 text-right">{(pos.var_95 * 100).toFixed(2)}%</td>
+                  <td className="p-2 text-right">{pos.volatility != null ? (pos.volatility * 100).toFixed(1) + '%' : '-'}</td>
+                  <td className="p-2 text-right">{pos.var_95 != null ? (pos.var_95 * 100).toFixed(2) + '%' : '-'}</td>
                 </tr>
               ))}
             </tbody>
