@@ -114,8 +114,8 @@ describe('OptimizePage', () => {
     expect(screen.queryByText('最大换手率 (%)')).not.toBeInTheDocument()
 
     await user.click(screen.getByText(/高级约束配置/))
-    expect(screen.getByText('最大换手率 (%)')).toBeInTheDocument()
-    expect(screen.getByText('换手率惩罚系数')).toBeInTheDocument()
+    expect(screen.getByText('Max Turnover (%)')).toBeInTheDocument()
+    expect(screen.getByText('Turnover Penalty')).toBeInTheDocument()
   })
 
   it('shows per-asset weight bounds after covariance computed', async () => {
@@ -132,9 +132,9 @@ describe('OptimizePage', () => {
 
     await user.click(screen.getByText(/高级约束配置/))
 
-    expect(screen.getByText('单资产权重限制 (%)')).toBeInTheDocument()
-    expect(screen.getByText('最小权重')).toBeInTheDocument()
-    expect(screen.getByText('最大权重')).toBeInTheDocument()
+    expect(screen.getAllByText('Per-Asset Weight Bounds (%)').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Min Weight').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Max Weight').length).toBeGreaterThanOrEqual(1)
   })
 
   it('passes constraints to optimize API', async () => {
@@ -153,7 +153,7 @@ describe('OptimizePage', () => {
 
     // Open advanced constraints and set max turnover
     await user.click(screen.getByText(/高级约束配置/))
-    const maxTurnoverInput = screen.getAllByPlaceholderText('不限')[0]
+    const maxTurnoverInput = screen.getAllByPlaceholderText('Unlimited')[0]
     await user.type(maxTurnoverInput, '50')
 
     // Run optimization
@@ -219,7 +219,7 @@ describe('OptimizePage', () => {
     await user.click(screen.getByText('运行优化'))
 
     await waitFor(() => {
-      expect(screen.getByText(/换手率：/)).toBeInTheDocument()
+      expect(screen.getByText(/Turnover:/)).toBeInTheDocument()
       expect(screen.getByText(/15\.0%/)).toBeInTheDocument()
     })
   })
@@ -239,8 +239,8 @@ describe('OptimizePage', () => {
     await user.click(screen.getByText('运行优化'))
 
     await waitFor(() => {
-      expect(screen.getByText('权重分布')).toBeInTheDocument()
-      expect(screen.getByText('权重分配')).toBeInTheDocument()
+      expect(screen.getByText('Weight Distribution')).toBeInTheDocument()
+      expect(screen.getByText('Weight Allocation')).toBeInTheDocument()
     })
   })
 
@@ -285,7 +285,7 @@ describe('OptimizePage', () => {
     await user.click(screen.getByText('运行优化'))
 
     await waitFor(() => {
-      expect(screen.getByText(/用这组权重运行回测/)).toBeInTheDocument()
+      expect(screen.getByText(/Run backtest with these weights/)).toBeInTheDocument()
     })
   })
 })
