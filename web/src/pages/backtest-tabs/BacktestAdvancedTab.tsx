@@ -2,6 +2,7 @@ import { MetricCard } from '../../components/ui/MetricCard'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
+import { queryKeys } from '@/lib/queryKeys'
 import {
   BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -13,7 +14,7 @@ export function BacktestAdvancedTab() {
   const { id: selectedId } = useParams<{ id: string }>()
 
   const { data: calendarAnalysisData } = useQuery({
-    queryKey: ['backtests', 'calendar-analysis', selectedId!],
+    queryKey: queryKeys.backtests.calendarAnalysis(selectedId!),
     queryFn: () => backtestsApi.getCalendarAnalysis(selectedId!),
     enabled: !!selectedId,
     staleTime: 120_000,
