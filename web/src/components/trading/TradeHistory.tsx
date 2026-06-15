@@ -44,9 +44,9 @@ export function TradeHistory({ broker = 'paper' }: Props) {
                 <td className={cn('py-2 pr-4', trade.side === 'buy' ? 'text-red-600' : 'text-green-600')}>
                   {trade.side === 'buy' ? '买入' : '卖出'}
                 </td>
-                <td className="py-2 pr-4 text-right">{trade.filled_qty.toLocaleString()}</td>
-                <td className="py-2 pr-4 text-right">{trade.filled_price.toFixed(2)}</td>
-                <td className="py-2 text-right">{trade.commission.toFixed(2)}</td>
+                <td className="py-2 pr-4 text-right">{trade.filled_qty?.toLocaleString() ?? '-'}</td>
+                <td className="py-2 pr-4 text-right">{trade.filled_price?.toFixed(2) ?? '-'}</td>
+                <td className="py-2 text-right">{trade.commission?.toFixed(2) ?? '-'}</td>
               </tr>
             ))}
           </tbody>

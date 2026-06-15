@@ -85,42 +85,6 @@ export function TradingPage() {
         ))}
       </div>
 
-      {/* Account Summary */}
-      {activeTab === 'order' && account && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          <div className="card text-center">
-            <div className="text-lg font-bold text-brand-600">
-              {account.nav.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">总资产</div>
-          </div>
-          <div className="card text-center">
-            <div className="text-lg font-bold">
-              {account.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">可用资金</div>
-          </div>
-          <div className="card text-center">
-            <div className="text-lg font-bold">
-              {account.positions_count}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">持仓数</div>
-          </div>
-          <div className="card text-center">
-            <div className={`text-lg font-bold ${account.realized_pnl >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {account.realized_pnl >= 0 ? '+' : ''}{account.realized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">已实现盈亏</div>
-          </div>
-          <div className="card text-center">
-            <div className={`text-lg font-bold ${account.unrealized_pnl >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {account.unrealized_pnl >= 0 ? '+' : ''}{account.unrealized_pnl.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">未实现盈亏</div>
-          </div>
-        </div>
-      )}
-
       {/* Tab: 下单 (Order) */}
       {activeTab === 'order' && (
         <>
