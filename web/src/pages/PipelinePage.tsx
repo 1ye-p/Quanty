@@ -12,6 +12,8 @@ import type { Node, Edge } from '@xyflow/react'
 import { PipelineDAG, type PipelineNodeData } from '@/components/pipeline/PipelineDAG'
 import { NodeConfig } from '@/components/pipeline/NodeConfig'
 import { PipelineStatus } from '@/components/pipeline/PipelineStatus'
+import { ExecutionHistory } from '@/components/pipeline/ExecutionHistory'
+import { RunDialog } from '@/components/pipeline/RunDialog'
 
 // ── Default pipeline definition ─────────────────────────────────────────────
 
@@ -80,6 +82,15 @@ const DEFAULT_EDGES: Edge[] = [
   { id: 'e-backtest-optimize', source: 'backtest', target: 'optimize', animated: true, style: { stroke: '#6366f1' } },
 ]
 
+// ── Tab definitions ─────────────────────────────────────────────────────────
+
+const tabs = [
+  { id: 'dag', label: 'DAG 编辑' },
+  { id: 'history', label: '执行历史' },
+] as const
+
+type PipelineTab = typeof tabs[number]['id']
+
 // ── Page component ──────────────────────────────────────────────────────────
 
 export function PipelinePage() {
@@ -87,6 +98,8 @@ export function PipelinePage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, unknown>>>({})
   const [editable, setEditable] = useState(false)
+  const [activeTab, setActiveTab] = useState<PipelineTab>('dag')
+  const [showRunDialog, setShowRunDialog] = useState(false)
 
   // Poll pipeline status to drive DAG node colors
   const { data: pipelineStatus } = useQuery({
@@ -147,52 +160,80 @@ export function PipelinePage() {
         端到端自动化：数据准备 → 因子计算 → 模型训练 → 回测验证 → 组合优化
       </p>
 
-      {/* Status summary */}
-      <div className="mb-4">
-        <PipelineStatus />
+      {/* Tab navigation */}
+      <div className="flex gap-1 border-b mb-6">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Toolbar */}
-      <div className="card p-4 mb-4">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-medium text-gray-700">管道 DAG</div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setEditable((v) => !v)}
-              className={`btn-secondary text-sm ${editable ? 'ring-2 ring-indigo-400' : ''}`}
-            >
-              {editable ? '退出编辑' : '编辑模式'}
-            </button>
-            <button
-              onClick={() => runMutation.mutate()}
-              disabled={runMutation.isPending}
-              className="btn-primary text-sm"
-              title="管道在后台异步运行，可重复触发"
-            >
-              {runMutation.isPending ? '提交中...' : '运行管道'}
-            </button>
+      {activeTab === 'dag' && (
+        <>
+          {/* Status summary */}
+          <div className="mb-4">
+            <PipelineStatus />
           </div>
-        </div>
-      </div>
 
-      {/* DAG editor */}
-      <div className="mb-4">
-        <PipelineDAG
-          initialNodes={nodes}
-          initialEdges={edges}
-          onNodeClick={handleNodeClick}
-          editable={editable}
-        />
-      </div>
+          {/* Toolbar */}
+          <div className="card p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-gray-700">管道 DAG</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditable((v) => !v)}
+                  className={`btn-secondary text-sm ${editable ? 'ring-2 ring-indigo-400' : ''}`}
+                >
+                  {editable ? '退出编辑' : '编辑模式'}
+                </button>
+                <button
+                  onClick={() => setShowRunDialog(true)}
+                  disabled={runMutation.isPending}
+                  className="btn-primary text-sm"
+                  title="管道在后台异步运行，可重复触发"
+                >
+                  {runMutation.isPending ? '提交中...' : '运行管道'}
+                </button>
+              </div>
+            </div>
+          </div>
 
-      {/* Node config side panel */}
-      {selectedNode && (
-        <NodeConfig
-          nodeId={selectedNodeId!}
-          data={selectedNode.data}
-          onSave={handleSaveConfig}
-          onClose={() => setSelectedNodeId(null)}
-        />
+          {/* DAG editor */}
+          <div className="mb-4">
+            <PipelineDAG
+              initialNodes={nodes}
+              initialEdges={edges}
+              onNodeClick={handleNodeClick}
+              editable={editable}
+            />
+          </div>
+
+          {/* Node config side panel */}
+          {selectedNode && (
+            <NodeConfig
+              nodeId={selectedNodeId!}
+              data={selectedNode.data}
+              onSave={handleSaveConfig}
+              onClose={() => setSelectedNodeId(null)}
+            />
+          )}
+        </>
+      )}
+
+      {activeTab === 'history' && <ExecutionHistory />}
+
+      {/* Run dialog */}
+      {showRunDialog && (
+        <RunDialog open={showRunDialog} onClose={() => setShowRunDialog(false)} />
       )}
     </div>
   )
