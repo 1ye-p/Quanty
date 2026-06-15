@@ -1,25 +1,28 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { riskApi } from '@/lib/api/risk';
+import type { RiskEvent } from '@/lib/api/risk';
+import { extendedQueryKeys } from '@/lib/queryKeys';
 import { cn } from '@/lib/utils';
 
+const severityColors: Record<RiskEvent['severity'], string> = {
+  low: 'bg-blue-100 text-blue-700',
+  medium: 'bg-yellow-100 text-yellow-700',
+  high: 'bg-orange-100 text-orange-700',
+  critical: 'bg-red-100 text-red-700',
+};
+
 export const RiskEventHistory: React.FC = () => {
-  const { data: events, isLoading } = useQuery({
-    queryKey: ['risk-events'],
+  const { data: events, isLoading, error } = useQuery({
+    queryKey: extendedQueryKeys.risk.events(),
     queryFn: () => riskApi.getEvents(),
   });
 
   if (isLoading) return <div className="text-center py-4 text-gray-500">加载中...</div>;
+  if (error) return <div className="text-center py-8 text-red-500">加载失败: {error.message}</div>;
   if (!events?.length) {
     return <div className="text-center py-8 text-gray-400">暂无风控事件</div>;
   }
-
-  const severityColors: Record<string, string> = {
-    low: 'bg-blue-100 text-blue-700',
-    medium: 'bg-yellow-100 text-yellow-700',
-    high: 'bg-orange-100 text-orange-700',
-    critical: 'bg-red-100 text-red-700',
-  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">

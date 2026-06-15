@@ -1,28 +1,30 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { riskApi } from '@/lib/api/risk';
+import { extendedQueryKeys } from '@/lib/queryKeys';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '@/lib/utils';
 
+const getRiskLevel = (value: number, thresholds: [number, number]) => {
+  if (value > thresholds[1]) return 'text-red-600';
+  if (value > thresholds[0]) return 'text-yellow-600';
+  return 'text-green-600';
+};
+
 export const PositionRiskDashboard: React.FC = () => {
-  const { data: portfolio, isLoading } = useQuery({
-    queryKey: ['risk-positions'],
+  const { data: portfolio, isLoading, error } = useQuery({
+    queryKey: extendedQueryKeys.risk.positions(),
     queryFn: () => riskApi.getPositions(),
     refetchInterval: 30000,
   });
 
   if (isLoading) return <div className="text-center py-4 text-gray-500">加载中...</div>;
+  if (error) return <div className="text-center py-8 text-red-500">加载失败: {error.message}</div>;
   if (!portfolio?.positions?.length) {
     return <div className="text-center py-8 text-gray-400">暂无持仓</div>;
   }
 
   const { positions, hhi, max_weight, sector_concentration } = portfolio;
-
-  const getRiskLevel = (value: number, thresholds: [number, number]) => {
-    if (value > thresholds[1]) return 'text-red-600';
-    if (value > thresholds[0]) return 'text-yellow-600';
-    return 'text-green-600';
-  };
 
   return (
     <div className="space-y-6">
