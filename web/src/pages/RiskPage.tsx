@@ -3,8 +3,19 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { riskApi } from '@/lib/api'
 import type { PolicyInfo, SizerInfo, RiskCheckResult } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
+import { PositionRiskDashboard } from '@/components/risk/PositionRiskDashboard'
+import { RiskEventHistory } from '@/components/risk/RiskEventHistory'
 
 export function RiskPage() {
+  // Tab navigation
+  const [activeTab, setActiveTab] = useState('check')
+
+  const tabs = [
+    { id: 'check', label: '风控检查' },
+    { id: 'positions', label: '持仓风控' },
+    { id: 'events', label: '风控事件' },
+  ]
+
   // Risk check form state
   const [policyName, setPolicyName] = useState('')
   const [assetId, setAssetId] = useState('')
@@ -64,6 +75,24 @@ export function RiskPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">风控管理</h1>
 
+      <div className="flex gap-1 border-b mb-6">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'check' && (
+      <>
       <div className="grid grid-cols-2 gap-6">
         {/* Policies List */}
         <div className="bg-white rounded-xl shadow-sm border p-5">
@@ -176,6 +205,11 @@ export function RiskPage() {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {activeTab === 'positions' && <PositionRiskDashboard />}
+      {activeTab === 'events' && <RiskEventHistory />}
     </div>
   )
 }

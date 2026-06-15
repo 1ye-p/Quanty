@@ -1,12 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock ResizeObserver for recharts
+globalThis.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { RiskPage } from '../RiskPage'
 
-vi.mock('@/lib/api', () => ({
-  riskApi: {
+const { mockRiskApi } = vi.hoisted(() => ({
+  mockRiskApi: {
     policies: vi.fn().mockResolvedValue([
       {
         name: 'fixed_stop_loss',
@@ -37,7 +44,24 @@ vi.mock('@/lib/api', () => ({
       approved_qty: 100,
       reasons: [],
     }),
+    getPositions: vi.fn().mockResolvedValue({
+      positions: [],
+      hhi: 0,
+      max_weight: 0,
+      sector_concentration: 0,
+    }),
+    getEvents: vi.fn().mockResolvedValue([
+      { id: '1', severity: 'high', title: '集中度超限', description: 'HHI超过阈值', created_at: '2026-06-07T10:00:00Z' },
+    ]),
   },
+}))
+
+vi.mock('@/lib/api', () => ({
+  riskApi: mockRiskApi,
+}))
+
+vi.mock('@/lib/api/risk', () => ({
+  riskApi: mockRiskApi,
 }))
 
 function renderWithProviders(ui: React.ReactElement) {
@@ -99,6 +123,22 @@ describe('RiskPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('approved')).toBeInTheDocument()
+    })
+  })
+
+  it('switches to position risk tab', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<RiskPage />)
+    await user.click(screen.getByText('持仓风控'))
+    expect(screen.getByText('暂无持仓')).toBeInTheDocument()
+  })
+
+  it('switches to risk events tab', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<RiskPage />)
+    await user.click(screen.getByText('风控事件'))
+    await waitFor(() => {
+      expect(screen.getByText('集中度超限')).toBeInTheDocument()
     })
   })
 })
