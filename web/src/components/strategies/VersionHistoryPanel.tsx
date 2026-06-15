@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { VersionDiff } from './VersionDiff'
 
 interface Version {
   version_id: string
@@ -16,6 +17,7 @@ interface Props {
 export function VersionHistoryPanel({ versions, onRollback }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [diffTarget, setDiffTarget] = useState<string | null>(null)
+  const [diffVersions, setDiffVersions] = useState<{ old: Version; new: Version } | null>(null)
 
   if (versions.length === 0) {
     return (
@@ -40,7 +42,7 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
 
       {expanded && (
         <div className="mt-3 space-y-2">
-          {versions.map(v => {
+          {versions.map((v, i) => {
             const date = new Date(v.created_at)
             const dateStr = date.toLocaleDateString('zh-CN')
             const timeStr = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
@@ -56,6 +58,13 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
                     onClick={() => setDiffTarget(diffTarget === v.version_id ? null : v.version_id)}
                   >
                     查看
+                  </button>
+                  <button
+                    className="text-xs text-blue-600 hover:underline disabled:text-gray-300"
+                    onClick={() => setDiffVersions({ old: versions[i + 1], new: v })}
+                    disabled={i === versions.length - 1}
+                  >
+                    对比上一版本
                   </button>
                   <button
                     className="text-xs text-orange-600 hover:underline"
@@ -82,6 +91,14 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {diffVersions && (
+        <VersionDiff
+          oldVersion={diffVersions.old}
+          newVersion={diffVersions.new}
+          onClose={() => setDiffVersions(null)}
+        />
       )}
     </div>
   )
