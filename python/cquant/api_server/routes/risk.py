@@ -5,11 +5,13 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
+import numpy as np
 import polars as pl
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from scipy import stats
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/risk", tags=["risk"])
@@ -52,6 +54,33 @@ class RiskCheckResponse(BaseModel):
     original_qty: float
     approved_qty: float
     reasons: list[str]
+
+
+class PortfolioVarRequest(BaseModel):
+    """Request parameters for portfolio VaR calculation."""
+    method: Literal["parametric", "historical", "monte_carlo"] = "parametric"
+    confidence: float = Field(default=0.95, ge=0.9, le=0.999)
+    horizon_days: int = Field(default=1, ge=1, le=30)
+    # Portfolio context (optional, uses placeholder if not provided)
+    weights: dict[str, float] = Field(default_factory=dict, description="Asset weights {asset_id: weight}")
+    nav: float = Field(default=1_000_000.0, description="Portfolio NAV")
+    # Historical data (optional)
+    returns_data: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Historical returns [{date, asset_id, return}]"
+    )
+
+
+class PortfolioVarResponse(BaseModel):
+    """Response for portfolio VaR calculation."""
+    var: float
+    cvar: float
+    method: str
+    confidence: float
+    portfolio_nav: float
+    horizon_days: int
+    var_amount: float  # VaR in currency terms
+    cvar_amount: float  # CVaR in currency terms
 
 
 # ── Policy registry ───────────────────────────────────────────────────────────
@@ -180,6 +209,207 @@ async def list_policies() -> list[dict]:
 async def list_sizers() -> list[dict]:
     """List available position sizers and their configurable parameters."""
     return _SIZER_REGISTRY
+
+
+@router.get("/portfolio-var", response_model=PortfolioVarResponse)
+async def portfolio_var(
+    method: Literal["parametric", "historical", "monte_carlo"] = "parametric",
+    confidence: float = 0.95,
+    horizon_days: int = 1,
+    weights_json: str = "",
+    nav: float = 1_000_000.0,
+) -> dict:
+    """Calculate portfolio-level Value at Risk (VaR) and Conditional VaR (CVaR).
+
+    Supports three methods:
+    - **parametric**: Assumes normal distribution of returns. VaR = z * sqrt(w' * Sigma * w) * sqrt(horizon)
+    - **historical**: Uses historical portfolio returns quantile
+    - **monte_carlo**: Simulates portfolio returns using multivariate normal distribution
+
+    Args:
+        method: VaR calculation method
+        confidence: Confidence level (0.9 to 0.999)
+        horizon_days: Time horizon in days (1 to 30)
+        weights_json: JSON string of asset weights {"asset_id": weight}
+        nav: Portfolio Net Asset Value
+
+    Returns:
+        VaR and CVR as percentages and in currency terms
+    """
+    import json
+
+    # Parse weights
+    if weights_json:
+        try:
+            weights = json.loads(weights_json)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=422, detail="Invalid weights_json format")
+    else:
+        # Use placeholder equal weights for demo
+        weights = {"asset_1": 0.3, "asset_2": 0.3, "asset_3": 0.4}
+
+    if not weights:
+        raise HTTPException(status_code=422, detail="No weights provided")
+
+    # Normalize weights
+    total_weight = sum(weights.values())
+    if abs(total_weight - 1.0) > 0.01:
+        weights = {k: v / total_weight for k, v in weights.items()}
+
+    # Get historical returns (placeholder for now - in production, fetch from datahub)
+    n_assets = len(weights)
+    n_days = 252  # 1 year of history
+    np.random.seed(42)  # For reproducibility
+
+    # Generate placeholder historical returns (in production, fetch from datahub)
+    # Using realistic parameters: ~10% annual return, ~20% annual vol
+    mean_returns = np.full(n_assets, 0.10 / 252)  # Daily mean return
+    # Create a realistic covariance matrix
+    base_vol = 0.20 / np.sqrt(252)  # Daily vol ~20% annualized
+    cov_matrix = np.eye(n_assets) * base_vol**2
+    # Add some correlation (0.3 between assets)
+    for i in range(n_assets):
+        for j in range(i+1, n_assets):
+            cov_matrix[i, j] = 0.3 * base_vol**2
+            cov_matrix[j, i] = 0.3 * base_vol**2
+
+    # Generate historical returns
+    historical_returns = np.random.multivariate_normal(mean_returns, cov_matrix, n_days)
+
+    # Calculate VaR based on method
+    w = np.array([weights[k] for k in sorted(weights.keys())])
+
+    if method == "parametric":
+        var_pct, cvar_pct = _parametric_var(w, cov_matrix, confidence, horizon_days)
+    elif method == "historical":
+        var_pct, cvar_pct = _historical_var(w, historical_returns, confidence, horizon_days)
+    elif method == "monte_carlo":
+        var_pct, cvar_pct = _monte_carlo_var(w, mean_returns, cov_matrix, confidence, horizon_days)
+    else:
+        raise HTTPException(status_code=422, detail=f"Unknown method: {method}")
+
+    # Convert to currency terms
+    var_amount = var_pct * nav
+    cvar_amount = cvar_pct * nav
+
+    return {
+        "var": float(var_pct),
+        "cvar": float(cvar_pct),
+        "method": method,
+        "confidence": confidence,
+        "portfolio_nav": nav,
+        "horizon_days": horizon_days,
+        "var_amount": float(var_amount),
+        "cvar_amount": float(cvar_amount),
+    }
+
+
+def _parametric_var(
+    weights: np.ndarray,
+    cov_matrix: np.ndarray,
+    confidence: float,
+    horizon_days: int,
+) -> tuple[float, float]:
+    """Calculate parametric VaR assuming normal distribution.
+
+    VaR = z * sqrt(w' * Sigma * w) * sqrt(horizon)
+    CVaR = (phi(z) / (1 - confidence)) * sigma * sqrt(horizon)
+    """
+    # Portfolio variance: w' * Sigma * w
+    port_variance = weights @ cov_matrix @ weights
+    port_vol_daily = np.sqrt(port_variance)
+
+    # Scale to horizon
+    port_vol_horizon = port_vol_daily * np.sqrt(horizon_days)
+
+    # z-score for confidence level
+    z = stats.norm.ppf(1 - confidence)
+
+    # Parametric VaR (positive number representing loss)
+    var_pct = abs(z * port_vol_horizon)
+
+    # Parametric CVaR (Expected Shortfall)
+    # CVaR = (phi(z) / (1 - confidence)) * sigma
+    phi_z = stats.norm.pdf(z)
+    cvar_pct = (phi_z / (1 - confidence)) * port_vol_horizon
+
+    return float(var_pct), float(cvar_pct)
+
+
+def _historical_var(
+    weights: np.ndarray,
+    historical_returns: np.ndarray,
+    confidence: float,
+    horizon_days: int,
+) -> tuple[float, float]:
+    """Calculate historical simulation VaR.
+
+    1. Compute portfolio returns: r_p = w' * r_assets
+    2. For multi-day horizon, sum returns over rolling windows
+    3. Take quantile at (1 - confidence)
+    """
+    # Portfolio returns for each day
+    port_returns = historical_returns @ weights
+
+    if horizon_days > 1:
+        # Aggregate returns over rolling horizon windows
+        n_days = len(port_returns)
+        horizon_returns = np.array([
+            np.sum(port_returns[i:i+horizon_days])
+            for i in range(n_days - horizon_days + 1)
+        ])
+    else:
+        horizon_returns = port_returns
+
+    # Sort returns (ascending - worst losses first)
+    sorted_returns = np.sort(horizon_returns)
+
+    # VaR at (1 - confidence) quantile
+    var_idx = int(np.floor((1 - confidence) * len(sorted_returns)))
+    var_pct = abs(sorted_returns[var_idx]) if var_idx < len(sorted_returns) else abs(sorted_returns[-1])
+
+    # CVaR: mean of returns worse than VaR
+    cvar_returns = sorted_returns[:var_idx + 1]
+    cvar_pct = abs(np.mean(cvar_returns)) if len(cvar_returns) > 0 else var_pct
+
+    return float(var_pct), float(cvar_pct)
+
+
+def _monte_carlo_var(
+    weights: np.ndarray,
+    mean_returns: np.ndarray,
+    cov_matrix: np.ndarray,
+    confidence: float,
+    horizon_days: int,
+    n_simulations: int = 10000,
+) -> tuple[float, float]:
+    """Calculate Monte Carlo VaR.
+
+    1. Simulate N paths using multivariate normal distribution
+    2. Compute portfolio returns for each simulation
+    3. Take quantile of simulated returns
+    """
+    # Simulate daily returns for all assets
+    simulated_daily = np.random.multivariate_normal(mean_returns, cov_matrix, (n_simulations, horizon_days))
+
+    # Sum over horizon for each simulation
+    simulated_horizon = np.sum(simulated_daily, axis=1)  # Shape: (n_simulations,)
+
+    # Compute portfolio returns: w' * r_assets for each simulation
+    port_returns = simulated_horizon @ weights
+
+    # Sort returns
+    sorted_returns = np.sort(port_returns)
+
+    # VaR at (1 - confidence) quantile
+    var_idx = int(np.floor((1 - confidence) * n_simulations))
+    var_pct = abs(sorted_returns[var_idx]) if var_idx < n_simulations else abs(sorted_returns[-1])
+
+    # CVaR: mean of returns worse than VaR
+    cvar_returns = sorted_returns[:var_idx + 1]
+    cvar_pct = abs(np.mean(cvar_returns)) if len(cvar_returns) > 0 else var_pct
+
+    return float(var_pct), float(cvar_pct)
 
 
 @router.post("/check", response_model=RiskCheckResponse)
