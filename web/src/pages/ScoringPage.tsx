@@ -42,6 +42,8 @@ export function ScoringPage() {
   }, [location.state])
   const [winsorize, setWinsorize] = useState<[number, number]>([0.01, 0.99])
   const [fillNull, setFillNull] = useState('median')
+  const [marketCapNeutralize, setMarketCapNeutralize] = useState(false)
+  const [industryNeutralize, setIndustryNeutralize] = useState(false)
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
   const navigate = useNavigate()
 
@@ -99,6 +101,10 @@ export function ScoringPage() {
       end_date: endDate,
       winsorize,
       fill_null: fillNull,
+      neutralize: [
+        ...(marketCapNeutralize ? ['market_cap'] : []),
+        ...(industryNeutralize ? ['industry'] : []),
+      ],
     })
   }
 
@@ -251,6 +257,31 @@ export function ScoringPage() {
                 <option value="mean">均值</option>
                 <option value="zero">零</option>
               </select>
+            </div>
+          </div>
+          <div className="mt-4">
+            <h4 className="text-xs text-gray-500 mb-2">中性化处理</h4>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={marketCapNeutralize}
+                  onChange={e => setMarketCapNeutralize(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-700">市值中性化</span>
+                <span className="text-xs text-gray-400" title="回归去除市值因子影响，避免大/小盘偏差">ⓘ</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={industryNeutralize}
+                  onChange={e => setIndustryNeutralize(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-700">行业中性化</span>
+                <span className="text-xs text-gray-400" title="回归去除行业因子影响，实现行业中性选股">ⓘ</span>
+              </label>
             </div>
           </div>
         </details>

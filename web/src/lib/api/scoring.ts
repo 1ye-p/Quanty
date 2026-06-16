@@ -32,6 +32,7 @@ export interface ScoringConfigBody {
   end_date: string
   winsorize?: number[]
   fill_null?: string
+  neutralize?: string[]
 }
 
 // ── API ────────────────────────────────────────────────────────────────────
