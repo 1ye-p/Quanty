@@ -45,6 +45,8 @@ export const extendedQueryKeys = {
     list: (params?: Record<string, string>) => ['news', 'list', params] as const,
     detail: (id: string) => ['news', id] as const,
     stats: () => ['news', 'stats'] as const,
+    impact: (asset?: string) => ['news', 'impact', asset ?? ''] as const,
+    assets: () => ['news', 'assets'] as const,
   },
   strategies: {
     all: ['strategies'] as const,

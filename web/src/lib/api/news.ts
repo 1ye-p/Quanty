@@ -26,6 +26,12 @@ export interface NewsStats {
   daily_sentiment: { date: string; avg_sentiment: number; n_events: number }[]
 }
 
+export interface NewsImpactData {
+  sentiment_price: { date: string; sentiment: number; price: number }[]
+  events: { title: string; date: string; sentiment: number; price_change: number }[]
+  sentiment_distribution: { bucket: string; count: number }[]
+}
+
 // ── API ────────────────────────────────────────────────────────────────────
 
 export const newsApi = {
@@ -44,4 +50,12 @@ export const newsApi = {
       `/news/sentiment/${encodeURIComponent(assetId)}?days=${days}`,
       config,
     ),
+
+  getImpact: (params?: { asset?: string }, config?: RequestConfig) => {
+    const qs = params?.asset ? `?asset=${encodeURIComponent(params.asset)}` : ''
+    return api.get<NewsImpactData>(`/news/impact${qs}`, config)
+  },
+
+  getAssets: (config?: RequestConfig) =>
+    api.get<string[]>('/news/assets', config),
 }
