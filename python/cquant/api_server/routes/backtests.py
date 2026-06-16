@@ -466,8 +466,8 @@ async def get_job_status(job_id: str, catalog: CatalogDep) -> dict:
 @router.get("")
 async def list_backtests(
     catalog: CatalogDep,
-    offset: int = 0,
-    limit: int = 50,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     status: str = "",
     engine: str = "",
     strategy_id: str = "",
@@ -495,8 +495,10 @@ async def list_backtests(
         conditions.append("started_at >= ?")
         params.append(start_date)
     if end_date:
+        # Ensure end_date covers the full day (handle both YYYY-MM-DD and full datetime)
+        end_ts = end_date if "T" in end_date else end_date + "T23:59:59"
         conditions.append("started_at <= ?")
-        params.append(end_date + "T23:59:59")
+        params.append(end_ts)
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
