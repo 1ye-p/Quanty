@@ -464,17 +464,57 @@ async def get_job_status(job_id: str, catalog: CatalogDep) -> dict:
 
 
 @router.get("")
-async def list_backtests(catalog: CatalogDep, offset: int = 0, limit: int = 50) -> dict:
+async def list_backtests(
+    catalog: CatalogDep,
+    offset: int = 0,
+    limit: int = 50,
+    status: str = "",
+    engine: str = "",
+    strategy_id: str = "",
+    start_date: str = "",
+    end_date: str = "",
+    sort_by: str = "started_at",
+    sort_order: str = "desc",
+) -> dict:
     """List backtest runs, including in-flight jobs from _api_jobs."""
     _ensure_job_table(catalog)
 
+    # Build dynamic WHERE clauses for non-empty filters
+    conditions = []
+    params: list = []
+    if status:
+        conditions.append("status = ?")
+        params.append(status)
+    if engine:
+        conditions.append("engine = ?")
+        params.append(engine)
+    if strategy_id:
+        conditions.append("strategy_id = ?")
+        params.append(strategy_id)
+    if start_date:
+        conditions.append("started_at >= ?")
+        params.append(start_date)
+    if end_date:
+        conditions.append("started_at <= ?")
+        params.append(end_date + "T23:59:59")
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    # Validate sort column to prevent SQL injection
+    allowed_sorts = {"started_at", "strategy_id", "status", "engine", "completed_at"}
+    sort_col = sort_by if sort_by in allowed_sorts else "started_at"
+    sort_dir = "ASC" if sort_order.lower() == "asc" else "DESC"
+
     # 1. Normal backtest list from gold_backtest_runs
-    total_df = catalog.query("SELECT COUNT(*) as cnt FROM gold_backtest_runs")
+    total_df = catalog.query(
+        f"SELECT COUNT(*) as cnt FROM gold_backtest_runs {where}", params
+    )
     total = total_df["cnt"].item() if not total_df.is_empty() else 0
     df = catalog.query(
-        "SELECT run_id, engine, strategy_id, dataset_version, started_at, "
-        "completed_at, status FROM gold_backtest_runs ORDER BY started_at DESC LIMIT ? OFFSET ?",
-        [limit, offset],
+        f"SELECT run_id, engine, strategy_id, dataset_version, started_at, "
+        f"completed_at, status FROM gold_backtest_runs {where} "
+        f"ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?",
+        params + [limit, offset],
     )
     items = df.to_dicts()
 
