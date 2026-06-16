@@ -19,9 +19,6 @@ export function NewsImpact() {
     queryFn: () => newsApi.getAssets(),
   })
 
-  if (isLoading) return <div className="text-center py-4 text-gray-500">加载中...</div>
-  if (error) return <div className="text-center py-4 text-red-500">加载失败</div>
-
   return (
     <div className="space-y-6">
       {/* Asset Selector */}
@@ -44,6 +41,14 @@ export function NewsImpact() {
           ))}
         </div>
       </div>
+
+      {/* Loading/Error for impact */}
+      {selectedAsset && isLoading && (
+        <div className="text-center py-8 text-gray-500">加载中...</div>
+      )}
+      {selectedAsset && error && (
+        <div className="text-center py-8 text-red-500">加载失败</div>
+      )}
 
       {/* Impact Analysis */}
       {impact && (
