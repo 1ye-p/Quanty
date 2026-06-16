@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Literal
 
+import numpy as np
 import polars as pl
 import duckdb
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -50,6 +54,7 @@ class CrossSectionScorer:
             return pl.DataFrame({"trade_date": [], "asset_id": [], "score": [], "rank": []})
 
         scored = self._normalize_cross_section(factors_df, config)
+        scored = self._neutralize_factors(scored, config, start_date, end_date)
         scored = self._weighted_sum(scored, config.factors)
         scored = scored.with_columns(
             pl.col("score").over("trade_date").rank(descending=True).alias("rank")
@@ -117,6 +122,211 @@ class CrossSectionScorer:
             )
 
         return df
+
+    def _neutralize_factors(
+        self, df: pl.DataFrame, config: ScoringConfig, start_date: str, end_date: str
+    ) -> pl.DataFrame:
+        """中性化：截面回归残差法。
+
+        对每个截面日期，将因子值对中性化变量（市值/行业）做 OLS 回归，
+        取残差作为中性化后的因子值。
+
+        Parameters
+        ----------
+        df : pl.DataFrame
+            包含 [asset_id, trade_date, factor1, factor2, ...] 的宽表。
+        config : ScoringConfig
+            包含 neutralize 列表，如 ["market_cap", "industry"]。
+        start_date, end_date : str
+            数据日期范围，用于加载中性化数据。
+
+        Returns
+        -------
+        pl.DataFrame
+            中性化后的因子 DataFrame，原列被残差替换。
+        """
+        if not config.neutralize:
+            return df
+
+        factor_cols = [fw.factor_name for fw in config.factors]
+        factor_cols = [c for c in factor_cols if c in df.columns]
+        if not factor_cols:
+            return df
+
+        # Load neutralization data
+        neutral_data = self._load_neutralization_data(
+            config.neutralize, start_date, end_date
+        )
+        if neutral_data.is_empty():
+            logger.warning(
+                "No neutralization data loaded; skipping neutralization for: %s",
+                config.neutralize,
+            )
+            return df
+
+        # Join neutralization data to factor DataFrame
+        df = df.join(neutral_data, on=["asset_id", "trade_date"], how="left")
+
+        # Build X column names for regression
+        x_cols = []
+        if "market_cap" in config.neutralize and "ln_mktcap" in df.columns:
+            x_cols.append("ln_mktcap")
+        if "industry" in config.neutralize:
+            industry_cols = [c for c in df.columns if c.startswith("industry_")]
+            x_cols.extend(industry_cols)
+
+        if not x_cols:
+            logger.warning(
+                "Neutralization columns not found after join; skipping. "
+                "Available columns: %s",
+                df.columns,
+            )
+            # Drop helper columns and return
+            drop_cols = [
+                c
+                for c in df.columns
+                if c.startswith("industry_") or c in ("ln_mktcap",)
+            ]
+            return df.drop(drop_cols) if drop_cols else df
+
+        # For each date cross-section, regress each factor on X and take residuals
+        dates = df["trade_date"].unique().sort().to_list()
+        neutralized_parts = []
+
+        for trade_date in dates:
+            mask = df["trade_date"] == trade_date
+            section = df.filter(mask)
+
+            # Build X matrix
+            X_parts = []
+            for xc in x_cols:
+                col_vals = section[xc].to_numpy().astype(float)
+                X_parts.append(col_vals)
+
+            X = np.column_stack(X_parts) if X_parts else None
+
+            if X is None or X.shape[0] < X.shape[1] + 2:
+                # Not enough observations for regression; keep original
+                neutralized_parts.append(section)
+                continue
+
+            # Add intercept
+            X_with_intercept = np.column_stack([np.ones(X.shape[0]), X])
+
+            # Compute projection matrix: residuals = (I - X(X'X)^-1 X') y
+            try:
+                pinv = np.linalg.pinv(X_with_intercept)
+                hat_matrix = X_with_intercept @ pinv
+                residual_proj = np.eye(hat_matrix.shape[0]) - hat_matrix
+            except np.linalg.LinAlgError:
+                logger.warning(
+                    "Singular matrix for date %s; skipping neutralization", trade_date
+                )
+                neutralized_parts.append(section)
+                continue
+
+            # Apply residual projection to each factor column
+            section_np = {}
+            for col in factor_cols:
+                y = section[col].to_numpy().astype(float)
+                # Replace NaN with 0 for regression, then restore NaN mask
+                nan_mask = np.isnan(y)
+                y_clean = np.where(nan_mask, 0.0, y)
+                residuals = residual_proj @ y_clean
+                residuals[nan_mask] = np.nan
+                section_np[col] = residuals
+
+            # Reconstruct section DataFrame with neutralized values
+            section = section.with_columns(
+                [pl.Series(name=col, values=section_np[col]) for col in factor_cols]
+            )
+            neutralized_parts.append(section)
+
+        if not neutralized_parts:
+            return df
+
+        result = pl.concat(neutralized_parts)
+
+        # Drop helper columns
+        drop_cols = [c for c in result.columns if c.startswith("industry_")]
+        if "ln_mktcap" in result.columns:
+            drop_cols.append("ln_mktcap")
+        if drop_cols:
+            result = result.drop(drop_cols)
+
+        return result
+
+    def _load_neutralization_data(
+        self, neutralize: list[str], start_date: str, end_date: str
+    ) -> pl.DataFrame:
+        """加载中性化所需数据（市值、行业）。
+
+        Returns: pl.DataFrame with columns [asset_id, trade_date, ln_mktcap, industry_*]
+        """
+        parts: list[pl.DataFrame] = []
+
+        # Load market cap from silver_fundamentals (latest as of each trade_date)
+        if "market_cap" in neutralize:
+            try:
+                mktcap_df = self.catalog.query(
+                    """
+                    SELECT asset_id, report_date AS trade_date, market_cap
+                    FROM silver_fundamentals
+                    WHERE report_date >= ? AND report_date <= ?
+                      AND market_cap IS NOT NULL AND market_cap > 0
+                    """,
+                    [start_date, end_date],
+                )
+                if not mktcap_df.is_empty():
+                    mktcap_df = mktcap_df.with_columns(
+                        pl.col("market_cap").log().alias("ln_mktcap")
+                    ).drop("market_cap")
+                    parts.append(mktcap_df)
+            except Exception as exc:
+                logger.warning("Failed to load market_cap from silver_fundamentals: %s", exc)
+
+        # Load industry from silver_assets
+        if "industry" in neutralize:
+            try:
+                industry_df = self.catalog.query(
+                    """
+                    SELECT asset_id, industry
+                    FROM silver_assets
+                    WHERE industry IS NOT NULL AND industry != ''
+                    """
+                )
+                if not industry_df.is_empty():
+                    # One-hot encode industry
+                    industries = industry_df["industry"].unique().sort().to_list()
+                    for ind in industries:
+                        safe_name = ind.replace(" ", "_").replace("/", "_")
+                        industry_df = industry_df.with_columns(
+                            (pl.col("industry") == ind).cast(pl.Float64).alias(f"industry_{safe_name}")
+                        )
+                    industry_df = industry_df.drop("industry")
+
+                    # Get distinct trade_dates from factors
+                    dates_df = self.catalog.query(
+                        "SELECT DISTINCT trade_date FROM gold_factor_values "
+                        "WHERE trade_date >= ? AND trade_date <= ? ORDER BY trade_date",
+                        [start_date, end_date],
+                    )
+                    if not dates_df.is_empty():
+                        # Cross join to create per-date industry mapping
+                        industry_df = industry_df.join(dates_df, how="cross")
+                        parts.append(industry_df)
+            except Exception as exc:
+                logger.warning("Failed to load industry from silver_assets: %s", exc)
+
+        if not parts:
+            return pl.DataFrame()
+
+        # Merge all neutralization data
+        result = parts[0]
+        for part in parts[1:]:
+            result = result.join(part, on=["asset_id", "trade_date"], how="full", coalesce=True)
+
+        return result
 
     def _weighted_sum(self, df: pl.DataFrame, factors: list[FactorWeight]) -> pl.DataFrame:
         """加权求和得到综合得分。"""
