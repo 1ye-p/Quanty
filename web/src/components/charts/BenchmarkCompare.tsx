@@ -8,13 +8,14 @@
  *
  * Handles missing benchmark data gracefully.
  */
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   LineChart, Line, AreaChart, Area,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Legend, ReferenceLine,
 } from 'recharts'
 import { MetricCard } from '../ui/MetricCard'
+import { RollingMetricsChart } from './RollingMetricsChart'
 
 export interface NavPoint {
   date: string
@@ -132,6 +133,55 @@ export function BenchmarkCompare({
   // Compute relative metrics
   const metrics = useMemo(() => computeRelativeMetrics(merged), [merged])
 
+  // Rolling Beta/Alpha
+  const [benchmarkRollingWindow, setBenchmarkRollingWindow] = useState(60)
+
+  const rollingBetaAlphaData = useMemo(() => {
+    if (merged.length < 2) return []
+
+    // Compute daily returns
+    const stratReturns: number[] = []
+    const bmReturns: number[] = []
+    const dates: string[] = []
+    for (let i = 1; i < merged.length; i++) {
+      stratReturns.push(merged[i].strategy / merged[i - 1].strategy - 1)
+      bmReturns.push(merged[i].benchmark / merged[i - 1].benchmark - 1)
+      dates.push(merged[i].date)
+    }
+
+    if (stratReturns.length < benchmarkRollingWindow) return []
+
+    const result: { date: string; values: Record<string, number> }[] = []
+    for (let i = benchmarkRollingWindow - 1; i < stratReturns.length; i++) {
+      const sSlice = stratReturns.slice(i - benchmarkRollingWindow + 1, i + 1)
+      const bSlice = bmReturns.slice(i - benchmarkRollingWindow + 1, i + 1)
+      const n = sSlice.length
+
+      const meanS = sSlice.reduce((a, b) => a + b, 0) / n
+      const meanB = bSlice.reduce((a, b) => a + b, 0) / n
+
+      let cov = 0
+      let varB = 0
+      for (let j = 0; j < n; j++) {
+        const ds = sSlice[j] - meanS
+        const db = bSlice[j] - meanB
+        cov += ds * db
+        varB += db * db
+      }
+      cov /= n - 1
+      varB /= n - 1
+
+      const beta = varB > 0 ? cov / varB : 0
+      const alpha = (meanS - beta * meanB) * ANN_FACTOR
+
+      result.push({
+        date: dates[i],
+        values: { beta, alpha },
+      })
+    }
+    return result
+  }, [merged, benchmarkRollingWindow])
+
   // Early return if no benchmark data
   if (!benchmarkNav || benchmarkNav.length === 0) {
     return null
@@ -248,6 +298,37 @@ export function BenchmarkCompare({
             value={metrics.informationRatio.toFixed(3)}
             sub="Excess return / TE"
             warn={metrics.informationRatio < 0}
+          />
+        </div>
+      )}
+
+      {/* Rolling Beta / Alpha */}
+      {rollingBetaAlphaData.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-end">
+            <label className="text-xs text-gray-500 mr-2">Rolling Window:</label>
+            <select
+              value={benchmarkRollingWindow}
+              onChange={e => setBenchmarkRollingWindow(Number(e.target.value))}
+              className="text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-400"
+            >
+              <option value={60}>60d</option>
+              <option value={120}>120d</option>
+              <option value={252}>252d</option>
+            </select>
+          </div>
+          <RollingMetricsChart
+            data={rollingBetaAlphaData}
+            metrics={[
+              { key: 'beta', label: 'Rolling Beta', color: '#8b5cf6' },
+              { key: 'alpha', label: 'Rolling Alpha', color: '#10b981' },
+            ]}
+            window={benchmarkRollingWindow}
+            title="Rolling Beta / Alpha"
+            referenceLines={[
+              { value: 1, label: 'Beta=1', color: '#c084fc' },
+              { value: 0, label: 'Zero', color: '#e5e7eb' },
+            ]}
           />
         </div>
       )}

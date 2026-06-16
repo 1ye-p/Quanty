@@ -1,11 +1,12 @@
 import { MetricCard } from '../../components/ui/MetricCard'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { backtestsApi, backtestExtApi, liveApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
 import { BenchmarkCompare } from '@/components/charts/BenchmarkCompare'
+import { RollingMetricsChart } from '@/components/charts/RollingMetricsChart'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from 'recharts'
 
 function marketLabel(m?: string) {
@@ -104,6 +105,41 @@ export function BacktestOverviewTab() {
         drawdown: Number(d.drawdown) * 100, // Convert to percentage
       }))
     : []
+
+  // Rolling metrics state
+  const [rollingWindow, setRollingWindow] = useState(60)
+
+  // Compute rolling Sharpe and Volatility from strategy NAV
+  const rollingOverviewData = useMemo(() => {
+    if (strategyNav.length < 2) return []
+
+    // Compute daily returns
+    const returns: { date: string; ret: number }[] = []
+    for (let i = 1; i < strategyNav.length; i++) {
+      const ret = strategyNav[i].nav / strategyNav[i - 1].nav - 1
+      returns.push({ date: strategyNav[i].date, ret })
+    }
+
+    if (returns.length < rollingWindow) return []
+
+    // Rolling calculation helper
+    const result: { date: string; values: Record<string, number> }[] = []
+    for (let i = rollingWindow - 1; i < returns.length; i++) {
+      const slice = returns.slice(i - rollingWindow + 1, i + 1)
+      const rets = slice.map(r => r.ret)
+      const mean = rets.reduce((a, b) => a + b, 0) / rets.length
+      const std = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / (rets.length - 1))
+
+      const rollingSharpe = std > 0 ? (mean / std) * Math.sqrt(252) : 0
+      const rollingVol = std * Math.sqrt(252)
+
+      result.push({
+        date: returns[i].date,
+        values: { sharpe: rollingSharpe, volatility: rollingVol },
+      })
+    }
+    return result
+  }, [strategyNav, rollingWindow])
 
   if (!selectedId) return null
 
@@ -328,6 +364,36 @@ export function BacktestOverviewTab() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      )}
+
+      {/* Rolling Sharpe / Volatility */}
+      {rollingOverviewData.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-end">
+            <label className="text-xs text-gray-500 mr-2">Rolling Window:</label>
+            <select
+              value={rollingWindow}
+              onChange={e => setRollingWindow(Number(e.target.value))}
+              className="text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-400"
+            >
+              <option value={60}>60d</option>
+              <option value={120}>120d</option>
+              <option value={252}>252d</option>
+            </select>
+          </div>
+          <RollingMetricsChart
+            data={rollingOverviewData}
+            metrics={[
+              { key: 'sharpe', label: 'Rolling Sharpe', color: '#3b82f6' },
+              { key: 'volatility', label: 'Rolling Volatility', color: '#f59e0b' },
+            ]}
+            window={rollingWindow}
+            title="Rolling Metrics"
+            referenceLines={[
+              { value: 0, label: 'Zero', color: '#e5e7eb' },
+            ]}
+          />
         </div>
       )}
 
