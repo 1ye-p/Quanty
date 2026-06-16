@@ -6,6 +6,7 @@ import { backtestsApi, backtestExtApi, liveApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
 import { BenchmarkCompare } from '@/components/charts/BenchmarkCompare'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from 'recharts'
 
 function marketLabel(m?: string) {
   return { CN: 'A股', US: '美股', HK: '港股' }[m ?? 'CN'] ?? 'A股'
@@ -75,6 +76,13 @@ export function BacktestOverviewTab() {
     retry: false,
   })
 
+  const { data: drawdownTimeseriesData } = useQuery({
+    queryKey: queryKeys.backtests.drawdownTimeseries(selectedId!),
+    queryFn: () => backtestsApi.getDrawdownTimeseries(selectedId!),
+    enabled: !!selectedId,
+    staleTime: 60_000,
+  })
+
   const analysis = analysisData as Record<string, unknown> | null | undefined
   const overfitScore = Number(analysis?.overall_overfit_score ?? 0)
   const psr = Number(analysis?.psr ?? 0)
@@ -88,6 +96,14 @@ export function BacktestOverviewTab() {
   })).filter(d => d.date)
   const benchmarkNav = (tearsheet?.benchmark_nav as { date: string; nav: number }[] ?? [])
   const benchmarkLabel = String(tearsheet?.benchmark_asset_id ?? 'Benchmark')
+
+  // Transform drawdown timeseries data
+  const drawdownChart = Array.isArray(drawdownTimeseriesData)
+    ? (drawdownTimeseriesData as { date: string; drawdown: number }[]).map(d => ({
+        date: d.date,
+        drawdown: Number(d.drawdown) * 100, // Convert to percentage
+      }))
+    : []
 
   if (!selectedId) return null
 
@@ -272,6 +288,45 @@ export function BacktestOverviewTab() {
           <div className="card text-sm text-gray-700">
             <div className="font-medium mb-1">Analysis Summary</div>
             <p className="text-gray-600">{String(analysis.summary ?? 'No analysis summary available')}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Drawdown timeseries chart */}
+      {drawdownChart.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Drawdown Curve</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={drawdownChart} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickFormatter={(v: string) => v.slice(5)}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+                  domain={['dataMin', 0]}
+                />
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                  formatter={(value: number) => [`${value.toFixed(2)}%`, 'Drawdown']}
+                  labelFormatter={(label: string) => `Date: ${label}`}
+                />
+                <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1} />
+                <Area
+                  type="monotone"
+                  dataKey="drawdown"
+                  stroke="#ef4444"
+                  fill="#ef4444"
+                  fillOpacity={0.3}
+                  strokeWidth={1.5}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}
