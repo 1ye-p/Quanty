@@ -47,7 +47,7 @@ export function NewsImpact() {
         <div className="text-center py-8 text-gray-500">加载中...</div>
       )}
       {selectedAsset && error && (
-        <div className="text-center py-8 text-red-500">加载失败</div>
+        <div className="text-center py-8 text-red-500">加载失败: {(error as Error).message}</div>
       )}
 
       {/* Impact Analysis */}
@@ -73,8 +73,8 @@ export function NewsImpact() {
           <div className="bg-white rounded-xl shadow-sm border p-4">
             <h3 className="font-medium text-gray-800 mb-4">重大新闻事件影响</h3>
             <div className="space-y-3">
-              {impact.events?.map((event, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+              {impact.events?.map((event) => (
+                <div key={`${event.date}-${event.title}`} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                   <div className={cn(
                     "text-sm font-medium",
                     event.sentiment > 0 ? 'text-red-600' : event.sentiment < 0 ? 'text-green-600' : 'text-gray-500'
@@ -85,7 +85,7 @@ export function NewsImpact() {
                     <div className="font-medium text-gray-800">{event.title}</div>
                     <div className="text-sm text-gray-500">{event.date}</div>
                     <div className="text-sm mt-1 text-gray-600">
-                      情绪: {event.sentiment?.toFixed(2)} | 价格变化: {(event.price_change * 100)?.toFixed(2)}%
+                      情绪: {(event.sentiment ?? 0).toFixed(2)} | 价格变化: {((event.price_change ?? 0) * 100).toFixed(2)}%
                     </div>
                   </div>
                 </div>

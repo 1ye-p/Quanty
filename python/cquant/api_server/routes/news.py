@@ -157,3 +157,75 @@ async def get_asset_sentiment(asset_id: str, catalog: CatalogDep, days: int = Qu
         "values": [round(r["avg_sentiment"], 4) for r in rows],
         "counts": [r["n"] for r in rows],
     }
+
+
+@router.get("/assets")
+async def list_news_assets(catalog: CatalogDep) -> dict:
+    """List all assets mentioned in news events."""
+    df = catalog.query(
+        "SELECT DISTINCT UNNEST(asset_ids_mentioned) AS asset_id "
+        "FROM silver_news_events "
+        "WHERE asset_ids_mentioned IS NOT NULL "
+        "ORDER BY asset_id"
+    )
+    if df.is_empty():
+        return {"assets": []}
+    return {"assets": df["asset_id"].to_list()}
+
+
+@router.get("/impact")
+async def get_news_impact(asset: str = Query(...), catalog: CatalogDep = None) -> dict:
+    """Get news impact analysis for a specific asset."""
+    try:
+        # Get recent news events mentioning this asset
+        events_df = catalog.query(
+            "SELECT published_at, title, sentiment_score, source "
+            "FROM silver_news_events "
+            "WHERE list_contains(asset_ids_mentioned, ?) "
+            "AND published_at >= CURRENT_DATE - INTERVAL '30' DAY "
+            "ORDER BY published_at DESC "
+            "LIMIT 20",
+            [asset],
+        )
+
+        # Get price data for the asset
+        prices_df = catalog.query(
+            "SELECT trade_date, close "
+            "FROM silver_prices_1d "
+            "WHERE asset_id = ? "
+            "ORDER BY trade_date DESC "
+            "LIMIT 30",
+            [asset],
+        )
+
+        events = []
+        if not events_df.is_empty():
+            for row in events_df.to_dicts():
+                events.append({
+                    "date": str(row["published_at"])[:10],
+                    "title": row["title"],
+                    "sentiment": float(row["sentiment_score"]) if row["sentiment_score"] else 0,
+                    "source": row["source"],
+                    "price_change": None,  # Price change requires correlation with price data
+                })
+
+        price_changes = []
+        if not prices_df.is_empty():
+            prices = prices_df.to_dicts()
+            for i in range(len(prices) - 1):
+                current = prices[i]["close"]
+                previous = prices[i + 1]["close"]
+                if previous and previous > 0:
+                    price_changes.append({
+                        "date": str(prices[i]["trade_date"])[:10],
+                        "change": round((current - previous) / previous, 6),
+                    })
+
+        return {
+            "asset": asset,
+            "events": events,
+            "price_changes": price_changes[:30],
+        }
+    except Exception as exc:
+        logger.warning("get_news_impact failed: %s", exc)
+        return {"asset": asset, "events": [], "price_changes": []}
