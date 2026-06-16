@@ -6,6 +6,9 @@ import { useQuery } from '@tanstack/react-query'
 import { mlApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { TrainingCurve } from './TrainingCurve'
+import { WalkForwardFolds } from './WalkForwardFolds'
+import { PredictionDistribution } from './PredictionDistribution'
 
 interface ExperimentsTabProps {
   selectedRun: string | null
@@ -24,6 +27,13 @@ export function ExperimentsTab({
 }: ExperimentsTabProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [diagModelId, setDiagModelId] = useState<string | null>(null)
+
+  const { data: diagnostics, isLoading: diagLoading } = useQuery({
+    queryKey: extendedQueryKeys.ml.diagnostics(diagModelId ?? ''),
+    queryFn: () => mlApi.getModelDiagnostics(diagModelId!),
+    enabled: !!diagModelId,
+  })
 
   const { data: experiments, isLoading } = useQuery({
     queryKey: extendedQueryKeys.ml.experiments(50),
@@ -133,20 +143,66 @@ export function ExperimentsTab({
                   {typeof r.started_at === 'number' ? new Date(r.started_at).toISOString().slice(0, 16) : String(r.started_at ?? '').slice(0, 16)}
                 </td>
                 <td className="table-td" onClick={e => e.stopPropagation()}>
-                  {(r.status === 'completed' || r.status === 'done') && r.model_id && onCreateStrategy && (
-                    <button
-                      className="btn-secondary text-xs"
-                      onClick={() => onCreateStrategy(r.run_id, r.model_id!)}
-                    >
-                      Create Strategy
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {(r.status === 'completed' || r.status === 'done') && r.model_id && (
+                      <button
+                        className="text-xs text-brand-600 hover:text-brand-800 hover:underline"
+                        onClick={() => setDiagModelId(diagModelId === r.model_id ? null : r.model_id!)}
+                      >
+                        {diagModelId === r.model_id ? 'Hide Diagnostics' : 'Diagnostics'}
+                      </button>
+                    )}
+                    {(r.status === 'completed' || r.status === 'done') && r.model_id && onCreateStrategy && (
+                      <button
+                        className="btn-secondary text-xs"
+                        onClick={() => onCreateStrategy(r.run_id, r.model_id!)}
+                      >
+                        Create Strategy
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Diagnostics expandable panel */}
+      {diagModelId && (
+        <div className="card mt-3 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-800">
+              Diagnostics &mdash; <span className="font-mono text-sm text-gray-500">{diagModelId}</span>
+            </h3>
+            <button
+              className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+              onClick={() => setDiagModelId(null)}
+              title="Close"
+            >
+              &#x2715;
+            </button>
+          </div>
+
+          {diagLoading && (
+            <p className="text-gray-400 text-sm py-8 text-center">Loading diagnostics...</p>
+          )}
+
+          {!diagLoading && diagnostics && (
+            <div className="grid gap-4">
+              <TrainingCurve data={diagnostics.training_curve} />
+              <div className="grid md:grid-cols-2 gap-4">
+                <WalkForwardFolds folds={diagnostics.walk_forward_stability} />
+                <PredictionDistribution bins={diagnostics.prediction_distribution} />
+              </div>
+            </div>
+          )}
+
+          {!diagLoading && !diagnostics && (
+            <p className="text-gray-400 text-sm py-8 text-center">No diagnostics data available.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
