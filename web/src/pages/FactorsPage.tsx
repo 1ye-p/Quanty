@@ -8,6 +8,7 @@ import { ICCalculator } from '@/components/factors/ICCalculator'
 import { ICAnalysisTab } from '@/components/factors/ICAnalysisTab'
 import { CorrelationTab } from '@/components/factors/CorrelationTab'
 import { ICDecayTab } from '@/components/factors/ICDecayTab'
+import { QuintileTab } from '@/components/factors/QuintileTab'
 import { CreateFactorModal } from '@/components/factors/CreateFactorModal'
 import { ICAlertModal } from '@/components/factors/ICAlertModal'
 import { useWorkflowStore } from '@/stores/workflowStore'
@@ -63,6 +64,17 @@ export function FactorsPage() {
       const d = query.state.data
       return d && (d.status === 'done' || d.status === 'error') ? false : 2000
     },
+  })
+
+  const { data: quintileData, isLoading: quintileLoading } = useQuery({
+    queryKey: ['factors', 'quintiles', selectedFactor, featureSetVersion, horizonDays],
+    queryFn: () => factorAnalyticsApi.computeQuintiles({
+      factor_name: selectedFactor!,
+      feature_set_version: featureSetVersion,
+      horizon_days: horizonDays,
+    }),
+    enabled: !!selectedFactor && !!featureSetVersion && activeTab === 'quintile',
+    staleTime: 60_000,
   })
 
   const icSummary = jobResult?.status === 'done' ? jobResult.summary_json : undefined
@@ -240,9 +252,15 @@ export function FactorsPage() {
 
       {/* Tab: Quintile */}
       {activeTab === 'quintile' && (
-        <div className="card text-center py-8 text-gray-400">
-          请先在"IC 分析"标签页中计算IC，分位收益将随IC结果自动展示
-        </div>
+        !selectedFactor
+          ? <div className="card text-center py-8 text-gray-400">请先在"因子选择"标签页中选择一个因子</div>
+          : !featureSetVersion
+            ? <div className="card text-center py-8 text-gray-400">请先选择 Feature Set 版本</div>
+            : quintileLoading
+              ? <div className="card text-center py-8 text-gray-400">加载中...</div>
+              : quintileData?.groups
+                ? <QuintileTab quantileReturns={quintileData.groups.map(g => ({ quantile: Number(g.quintile), mean_return: g.mean_return }))} />
+                : <div className="card text-center py-8 text-gray-400">暂无分位收益数据</div>
       )}
 
       {/* Tab: Correlation */}
