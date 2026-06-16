@@ -6,6 +6,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine,
   ResponsiveContainer, Legend
 } from 'recharts'
+import { NewsImpact } from '@/components/news/NewsImpact'
 
 function NewsDetail({ eventId }: { eventId: string }) {
   const { data, isLoading } = useQuery({
@@ -35,7 +36,15 @@ function SentimentDot({ score }: { score: number | null }) {
   return <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" title={`情绪: ${score.toFixed(2)}`} />
 }
 
+const tabs = [
+  { id: 'timeline', label: '新闻时间线' },
+  { id: 'impact', label: '影响分析' },
+] as const
+
+type NewsTab = typeof tabs[number]['id']
+
 export function NewsPage() {
+  const [activeTab, setActiveTab] = useState<NewsTab>('timeline')
   const [source, setSource] = useState('')
   const [eventType, setEventType] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -70,6 +79,24 @@ export function NewsPage() {
       <h1 className="page-title">消息面</h1>
       <p className="page-subtitle">新闻事件浏览 · 情绪过滤 · 资产关联</p>
 
+      {/* Tab Bar */}
+      <div className="flex gap-1 border-b mb-6">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'timeline' && (<>
       {/* Stats */}
       {stats && (
         <div className="flex gap-4 mb-6 flex-wrap">
@@ -426,6 +453,9 @@ export function NewsPage() {
           </div>
         ))}
       </div>
+      </>)}
+
+      {activeTab === 'impact' && <NewsImpact />}
     </div>
   )
 }
