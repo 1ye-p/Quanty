@@ -22,6 +22,7 @@ export function ExecutionHistory() {
     queryKey: extendedQueryKeys.pipeline.executions(),
     queryFn: () => pipelineApi.getExecutions(),
     refetchInterval: 30000,
+    staleTime: 25_000,
   })
 
   if (isLoading) return <div className="text-center py-4 text-gray-500">加载中...</div>

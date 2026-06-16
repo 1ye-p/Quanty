@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { pipelineApi } from '@/lib/api/pipeline'
+import { extendedQueryKeys } from '@/lib/queryKeys'
 
 interface RunDialogProps {
   open: boolean
@@ -27,7 +28,8 @@ export function RunDialog({ open, onClose, initialParams }: RunDialogProps) {
     mutationFn: (params: Record<string, unknown>) => pipelineApi.run(params),
     onSuccess: () => {
       toast.success('管道已触发')
-      queryClient.invalidateQueries({ queryKey: ['pipeline'] })
+      queryClient.invalidateQueries({ queryKey: extendedQueryKeys.pipeline.executions() })
+      queryClient.invalidateQueries({ queryKey: extendedQueryKeys.pipeline.status() })
       onClose()
     },
     onError: (e: Error) => toast.error(`触发失败: ${e.message}`),
@@ -37,9 +39,11 @@ export function RunDialog({ open, onClose, initialParams }: RunDialogProps) {
 
   const handleRun = () => {
     try {
-      const params = JSON.parse(paramsText)
+      const parsed = JSON.parse(paramsText)
       setParseError(false)
-      runMutation.mutate(params)
+      // Ensure the payload has the expected structure
+      const body = parsed.node_configs ? parsed : { node_configs: parsed }
+      runMutation.mutate(body)
     } catch {
       setParseError(true)
     }
