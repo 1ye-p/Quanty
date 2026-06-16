@@ -15,6 +15,7 @@ import {
   CartesianGrid, Legend, ReferenceLine,
 } from 'recharts'
 import { MetricCard } from '../ui/MetricCard'
+import { ROLLING_WINDOWS } from '@/lib/constants'
 import { RollingMetricsChart } from './RollingMetricsChart'
 
 export interface NavPoint {
@@ -312,9 +313,7 @@ export function BenchmarkCompare({
               onChange={e => setBenchmarkRollingWindow(Number(e.target.value))}
               className="text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-400"
             >
-              <option value={60}>60d</option>
-              <option value={120}>120d</option>
-              <option value={252}>252d</option>
+              {ROLLING_WINDOWS.map(w => <option key={w} value={w}>{w}d</option>)}
             </select>
           </div>
           <RollingMetricsChart

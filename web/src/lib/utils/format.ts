@@ -22,3 +22,13 @@ export function formatPct(v: unknown, digits = 2): string {
   const n = Number(v ?? 0) * 100
   return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}%`
 }
+
+/** Compute daily returns from a NAV series. */
+export function computeDailyReturns(navSeries: { nav: number }[]): number[] {
+  const returns: number[] = []
+  for (let i = 1; i < navSeries.length; i++) {
+    const prev = navSeries[i - 1].nav
+    if (prev > 0) returns.push(navSeries[i].nav / prev - 1)
+  }
+  return returns
+}

@@ -1,4 +1,5 @@
 import { MetricCard } from '../../components/ui/MetricCard'
+import { ROLLING_WINDOWS } from '@/lib/constants'
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -377,9 +378,7 @@ export function BacktestOverviewTab() {
               onChange={e => setRollingWindow(Number(e.target.value))}
               className="text-xs border border-gray-200 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand-400"
             >
-              <option value={60}>60d</option>
-              <option value={120}>120d</option>
-              <option value={252}>252d</option>
+              {ROLLING_WINDOWS.map(w => <option key={w} value={w}>{w}d</option>)}
             </select>
           </div>
           <RollingMetricsChart

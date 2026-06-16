@@ -59,7 +59,7 @@ function TooltipContent({
   label,
 }: {
   active?: boolean
-  payload?: Array<{ dataKey: string; value: number; color: string }>
+  payload?: Array<{ dataKey: string; value?: number | null; color: string }>
   label?: string
 }) {
   if (!active || !payload || payload.length === 0) return null
@@ -114,7 +114,7 @@ export function RollingMetricsChart({
     )
   }
 
-  const flatData = flattenData(data)
+  const flatData = useMemo(() => flattenData(data), [data])
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">
