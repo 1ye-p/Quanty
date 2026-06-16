@@ -19,12 +19,30 @@ export type { Backtest as BacktestRun, BacktestFill, WalkForwardConfig, WalkForw
 
 // ── API ──────────────────────────────────────────────────────────────────────
 
+export interface BacktestListParams {
+  offset?: number
+  limit?: number
+  status?: string
+  engine?: string
+  strategy_id?: string
+  start_date?: string
+  end_date?: string
+  sort_by?: 'started_at' | 'strategy_id' | 'status' | 'engine'
+  sort_order?: 'asc' | 'desc'
+}
+
 export const backtestsApi = {
-  list: (offset = 0, limit = 50, config?: RequestConfig) =>
-    api.get<{ items: Backtest[]; total: number }>(
-      `/backtests?offset=${offset}&limit=${limit}`,
+  list: (params: BacktestListParams = {}, config?: RequestConfig) => {
+    const { offset = 0, limit = 50, ...filters } = params
+    const qs = new URLSearchParams({ offset: String(offset), limit: String(limit) })
+    for (const [k, v] of Object.entries(filters)) {
+      if (v) qs.set(k, v)
+    }
+    return api.get<{ items: Backtest[]; total: number }>(
+      `/backtests?${qs.toString()}`,
       config,
-    ),
+    )
+  },
 
   get: (id: string, config?: RequestConfig) =>
     api.get<Backtest>(`/backtests/${id}`, config),

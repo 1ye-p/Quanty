@@ -53,8 +53,8 @@ export function OverviewPage() {
     queryFn: () => datasetsApi.list(5),
   })
   const { data: backtests } = useQuery({
-    queryKey: queryKeys.backtests.list(0, 5),
-    queryFn: () => backtestsApi.list(0, 5),
+    queryKey: queryKeys.backtests.list({ limit: 5 }),
+    queryFn: () => backtestsApi.list({ limit: 5 }),
   })
   const { data: knowledgeDocs } = useQuery({
     queryKey: queryKeys.knowledge.list(),

@@ -26,7 +26,7 @@ export function TasksPage() {
 
   const { data: btRuns } = useQuery({
     queryKey: ['tasks', 'backtests'],
-    queryFn: () => backtestsApi.list(0, 100),
+    queryFn: () => backtestsApi.list({ limit: 100 }),
     refetchInterval: 10_000,
   })
 

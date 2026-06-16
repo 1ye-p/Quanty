@@ -121,7 +121,7 @@ export function AppLayout() {
 
   const { data: btJobs } = useQuery({
     queryKey: ['layout', 'bt-running'],
-    queryFn: () => backtestsApi.list(0, 50),
+    queryFn: () => backtestsApi.list({ limit: 50 }),
     refetchInterval: pollInterval,
     select: (d) => d.items?.filter(
       (r: { status: string }) => r.status === 'running' || r.status === 'pending'
@@ -163,7 +163,7 @@ export function AppLayout() {
 
   const { data: btRunning } = useQuery({
     queryKey: ['layout', 'bt-running-details'],
-    queryFn: () => backtestsApi.list(0, 50),
+    queryFn: () => backtestsApi.list({ limit: 50 }),
     refetchInterval: pollInterval,
     select: (d) => (d.items ?? [])
       .filter((r: { status: string }) => r.status === 'running' || r.status === 'pending')

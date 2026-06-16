@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { backtestsApi, jobsApi } from '@/lib/api'
+import type { BacktestListParams } from '@/lib/api/backtests'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -12,16 +13,56 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
+const SORT_COLUMNS = ['started_at', 'strategy_id', 'status', 'engine'] as const
+type SortCol = (typeof SORT_COLUMNS)[number]
+
+function isSortCol(v: string | null): v is SortCol {
+  return SORT_COLUMNS.includes(v as SortCol)
+}
+
 export function BacktestsListPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { selectedIds, toggleSelection, clearSelection } = useBacktestCompareStore()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [confirmAction, setConfirmAction] = useState<{ type: 'cancel' | 'delete'; runId: string } | null>(null)
   const [page, setPage] = useState(0)
   const pageSize = 20
   const [btSearch, setBtSearch] = useState('')
   const [showCompare, setShowCompare] = useState(false)
+
+  // ── Filter / sort state from URL ──────────────────────────────────────
+  const status = searchParams.get('status') ?? ''
+  const engine = searchParams.get('engine') ?? ''
+  const strategyId = searchParams.get('strategy_id') ?? ''
+  const startDate = searchParams.get('start_date') ?? ''
+  const endDate = searchParams.get('end_date') ?? ''
+  const sortBy = searchParams.get('sort_by') ?? 'started_at'
+  const sortOrder = (searchParams.get('sort_order') ?? 'desc') as 'asc' | 'desc'
+
+  function updateParam(key: string, value: string) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (!value) next.delete(key)
+      else next.set(key, value)
+      return next
+    }, { replace: true })
+    setPage(0)
+  }
+
+  // Build API filter params
+  const filters: BacktestListParams = useMemo(() => ({
+    offset: page * pageSize,
+    limit: pageSize,
+    status: status || undefined,
+    engine: engine || undefined,
+    strategy_id: strategyId || undefined,
+    start_date: startDate || undefined,
+    end_date: endDate || undefined,
+    sort_by: isSortCol(sortBy) ? sortBy : undefined,
+    sort_order: sortOrder,
+  }), [page, pageSize, status, engine, strategyId, startDate, endDate, sortBy, sortOrder])
 
   const cancelMutation = useMutation({
     mutationFn: (runId: string) => jobsApi.cancel(runId),
@@ -36,8 +77,8 @@ export function BacktestsListPage() {
   })
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: queryKeys.backtests.list(page * pageSize, pageSize),
-    queryFn: () => backtestsApi.list(page * pageSize, pageSize),
+    queryKey: queryKeys.backtests.list(filters as Record<string, unknown>),
+    queryFn: () => backtestsApi.list(filters),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
     refetchInterval: (query) => {
@@ -53,6 +94,7 @@ export function BacktestsListPage() {
     staleTime: 60_000,
   })
 
+  // Client-side text search fallback (still useful for quick fuzzy search)
   const filteredBacktests = useMemo(() => {
     if (!data?.items) return []
     if (!btSearch.trim()) return data.items
@@ -64,12 +106,51 @@ export function BacktestsListPage() {
     )
   }, [data, btSearch])
 
-  // Clear search when items change
-  useEffect(() => {
-    if (btSearch && filteredBacktests.length === 0 && data?.items?.length) {
-      // keep search, user might be typing
+  // Derive unique engine / strategy values from current data for dropdown options
+  const engineOptions = useMemo(() => {
+    if (!data?.items) return []
+    return [...new Set(data.items.map(r => r.engine).filter(Boolean))].sort()
+  }, [data])
+
+  const strategyOptions = useMemo(() => {
+    if (!data?.items) return []
+    return [...new Set(data.items.map(r => r.strategy_id))].sort()
+  }, [data])
+
+  // ── Sort toggle handler ───────────────────────────────────────────────
+  function handleSort(col: SortCol) {
+    if (sortBy === col) {
+      updateParam('sort_order', sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev)
+        next.set('sort_by', col)
+        next.set('sort_order', 'asc')
+        return next
+      }, { replace: true })
+      setPage(0)
     }
-  }, [btSearch, filteredBacktests, data])
+  }
+
+  function sortIndicator(col: SortCol) {
+    if (sortBy !== col) return <span className="ml-1 text-gray-300">▲</span>
+    return sortOrder === 'asc'
+      ? <span className="ml-1 text-brand-600">▲</span>
+      : <span className="ml-1 text-brand-600">▼</span>
+  }
+
+  // Sortable column header helper
+  function SortableTh({ col, label, className = '' }: { col: SortCol; label: string; className?: string }) {
+    return (
+      <th
+        className={`table-th cursor-pointer select-none hover:text-gray-700 ${className}`}
+        onClick={() => handleSort(col)}
+      >
+        {label}
+        {sortIndicator(col)}
+      </th>
+    )
+  }
 
   // NAV series merge for compare chart
   function mergeNavSeries(
@@ -87,9 +168,90 @@ export function BacktestsListPage() {
     )
   }
 
+  const hasActiveFilters = status || engine || strategyId || startDate || endDate
+
   return (
     <div>
       <h1 className="page-title">Backtests</h1>
+
+      {/* Filter bar */}
+      <div className="card p-3 mb-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-gray-400 uppercase tracking-wide">Status</label>
+            <select
+              value={status}
+              onChange={e => updateParam('status', e.target.value)}
+              className="input py-1 text-xs w-32"
+            >
+              <option value="">All</option>
+              <option value="running">Running</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-gray-400 uppercase tracking-wide">Engine</label>
+            <select
+              value={engine}
+              onChange={e => updateParam('engine', e.target.value)}
+              className="input py-1 text-xs w-36"
+            >
+              <option value="">All</option>
+              {engineOptions.map(e => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-gray-400 uppercase tracking-wide">Strategy</label>
+            <select
+              value={strategyId}
+              onChange={e => updateParam('strategy_id', e.target.value)}
+              className="input py-1 text-xs w-40"
+            >
+              <option value="">All</option>
+              {strategyOptions.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-gray-400 uppercase tracking-wide">Start From</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => updateParam('start_date', e.target.value)}
+              className="input py-1 text-xs w-36"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-gray-400 uppercase tracking-wide">End Before</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={e => updateParam('end_date', e.target.value)}
+              className="input py-1 text-xs w-36"
+            />
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              onClick={() => setSearchParams({}, { replace: true })}
+              className="text-xs text-gray-400 hover:text-gray-600 ml-1 pb-1"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Search + subtitle row */}
       <div className="flex items-center justify-between mb-1">
         <p className="page-subtitle">
           {btSearch
@@ -124,9 +286,13 @@ export function BacktestsListPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="table-th w-10"><span className="sr-only">Select</span></th>
-                {['Run ID', 'Strategy', 'Engine', 'Status', 'Start', 'End', 'Actions'].map(h => (
-                  <th key={h} className="table-th">{h}</th>
-                ))}
+                <th className="table-th">Run ID</th>
+                <SortableTh col="strategy_id" label="Strategy" />
+                <SortableTh col="engine" label="Engine" />
+                <SortableTh col="status" label="Status" />
+                <SortableTh col="started_at" label="Start" />
+                <th className="table-th">End</th>
+                <th className="table-th">Actions</th>
               </tr>
             </thead>
             <tbody>

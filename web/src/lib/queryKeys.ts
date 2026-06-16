@@ -8,7 +8,7 @@ export const queryKeys = {
   },
   backtests: {
     all: ['backtests'] as const,
-    list: (offset: number, limit: number) => ['backtests', 'list', offset, limit] as const,
+    list: (params?: Record<string, unknown>) => ['backtests', 'list', params] as const,
     detail: (id: string) => ['backtests', id] as const,
     analysis: (id: string) => ['backtests', id, 'analysis'] as const,
     risk: (id: string) => ['backtests', id, 'risk'] as const,
