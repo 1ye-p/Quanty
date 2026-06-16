@@ -71,6 +71,8 @@ export const extendedQueryKeys = {
   factorAnalytics: {
     definitions: () => ['factors', 'definitions'] as const,
     icJob: (id: string) => ['factors', 'ic', id] as const,
+    quintiles: (factor: string, version: string, horizon: number) =>
+      ['factors', 'quintiles', factor, version, horizon] as const,
   },
   dsl: {
     functions: ['factors', 'dsl', 'functions'] as const,

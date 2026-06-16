@@ -8,16 +8,7 @@ import {
   ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import type { PredictionBin } from '@/lib/types/ml'
-
-function formatNum(v: number, decimals = 4): string {
-  if (!isFinite(v)) return '--'
-  return v.toFixed(decimals)
-}
-
-function formatNumShort(v: number, decimals = 2): string {
-  if (!isFinite(v)) return '--'
-  return v.toFixed(decimals)
-}
+import { formatNum, formatNumShort } from '@/lib/utils/format'
 
 interface PredictionDistributionProps {
   bins: PredictionBin[]

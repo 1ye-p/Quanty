@@ -8,16 +8,7 @@ import {
   ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts'
 import type { MLDiagnosticsFold } from '@/lib/types/ml'
-
-function formatNum(v: number, decimals = 4): string {
-  if (!isFinite(v)) return '--'
-  return v.toFixed(decimals)
-}
-
-function formatPct(v: number): string {
-  if (!isFinite(v)) return '--'
-  return (v * 100).toFixed(2) + '%'
-}
+import { formatNum, formatPct } from '@/lib/utils/format'
 
 interface WalkForwardFoldsProps {
   folds: MLDiagnosticsFold[]
@@ -28,7 +19,8 @@ export function WalkForwardFolds({ folds }: WalkForwardFoldsProps) {
     if (!folds.length) return null
     const meanIc = folds.reduce((s, f) => s + f.ic, 0) / folds.length
     const meanSharpe = folds.reduce((s, f) => s + f.sharpe, 0) / folds.length
-    return { meanIc, meanSharpe }
+    const meanWinRate = folds.reduce((s, f) => s + f.win_rate, 0) / folds.length
+    return { meanIc, meanSharpe, meanWinRate }
   }, [folds])
 
   if (!folds.length) {
@@ -104,7 +96,7 @@ export function WalkForwardFolds({ folds }: WalkForwardFoldsProps) {
                 <td className="py-2 pr-4 text-right font-mono">
                   {formatNum(summary.meanSharpe)}
                 </td>
-                <td className="py-2 text-right font-mono">--</td>
+                <td className="py-2 text-right font-mono">{formatPct(summary.meanWinRate)}</td>
               </tr>
             </tfoot>
           )}

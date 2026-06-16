@@ -29,7 +29,7 @@ export function ExperimentsTab({
   const [statusFilter, setStatusFilter] = useState('all')
   const [diagModelId, setDiagModelId] = useState<string | null>(null)
 
-  const { data: diagnostics, isLoading: diagLoading } = useQuery({
+  const { data: diagnostics, isLoading: diagLoading, error: diagError } = useQuery({
     queryKey: extendedQueryKeys.ml.diagnostics(diagModelId ?? ''),
     queryFn: () => mlApi.getModelDiagnostics(diagModelId!),
     enabled: !!diagModelId,
@@ -198,7 +198,11 @@ export function ExperimentsTab({
             </div>
           )}
 
-          {!diagLoading && !diagnostics && (
+          {!diagLoading && diagError && (
+            <p className="text-red-500 text-sm py-8 text-center">加载诊断数据失败: {(diagError as Error).message}</p>
+          )}
+
+          {!diagLoading && !diagnostics && !diagError && (
             <p className="text-gray-400 text-sm py-8 text-center">No diagnostics data available.</p>
           )}
         </div>

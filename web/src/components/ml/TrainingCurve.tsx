@@ -8,11 +8,7 @@ import {
   ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import type { TrainingCurvePoint } from '@/lib/types/ml'
-
-function formatNum(v: number, decimals = 4): string {
-  if (!isFinite(v)) return '--'
-  return v.toFixed(decimals)
-}
+import { formatNum } from '@/lib/utils/format'
 
 interface TrainingCurveProps {
   data: TrainingCurvePoint[]
