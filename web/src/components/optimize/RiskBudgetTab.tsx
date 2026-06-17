@@ -30,13 +30,14 @@ export function RiskBudgetTab({ resultWeights, covariance }: RiskBudgetTabProps)
     // Full marginal risk contribution using covariance matrix
     // MRC_i = w_i * (Σw)_i / sqrt(w'Σw)
     const wVec = assets.map(a => resultWeights[a] ?? 0)
+    // Assumes covariance matrix is symmetric: cov[a][b] == cov[b][a]
     const sigmaMatrix = assets.map(a1 => assets.map(a2 => covariance[a1]?.[a2] ?? 0))
 
     // Σw: matrix-vector multiply
     const sigmaW = sigmaMatrix.map(row => row.reduce((sum, val, j) => sum + val * wVec[j], 0))
 
     // w'Σw: dot product of w and Σw
-    const wSigmaW = wVec.reduce((sum, w, i) => sum + w * sigmaW[i], 0)
+    const wSigmaW = wVec.reduce((sum, wi, i) => sum + wi * sigmaW[i], 0)
     const portfolioVol = Math.sqrt(Math.max(0, wSigmaW))
 
     // Marginal risk contribution: w_i * (Σw)_i / portfolio_vol
