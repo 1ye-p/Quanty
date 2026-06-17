@@ -24,18 +24,26 @@ export function RiskBudgetTab({ resultWeights, covariance }: RiskBudgetTabProps)
 
   // If we have results, show risk contribution estimate
   if (resultWeights && covariance) {
-    // Simple marginal risk contribution estimate
     const totalWeight = Object.values(resultWeights).reduce((a, b) => a + b, 0)
     if (totalWeight === 0) return null
 
-    // Simplified risk contribution: weight * volatility (diagonal only)
-    // Full marginal risk = w_i * (Σw)_i / sqrt(w'Σw), but we approximate
-    // with per-asset volatility for the UI display
-    const contributions = assets.map(asset => {
-      const w = resultWeights[asset] ?? 0
-      const variance = covariance[asset]?.[asset] ?? 0
-      const riskContrib = w * Math.sqrt(variance)
-      return { asset, weight: w, riskContrib }
+    // Full marginal risk contribution using covariance matrix
+    // MRC_i = w_i * (Σw)_i / sqrt(w'Σw)
+    const wVec = assets.map(a => resultWeights[a] ?? 0)
+    const sigmaMatrix = assets.map(a1 => assets.map(a2 => covariance[a1]?.[a2] ?? 0))
+
+    // Σw: matrix-vector multiply
+    const sigmaW = sigmaMatrix.map(row => row.reduce((sum, val, j) => sum + val * wVec[j], 0))
+
+    // w'Σw: dot product of w and Σw
+    const wSigmaW = wVec.reduce((sum, w, i) => sum + w * sigmaW[i], 0)
+    const portfolioVol = Math.sqrt(Math.max(0, wSigmaW))
+
+    // Marginal risk contribution: w_i * (Σw)_i / portfolio_vol
+    const contributions = assets.map((asset, i) => {
+      const w = wVec[i]
+      const mrc = portfolioVol > 0 ? (w * sigmaW[i]) / portfolioVol : 0
+      return { asset, weight: w, riskContrib: mrc }
     })
 
     const totalRisk = contributions.reduce((a, b) => a + b.riskContrib, 0)
