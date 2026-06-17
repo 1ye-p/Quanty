@@ -651,7 +651,7 @@ async def compute_quintile_returns(body: QuintileRequest, catalog: CatalogDep) -
     )
 
     if labeled.is_empty():
-        return {"factor_name": body.factor_name, "n_groups": body.n_groups, "groups": []}
+        return {"factor_name": body.factor_name, "n_groups": body.n_groups, "groups": [], "cumulative_returns": []}
 
     group_stats = (
         labeled.group_by("quintile")

@@ -41,15 +41,25 @@ export function QuintileTab({ quantileReturns, cumulativeReturns }: QuintileTabP
   // Format cumulative data with MM-DD dates
   const cumData = useMemo(() => {
     if (!cumulativeReturns || cumulativeReturns.length === 0) return []
-    return cumulativeReturns.map(row => ({
-      date: String(row.trade_date).slice(5), // MM-DD format
-      Q1: row.q1 as number,
-      Q2: row.q2 as number,
-      Q3: row.q3 as number,
-      Q4: row.q4 as number,
-      Q5: row.q5 as number,
-    }))
+    // Dynamically detect quintile keys (q1, q2, ... qN)
+    const sample = cumulativeReturns[0]
+    const quintileKeys = Object.keys(sample)
+      .filter(k => k.startsWith('q') && k !== 'trade_date')
+      .sort()
+    return cumulativeReturns.map(row => {
+      const entry: Record<string, unknown> = { date: String(row.trade_date).slice(5) }
+      for (const k of quintileKeys) {
+        entry[k.toUpperCase()] = row[k] as number
+      }
+      return entry
+    })
   }, [cumulativeReturns])
+
+  // Dynamically detect available quintile keys for chart lines
+  const quintileKeys = useMemo(() => {
+    if (!cumData.length) return []
+    return Object.keys(cumData[0]).filter(k => k.startsWith('Q'))
+  }, [cumData])
 
   return (
     <div className="space-y-4">
@@ -92,11 +102,16 @@ export function QuintileTab({ quantileReturns, cumulativeReturns }: QuintileTabP
               />
               <Legend verticalAlign="top" height={32} />
               <ReferenceLine y={0} stroke="#e5e7eb" />
-              <Line type="monotone" dataKey="Q1" stroke={QUINTILE_COLORS.q1} dot={false} strokeWidth={1.5} />
-              <Line type="monotone" dataKey="Q2" stroke={QUINTILE_COLORS.q2} dot={false} strokeWidth={1.5} />
-              <Line type="monotone" dataKey="Q3" stroke={QUINTILE_COLORS.q3} dot={false} strokeWidth={1.5} />
-              <Line type="monotone" dataKey="Q4" stroke={QUINTILE_COLORS.q4} dot={false} strokeWidth={1.5} />
-              <Line type="monotone" dataKey="Q5" stroke={QUINTILE_COLORS.q5} dot={false} strokeWidth={1.5} />
+              {quintileKeys.map((qk, i) => (
+                <Line
+                  key={qk}
+                  type="monotone"
+                  dataKey={qk}
+                  stroke={QUINTILE_COLORS[`q${i + 1}` as keyof typeof QUINTILE_COLORS] ?? '#94a3b8'}
+                  dot={false}
+                  strokeWidth={1.5}
+                />
+              ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
