@@ -663,11 +663,34 @@ async def compute_quintile_returns(body: QuintileRequest, catalog: CatalogDep) -
         .sort("quintile")
     )
 
+    # Cumulative returns per quintile over time
+    cumulative = (
+        labeled
+        .group_by(["trade_date", "quintile"])
+        .agg(pl.col(ret_name).mean().alias("mean_ret"))
+        .sort("trade_date")
+        .pivot(index="trade_date", columns="quintile", values="mean_ret")
+        .sort("trade_date")
+    )
+
+    q_cols = [c for c in cumulative.columns if c != "trade_date"]
+    cumulative = cumulative.with_columns([
+        ((1 + pl.col(c)).cum_prod() - 1).alias(c)
+        for c in q_cols
+    ])
+
+    cum_data = cumulative.to_dicts()
+    cum_returns = [
+        {("q" + k if k not in ("trade_date",) else k): v for k, v in row.items()}
+        for row in cum_data
+    ]
+
     return {
         "factor_name": body.factor_name,
         "horizon_days": body.horizon_days,
         "n_groups": n,
         "groups": group_stats.to_dicts(),
+        "cumulative_returns": cum_returns,
     }
 
 
