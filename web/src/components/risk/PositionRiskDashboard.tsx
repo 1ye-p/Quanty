@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 const VAR_METHODS = [
   { value: 'parametric', label: '参数法' },
   { value: 'historical', label: '历史模拟' },
-  { value: 'montecarlo', label: '蒙特卡洛' },
+  { value: 'monte_carlo', label: '蒙特卡洛' },
 ] as const;
 
 const getRiskLevel = (value: number, thresholds: [number, number]) => {

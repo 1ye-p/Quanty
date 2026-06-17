@@ -253,28 +253,27 @@ async def portfolio_var(
 
     # Normalize weights
     total_weight = sum(weights.values())
+    if abs(total_weight) < 1e-10:
+        raise HTTPException(status_code=422, detail="Total weight is zero")
     if abs(total_weight - 1.0) > 0.01:
         weights = {k: v / total_weight for k, v in weights.items()}
 
-    # Get historical returns (placeholder for now - in production, fetch from datahub)
+    # Get historical returns
+    # TODO: Fetch real historical returns from datahub using asset_ids
+    # Currently uses synthetic data with realistic parameters for demonstration
     n_assets = len(weights)
     n_days = 252  # 1 year of history
-    np.random.seed(42)  # For reproducibility
+    rng = np.random.default_rng(42)  # Local RNG to avoid global state pollution
 
-    # Generate placeholder historical returns (in production, fetch from datahub)
-    # Using realistic parameters: ~10% annual return, ~20% annual vol
-    mean_returns = np.full(n_assets, 0.10 / 252)  # Daily mean return
-    # Create a realistic covariance matrix
+    mean_returns = np.full(n_assets, 0.10 / 252)  # Daily mean return ~10% annual
     base_vol = 0.20 / np.sqrt(252)  # Daily vol ~20% annualized
     cov_matrix = np.eye(n_assets) * base_vol**2
-    # Add some correlation (0.3 between assets)
     for i in range(n_assets):
         for j in range(i+1, n_assets):
             cov_matrix[i, j] = 0.3 * base_vol**2
             cov_matrix[j, i] = 0.3 * base_vol**2
 
-    # Generate historical returns
-    historical_returns = np.random.multivariate_normal(mean_returns, cov_matrix, n_days)
+    historical_returns = rng.multivariate_normal(mean_returns, cov_matrix, n_days)
 
     # Calculate VaR based on method
     w = np.array([weights[k] for k in sorted(weights.keys())])
