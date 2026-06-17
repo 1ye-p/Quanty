@@ -53,13 +53,14 @@ function mergeTimelines(
     .filter(d => isFinite(d.benchmark))
 }
 
-/**
- * Compute relative metrics from merged daily NAV data.
- * Returns null if insufficient data.
- */
+/** Compute relative metrics from merged daily NAV data. Returns null if insufficient data. */
 function computeRelativeMetrics(
   merged: { date: string; strategy: number; benchmark: number }[],
-): { alpha: number; beta: number; trackingError: number; informationRatio: number } | null {
+): {
+  alpha: number; beta: number; trackingError: number; informationRatio: number
+  upCapture: number; downCapture: number; captureRatio: number
+  correlation: number; rSquared: number
+} | null {
   if (merged.length < 2) return null
 
   // Daily returns
@@ -82,14 +83,17 @@ function computeRelativeMetrics(
   // Covariance and variance of benchmark
   let cov = 0
   let varB = 0
+  let varS = 0
   for (let i = 0; i < n; i++) {
     const ds = stratReturns[i] - meanS
     const db = bmReturns[i] - meanB
     cov += ds * db
     varB += db * db
+    varS += ds * ds
   }
   cov /= n - 1
   varB /= n - 1
+  varS /= n - 1
 
   // Beta = Cov(Rs, Rb) / Var(Rb)
   const beta = varB > 0 ? cov / varB : 0
@@ -108,7 +112,35 @@ function computeRelativeMetrics(
     ? (meanExcess * ANN_FACTOR) / trackingError
     : 0
 
-  return { alpha, beta, trackingError, informationRatio }
+  // Capture ratios
+  let upStratSum = 0, upBmSum = 0, upCount = 0
+  let downStratSum = 0, downBmSum = 0, downCount = 0
+  for (let i = 0; i < n; i++) {
+    if (bmReturns[i] > 0) {
+      upStratSum += stratReturns[i]
+      upBmSum += bmReturns[i]
+      upCount++
+    } else if (bmReturns[i] < 0) {
+      downStratSum += stratReturns[i]
+      downBmSum += bmReturns[i]
+      downCount++
+    }
+  }
+  const upCapture = upCount > 0 && upBmSum !== 0 ? (upStratSum / upCount) / (upBmSum / upCount) : 1
+  const downCapture = downCount > 0 && downBmSum !== 0 ? (downStratSum / downCount) / (downBmSum / downCount) : 1
+  const captureRatio = downCapture !== 0 ? upCapture / downCapture : 1
+
+  // Correlation and R²
+  const stdDevS = Math.sqrt(varS)
+  const stdDevB = Math.sqrt(varB)
+  const correlation = (stdDevS > 0 && stdDevB > 0) ? cov / (stdDevS * stdDevB) : 0
+  const rSquared = correlation * correlation
+
+  return {
+    alpha, beta, trackingError, informationRatio,
+    upCapture, downCapture, captureRatio,
+    correlation, rSquared,
+  }
 }
 
 export function BenchmarkCompare({
@@ -277,30 +309,65 @@ export function BenchmarkCompare({
 
       {/* Relative Metrics Cards */}
       {metrics && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <MetricCard
-            label="Alpha"
-            value={`${(metrics.alpha * 100).toFixed(2)}%`}
-            sub="Annualized Jensen's α"
-            warn={metrics.alpha < 0}
-          />
-          <MetricCard
-            label="Beta"
-            value={metrics.beta.toFixed(3)}
-            sub="Systematic risk exposure"
-          />
-          <MetricCard
-            label="Tracking Error"
-            value={`${(metrics.trackingError * 100).toFixed(2)}%`}
-            sub="Annualized TE"
-          />
-          <MetricCard
-            label="Information Ratio"
-            value={metrics.informationRatio.toFixed(3)}
-            sub="Excess return / TE"
-            warn={metrics.informationRatio < 0}
-          />
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <MetricCard
+              label="Alpha"
+              value={`${(metrics.alpha * 100).toFixed(2)}%`}
+              sub="Annualized Jensen's α"
+              warn={metrics.alpha < 0}
+            />
+            <MetricCard
+              label="Beta"
+              value={metrics.beta.toFixed(3)}
+              sub="Systematic risk exposure"
+            />
+            <MetricCard
+              label="Tracking Error"
+              value={`${(metrics.trackingError * 100).toFixed(2)}%`}
+              sub="Annualized TE"
+            />
+            <MetricCard
+              label="Information Ratio"
+              value={metrics.informationRatio.toFixed(3)}
+              sub="Excess return / TE"
+              warn={metrics.informationRatio < 0}
+            />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <MetricCard
+              label="Up Capture"
+              value={`${(metrics.upCapture * 100).toFixed(1)}%`}
+              sub="Gains vs benchmark up days"
+              good={metrics.upCapture > 1}
+              warn={metrics.upCapture < 1}
+            />
+            <MetricCard
+              label="Down Capture"
+              value={`${(metrics.downCapture * 100).toFixed(1)}%`}
+              sub="Losses vs benchmark down days"
+              good={metrics.downCapture < 1}
+              warn={metrics.downCapture > 1}
+            />
+            <MetricCard
+              label="Capture Ratio"
+              value={metrics.captureRatio.toFixed(3)}
+              sub="Up capture / Down capture"
+              good={metrics.captureRatio > 1}
+              warn={metrics.captureRatio < 1}
+            />
+            <MetricCard
+              label="Correlation"
+              value={metrics.correlation.toFixed(4)}
+              sub="Pearson ρ (strategy vs benchmark)"
+            />
+            <MetricCard
+              label="R²"
+              value={metrics.rSquared.toFixed(4)}
+              sub="Coefficient of determination"
+            />
+          </div>
+        </>
       )}
 
       {/* Rolling Beta / Alpha */}
