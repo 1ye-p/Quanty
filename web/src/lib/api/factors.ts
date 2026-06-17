@@ -66,6 +66,7 @@ export const factorsApi = {
       horizon_days: number
       n_groups: number
       groups: { quintile: string; mean_return: number; std_return: number; count: number }[]
+      cumulative_returns: { trade_date: string; q1: number; q2: number; q3: number; q4: number; q5: number }[]
     }>('/factors/analytics/quintiles', body, config),
 
   computeFactorCorrelation: (

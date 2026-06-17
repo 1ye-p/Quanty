@@ -259,7 +259,10 @@ export function FactorsPage() {
             : quintileLoading
               ? <div className="card text-center py-8 text-gray-400">加载中...</div>
               : quintileData?.groups
-                ? <QuintileTab quantileReturns={quintileData.groups.map(g => ({ quantile: parseInt(String(g.quintile), 10) || 0, mean_return: g.mean_return }))} />
+                ? <QuintileTab
+                    quantileReturns={quintileData.groups.map(g => ({ quantile: parseInt(String(g.quintile), 10) || 0, mean_return: g.mean_return }))}
+                    cumulativeReturns={quintileData.cumulative_returns}
+                  />
                 : <div className="card text-center py-8 text-gray-400">暂无分位收益数据</div>
       )}
 
