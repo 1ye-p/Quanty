@@ -72,6 +72,15 @@ export interface RiskEvent {
 
 // ── API ────────────────────────────────────────────────────────────────────
 
+export interface PortfolioVarResult {
+  var: number
+  cvar: number
+  var_amount: number
+  cvar_amount: number
+  method: string
+  confidence: number
+}
+
 export const riskApi = {
   policies: (config?: RequestConfig) =>
     api.get<PolicyInfo[]>('/risk/policies', config),
@@ -87,4 +96,9 @@ export const riskApi = {
 
   getEvents: (config?: RequestConfig) =>
     api.get<RiskEvent[]>('/risk/events', config),
+
+  getPortfolioVar: (params: { method?: string; confidence?: number; horizon_days?: number; weights_json?: string; nav?: number }) =>
+    api.get<PortfolioVarResult>(
+      `/risk/portfolio-var?${new URLSearchParams(params as Record<string, string>)}`,
+    ),
 }

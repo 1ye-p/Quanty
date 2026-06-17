@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { riskApi } from '@/lib/api/risk';
 import { extendedQueryKeys } from '@/lib/queryKeys';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '@/lib/utils';
+
+const VAR_METHODS = [
+  { value: 'parametric', label: '参数法' },
+  { value: 'historical', label: '历史模拟' },
+  { value: 'montecarlo', label: '蒙特卡洛' },
+] as const;
 
 const getRiskLevel = (value: number, thresholds: [number, number]) => {
   if (value > thresholds[1]) return 'text-red-600';
@@ -12,11 +18,29 @@ const getRiskLevel = (value: number, thresholds: [number, number]) => {
 };
 
 export const PositionRiskDashboard: React.FC = () => {
+  const [varMethod, setVarMethod] = useState('parametric');
+
   const { data: portfolio, isLoading, error } = useQuery({
     queryKey: extendedQueryKeys.risk.positions(),
     queryFn: () => riskApi.getPositions(),
     refetchInterval: 30000,
   });
+
+  const { data: portfolioVar } = useQuery({
+    queryKey: ['risk', 'portfolio-var', varMethod],
+    queryFn: () => riskApi.getPortfolioVar({ method: varMethod, confidence: 0.95, horizon_days: 1 }),
+    enabled: !!portfolio?.positions?.length,
+  });
+
+  const individualVarSum = useMemo(() => {
+    if (!portfolio?.positions) return 0;
+    return portfolio.positions.reduce((sum, pos) => sum + (pos.var_95 ?? 0), 0);
+  }, [portfolio?.positions]);
+
+  const diversificationBenefit = useMemo(() => {
+    if (!portfolioVar) return null;
+    return individualVarSum - portfolioVar.var;
+  }, [individualVarSum, portfolioVar]);
 
   if (isLoading) return <div className="text-center py-4 text-gray-500">加载中...</div>;
   if (error) return <div className="text-center py-8 text-red-500">加载失败: {error.message}</div>;
@@ -28,6 +52,54 @@ export const PositionRiskDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Portfolio VaR Section */}
+      <div className="bg-white rounded-xl shadow-sm border p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-medium text-gray-800">组合 VaR</h3>
+          <select
+            value={varMethod}
+            onChange={(e) => setVarMethod(e.target.value)}
+            className="text-sm border rounded px-2 py-1 bg-white"
+          >
+            {VAR_METHODS.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="grid grid-cols-5 gap-4">
+          <div className="text-center">
+            <div className="text-sm text-gray-500">组合 VaR</div>
+            <div className={cn("text-2xl font-semibold", getRiskLevel(portfolioVar?.var ?? 0, [0.02, 0.05]))}>
+              {portfolioVar ? (portfolioVar.var * 100).toFixed(2) + '%' : '-'}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-gray-500">VaR 金额</div>
+            <div className="text-2xl font-semibold text-gray-800">
+              {portfolioVar ? portfolioVar.var_amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-gray-500">CVaR / ES</div>
+            <div className={cn("text-2xl font-semibold", getRiskLevel(portfolioVar?.cvar ?? 0, [0.03, 0.07]))}>
+              {portfolioVar ? (portfolioVar.cvar * 100).toFixed(2) + '%' : '-'}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-gray-500">分散化收益</div>
+            <div className={cn("text-2xl font-semibold", diversificationBenefit != null && diversificationBenefit > 0 ? 'text-green-600' : 'text-gray-800')}>
+              {diversificationBenefit != null ? (diversificationBenefit * 100).toFixed(2) + '%' : '-'}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-gray-500">置信度 / 期限</div>
+            <div className="text-lg font-semibold text-gray-800">
+              {portfolioVar ? `${(portfolioVar.confidence * 100).toFixed(0)}% / 1D` : '-'}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Portfolio Risk Summary */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
