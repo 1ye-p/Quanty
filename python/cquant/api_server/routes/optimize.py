@@ -480,9 +480,8 @@ async def compute_frontier(body: FrontierRequest, catalog: CatalogDep) -> dict:
     # -- Compute frontier points ────────────────────────────────────────────────
     frontier_points: list[FrontierPoint] = []
 
+    from dataclasses import replace
     for t_ret in target_returns:
-        point_cfg = ConstraintConfig(
-        from dataclasses import replace
         point_cfg = replace(cfg, target_return=float(t_ret))
         try:
             result = optimizer.optimize(
