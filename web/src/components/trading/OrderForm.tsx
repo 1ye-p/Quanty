@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { tradingApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
+import { detectExchange } from '@/lib/utils'
 
 interface OrderFormProps {
   broker?: string
@@ -33,7 +34,7 @@ export function OrderForm({ broker = 'paper', onOrderPlaced }: OrderFormProps) {
     e.preventDefault()
     if (!symbol || !qty) return
 
-    const exchange = symbol.startsWith('6') ? 'SSE' : 'SZSE'
+    const exchange = detectExchange(symbol)
     orderMutation.mutate({
       asset_id: `${exchange}:${symbol}`,
       side,

@@ -16,3 +16,30 @@ export function elapsedStr(startedAt: string | number | undefined): string {
   if (elapsed < 3600) return `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`
   return `${Math.floor(elapsed / 3600)}h ${Math.floor((elapsed % 3600) / 60)}m`
 }
+
+/**
+ * Detect exchange from A-share stock symbol.
+ *
+ * Rules:
+ *  - 6xxxxx → SSE (沪市主板 600xxx, 科创板 688xxx/689xxx)
+ *  - 0xxxxx/2xxxxx/3xxxxx → SZSE (深市主板 000xxx/002xxx, 创业板 300xxx/301xxx, B股 200xxx)
+ *  - 8xxxxx/4xxxxx → BSE (北交所)
+ */
+export function detectExchange(symbol: string): 'SSE' | 'SZSE' | 'BSE' | 'UNKNOWN' {
+  const s = symbol.replace(/\..*$/, '') // strip suffix like .SZ, .SH
+  if (s.startsWith('6')) return 'SSE'
+  if (s.startsWith('0') || s.startsWith('2') || s.startsWith('3')) return 'SZSE'
+  if (s.startsWith('8') || s.startsWith('4')) return 'BSE'
+  return 'UNKNOWN'
+}
+
+/** Return Chinese board label for an A-share symbol. */
+export function getBoardLabel(symbol: string): string {
+  const s = symbol.replace(/\..*$/, '')
+  if (s.startsWith('688') || s.startsWith('689')) return '科创板'
+  if (s.startsWith('300') || s.startsWith('301')) return '创业板'
+  if (s.startsWith('8') || s.startsWith('4')) return '北交所'
+  if (s.startsWith('6')) return '沪主板'
+  if (s.startsWith('0') || s.startsWith('2')) return '深主板'
+  return '未知'
+}
