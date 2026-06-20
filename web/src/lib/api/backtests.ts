@@ -12,6 +12,7 @@ import type {
   BacktestCompareRun,
   WalkForwardFold,
   WalkForwardConfig,
+  RoundTrip,
 } from '../types'
 
 // Re-export types for backward compatibility
@@ -139,6 +140,12 @@ export const backtestsApi = {
 
   getTradeAnalysis: (id: string, config?: RequestConfig) =>
     api.get<Record<string, unknown>>(`/backtests/${id}/trade-analysis`, config),
+
+  getRoundTrips: (id: string, config?: RequestConfig) =>
+    api.get<{ total_round_trips: number; round_trips: RoundTrip[] }>(
+      `/backtests/${id}/round-trips`,
+      config,
+    ),
 
   // Extended
   tearsheet: (id: string, config?: RequestConfig) =>

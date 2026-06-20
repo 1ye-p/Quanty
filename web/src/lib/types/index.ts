@@ -11,6 +11,7 @@ export {
   BacktestJobStatusSchema,
   BacktestCompareRunSchema,
   WalkForwardFoldSchema,
+  RoundTripSchema,
 } from './backtest'
 
 export type {
@@ -24,6 +25,7 @@ export type {
   BacktestJobStatus,
   BacktestCompareRun,
   WalkForwardFold,
+  RoundTrip,
 } from './backtest'
 
 // ── Strategy ───────────────────────────────────────────────────────────────

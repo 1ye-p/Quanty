@@ -175,3 +175,21 @@ export const WalkForwardFoldSchema = z.object({
 })
 
 export type WalkForwardFold = z.infer<typeof WalkForwardFoldSchema>
+
+// ── RoundTrip (trade round-trip for MFE/MAE) ──────────────────────────────
+
+export const RoundTripSchema = z.object({
+  asset_id: z.string(),
+  direction: z.enum(['long', 'short']),
+  entry_date: z.string(),
+  exit_date: z.string(),
+  entry_price: z.number(),
+  exit_price: z.number(),
+  pnl: z.number(),
+  return_pct: z.number(),
+  mfe: z.number(),
+  mae: z.number(),
+  holding_days: z.number(),
+})
+
+export type RoundTrip = z.infer<typeof RoundTripSchema>
