@@ -503,7 +503,9 @@ async def list_backtests(
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     # Validate sort column to prevent SQL injection
-    allowed_sorts = {"started_at", "strategy_id", "status", "engine", "completed_at"}
+    # Metric columns are resolved from on-disk JSON files, not from SQL
+    _METRIC_SORTS = {"sharpe_ratio", "total_return", "max_drawdown"}
+    allowed_sorts = {"started_at", "strategy_id", "status", "engine", "completed_at"} | _METRIC_SORTS
     sort_col = sort_by if sort_by in allowed_sorts else "started_at"
     sort_dir = "ASC" if sort_order.lower() == "asc" else "DESC"
 
@@ -512,13 +514,47 @@ async def list_backtests(
         f"SELECT COUNT(*) as cnt FROM gold_backtest_runs {where}", params
     )
     total = total_df["cnt"].item() if not total_df.is_empty() else 0
-    df = catalog.query(
-        f"SELECT run_id, engine, strategy_id, dataset_version, started_at, "
-        f"completed_at, status FROM gold_backtest_runs {where} "
-        f"ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?",
-        params + [limit, offset],
-    )
-    items = df.to_dicts()
+
+    if sort_col in _METRIC_SORTS:
+        # Metric-based sorting: load all matching runs, resolve metrics from disk, sort in Python
+        df = catalog.query(
+            f"SELECT run_id, engine, strategy_id, dataset_version, started_at, "
+            f"completed_at, status FROM gold_backtest_runs {where}",
+            params,
+        )
+        all_runs = df.to_dicts()
+
+        # Enrich with metric values from on-disk JSON files
+        _metric_vals: dict[str, float | None] = {}
+        for row in all_runs:
+            rid = row["run_id"]
+            mpath = _safe_metrics_path(rid)
+            if mpath and mpath.exists():
+                try:
+                    m = json.loads(mpath.read_text())
+                    raw = m.get(sort_col)
+                    _metric_vals[rid] = float(raw) if raw is not None else None
+                except (json.JSONDecodeError, ValueError, TypeError):
+                    _metric_vals[rid] = None
+            else:
+                _metric_vals[rid] = None
+
+        reverse = sort_dir == "DESC"
+        # Sort non-null by metric value; nulls always last regardless of direction
+        non_null = [r for r in all_runs if _metric_vals.get(r["run_id"]) is not None]
+        nulls = [r for r in all_runs if _metric_vals.get(r["run_id"]) is None]
+        non_null.sort(key=lambda r: _metric_vals[r["run_id"]], reverse=reverse)
+        all_runs = non_null + nulls
+
+        items = all_runs[offset: offset + limit]
+    else:
+        df = catalog.query(
+            f"SELECT run_id, engine, strategy_id, dataset_version, started_at, "
+            f"completed_at, status FROM gold_backtest_runs {where} "
+            f"ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?",
+            params + [limit, offset],
+        )
+        items = df.to_dicts()
 
     # 2. Running/pending jobs from _api_jobs (always count for total; merge items only on first page)
     running_df = catalog.query(
