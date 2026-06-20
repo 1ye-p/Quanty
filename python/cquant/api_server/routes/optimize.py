@@ -88,7 +88,7 @@ class ViewSpec(BaseModel):
     asset: str  # primary asset involved in the view
     against: str | None = None  # relative view: asset to go short (None = absolute)
     expected_return: float  # expected excess return for this view
-    confidence: float = 0.5  # confidence in [0, 1]; 1 = certain, 0 = ignore
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)  # confidence in [0, 1]
 
 
 class OptimizeRequest(BaseModel):
@@ -108,8 +108,8 @@ class OptimizeRequest(BaseModel):
     # black_litterman params
     market_weights: dict[str, float] | None = None
     views: list[ViewSpec] | None = None
-    tau: float = 0.05
-    risk_aversion: float = 2.5
+    tau: float = Field(default=0.05, gt=0.0, le=1.0)
+    risk_aversion: float = Field(default=2.5, gt=0.0)
 
 
 class OptimizeResponse(BaseModel):

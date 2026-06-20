@@ -59,6 +59,8 @@ export interface OptimizeRequest {
   current_weights?: Record<string, number>
   views?: ViewSpec[]
   tau?: number
+  market_weights?: Record<string, number>
+  risk_aversion?: number
 }
 
 export interface OptimizeResult {

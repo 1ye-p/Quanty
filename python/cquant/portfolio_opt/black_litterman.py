@@ -203,11 +203,21 @@ class BlackLittermanOptimizer(PortfolioOptimizer):
         # E[R] = [(tau*Sigma)^-1 + P' * Omega^-1 * P]^-1
         #        * [(tau*Sigma)^-1 * Pi + P' * Omega^-1 * Q]
         tau_sigma = self._tau * sigma
-        tau_sigma_inv = np.linalg.inv(tau_sigma)
-        omega_inv = np.linalg.inv(omega)
+        try:
+            tau_sigma_inv = np.linalg.inv(tau_sigma)
+        except np.linalg.LinAlgError:
+            tau_sigma_inv = np.linalg.pinv(tau_sigma)
+
+        try:
+            omega_inv = np.linalg.inv(omega)
+        except np.linalg.LinAlgError:
+            omega_inv = np.linalg.pinv(omega)
 
         M = tau_sigma_inv + P.T @ omega_inv @ P
-        M_inv = np.linalg.inv(M)
+        try:
+            M_inv = np.linalg.inv(M)
+        except np.linalg.LinAlgError:
+            M_inv = np.linalg.pinv(M)
 
         posterior_returns = M_inv @ (tau_sigma_inv @ pi + P.T @ omega_inv @ Q)
 
@@ -241,35 +251,3 @@ class BlackLittermanOptimizer(PortfolioOptimizer):
         })
 
         return result
-
-    def _normalise_constraints(
-        self,
-        constraints: dict[str, Any] | ConstraintConfig | None,
-    ) -> ConstraintConfig:
-        """Normalise constraints (same pattern as MVO)."""
-        if constraints is None:
-            return ConstraintConfig()
-        if isinstance(constraints, ConstraintConfig):
-            return constraints
-        return ConstraintConfig(
-            long_only=constraints.get("long_only", True),
-            max_weight=constraints.get("max_weight", 1.0),
-            min_weight=constraints.get("min_weight", 0.0),
-            min_weights=constraints.get("min_weights", {}),
-            max_weights=constraints.get("max_weights", {}),
-            max_turnover=constraints.get("max_turnover"),
-            turnover_penalty=constraints.get("turnover_penalty", 0.0),
-            current_weights=constraints.get("current_weights", {}),
-            target_return=constraints.get("target_return"),
-            sector_map=constraints.get("sector_map", {}),
-            sector_limits=constraints.get("sector_limits", {}),
-            factor_loadings=constraints.get("factor_loadings", {}),
-            factor_limits=constraints.get("factor_limits", {}),
-            max_tracking_error=constraints.get("max_tracking_error"),
-            benchmark_weights=constraints.get("benchmark_weights", {}),
-            exclude_assets=set(constraints.get("exclude_assets", [])),
-            exclude_st=constraints.get("exclude_st", False),
-            st_assets=set(constraints.get("st_assets", [])),
-            exclude_suspended=constraints.get("exclude_suspended", False),
-            suspended_assets=set(constraints.get("suspended_assets", [])),
-        )
