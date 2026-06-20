@@ -120,6 +120,36 @@ class OptimizeResponse(BaseModel):
     metadata: dict
 
 
+class FrontierRequest(BaseModel):
+    assets: list[str]
+    constraints: dict | None = None
+    n_points: int = Field(default=50, ge=2, le=500)
+    risk_free_rate: float = 0.02
+    method: Literal["historical", "ewma", "ledoit_wolf"] = "historical"
+    window: int = 252
+    halflife: int = 63
+
+
+class FrontierPoint(BaseModel):
+    expected_return: float
+    volatility: float
+    sharpe: float
+    weights: dict[str, float]
+
+
+class IndividualAssetStat(BaseModel):
+    asset: str
+    expected_return: float
+    volatility: float
+
+
+class FrontierResponse(BaseModel):
+    points: list[FrontierPoint]
+    min_variance_point: FrontierPoint
+    max_sharpe_point: FrontierPoint
+    individual_assets: list[IndividualAssetStat]
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -345,4 +375,158 @@ async def optimize_portfolio(body: OptimizeRequest) -> dict:
         "expected_volatility": result.expected_volatility,
         "sharpe_ratio": result.sharpe_ratio,
         "metadata": result.metadata,
+    }
+
+
+@router.post("/frontier", response_model=FrontierResponse)
+async def compute_frontier(body: FrontierRequest, catalog: CatalogDep) -> dict:
+    """Compute points along the efficient frontier."""
+    import numpy as np
+
+    if not body.assets:
+        raise HTTPException(status_code=422, detail="assets cannot be empty")
+
+    # -- Fetch price data (same logic as /covariance) ───────────────────────────
+    placeholders = ",".join(["?" for _ in body.assets])
+    query = (
+        f"SELECT asset_id, trade_date, close FROM gold_daily_prices "
+        f"WHERE asset_id IN ({placeholders}) ORDER BY trade_date"
+    )
+    df = catalog.query(query, body.assets)
+
+    if df.is_empty():
+        raise HTTPException(status_code=404, detail="No price data found for given assets")
+
+    from cquant.portfolio_opt.covariance import CovarianceEstimator
+
+    estimator = CovarianceEstimator(
+        method=body.method,
+        window=body.window,
+        halflife=body.halflife,
+    )
+    cov_matrix = estimator.estimate(df)
+
+    if not cov_matrix:
+        raise HTTPException(status_code=422, detail="Failed to compute covariance matrix")
+
+    # -- Compute annualized expected returns from log returns ───────────────────
+    wide_df = (
+        df.select(["asset_id", "trade_date", "close"])
+        .sort(["asset_id", "trade_date"])
+        .with_columns(pl.col("close").log().diff().over("asset_id").alias("log_ret"))
+        .drop_nulls("log_ret")
+    )
+    assets_sorted = sorted(cov_matrix.keys())
+    mean_returns = (
+        wide_df.group_by("asset_id")
+        .agg(pl.col("log_ret").mean().alias("mean_ret"))
+        .to_dict(as_series=False)
+    )
+    mean_ret_map = dict(zip(mean_returns["asset_id"], mean_returns["mean_ret"]))
+    expected_returns: dict[str, float] = {}
+    for a in assets_sorted:
+        daily_mean = float(mean_ret_map.get(a, 0.0))
+        expected_returns[a] = daily_mean * 252  # annualize
+
+    # -- Build constraint config ────────────────────────────────────────────────
+    from cquant.portfolio_opt.constraints import ConstraintConfig
+
+    if body.constraints:
+        cfg = ConstraintConfig(
+            long_only=body.constraints.get("long_only", True),
+            max_weight=body.constraints.get("max_weight", 1.0),
+            min_weight=body.constraints.get("min_weight", 0.0),
+            min_weights=body.constraints.get("min_weights", {}),
+            max_weights=body.constraints.get("max_weights", {}),
+            target_return=body.constraints.get("target_return"),
+            sector_map=body.constraints.get("sector_map", {}),
+            exclude_assets=set(body.constraints.get("exclude_assets", [])),
+            exclude_st=body.constraints.get("exclude_st", False),
+            st_assets=set(body.constraints.get("st_assets", [])),
+            exclude_suspended=body.constraints.get("exclude_suspended", False),
+            suspended_assets=set(body.constraints.get("suspended_assets", [])),
+        )
+    else:
+        cfg = ConstraintConfig()
+
+    # -- Compute individual asset stats ─────────────────────────────────────────
+    individual_assets = [
+        IndividualAssetStat(
+            asset=a,
+            expected_return=expected_returns.get(a, 0.0),
+            volatility=float(np.sqrt(cov_matrix.get(a, {}).get(a, 0.0))),
+        )
+        for a in assets_sorted
+    ]
+
+    # -- Determine target return range ──────────────────────────────────────────
+    from cquant.portfolio_opt.mean_variance import MeanVarianceOptimizer
+
+    optimizer = MeanVarianceOptimizer(risk_free_rate=body.risk_free_rate)
+
+    # Determine feasible return range from individual asset returns
+    mu_arr = np.array([expected_returns[a] for a in assets_sorted])
+    min_ret = float(mu_arr.min())
+    max_ret = float(mu_arr.max())
+
+    # Clamp range to something feasible
+    target_returns = np.linspace(min_ret, max_ret, body.n_points)
+
+    # -- Compute frontier points ────────────────────────────────────────────────
+    frontier_points: list[FrontierPoint] = []
+
+    for t_ret in target_returns:
+        point_cfg = ConstraintConfig(
+            long_only=cfg.long_only,
+            max_weight=cfg.max_weight,
+            min_weight=cfg.min_weight,
+            min_weights=cfg.min_weights,
+            max_weights=cfg.max_weights,
+            max_turnover=cfg.max_turnover,
+            turnover_penalty=cfg.turnover_penalty,
+            current_weights=cfg.current_weights,
+            target_return=float(t_ret),
+            sector_map=cfg.sector_map,
+            sector_limits=cfg.sector_limits,
+            factor_loadings=cfg.factor_loadings,
+            factor_limits=cfg.factor_limits,
+            max_tracking_error=cfg.max_tracking_error,
+            benchmark_weights=cfg.benchmark_weights,
+            exclude_assets=cfg.exclude_assets,
+            exclude_st=cfg.exclude_st,
+            st_assets=cfg.st_assets,
+            exclude_suspended=cfg.exclude_suspended,
+            suspended_assets=cfg.suspended_assets,
+        )
+        try:
+            result = optimizer.optimize(
+                expected_returns=expected_returns,
+                covariance=cov_matrix,
+                constraints=point_cfg,
+            )
+            vol = result.expected_volatility
+            ret = result.expected_return
+            sharpe = (ret - body.risk_free_rate) / vol if vol > 1e-10 else 0.0
+            frontier_points.append(FrontierPoint(
+                expected_return=ret,
+                volatility=vol,
+                sharpe=sharpe,
+                weights=result.weights,
+            ))
+        except Exception:
+            # Skip infeasible target returns
+            continue
+
+    if not frontier_points:
+        raise HTTPException(status_code=422, detail="No feasible frontier points found")
+
+    # -- Find special points ────────────────────────────────────────────────────
+    min_var_point = min(frontier_points, key=lambda p: p.volatility)
+    max_sharpe_point = max(frontier_points, key=lambda p: p.sharpe)
+
+    return {
+        "points": [p.model_dump() for p in frontier_points],
+        "min_variance_point": min_var_point.model_dump(),
+        "max_sharpe_point": max_sharpe_point.model_dump(),
+        "individual_assets": [a.model_dump() for a in individual_assets],
     }
