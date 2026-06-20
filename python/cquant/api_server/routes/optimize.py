@@ -82,10 +82,19 @@ class ConstraintConfigSchema(BaseModel):
     suspended_assets: list[str] = Field(default_factory=list)
 
 
+class ViewSpec(BaseModel):
+    """Single investor view for Black-Litterman."""
+
+    asset: str  # primary asset involved in the view
+    against: str | None = None  # relative view: asset to go short (None = absolute)
+    expected_return: float  # expected excess return for this view
+    confidence: float = 0.5  # confidence in [0, 1]; 1 = certain, 0 = ignore
+
+
 class OptimizeRequest(BaseModel):
     expected_returns: dict[str, float]  # asset_id -> expected annual return
     covariance: dict[str, dict[str, float]]  # asset_id -> {asset_id -> cov}
-    optimizer: Literal["mean_variance", "risk_parity", "cost_aware"] = "mean_variance"
+    optimizer: Literal["mean_variance", "risk_parity", "cost_aware", "black_litterman"] = "mean_variance"
     constraints: dict = Field(default_factory=dict)
     # Structured constraint config (takes precedence over `constraints` dict when provided)
     constraint_config: ConstraintConfigSchema | None = None
@@ -96,6 +105,11 @@ class OptimizeRequest(BaseModel):
     cost_rate: float = 0.001
     turnover_penalty: float = 0.0005
     current_weights: dict[str, float] = Field(default_factory=dict)
+    # black_litterman params
+    market_weights: dict[str, float] | None = None
+    views: list[ViewSpec] | None = None
+    tau: float = 0.05
+    risk_aversion: float = 2.5
 
 
 class OptimizeResponse(BaseModel):
@@ -263,15 +277,62 @@ async def optimize_portfolio(body: OptimizeRequest) -> dict:
             cost_rate=body.cost_rate,
             turnover_penalty=body.turnover_penalty,
         )
+    elif body.optimizer == "black_litterman":
+        from cquant.portfolio_opt.black_litterman import BlackLittermanOptimizer
+
+        optimizer = BlackLittermanOptimizer(
+            risk_aversion=body.risk_aversion,
+            tau=body.tau,
+            risk_free_rate=body.risk_free_rate,
+            long_only=body.long_only,
+        )
     else:
         raise HTTPException(status_code=422, detail=f"Unknown optimizer: {body.optimizer}")
 
     try:
-        result = optimizer.optimize(
-            expected_returns=body.expected_returns,
-            covariance=body.covariance,
-            constraints=cfg,
-        )
+        import numpy as np
+
+        opt_kwargs: dict = {
+            "expected_returns": body.expected_returns,
+            "covariance": body.covariance,
+            "constraints": cfg,
+        }
+
+        # Black-Litterman extra arguments
+        if body.optimizer == "black_litterman":
+            n = len(body.covariance)
+            assets = sorted(body.covariance.keys())
+            asset_idx = {a: i for i, a in enumerate(assets)}
+
+            opt_kwargs["market_weights"] = body.market_weights
+
+            # Convert views to P matrix and Q vector
+            if body.views:
+                k = len(body.views)
+                P = np.zeros((k, n))
+                Q = np.zeros(k)
+                confidences = np.zeros(k)
+                for vi, view in enumerate(body.views):
+                    if view.asset not in asset_idx:
+                        raise HTTPException(
+                            status_code=422,
+                            detail=f"View asset {view.asset!r} not found in covariance matrix",
+                        )
+                    P[vi, asset_idx[view.asset]] = 1.0
+                    if view.against is not None:
+                        if view.against not in asset_idx:
+                            raise HTTPException(
+                                status_code=422,
+                                detail=f"View 'against' asset {view.against!r} not found in covariance matrix",
+                            )
+                        P[vi, asset_idx[view.against]] = -1.0
+                    Q[vi] = view.expected_return
+                    confidences[vi] = view.confidence
+                opt_kwargs["views_P"] = P
+                opt_kwargs["views_Q"] = Q
+                opt_kwargs["view_confidences"] = confidences
+
+        result = optimizer.optimize(**opt_kwargs)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
