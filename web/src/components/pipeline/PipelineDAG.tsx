@@ -1,10 +1,10 @@
 /**
  * PipelineDAG — Visual DAG editor for pipeline configuration using React Flow.
  *
- * Color-codes nodes by type and supports click-to-configure and edit mode
- * for adding connections.
+ * Color-codes nodes by type and supports click-to-configure, edit mode
+ * for connections, drag-and-drop to add nodes, and keyboard deletion.
  */
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect } from 'react'
 import {
   ReactFlow,
   Background,
@@ -20,12 +20,14 @@ import {
   Position,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   addEdge,
   type Connection,
   type NodeProps,
   type ColorMode,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { getNodeTypeDef } from './NodeTypeRegistry'
 
 // ── Node type → color mapping ───────────────────────────────────────────────
 
@@ -89,6 +91,7 @@ export interface PipelineDAGProps {
   onNodeClick?: (nodeId: string, data: PipelineNodeData) => void
   editable?: boolean
   onEdgesChange?: (edges: Edge[]) => void
+  onNodesChange?: OnNodesChange<Node<PipelineNodeData>>
 }
 
 export function PipelineDAG({
@@ -97,8 +100,10 @@ export function PipelineDAG({
   onNodeClick,
   editable = false,
   onEdgesChange: onEdgesChangeProp,
+  onNodesChange: onNodesChangeProp,
 }: PipelineDAGProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+  const { screenToFlowPosition } = useReactFlow()
+  const [nodes, setNodes, onNodesChangeInternal] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChangeInternal] = useEdgesState(initialEdges)
 
   // Sync when initial props change (e.g. status updates)
@@ -109,6 +114,15 @@ export function PipelineDAG({
   useEffect(() => {
     setEdges(initialEdges)
   }, [initialEdges, setEdges])
+
+  // Propagate node changes to parent
+  const handleNodesChange: OnNodesChange<Node<PipelineNodeData>> = useCallback(
+    (changes) => {
+      onNodesChangeInternal(changes)
+      onNodesChangeProp?.(changes)
+    },
+    [onNodesChangeInternal, onNodesChangeProp],
+  )
 
   const handleEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
@@ -136,15 +150,71 @@ export function PipelineDAG({
     [onNodeClick],
   )
 
+  // ── Drag-and-drop: add nodes from palette ──────────────────────────────
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }, [])
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      if (!editable) return
+
+      const type = event.dataTransfer.getData('application/reactflow')
+      if (!type) return
+
+      const nodeDef = getNodeTypeDef(type)
+      if (!nodeDef) return
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      })
+
+      const newNode: Node<PipelineNodeData> = {
+        id: `${type}_${Date.now()}`,
+        type: 'dagNode',
+        position,
+        data: {
+          label: nodeDef.label,
+          nodeType: type,
+          status: 'pending',
+          config: { ...nodeDef.defaultConfig },
+        },
+      }
+
+      setNodes((nds) => [...nds, newNode])
+    },
+    [editable, screenToFlowPosition, setNodes],
+  )
+
+  // ── Keyboard: delete selected nodes/edges ──────────────────────────────
+
+  useEffect(() => {
+    if (!editable) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        setNodes((nds) => nds.filter((n) => !n.selected))
+        setEdges((eds) => eds.filter((ed) => !ed.selected))
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [editable, setNodes, setEdges])
+
   return (
     <div className="w-full h-[480px] rounded-lg border border-gray-200 overflow-hidden">
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange as OnNodesChange}
+        onNodesChange={handleNodesChange as OnNodesChange}
         onEdgesChange={handleEdgesChange}
         onConnect={handleConnect}
         onNodeClick={handleNodeClick as any}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
         nodeTypes={nodeTypes}
         fitView
         colorMode={'light' as ColorMode}
