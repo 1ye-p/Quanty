@@ -53,11 +53,13 @@ def _html_to_pdf(html_bytes: bytes) -> bytes | None:
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.set_content(html_bytes.decode("utf-8"), wait_until="networkidle")
-            pdf = page.pdf(format="A4", print_background=True)
-            browser.close()
-            return pdf
+            try:
+                page = browser.new_page()
+                page.set_content(html_bytes.decode("utf-8"), wait_until="networkidle")
+                pdf = page.pdf(format="A4", print_background=True)
+                return pdf
+            finally:
+                browser.close()
     except ImportError:
         pass
     except Exception as exc:
