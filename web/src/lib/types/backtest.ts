@@ -186,7 +186,7 @@ export const RoundTripSchema = z.object({
   entry_price: z.number(),
   exit_price: z.number(),
   pnl: z.number(),
-  return_pct: z.number(),
+  pnl_pct: z.number(),
   mfe: z.number(),
   mae: z.number(),
   holding_days: z.number(),

@@ -1789,6 +1789,10 @@ async def get_backtest_round_trips(
 
     fills = fills_df.to_dicts()
 
+    def _parse_date(date_str: str) -> date:
+        """Parse date string to date object."""
+        return date.fromisoformat(str(date_str)[:10])
+
     # 3. FIFO match buys to sells per asset
     queues: dict[str, list[dict]] = {}  # asset_id -> list of open buy fills
     round_trips: list[dict] = []

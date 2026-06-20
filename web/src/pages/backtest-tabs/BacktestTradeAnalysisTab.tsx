@@ -68,7 +68,7 @@ function MfeMaeTooltip({ active, payload }: { active?: boolean; payload?: Array<
         <span className="text-gray-500">P&L</span>
         <span className={d.pnl >= 0 ? 'text-green-600' : 'text-red-600'}>{fmt(d.pnl)}</span>
         <span className="text-gray-500">Return</span>
-        <span>{(d.return_pct * 100).toFixed(2)}%</span>
+        <span>{(d.pnl_pct * 100).toFixed(2)}%</span>
         <span className="text-gray-500">MFE</span>
         <span className="text-green-600">{fmt(d.mfe)}</span>
         <span className="text-gray-500">MAE</span>
@@ -160,10 +160,7 @@ export function BacktestTradeAnalysisTab() {
 
   // For the diagonal reference line, find the max extent
   const maxExtent = scatterData.length > 0
-    ? Math.max(
-        ...scatterData.map(d => Math.max(Math.abs(d.mfe), Math.abs(d.mae))),
-        1,
-      )
+    ? scatterData.reduce((mx, d) => Math.max(mx, Math.abs(d.mfe), Math.abs(d.mae)), 1)
     : 1
 
   return (
@@ -391,8 +388,8 @@ function LongShortBarChart({ stats }: { stats: { long: ReturnType<typeof compute
         <XAxis dataKey="label" tick={{ fontSize: 10 }} />
         <YAxis tick={{ fontSize: 10 }} />
         <Tooltip
-          formatter={(value: number, name: string) => {
-            const item = chartData.find(d => d.long === value || d.short === value)
+          formatter={(value: number, name: string, props: { payload?: { label?: string } }) => {
+            const item = chartData.find(d => d.label === props.payload?.label)
             return [`${fmt(value)}${item?.suffix ?? ''}`, name === 'long' ? 'Long' : 'Short']
           }}
         />
