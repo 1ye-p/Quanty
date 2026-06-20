@@ -13,7 +13,7 @@ import uuid
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
 from cquant.api_server.deps import CatalogDep
@@ -30,6 +30,41 @@ def _safe_metrics_path(run_id: str) -> pathlib.Path | None:
     if not str(p).startswith(str(_ARTIFACTS_BASE)):
         return None
     return p
+
+
+def _html_to_pdf(html_bytes: bytes) -> bytes | None:
+    """Convert HTML bytes to PDF bytes. Returns None if no PDF engine is available.
+
+    Tries weasyprint first (lighter, no browser process), then playwright as fallback.
+    """
+    # Try weasyprint
+    try:
+        from weasyprint import HTML  # type: ignore[import-untyped]
+
+        return HTML(string=html_bytes.decode("utf-8")).write_pdf()
+    except ImportError:
+        pass
+    except Exception as exc:
+        logger.warning("weasyprint PDF generation failed: %s", exc)
+
+    # Try playwright (synchronous API)
+    try:
+        from playwright.sync_api import sync_playwright  # type: ignore[import-untyped]
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.set_content(html_bytes.decode("utf-8"), wait_until="networkidle")
+            pdf = page.pdf(format="A4", print_background=True)
+            browser.close()
+            return pdf
+    except ImportError:
+        pass
+    except Exception as exc:
+        logger.warning("playwright PDF generation failed: %s", exc)
+
+    return None
+
 
 def _fmt_metric(key: str, value: float | None) -> dict:
     """格式化单个指标为模板友好的 dict。
@@ -1428,13 +1463,15 @@ async def export_backtest_report(
     run_id: str,
     catalog: CatalogDep,
     format: str = "html",
-) -> HTMLResponse:
-    """生成回测独立 HTML 报告（内嵌 SVG 图表，无外部依赖，支持离线打开）。"""
+) -> Response:
+    """生成回测独立报告（内嵌 SVG 图表，无外部依赖）。
+    支持 format=html（默认）和 format=pdf。
+    """
     from datetime import datetime as dt
     from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-    if format != "html":
-        raise HTTPException(status_code=400, detail=f"Unsupported format '{format}'. Only 'html' is supported.")
+    if format not in ("html", "pdf"):
+        raise HTTPException(status_code=400, detail=f"Unsupported format '{format}'. Supported: 'html', 'pdf'.")
 
     # 1. 加载运行元数据（合并为单次查询）
     run_df = catalog.query(
@@ -1631,6 +1668,21 @@ async def export_backtest_report(
     content_bytes = html_content.encode("utf-8")
     if len(content_bytes) > 2 * 1024 * 1024:
         logger.warning("HTML report for %s is %d bytes (> 2MB)", run_id, len(content_bytes))
+
+    # 10. 根据 format 返回 HTML 或 PDF
+    if format == "pdf":
+        pdf_bytes = _html_to_pdf(content_bytes)
+        if pdf_bytes is None:
+            raise HTTPException(
+                status_code=501,
+                detail="PDF generation requires weasyprint or playwright. Install with: pip install weasyprint",
+            )
+        filename = f"backtest_report_{run_id[:12]}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     filename = f"backtest_report_{run_id[:12]}.html"
     return HTMLResponse(

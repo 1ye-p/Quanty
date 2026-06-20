@@ -28,6 +28,8 @@ export function BacktestOverviewTab() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [showDeployWizard, setShowDeployWizard] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportLoading, setExportLoading] = useState<string | null>(null)
   const [deployStep, setDeployStep] = useState(1)
   const [deployCash, setDeployCash] = useState('1000000')
   const [deployRiskMode, setDeployRiskMode] = useState<'conservative' | 'moderate' | 'aggressive'>('conservative')
@@ -148,14 +150,73 @@ export function BacktestOverviewTab() {
     <div className="space-y-4">
       {/* Export / Deploy buttons */}
       <div className="flex justify-end gap-2">
-        <a
-          href={`/api/v1/backtests/${selectedId}/export`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-secondary text-xs flex items-center gap-1"
-        >
-          Export HTML Report
-        </a>
+        {/* Export dropdown */}
+        <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setExportOpen(false) }} tabIndex={-1}>
+          <button
+            onClick={() => setExportOpen(!exportOpen)}
+            className="btn-secondary text-xs flex items-center gap-1"
+          >
+            {exportLoading ? (
+              <>
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Exporting {exportLoading.toUpperCase()}...
+              </>
+            ) : (
+              <>
+                Export Report
+                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </>
+            )}
+          </button>
+          {exportOpen && !exportLoading && (
+            <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded shadow-lg z-10">
+              <a
+                href={`/api/v1/backtests/${selectedId}/export?format=html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block px-3 py-2 text-xs hover:bg-gray-50"
+                onClick={() => setExportOpen(false)}
+              >
+                Export HTML
+              </a>
+              <button
+                className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-50"
+                onClick={async () => {
+                  setExportOpen(false)
+                  setExportLoading('pdf')
+                  try {
+                    const res = await fetch(`/api/v1/backtests/${selectedId}/export?format=pdf`)
+                    if (!res.ok) {
+                      const err = await res.json().catch(() => ({ detail: 'Export failed' }))
+                      toast.error(err.detail || 'PDF export failed')
+                      return
+                    }
+                    const blob = await res.blob()
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `backtest_report_${selectedId?.slice(0, 12)}.pdf`
+                    document.body.appendChild(a)
+                    a.click()
+                    a.remove()
+                    URL.revokeObjectURL(url)
+                  } catch {
+                    toast.error('PDF export failed')
+                  } finally {
+                    setExportLoading(null)
+                  }
+                }}
+              >
+                Export PDF
+              </button>
+            </div>
+          )}
+        </div>
         {detail?.status === 'completed' && (
           <button
             onClick={() => setShowDeployWizard(true)}
