@@ -74,7 +74,7 @@ export type { DatasetVersion } from './datasets'
 export { dashboardApi } from './dashboard'
 
 export { knowledgeApi } from './knowledge'
-export type { KnowledgeDoc, SearchHit, SearchResponse } from './knowledge'
+export type { KnowledgeDoc, SearchHit, SearchResponse, QASource, QAResponse } from './knowledge'
 
 export { advisorApi, advisorExtApi } from './advisor'
 export type { ChatResponse } from './advisor'

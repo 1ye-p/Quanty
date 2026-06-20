@@ -33,6 +33,18 @@ export interface SearchResponse {
   latency_ms: number
 }
 
+export interface QASource {
+  doc_id: string
+  snippet: string
+  score: number
+}
+
+export interface QAResponse {
+  answer: string
+  sources: QASource[]
+  model: string
+}
+
 // ── API ────────────────────────────────────────────────────────────────────
 
 export const knowledgeApi = {
@@ -82,4 +94,7 @@ export const knowledgeApi = {
     body: { uri: string; logical_type?: string; source_name?: string; title?: string },
     config?: RequestConfig,
   ) => api.post('/knowledge/ingest', body, config),
+
+  qa: (body: { question: string; top_k?: number; model?: string }, config?: RequestConfig) =>
+    api.post<QAResponse>('/knowledge/qa', body, config),
 }

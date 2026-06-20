@@ -29,7 +29,7 @@ export type {
 } from './api/backtests'
 
 export { knowledgeApi } from './api/knowledge'
-export type { KnowledgeDoc, SearchHit, SearchResponse } from './api/knowledge'
+export type { KnowledgeDoc, SearchHit, SearchResponse, QASource, QAResponse } from './api/knowledge'
 
 export { advisorApi, advisorExtApi } from './api/advisor'
 export type { ChatResponse } from './api/advisor'
