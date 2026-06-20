@@ -1,16 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { optimizeApi, mlApi } from '@/lib/api'
-import type { OptimizeResult, ConstraintConfig, SectorLimit, FactorExposureLimit, ViewSpec } from '@/lib/api'
+import type { OptimizeResult, ConstraintConfig, SectorLimit, FactorExposureLimit, ViewSpec, FrontierResult } from '@/lib/api'
 import { useWorkflowStore } from '@/stores/workflowStore'
 import { CovarianceCard } from '@/components/optimize/CovarianceCard'
 import { OptimizerCard } from '@/components/optimize/OptimizerCard'
 import { ConstraintsTab } from '@/components/optimize/ConstraintsTab'
 import { ResultsTab } from '@/components/optimize/ResultsTab'
 import { RiskBudgetTab } from '@/components/optimize/RiskBudgetTab'
+import { EfficientFrontierChart } from '@/components/optimize/EfficientFrontierChart'
 
-type TabKey = 'constraints' | 'results' | 'risk'
+type TabKey = 'constraints' | 'results' | 'risk' | 'frontier'
 
 interface SectorEntry {
   label: string
@@ -24,6 +25,10 @@ interface FactorEntry {
   min: string
   max: string
   loadings: Record<string, string>
+}
+
+function formatPct(value: number): string {
+  return `${(value * 100).toFixed(2)}%`
 }
 
 export function OptimizePage() {
@@ -64,6 +69,7 @@ export function OptimizePage() {
   // ── Results ───────────────────────────────────────────────────────────
   const [covResult, setCovResult] = useState<Record<string, Record<string, number>> | null>(null)
   const [optResult, setOptResult] = useState<OptimizeResult | null>(null)
+  const [frontierResult, setFrontierResult] = useState<FrontierResult | null>(null)
 
   // ── Mutations ─────────────────────────────────────────────────────────
   const covMutation = useMutation({
@@ -88,9 +94,29 @@ export function OptimizePage() {
       toast.success('Optimization complete')
       const { currentWorkflow: wf, updateContext: uc } = useWorkflowStore.getState()
       if (wf === 'optimize') uc({ optimizeResults: data })
+      // Fetch frontier data after optimization
+      if (covResult) {
+        fetchFrontier(Object.keys(covResult))
+      }
     },
     onError: (err) => { toast.error(`Optimization failed: ${String(err)}`) },
   })
+
+  const frontierMutation = useMutation({
+    mutationFn: optimizeApi.getFrontier,
+    onSuccess: (data) => {
+      setFrontierResult(data)
+    },
+    onError: (err) => { console.error('Failed to fetch frontier:', err) },
+  })
+
+  const fetchFrontier = useCallback((assets: string[]) => {
+    frontierMutation.mutate({
+      assets,
+      risk_free_rate: Number(riskFreeRate) || 0,
+      n_points: 50,
+    })
+  }, [riskFreeRate, frontierMutation])
 
   // ── Workflow integration ──────────────────────────────────────────────
   const { currentWorkflow, updateContext } = useWorkflowStore()
@@ -223,6 +249,7 @@ export function OptimizePage() {
     { key: 'constraints', label: '约束配置' },
     { key: 'results', label: '优化结果' },
     { key: 'risk', label: '风险预算' },
+    { key: 'frontier', label: '有效前沿' },
   ]
 
   return (
@@ -364,6 +391,31 @@ export function OptimizePage() {
               resultWeights={optResult?.weights}
               covariance={covResult}
             />
+          )}
+
+          {activeTab === 'frontier' && frontierResult && (
+            <EfficientFrontierChart
+              frontierPoints={frontierResult.points}
+              optimalPoint={frontierResult.max_sharpe_point}
+              minVariancePoint={frontierResult.min_variance_point}
+              individualAssets={frontierResult.individual_assets}
+              onPointClick={(point) => {
+                toast.info(`Selected: ${formatPct(point.expected_return)} return, ${formatPct(point.volatility)} vol, Sharpe ${point.sharpe.toFixed(3)}`)
+              }}
+            />
+          )}
+
+          {activeTab === 'frontier' && !frontierResult && (
+            <div className="flex items-center justify-center h-64 text-gray-500">
+              {frontierMutation.isPending ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+                  <span>Computing efficient frontier...</span>
+                </div>
+              ) : (
+                <p>Run an optimization to view the efficient frontier</p>
+              )}
+            </div>
           )}
         </div>
       )}

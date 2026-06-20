@@ -63,6 +63,9 @@ export type {
   OptimizeResult,
   CovarianceRequest,
   CovarianceResult,
+  FrontierPoint,
+  FrontierResult,
+  ViewSpec,
 } from './optimize'
 
 export { datasetsApi } from './datasets'

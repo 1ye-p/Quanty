@@ -71,6 +71,20 @@ export interface OptimizeResult {
   metadata: Record<string, unknown>
 }
 
+export interface FrontierPoint {
+  expected_return: number
+  volatility: number
+  sharpe: number
+  weights: Record<string, number>
+}
+
+export interface FrontierResult {
+  points: FrontierPoint[]
+  min_variance_point: FrontierPoint
+  max_sharpe_point: FrontierPoint
+  individual_assets: { asset: string; expected_return: number; volatility: number }[]
+}
+
 export interface CovarianceRequest {
   asset_ids: string[]
   as_of_date?: string
@@ -94,4 +108,12 @@ export const optimizeApi = {
 
   covariance: (body: CovarianceRequest, config?: RequestConfig) =>
     api.post<CovarianceResult>('/optimize/covariance', body, config),
+
+  getFrontier: (body: {
+    assets: string[]
+    constraints?: Record<string, unknown>
+    n_points?: number
+    risk_free_rate?: number
+  }, config?: RequestConfig) =>
+    api.post<FrontierResult>('/optimize/frontier', body, config),
 }

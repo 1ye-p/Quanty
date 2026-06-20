@@ -68,6 +68,8 @@ export type {
   OptimizeResult,
   CovarianceRequest,
   CovarianceResult,
+  FrontierPoint,
+  FrontierResult,
 } from './api/optimize'
 
 export { riskApi } from './api/risk'
