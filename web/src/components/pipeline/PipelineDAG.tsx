@@ -59,7 +59,8 @@ export interface PipelineNodeData {
 
 function DAGNode({ data }: NodeProps<Node<PipelineNodeData>>) {
   const { label, nodeType, status } = data
-  const colors = TYPE_COLORS[nodeType] ?? TYPE_COLORS.data
+  const typeDef = getNodeTypeDef(nodeType)
+  const colors = typeDef ? { bg: typeDef.bgColor, border: typeDef.color, text: typeDef.color } : TYPE_COLORS.data
   const icon = STATUS_ICON[status ?? 'pending'] ?? STATUS_ICON.pending
 
   return (
@@ -196,13 +197,28 @@ export function PipelineDAG({
     if (!editable) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        setNodes((nds) => nds.filter((n) => !n.selected))
-        setEdges((eds) => eds.filter((ed) => !ed.selected))
+        // Create remove changes for selected nodes/edges and propagate to parent
+        setNodes((nds) => {
+          const selected = nds.filter((n) => n.selected)
+          if (selected.length > 0) {
+            const changes = selected.map((n) => ({ id: n.id, type: 'remove' as const }))
+            onNodesChangeProp?.(changes as Parameters<NonNullable<typeof onNodesChangeProp>>[0])
+          }
+          return nds.filter((n) => !n.selected)
+        })
+        setEdges((eds) => {
+          const selected = eds.filter((ed) => ed.selected)
+          if (selected.length > 0) {
+            const changes = selected.map((ed) => ({ id: ed.id, type: 'remove' as const }))
+            onEdgesChangeProp?.(changes as Parameters<NonNullable<typeof onEdgesChangeProp>>[0])
+          }
+          return eds.filter((ed) => !ed.selected)
+        })
       }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [editable, setNodes, setEdges])
+  }, [editable, setNodes, setEdges, onNodesChangeProp, onEdgesChangeProp])
 
   return (
     <div className="w-full h-[480px] rounded-lg border border-gray-200 overflow-hidden">

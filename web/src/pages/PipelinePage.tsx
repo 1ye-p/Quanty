@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { pipelineApi } from '@/lib/api'
 import type { Node, Edge } from '@xyflow/react'
+import { ReactFlowProvider } from '@xyflow/react'
 import { PipelineDAG, type PipelineNodeData } from '@/components/pipeline/PipelineDAG'
 import { NodeConfig } from '@/components/pipeline/NodeConfig'
 import { PipelineStatus } from '@/components/pipeline/PipelineStatus'
@@ -195,12 +196,14 @@ export function PipelinePage() {
 
           {/* DAG editor */}
           <div className="mb-4">
-            <PipelineDAG
-              initialNodes={nodes}
-              initialEdges={edges}
-              onNodeClick={handleNodeClick}
-              editable={editable}
-            />
+            <ReactFlowProvider>
+              <PipelineDAG
+                initialNodes={nodes}
+                initialEdges={edges}
+                onNodeClick={handleNodeClick}
+                editable={editable}
+              />
+            </ReactFlowProvider>
           </div>
 
           {/* Node config side panel */}
