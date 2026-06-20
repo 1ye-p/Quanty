@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class IngestRequestBody(BaseModel):
@@ -44,3 +44,21 @@ class SearchResponseBody(BaseModel):
     hits: list[SearchHitBody]
     total_found: int
     latency_ms: int
+
+
+class QARequestBody(BaseModel):
+    question: str = Field(..., min_length=1, description="The question to answer using the knowledge base")
+    top_k: int = Field(default=5, ge=1, le=20, description="Number of context snippets to retrieve")
+    model: Literal["claude", "openai"] = Field(default="claude", description="LLM provider to use")
+
+
+class QASourceBody(BaseModel):
+    doc_id: str
+    snippet: str = ""
+    score: float = 0.0
+
+
+class QAResponseBody(BaseModel):
+    answer: str
+    sources: list[QASourceBody]
+    model: str
