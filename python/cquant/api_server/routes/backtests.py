@@ -1752,6 +1752,189 @@ async def get_backtest_fills(
     return {"items": df.to_dicts(), "total": total, "offset": offset, "limit": limit}
 
 
+@router.get("/{run_id}/round-trips")
+async def get_backtest_round_trips(
+    run_id: str,
+    catalog: CatalogDep,
+) -> dict:
+    """Match fills into round-trip trades with MFE/MAE.
+
+    Uses FIFO matching: for each asset, the earliest buy is matched with the
+    earliest sell to form a round-trip. For each round-trip, computes P&L,
+    holding days, and Maximum Favorable/Adverse Excursion (MFE/MAE) by looking
+    up intraperiod prices from silver_prices_1d.
+    """
+    # 1. Validate run exists
+    run_df = catalog.query(
+        "SELECT run_id, status FROM gold_backtest_runs WHERE run_id = ?", [run_id]
+    )
+    if run_df.is_empty():
+        raise HTTPException(status_code=404, detail=f"Backtest run '{run_id}' not found")
+
+    # 2. Load all fills sorted by asset, then date
+    fills_df = catalog.query(
+        "SELECT trade_date, asset_id, side, price, qty "
+        "FROM gold_fills WHERE run_id = ? ORDER BY asset_id, trade_date",
+        [run_id],
+    )
+    if fills_df.is_empty():
+        return {
+            "total_round_trips": 0,
+            "avg_holding_days": 0.0,
+            "win_rate": 0.0,
+            "avg_win_pct": 0.0,
+            "avg_loss_pct": 0.0,
+            "round_trips": [],
+        }
+
+    fills = fills_df.to_dicts()
+
+    # 3. FIFO match buys to sells per asset
+    queues: dict[str, list[dict]] = {}  # asset_id -> list of open buy fills
+    round_trips: list[dict] = []
+    assets_needing_prices: set[str] = set()
+    min_date = None
+    max_date = None
+
+    for fill in fills:
+        asset_id = fill["asset_id"]
+        side = fill["side"]
+        trade_date = str(fill["trade_date"])[:10]
+        price = float(fill["price"])
+        qty = int(fill["qty"])
+
+        if side == "buy":
+            queues.setdefault(asset_id, []).append({
+                "date": trade_date,
+                "price": price,
+                "qty": qty,
+            })
+        elif side == "sell":
+            queue = queues.get(asset_id, [])
+            remaining_sell = qty
+            while queue and remaining_sell > 0:
+                buy = queue[0]
+                matched_qty = min(buy["qty"], remaining_sell)
+                direction = "long"
+                direction_mult = 1.0
+
+                buy_price = buy["price"]
+                sell_price = price
+                pnl = (sell_price - buy_price) * matched_qty * direction_mult
+                pnl_pct = (sell_price / buy_price - 1) * direction_mult if buy_price > 0 else 0.0
+
+                try:
+                    bd = _parse_date(buy["date"])
+                    sd = _parse_date(trade_date)
+                    holding_days = max(1, (sd - bd).days)
+                except Exception:
+                    holding_days = 1
+
+                rt = {
+                    "asset_id": asset_id,
+                    "direction": direction,
+                    "entry_date": buy["date"],
+                    "entry_price": buy_price,
+                    "exit_date": trade_date,
+                    "exit_price": sell_price,
+                    "holding_days": holding_days,
+                    "pnl": round(pnl, 4),
+                    "pnl_pct": round(pnl_pct, 6),
+                    "mfe": 0.0,
+                    "mae": 0.0,
+                }
+                round_trips.append(rt)
+                assets_needing_prices.add(asset_id)
+
+                # Track date range for price lookup
+                if min_date is None or buy["date"] < min_date:
+                    min_date = buy["date"]
+                if max_date is None or trade_date > max_date:
+                    max_date = trade_date
+
+                buy["qty"] -= matched_qty
+                remaining_sell -= matched_qty
+                if buy["qty"] <= 0:
+                    queue.pop(0)
+
+    if not round_trips:
+        return {
+            "total_round_trips": 0,
+            "avg_holding_days": 0.0,
+            "win_rate": 0.0,
+            "avg_win_pct": 0.0,
+            "avg_loss_pct": 0.0,
+            "round_trips": [],
+        }
+
+    # 4. Fetch price data for MFE/MAE calculation
+    asset_list = sorted(assets_needing_prices)
+    asset_ph = ",".join(["?" for _ in asset_list])
+    price_df = catalog.query(
+        f"SELECT trade_date, asset_id, close FROM silver_prices_1d "
+        f"WHERE asset_id IN ({asset_ph}) AND trade_date >= ? AND trade_date <= ? "
+        f"ORDER BY asset_id, trade_date",
+        asset_list + [min_date, max_date],
+    )
+
+    # Build price lookup: (asset_id, date_str) -> close
+    price_map: dict[tuple[str, str], float] = {}
+    if not price_df.is_empty():
+        for row in price_df.to_dicts():
+            key = (row["asset_id"], str(row["trade_date"])[:10])
+            price_map[key] = float(row["close"])
+
+    # 5. Compute MFE/MAE for each round-trip
+    for rt in round_trips:
+        aid = rt["asset_id"]
+        entry_date = rt["entry_date"]
+        exit_date = rt["exit_date"]
+        entry_price = rt["entry_price"]
+        direction = rt["direction"]
+
+        # Collect all prices during the holding period (inclusive)
+        period_prices: list[float] = []
+        for (p_asset, p_date), p_close in price_map.items():
+            if p_asset == aid and entry_date <= p_date <= exit_date:
+                period_prices.append(p_close)
+
+        # Include entry and exit prices even if no market data
+        if not period_prices:
+            period_prices = [entry_price, rt["exit_price"]]
+
+        if direction == "long":
+            mfe = max(period_prices) - entry_price
+            mae = entry_price - min(period_prices)
+        else:  # short
+            mfe = entry_price - min(period_prices)
+            mae = max(period_prices) - entry_price
+
+        rt["mfe"] = round(mfe, 4)
+        rt["mae"] = round(mae, 4)
+
+    # 6. Compute summary stats
+    total = len(round_trips)
+    avg_holding = sum(rt["holding_days"] for rt in round_trips) / total
+    wins = [rt for rt in round_trips if rt["pnl"] > 0]
+    losses = [rt for rt in round_trips if rt["pnl"] <= 0]
+    win_rate = len(wins) / total if total > 0 else 0.0
+    avg_win_pct = (
+        sum(rt["pnl_pct"] for rt in wins) / len(wins) if wins else 0.0
+    )
+    avg_loss_pct = (
+        sum(rt["pnl_pct"] for rt in losses) / len(losses) if losses else 0.0
+    )
+
+    return {
+        "total_round_trips": total,
+        "avg_holding_days": round(avg_holding, 2),
+        "win_rate": round(win_rate, 4),
+        "avg_win_pct": round(avg_win_pct, 6),
+        "avg_loss_pct": round(avg_loss_pct, 6),
+        "round_trips": round_trips,
+    }
+
+
 @router.get("/{run_id}/walk-forward-folds")
 async def get_walk_forward_folds(run_id: str, catalog: CatalogDep) -> dict:
     """Get walk-forward fold details for a run."""
