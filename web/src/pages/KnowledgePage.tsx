@@ -116,7 +116,7 @@ function QATab() {
                     </p>
                     <div className="space-y-1.5">
                       {entry.sources.map((src: QAResponse['sources'][number], i: number) => (
-                        <div key={src.doc_id} className="flex items-start gap-2">
+                        <div key={`${src.doc_id}-${i}`} className="flex items-start gap-2">
                           <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-indigo-600 text-[10px] font-semibold flex-shrink-0 mt-0.5">
                             {i + 1}
                           </span>

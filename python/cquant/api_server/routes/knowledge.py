@@ -111,7 +111,11 @@ async def knowledge_qa(body: QARequestBody, kb: KBServiceDep) -> QAResponseBody:
     provider = ClaudeProvider() if body.model == "claude" else OpenAIProvider()
 
     messages = [Message(role="user", content=f"Context:\n{context_block}\n\nQuestion: {body.question}")]
-    result = await provider.generate(messages, system=_QA_SYSTEM_PROMPT, max_tokens=2048)
+    try:
+        result = await provider.generate(messages, system=_QA_SYSTEM_PROMPT, max_tokens=2048)
+    except Exception as exc:
+        logger.exception("LLM call failed for QA")
+        raise HTTPException(status_code=502, detail=f"LLM provider error: {exc}")
 
     if result.stop_reason == "unavailable":
         logger.warning("LLM unavailable for QA: %s", result.content)
