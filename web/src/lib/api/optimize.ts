@@ -39,10 +39,17 @@ export interface ConstraintConfig {
   suspended_assets?: string[]
 }
 
+export interface ViewSpec {
+  asset: string
+  against?: string
+  expected_return: number
+  confidence: number
+}
+
 export interface OptimizeRequest {
   expected_returns: Record<string, number>
   covariance: Record<string, Record<string, number>>
-  optimizer?: 'mean_variance' | 'risk_parity' | 'cost_aware'
+  optimizer?: 'mean_variance' | 'risk_parity' | 'cost_aware' | 'black_litterman'
   constraints?: Record<string, unknown>
   constraint_config?: ConstraintConfig
   risk_free_rate?: number
@@ -50,6 +57,8 @@ export interface OptimizeRequest {
   cost_rate?: number
   turnover_penalty?: number
   current_weights?: Record<string, number>
+  views?: ViewSpec[]
+  tau?: number
 }
 
 export interface OptimizeResult {

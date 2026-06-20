@@ -3,10 +3,14 @@
  * expected returns table, and the optimize button.
  */
 import { useState } from 'react'
+import type { ViewSpec } from '@/lib/api'
+import { BlackLittermanTab } from './BlackLittermanTab'
+
+type OptimizerType = 'mean_variance' | 'risk_parity' | 'cost_aware' | 'black_litterman'
 
 interface OptimizerCardProps {
-  optimizer: 'mean_variance' | 'risk_parity' | 'cost_aware'
-  onOptimizerChange: (val: 'mean_variance' | 'risk_parity' | 'cost_aware') => void
+  optimizer: OptimizerType
+  onOptimizerChange: (val: OptimizerType) => void
   longOnly: boolean
   onLongOnlyChange: (val: boolean) => void
   riskFreeRate: string
@@ -21,6 +25,11 @@ interface OptimizerCardProps {
   mlFetching: boolean
   mlPredictions: { date: string | null; predictions: Record<string, number> } | undefined
   onImportMl: () => void
+  // Black-Litterman
+  blViews: ViewSpec[]
+  onBlViewsChange: (views: ViewSpec[]) => void
+  blTau: number
+  onBlTauChange: (tau: number) => void
   // Mutations
   onOptimize: () => void
   isOptimizing: boolean
@@ -38,6 +47,7 @@ export function OptimizerCard({
   turnoverPenalty, onTurnoverPenaltyChange,
   expectedReturnsMap, onExpectedReturnsMapChange,
   mlFetching, mlPredictions, onImportMl,
+  blViews, onBlViewsChange, blTau, onBlTauChange,
   onOptimize, isOptimizing, optError, hasCovResult,
   children,
 }: OptimizerCardProps) {
@@ -53,6 +63,7 @@ export function OptimizerCard({
             <option value="mean_variance">mean_variance — 均值方差</option>
             <option value="risk_parity">risk_parity — 风险平价</option>
             <option value="cost_aware">cost_aware — 成本感知</option>
+            <option value="black_litterman">black_litterman — Black-Litterman</option>
           </select>
         </div>
         <div className="flex items-end gap-4">
@@ -87,8 +98,19 @@ export function OptimizerCard({
       {/* Advanced constraints slot */}
       {children}
 
-      {/* Expected Returns */}
-      {hasCovResult && Object.keys(expectedReturnsMap).length > 0 ? (
+      {/* Black-Litterman views */}
+      {optimizer === 'black_litterman' && hasCovResult && Object.keys(expectedReturnsMap).length > 0 && (
+        <BlackLittermanTab
+          assets={Object.keys(expectedReturnsMap)}
+          views={blViews}
+          onViewsChange={onBlViewsChange}
+          tau={blTau}
+          onTauChange={onBlTauChange}
+        />
+      )}
+
+      {/* Expected Returns (hidden for black_litterman — BL derives from views) */}
+      {optimizer !== 'black_litterman' && (hasCovResult && Object.keys(expectedReturnsMap).length > 0 ? (
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-medium text-gray-700">预期年化收益率（%）</label>
@@ -195,6 +217,7 @@ export function OptimizerCard({
         <div className="p-3 bg-gray-50 border rounded-lg text-sm text-gray-500">
           请先完成上方的协方差矩阵计算，资产列表将自动填入预期收益表格。
         </div>
+      )
       )}
 
       <button className="btn-primary" onClick={onOptimize}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { optimizeApi, mlApi } from '@/lib/api'
-import type { OptimizeResult, ConstraintConfig, SectorLimit, FactorExposureLimit } from '@/lib/api'
+import type { OptimizeResult, ConstraintConfig, SectorLimit, FactorExposureLimit, ViewSpec } from '@/lib/api'
 import { useWorkflowStore } from '@/stores/workflowStore'
 import { CovarianceCard } from '@/components/optimize/CovarianceCard'
 import { OptimizerCard } from '@/components/optimize/OptimizerCard'
@@ -37,8 +37,12 @@ export function OptimizePage() {
   const [covHalflife, setCovHalflife] = useState('63')
 
   // ── Optimizer inputs ──────────────────────────────────────────────────
-  const [optimizer, setOptimizer] = useState<'mean_variance' | 'risk_parity' | 'cost_aware'>('mean_variance')
+  const [optimizer, setOptimizer] = useState<'mean_variance' | 'risk_parity' | 'cost_aware' | 'black_litterman'>('mean_variance')
   const [longOnly, setLongOnly] = useState(true)
+
+  // ── Black-Litterman inputs ─────────────────────────────────────────────
+  const [blViews, setBlViews] = useState<ViewSpec[]>([])
+  const [blTau, setBlTau] = useState(0.05)
   const [riskFreeRate, setRiskFreeRate] = useState('0')
   const [costRate, setCostRate] = useState('0.001')
   const [turnoverPenalty, setTurnoverPenalty] = useState('0.0005')
@@ -194,7 +198,7 @@ export function OptimizePage() {
       suspended_assets: [],
     }
 
-    optMutation.mutate({
+    const payload: Parameters<typeof optimizeApi.optimize>[0] = {
       expected_returns: returns,
       covariance: covResult,
       optimizer,
@@ -204,7 +208,14 @@ export function OptimizePage() {
       turnover_penalty: Number(turnoverPenalty) || 0.0005,
       current_weights: {},
       constraint_config: constraintConfig,
-    })
+    }
+
+    if (optimizer === 'black_litterman') {
+      payload.views = blViews
+      payload.tau = blTau
+    }
+
+    optMutation.mutate(payload)
   }
 
   // ── Tabs ──────────────────────────────────────────────────────────────
@@ -258,6 +269,10 @@ export function OptimizePage() {
         mlFetching={mlFetching}
         mlPredictions={mlPredictions}
         onImportMl={handleImportMlPredictions}
+        blViews={blViews}
+        onBlViewsChange={setBlViews}
+        blTau={blTau}
+        onBlTauChange={setBlTau}
         onOptimize={handleOptimize}
         isOptimizing={optMutation.isPending}
         optError={optMutation.error}

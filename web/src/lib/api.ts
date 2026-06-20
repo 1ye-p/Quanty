@@ -63,6 +63,7 @@ export type {
   SectorLimit,
   FactorExposureLimit,
   ConstraintConfig,
+  ViewSpec,
   OptimizeRequest,
   OptimizeResult,
   CovarianceRequest,
