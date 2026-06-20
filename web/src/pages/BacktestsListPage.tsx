@@ -13,7 +13,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
-const SORT_COLUMNS = ['started_at', 'strategy_id', 'status', 'engine'] as const
+const SORT_COLUMNS = ['started_at', 'strategy_id', 'status', 'engine', 'sharpe_ratio', 'total_return', 'max_drawdown'] as const
 type SortCol = (typeof SORT_COLUMNS)[number]
 
 function isSortCol(v: string | null): v is SortCol {
@@ -292,12 +292,15 @@ export function BacktestsListPage() {
                 <SortableTh col="status" label="Status" />
                 <SortableTh col="started_at" label="Start" />
                 <th className="table-th">End</th>
+                <SortableTh col="sharpe_ratio" label="Sharpe" />
+                <SortableTh col="total_return" label="Return" />
+                <SortableTh col="max_drawdown" label="MaxDD" />
                 <th className="table-th">Actions</th>
               </tr>
             </thead>
             <tbody>
               {!filteredBacktests.length && (
-                <tr><td colSpan={8} className="table-td text-center text-gray-400 py-8">
+                <tr><td colSpan={11} className="table-td text-center text-gray-400 py-8">
                   {isFetching ? 'Loading...' : btSearch ? 'No matching backtests found' : 'No backtest records'}
                 </td></tr>
               )}
@@ -328,6 +331,23 @@ export function BacktestsListPage() {
                   <td className="table-td"><StatusBadge status={r.status} /></td>
                   <td className="table-td text-gray-400">{r.started_at?.slice(0, 16) ?? '-'}</td>
                   <td className="table-td text-gray-400">{r.completed_at?.slice(0, 16) ?? '-'}</td>
+                  <td className="table-td font-mono text-xs">
+                    {r.metrics?.sharpe_ratio != null ? r.metrics.sharpe_ratio.toFixed(2) : '-'}
+                  </td>
+                  <td className="table-td font-mono text-xs">
+                    {r.metrics?.total_return != null
+                      ? <span className={r.metrics.total_return >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          {(r.metrics.total_return * 100).toFixed(2)}%
+                        </span>
+                      : '-'}
+                  </td>
+                  <td className="table-td font-mono text-xs">
+                    {r.metrics?.max_drawdown != null
+                      ? <span className="text-red-600">
+                          {(r.metrics.max_drawdown * 100).toFixed(2)}%
+                        </span>
+                      : '-'}
+                  </td>
                   <td className="table-td" onClick={e => e.stopPropagation()}>
                     {(r.status === 'running' || r.status === 'pending') && (
                       <button

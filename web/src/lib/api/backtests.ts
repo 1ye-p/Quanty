@@ -28,7 +28,7 @@ export interface BacktestListParams {
   strategy_id?: string
   start_date?: string
   end_date?: string
-  sort_by?: 'started_at' | 'strategy_id' | 'status' | 'engine'
+  sort_by?: 'started_at' | 'strategy_id' | 'status' | 'engine' | 'sharpe_ratio' | 'total_return' | 'max_drawdown'
   sort_order?: 'asc' | 'desc'
 }
 
