@@ -449,6 +449,11 @@ async def compute_frontier(body: FrontierRequest, catalog: CatalogDep) -> dict:
     else:
         cfg = ConstraintConfig()
 
+    # Validate constraints
+    errors = cfg.validate()
+    if errors:
+        raise HTTPException(status_code=422, detail="; ".join(errors))
+
     # -- Compute individual asset stats ─────────────────────────────────────────
     individual_assets = [
         IndividualAssetStat(
@@ -477,27 +482,8 @@ async def compute_frontier(body: FrontierRequest, catalog: CatalogDep) -> dict:
 
     for t_ret in target_returns:
         point_cfg = ConstraintConfig(
-            long_only=cfg.long_only,
-            max_weight=cfg.max_weight,
-            min_weight=cfg.min_weight,
-            min_weights=cfg.min_weights,
-            max_weights=cfg.max_weights,
-            max_turnover=cfg.max_turnover,
-            turnover_penalty=cfg.turnover_penalty,
-            current_weights=cfg.current_weights,
-            target_return=float(t_ret),
-            sector_map=cfg.sector_map,
-            sector_limits=cfg.sector_limits,
-            factor_loadings=cfg.factor_loadings,
-            factor_limits=cfg.factor_limits,
-            max_tracking_error=cfg.max_tracking_error,
-            benchmark_weights=cfg.benchmark_weights,
-            exclude_assets=cfg.exclude_assets,
-            exclude_st=cfg.exclude_st,
-            st_assets=cfg.st_assets,
-            exclude_suspended=cfg.exclude_suspended,
-            suspended_assets=cfg.suspended_assets,
-        )
+        from dataclasses import replace
+        point_cfg = replace(cfg, target_return=float(t_ret))
         try:
             result = optimizer.optimize(
                 expected_returns=expected_returns,
@@ -514,7 +500,7 @@ async def compute_frontier(body: FrontierRequest, catalog: CatalogDep) -> dict:
                 weights=result.weights,
             ))
         except Exception:
-            # Skip infeasible target returns
+            logger.debug("Frontier point infeasible for target_return=%.4f", t_ret, exc_info=True)
             continue
 
     if not frontier_points:

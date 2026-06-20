@@ -94,9 +94,10 @@ export function OptimizePage() {
       toast.success('Optimization complete')
       const { currentWorkflow: wf, updateContext: uc } = useWorkflowStore.getState()
       if (wf === 'optimize') uc({ optimizeResults: data })
-      // Fetch frontier data after optimization
-      if (covResult) {
-        fetchFrontier(Object.keys(covResult))
+      // Fetch frontier data after optimization using the assets from the result
+      const assets = data.weights ? Object.keys(data.weights) : []
+      if (assets.length > 0) {
+        fetchFrontier(assets)
       }
     },
     onError: (err) => { toast.error(`Optimization failed: ${String(err)}`) },
@@ -116,7 +117,7 @@ export function OptimizePage() {
       risk_free_rate: Number(riskFreeRate) || 0,
       n_points: 50,
     })
-  }, [riskFreeRate, frontierMutation])
+  }, [riskFreeRate, frontierMutation.mutate])
 
   // ── Workflow integration ──────────────────────────────────────────────
   const { currentWorkflow, updateContext } = useWorkflowStore()
