@@ -126,8 +126,16 @@ export const backtestsApi = {
       config,
     ),
 
-  getStressTest: (id: string, config?: RequestConfig) =>
-    api.get<Record<string, unknown>>(`/backtests/${id}/stress-test`, config),
+  getStressTest: (id: string, customStart?: string, customEnd?: string, config?: RequestConfig) => {
+    const params = new URLSearchParams()
+    if (customStart) params.set('custom_start', customStart)
+    if (customEnd) params.set('custom_end', customEnd)
+    const qs = params.toString()
+    return api.get<Record<string, unknown>>(
+      `/backtests/${id}/stress-test${qs ? `?${qs}` : ''}`,
+      config,
+    )
+  },
 
   getRiskContribution: (id: string, window = 60, config?: RequestConfig) =>
     api.get<Record<string, unknown>>(

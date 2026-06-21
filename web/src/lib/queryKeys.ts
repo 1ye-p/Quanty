@@ -25,7 +25,8 @@ export const queryKeys = {
     returnDistribution: (id: string) => ['backtests', id, 'return-distribution'] as const,
     correlation: (id: string) => ['backtests', id, 'correlation'] as const,
     factorExposure: (id: string) => ['backtests', id, 'factor-exposure'] as const,
-    stressTest: (id: string) => ['backtests', id, 'stress-test'] as const,
+    stressTest: (id: string, customStart?: string, customEnd?: string) =>
+      ['backtests', id, 'stress-test', customStart, customEnd] as const,
     riskContribution: (id: string) => ['backtests', id, 'risk-contribution'] as const,
     calendarAnalysis: (id: string) => ['backtests', id, 'calendar-analysis'] as const,
     tradeAnalysis: (id: string) => ['backtests', id, 'trade-analysis'] as const,

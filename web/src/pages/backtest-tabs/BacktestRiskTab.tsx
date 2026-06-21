@@ -1,6 +1,6 @@
 import { MetricCard } from '../../components/ui/MetricCard'
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -17,6 +17,9 @@ import {
 export function BacktestRiskTab() {
   const { id: selectedId } = useParams<{ id: string }>()
   const [riskWindow, setRiskWindow] = useState(60)
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [customStressResult, setCustomStressResult] = useState<Record<string, unknown> | null>(null)
 
   const { data: riskRollingData } = useQuery({
     queryKey: queryKeys.backtests.riskRolling(selectedId!, riskWindow),
@@ -60,6 +63,13 @@ export function BacktestRiskTab() {
     enabled: !!selectedId,
   })
 
+  const customStressMutation = useMutation({
+    mutationFn: () => backtestsApi.getStressTest(selectedId!, customStartDate, customEndDate),
+    onSuccess: (data) => {
+      setCustomStressResult(data)
+    },
+  })
+
   const { data: riskContribData } = useQuery({
     queryKey: queryKeys.backtests.riskContribution(selectedId!),
     queryFn: () => backtestsApi.getRiskContribution(selectedId!),
@@ -74,6 +84,31 @@ export function BacktestRiskTab() {
   // })
 
   if (!selectedId) return null
+
+  const historicalScenarios = stressTestData?.historical as Record<string, unknown>[] | undefined
+  const allScenarios = [
+    ...(stressTestData?.scenarios as Record<string, unknown>[] || []).map(s => ({
+      name: String(s.name),
+      date_range: '-',
+      benchmark_impact: s.impact as number,
+      strategy_return: undefined as number | undefined,
+      excess_return: undefined as number | undefined,
+      max_drawdown: undefined as number | undefined,
+    })),
+    ...(historicalScenarios || []).map(s => ({
+      name: String(s.name),
+      date_range: `${String(s.start_date).slice(0, 10)} ~ ${String(s.end_date).slice(0, 10)}`,
+      benchmark_impact: s.benchmark_impact as number,
+      strategy_return: s.strategy_return as number | undefined,
+      excess_return: s.excess_return as number | undefined,
+      max_drawdown: s.max_drawdown as number | undefined,
+    })),
+  ]
+
+  const handleRunCustomStress = () => {
+    if (!customStartDate || !customEndDate) return
+    customStressMutation.mutate()
+  }
 
   return (
     <div className="space-y-4">
@@ -314,6 +349,185 @@ export function BacktestRiskTab() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Historical Scenarios */}
+          {historicalScenarios && historicalScenarios.length > 0 && (
+            <div className="card">
+              <h3 className="font-semibold text-gray-800 mb-3">历史情景</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {historicalScenarios.map((scenario, i) => {
+                  const strategyReturn = scenario.strategy_return as number | undefined
+                  const benchmarkImpact = scenario.benchmark_impact as number
+                  const excessReturn = scenario.excess_return as number | undefined
+                  const isOutperform = excessReturn !== undefined ? excessReturn > 0 : undefined
+
+                  return (
+                    <div key={i} className="bg-white rounded-xl shadow-sm border p-4">
+                      <div className="font-medium text-gray-900 mb-2">{String(scenario.name)}</div>
+                      <div className="text-xs text-gray-500 mb-2">
+                        {String(scenario.start_date).slice(0, 10)} ~ {String(scenario.end_date).slice(0, 10)}
+                      </div>
+                      {scenario.description != null && (
+                        <p className="text-xs text-gray-600 mb-3">{String(scenario.description)}</p>
+                      )}
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">基准影响</span>
+                          <span className="font-medium text-red-600">{(benchmarkImpact * 100).toFixed(2)}%</span>
+                        </div>
+                        {strategyReturn !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">策略收益</span>
+                            <span className={`font-medium ${strategyReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {(strategyReturn * 100).toFixed(2)}%
+                            </span>
+                          </div>
+                        )}
+                        {excessReturn !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">超额收益</span>
+                            <span className={`font-medium ${isOutperform ? 'text-green-600' : 'text-red-600'}`}>
+                              {isOutperform ? '+' : ''}{(excessReturn * 100).toFixed(2)}%
+                            </span>
+                          </div>
+                        )}
+                        {scenario.max_drawdown !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">最大回撤</span>
+                            <span className="font-medium text-red-600">
+                              {((scenario.max_drawdown as number) * 100).toFixed(2)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {isOutperform !== undefined && (
+                        <div className={`mt-3 text-xs font-medium px-2 py-1 rounded ${isOutperform ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                          {isOutperform ? '跑赢基准' : '跑输基准'}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Custom Date Range Stress Test */}
+          <div className="card">
+            <h3 className="font-semibold text-gray-800 mb-3">自定义时间区间压力测试</h3>
+            <div className="flex flex-wrap items-end gap-4 mb-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">开始日期</label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">结束日期</label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <button
+                onClick={handleRunCustomStress}
+                disabled={!customStartDate || !customEndDate || customStressMutation.isPending}
+                className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {customStressMutation.isPending ? '运行中...' : '运行压力测试'}
+              </button>
+            </div>
+
+            {customStressMutation.isError && (
+              <div className="text-sm text-red-600 mb-4">运行失败，请重试</div>
+            )}
+
+            {customStressResult && (
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="text-sm font-medium text-gray-700 mb-3">自定义区间结果</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {customStressResult.benchmark_impact !== undefined && (
+                    <div>
+                      <div className="text-xs text-gray-500">基准影响</div>
+                      <div className="font-medium text-red-600">
+                        {((customStressResult.benchmark_impact as number) * 100).toFixed(2)}%
+                      </div>
+                    </div>
+                  )}
+                  {customStressResult.strategy_return !== undefined && (
+                    <div>
+                      <div className="text-xs text-gray-500">策略收益</div>
+                      <div className={`font-medium ${(customStressResult.strategy_return as number) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {((customStressResult.strategy_return as number) * 100).toFixed(2)}%
+                      </div>
+                    </div>
+                  )}
+                  {customStressResult.excess_return !== undefined && (
+                    <div>
+                      <div className="text-xs text-gray-500">超额收益</div>
+                      <div className={`font-medium ${(customStressResult.excess_return as number) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {(customStressResult.excess_return as number) >= 0 ? '+' : ''}{((customStressResult.excess_return as number) * 100).toFixed(2)}%
+                      </div>
+                    </div>
+                  )}
+                  {customStressResult.max_drawdown !== undefined && (
+                    <div>
+                      <div className="text-xs text-gray-500">最大回撤</div>
+                      <div className="font-medium text-red-600">
+                        {((customStressResult.max_drawdown as number) * 100).toFixed(2)}%
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Scenarios Comparison Table */}
+          {allScenarios.length > 0 && (
+            <div className="card p-0 overflow-hidden">
+              <div className="px-4 pt-3 pb-2 font-semibold text-gray-800 text-sm">情景对比汇总</div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="table-th">情景</th>
+                      <th className="table-th">日期范围</th>
+                      <th className="table-th">基准收益</th>
+                      <th className="table-th">策略收益</th>
+                      <th className="table-th">超额收益</th>
+                      <th className="table-th">最大回撤</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allScenarios.map((scenario, i) => (
+                      <tr key={i} className="table-row">
+                        <td className="table-td font-medium">{scenario.name}</td>
+                        <td className="table-td text-gray-500">{scenario.date_range}</td>
+                        <td className="table-td text-red-600">
+                          {(scenario.benchmark_impact * 100).toFixed(2)}%
+                        </td>
+                        <td className={`table-td ${scenario.strategy_return !== undefined ? (scenario.strategy_return >= 0 ? 'text-green-600' : 'text-red-600') : 'text-gray-400'}`}>
+                          {scenario.strategy_return !== undefined ? `${(scenario.strategy_return * 100).toFixed(2)}%` : '-'}
+                        </td>
+                        <td className={`table-td ${scenario.excess_return !== undefined ? (scenario.excess_return >= 0 ? 'text-green-600' : 'text-red-600') : 'text-gray-400'}`}>
+                          {scenario.excess_return !== undefined ? `${scenario.excess_return >= 0 ? '+' : ''}${(scenario.excess_return * 100).toFixed(2)}%` : '-'}
+                        </td>
+                        <td className="table-td text-red-600">
+                          {scenario.max_drawdown !== undefined ? `${(scenario.max_drawdown * 100).toFixed(2)}%` : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
