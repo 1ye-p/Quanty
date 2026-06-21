@@ -7,6 +7,7 @@ import type { BacktestFill } from '@/lib/types'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
+  LineChart, Line,
 } from 'recharts'
 
 const COLORS = ['#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#10b981', '#06b6d4', '#ec4899', '#84cc16']
@@ -222,6 +223,106 @@ export function BacktestTcaTab() {
           </div>
         )}
       </div>
+
+      {/* ── Implementation Shortfall ──────────────────────────────────────── */}
+      {(() => {
+        const isRaw = tcaData.implementation_shortfall as Record<string, unknown> | undefined
+        if (!isRaw) return null
+
+        const totalIsBps = Number(isRaw.total_is_bps ?? 0)
+        const totalIsPct = Number(isRaw.total_is_pct ?? 0)
+        const components = isRaw.components as Record<string, number> | undefined
+        const delayCost = Number(components?.delay_cost_bps ?? 0)
+        const tradingCost = Number(components?.trading_cost_bps ?? 0)
+        const missedCost = Number(components?.missed_trade_cost_bps ?? 0)
+
+        // Decomposition bar data
+        const decompData = [
+          { name: 'IS Components', delay: delayCost, trading: tradingCost, missed: missedCost },
+        ]
+
+        // Timeseries
+        const timeseries = (isRaw.timeseries as { date: string; cumulative_is_bps: number }[] | undefined) ?? []
+
+        // By order size
+        const byOrderSize = (isRaw.by_order_size as { bucket: string; is_bps: number; count: number }[] | undefined) ?? []
+
+        return (
+          <div className="space-y-4">
+            <h3 className="font-semibold text-gray-800 text-lg">Implementation Shortfall</h3>
+
+            {/* IS Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <MetricCard label="Total IS (bps)" value={fmt(totalIsBps, 2)} />
+              <MetricCard label="Total IS (%)" value={`${fmt(totalIsPct, 4)}%`} />
+              <MetricCard label="Delay Cost (bps)" value={fmt(delayCost, 2)} />
+              <MetricCard label="Trading Cost (bps)" value={fmt(tradingCost, 2)} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* IS Decomposition stacked bar */}
+              <div className="card p-4">
+                <h4 className="font-medium text-gray-700 mb-3">IS Decomposition</h4>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart
+                    data={decompData}
+                    layout="vertical"
+                    margin={{ top: 4, right: 16, left: 10, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis type="number" tick={{ fontSize: 10 }} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={100} />
+                    <Tooltip formatter={(v: number) => `${fmt(v, 2)} bps`} />
+                    <Legend />
+                    <Bar dataKey="delay" name="Delay" stackId="a" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="trading" name="Trading" stackId="a" fill="#3b82f6" />
+                    <Bar dataKey="missed" name="Missed Trade" stackId="a" fill="#ef4444" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* IS by Order Size */}
+              {byOrderSize.length > 0 && (
+                <div className="card p-4">
+                  <h4 className="font-medium text-gray-700 mb-3">IS by Order Size</h4>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={byOrderSize} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="bucket" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip formatter={(v: number) => `${fmt(v, 2)} bps`} />
+                      <Bar dataKey="is_bps" name="IS (bps)" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            {/* IS Timeseries */}
+            {timeseries.length > 0 && (
+              <div className="card p-4">
+                <h4 className="font-medium text-gray-700 mb-3">Cumulative IS Over Time</h4>
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={timeseries} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip formatter={(v: number) => `${fmt(v, 2)} bps`} />
+                    <Line
+                      type="monotone"
+                      dataKey="cumulative_is_bps"
+                      name="Cumulative IS"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Cost by asset (horizontal bar) */}
       {assetCostData.length > 0 && (
