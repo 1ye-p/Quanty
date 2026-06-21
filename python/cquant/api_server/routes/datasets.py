@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from cquant.api_server.deps import CatalogDep
 from cquant.api_server.schemas.common import UniverseCreateBody
@@ -256,6 +256,166 @@ async def get_backtest_trend(catalog: CatalogDep, days: int = 30) -> dict:
         return {"items": [], "days": days}
 
 
+@router.get("/compare")
+async def compare_datasets(
+    catalog: CatalogDep,
+    version_a: str = "",
+    version_b: str = "",
+) -> dict:
+    """Compare two dataset versions.
+
+    Returns row-level and field-level differences between two versions,
+    including per-field statistics when the data table supports versioning.
+    """
+    if not version_a or not version_b:
+        raise HTTPException(
+            status_code=400,
+            detail="Both version_a and version_b query parameters are required.",
+        )
+
+    # -- Fetch metadata for both versions ------------------------------------
+    meta_a = catalog.query(
+        "SELECT * FROM silver_dataset_versions WHERE version_id = ?",
+        [version_a],
+    )
+    meta_b = catalog.query(
+        "SELECT * FROM silver_dataset_versions WHERE version_id = ?",
+        [version_b],
+    )
+    if meta_a.is_empty():
+        raise HTTPException(status_code=404, detail=f"Version '{version_a}' not found")
+    if meta_b.is_empty():
+        raise HTTPException(status_code=404, detail=f"Version '{version_b}' not found")
+
+    a = meta_a.to_dicts()[0]
+    b = meta_b.to_dicts()[0]
+
+    row_changes = {
+        "version_a_count": int(a.get("row_count") or 0),
+        "version_b_count": int(b.get("row_count") or 0),
+        "added": max(0, int(b.get("row_count") or 0) - int(a.get("row_count") or 0)),
+        "removed": max(0, int(a.get("row_count") or 0) - int(b.get("row_count") or 0)),
+    }
+
+    # -- Detect whether the data table has a dataset_version column -----------
+    has_version_col = False
+    try:
+        catalog.execute("SELECT dataset_version FROM silver_prices_1d LIMIT 1")
+        has_version_col = True
+    except Exception:
+        pass
+
+    # -- Field schema comparison (from silver_prices_1d columns) ---------------
+    field_changes: dict = {
+        "added_fields": [],
+        "removed_fields": [],
+        "common_fields": [],
+    }
+    field_stats: list[dict] = []
+
+    if has_version_col:
+        try:
+            cols_a_df = catalog.query(
+                "SELECT DISTINCT COLUMNS(*) FROM silver_prices_1d "
+                "WHERE dataset_version = ? LIMIT 0",
+                [version_a],
+            )
+            cols_a = set(cols_a_df.columns)
+        except Exception:
+            cols_a = set()
+
+        try:
+            cols_b_df = catalog.query(
+                "SELECT DISTINCT COLUMNS(*) FROM silver_prices_1d "
+                "WHERE dataset_version = ? LIMIT 0",
+                [version_b],
+            )
+            cols_b = set(cols_b_df.columns)
+        except Exception:
+            cols_b = set()
+
+        if cols_a or cols_b:
+            field_changes["added_fields"] = sorted(cols_b - cols_a)
+            field_changes["removed_fields"] = sorted(cols_a - cols_b)
+            field_changes["common_fields"] = sorted(cols_a & cols_b)
+
+        # -- Per-field numeric statistics ------------------------------------
+        numeric_types = {"BIGINT", "INTEGER", "DOUBLE", "FLOAT", "DECIMAL", "REAL", "SMALLINT", "TINYINT"}
+        try:
+            describe_df = catalog.query("DESCRIBE silver_prices_1d")
+            all_cols = [
+                r["column_name"]
+                for r in describe_df.to_dicts()
+                if r.get("column_type", "").upper().split("(")[0].strip() in numeric_types
+            ]
+        except Exception:
+            all_cols = []
+
+        non_stat_cols = {"asset_id", "trade_date", "dataset_version", "ingestion_id"}
+        stat_cols = [c for c in all_cols if c not in non_stat_cols]
+
+        for col in stat_cols:
+            try:
+                stats_a_df = catalog.query(
+                    f"SELECT "
+                    f"  MIN({col}) as col_min, "
+                    f"  MAX({col}) as col_max, "
+                    f"  AVG(CAST({col} AS DOUBLE)) as col_mean, "
+                    f"  CAST(SUM(CASE WHEN {col} IS NULL THEN 1 ELSE 0 END) AS DOUBLE) "
+                    f"    / COUNT(*) as null_rate "
+                    f"FROM silver_prices_1d WHERE dataset_version = ?",
+                    [version_a],
+                )
+                stats_b_df = catalog.query(
+                    f"SELECT "
+                    f"  MIN({col}) as col_min, "
+                    f"  MAX({col}) as col_max, "
+                    f"  AVG(CAST({col} AS DOUBLE)) as col_mean, "
+                    f"  CAST(SUM(CASE WHEN {col} IS NULL THEN 1 ELSE 0 END) AS DOUBLE) "
+                    f"    / COUNT(*) as null_rate "
+                    f"FROM silver_prices_1d WHERE dataset_version = ?",
+                    [version_b],
+                )
+
+                sa = stats_a_df.to_dicts()[0] if not stats_a_df.is_empty() else {}
+                sb = stats_b_df.to_dicts()[0] if not stats_b_df.is_empty() else {}
+
+                mean_a = float(sa.get("col_mean") or 0)
+                mean_b = float(sb.get("col_mean") or 0)
+                mean_diff = mean_b - mean_a
+                mean_pct = (mean_diff / mean_a * 100) if mean_a != 0 else 0.0
+
+                field_stats.append({
+                    "field": col,
+                    "version_a": {
+                        "min": float(sa.get("col_min") or 0),
+                        "max": float(sa.get("col_max") or 0),
+                        "mean": mean_a,
+                        "null_rate": float(sa.get("null_rate") or 0),
+                    },
+                    "version_b": {
+                        "min": float(sb.get("col_min") or 0),
+                        "max": float(sb.get("col_max") or 0),
+                        "mean": mean_b,
+                        "null_rate": float(sb.get("null_rate") or 0),
+                    },
+                    "change": {
+                        "mean_diff": round(mean_diff, 6),
+                        "mean_pct_change": round(mean_pct, 4),
+                    },
+                })
+            except Exception:
+                continue
+
+    return {
+        "version_a": version_a,
+        "version_b": version_b,
+        "row_changes": row_changes,
+        "field_changes": field_changes,
+        "field_stats": field_stats,
+    }
+
+
 @router.get("/{version_id}")
 async def get_dataset(version_id: str, catalog: CatalogDep) -> dict:
     """Get a specific dataset version."""
@@ -264,7 +424,6 @@ async def get_dataset(version_id: str, catalog: CatalogDep) -> dict:
         [version_id],
     )
     if df.is_empty():
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"Dataset version '{version_id}' not found")
     return df.to_dicts()[0]
 
@@ -277,7 +436,6 @@ async def get_data_quality(
     end_date: str = "2025-12-31",
 ) -> dict:
     """Data quality scoring for a market data table."""
-    from fastapi import HTTPException
     from cquant.datahub.quality_scorer import DataQualityScorer
 
     # Sanitize table name to prevent SQL injection
