@@ -75,7 +75,7 @@ export const FactorRiskPanel: React.FC<FactorRiskPanelProps> = ({ weights }) => 
         </div>
         <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
           <div className="text-sm text-gray-500">因子风险占比</div>
-          <div className="text-2xl font-semibold text-indigo-600">{(factor_risk_pct * 100).toFixed(1)}%</div>
+          <div className="text-2xl font-semibold text-indigo-600">{Number(factor_risk_pct).toFixed(1)}%</div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
           <div className="text-sm text-gray-500">特异性风险</div>

@@ -581,6 +581,12 @@ async def get_factor_decomposition(
             status_code=422,
             detail="weights_json must be a non-empty dict of {asset_id: weight}",
         )
+    for k, v in weights.items():
+        if not isinstance(v, (int, float)):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Weight for '{k}' must be numeric, got {type(v).__name__}",
+            )
 
     # Normalise weights if they don't sum to ~1
     total_w = sum(weights.values())

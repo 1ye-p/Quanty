@@ -348,11 +348,6 @@ def run_factor_decomposition(
             },
         }
 
-    # Normalise weights
-    total_w = sum(weights.values())
-    if abs(total_w) > 1e-12 and abs(total_w - 1.0) > 0.01:
-        weights = {k: v / total_w for k, v in weights.items()}
-
     asset_ids = list(weights.keys())
 
     # Compute exposures
