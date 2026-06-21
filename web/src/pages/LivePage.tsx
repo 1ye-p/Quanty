@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tradingApi, liveApi, type RealtimeQuote } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
@@ -48,6 +48,67 @@ export function LivePage() {
       toast.error(`停止失败: ${e.message}`)
     },
   })
+
+  // ── Kill-Switch ───────────────────────────────────────────────────────────
+
+  const [killDialogOpen, setKillDialogOpen] = useState(false)
+  const [resumeDialogOpen, setResumeDialogOpen] = useState(false)
+  const [cancelOrders, setCancelOrders] = useState(true)
+  const [closePositions, setClosePositions] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+
+  const { data: ksStatus, refetch: refetchKs } = useQuery({
+    queryKey: ['live', 'kill-switch', 'status'],
+    queryFn: liveApi.getKillSwitchStatus,
+    refetchInterval: 10_000,
+    staleTime: 10_000,
+  })
+
+  const killSwitchActive = ksStatus?.active ?? false
+
+  const killMutation = useMutation({
+    mutationFn: () =>
+      liveApi.activateKillSwitch({ cancel_orders: cancelOrders, close_positions: closePositions }),
+    onSuccess: (res) => {
+      setKillDialogOpen(false)
+      setConfirmText('')
+      const r = res.results
+      toast.success(
+        `Kill-Switch 已激活 — 停止 ${r.strategies_stopped} 个策略，` +
+        `撤销 ${r.orders_cancelled} 笔挂单，平仓 ${r.positions_closed} 笔持仓`,
+        { duration: 6000 },
+      )
+      refetchKs()
+      qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
+    },
+    onError: (e: Error) => {
+      toast.error(`Kill-Switch 激活失败: ${e.message}`)
+    },
+  })
+
+  const resumeMutation = useMutation({
+    mutationFn: liveApi.resumeStrategies,
+    onSuccess: (res) => {
+      setResumeDialogOpen(false)
+      toast.success(`已恢复 ${res.count} 个策略执行`)
+      refetchKs()
+      qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
+    },
+    onError: (e: Error) => {
+      toast.error(`恢复失败: ${e.message}`)
+    },
+  })
+
+  const handleKillSwitchClick = useCallback(() => {
+    setConfirmText('')
+    setCancelOrders(true)
+    setClosePositions(false)
+    setKillDialogOpen(true)
+  }, [])
+
+  const handleResumeClick = useCallback(() => {
+    setResumeDialogOpen(true)
+  }, [])
 
   // Account data
   const { data: account } = useQuery({
@@ -132,17 +193,147 @@ export function LivePage() {
 
   return (
     <div className="space-y-6">
+      {/* Kill-Switch Warning Banner */}
+      {killSwitchActive && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-red-50 border-red-200 text-red-800">
+          <span className="text-lg">&#9888;</span>
+          <span className="font-medium">Kill-Switch 已激活 — 所有策略已停止</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">实盘监控</h1>
           <p className="page-subtitle">实时行情 · 持仓管理 · 订单交易</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Kill-Switch / Resume Button */}
+          {killSwitchActive ? (
+            <button
+              onClick={handleResumeClick}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors"
+            >
+              &#9654; Resume
+            </button>
+          ) : (
+            <button
+              onClick={handleKillSwitchClick}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors"
+            >
+              &#9888; Kill-Switch
+            </button>
+          )}
           <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
           <span className="text-sm text-gray-500">{connected ? '已连接' : '未连接'}</span>
         </div>
       </div>
+
+      {/* Kill-Switch Confirmation Dialog */}
+      {killDialogOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setKillDialogOpen(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-red-700">&#9888; 紧急熔断确认</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              此操作将立即停止所有活跃策略
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={cancelOrders}
+                  onChange={(e) => setCancelOrders(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                撤销所有挂单
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={closePositions}
+                  onChange={(e) => setClosePositions(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                立即平仓所有持仓
+              </label>
+
+              <div className="pt-2">
+                <label className="block text-sm text-gray-600 mb-1">
+                  输入 <span className="font-mono font-bold">STOP</span> 确认
+                </label>
+                <input
+                  type="text"
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="STOP"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-3 justify-end">
+              <button
+                onClick={() => setKillDialogOpen(false)}
+                className="btn-secondary text-sm"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => killMutation.mutate()}
+                disabled={confirmText !== 'STOP' || killMutation.isPending}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
+                  confirmText === 'STOP'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-gray-300 cursor-not-allowed'
+                }`}
+              >
+                {killMutation.isPending ? '执行中...' : '确认熔断'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resume Confirmation Dialog */}
+      {resumeDialogOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setResumeDialogOpen(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-gray-900">恢复策略执行？</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              此操作将恢复所有被 Kill-Switch 停止的策略。
+            </p>
+            <div className="mt-5 flex gap-3 justify-end">
+              <button
+                onClick={() => setResumeDialogOpen(false)}
+                className="btn-secondary text-sm"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => resumeMutation.mutate(undefined)}
+                disabled={resumeMutation.isPending}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors disabled:bg-gray-300"
+              >
+                {resumeMutation.isPending ? '恢复中...' : '确认恢复'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Deployed Strategies Grid */}
       {deployed?.items && deployed.items.length > 0 && (

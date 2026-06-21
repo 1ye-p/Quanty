@@ -104,4 +104,27 @@ export const liveApi = {
       live_id: string
       strategy_id: string
     }>(`/live/strategies/${liveId}/executions?limit=${limit}&offset=${offset}`, config),
+
+  activateKillSwitch: (
+    params?: { cancel_orders?: boolean; close_positions?: boolean },
+    config?: RequestConfig,
+  ) => {
+    const qs = params
+      ? '?' + new URLSearchParams(
+          Object.entries(params)
+            .filter(([, v]) => v !== undefined)
+            .map(([k, v]) => [k, String(v)]),
+        )
+      : ''
+    return api.post<{
+      status: string
+      results: { strategies_stopped: number; orders_cancelled: number; positions_closed: number }
+    }>(`/live/kill-switch${qs}`, undefined, config)
+  },
+
+  resumeStrategies: (config?: RequestConfig) =>
+    api.post<{ status: string; count: number }>('/live/resume', undefined, config),
+
+  getKillSwitchStatus: (config?: RequestConfig) =>
+    api.get<{ active: boolean }>('/live/kill-switch/status', config),
 }
