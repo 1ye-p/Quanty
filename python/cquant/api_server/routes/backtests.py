@@ -1037,6 +1037,17 @@ async def get_risk_contribution(
     return compute_risk_contribution(weights, pdf, window=window)
 
 
+_EMPTY_IS = {
+    "total_is_bps": 0.0,
+    "total_is_pct": 0.0,
+    "components": {"delay_cost_bps": 0.0, "trading_cost_bps": 0.0, "missed_trade_cost_bps": 0.0},
+    "by_asset": [],
+    "by_date": [],
+    "by_order_size": [],
+    "timeseries": [],
+}
+
+
 def _compute_implementation_shortfall(catalog, run_id: str) -> dict:
     """Compute Implementation Shortfall (IS) analysis for a backtest run.
 
@@ -1053,22 +1064,8 @@ def _compute_implementation_shortfall(catalog, run_id: str) -> dict:
         [run_id],
     )
     if fills_df.is_empty():
-        return {
-            "total_is_bps": 0.0,
-            "total_is_pct": 0.0,
-            "components": {
-                "delay_cost_bps": 0.0,
-                "trading_cost_bps": 0.0,
-                "missed_trade_cost_bps": 0.0,
-            },
-            "by_asset": [],
-            "by_date": [],
-            "by_order_size": [],
-            "timeseries": [],
-        }
+        return _EMPTY_IS
 
-    # Get unique (asset_id, trade_date) pairs from fills
-    fills_dates = fills_df.select("asset_id", "trade_date").unique()
     asset_ids = fills_df["asset_id"].unique().to_list()
 
     # Get all trade dates we need: fill dates + previous trading days
@@ -1085,19 +1082,7 @@ def _compute_implementation_shortfall(catalog, run_id: str) -> dict:
         asset_ids + [min_date, max_date],
     )
     if prices_df.is_empty():
-        return {
-            "total_is_bps": 0.0,
-            "total_is_pct": 0.0,
-            "components": {
-                "delay_cost_bps": 0.0,
-                "trading_cost_bps": 0.0,
-                "missed_trade_cost_bps": 0.0,
-            },
-            "by_asset": [],
-            "by_date": [],
-            "by_order_size": [],
-            "timeseries": [],
-        }
+        return _EMPTY_IS
 
     # Build price lookup: (asset_id, trade_date) -> {open, close}
     price_lookup: dict[tuple[str, str], dict[str, float]] = {}
@@ -1171,19 +1156,7 @@ def _compute_implementation_shortfall(catalog, run_id: str) -> dict:
         })
 
     if not per_fill:
-        return {
-            "total_is_bps": 0.0,
-            "total_is_pct": 0.0,
-            "components": {
-                "delay_cost_bps": 0.0,
-                "trading_cost_bps": 0.0,
-                "missed_trade_cost_bps": 0.0,
-            },
-            "by_asset": [],
-            "by_date": [],
-            "by_order_size": [],
-            "timeseries": [],
-        }
+        return _EMPTY_IS
 
     import polars as pl
 
@@ -1206,13 +1179,13 @@ def _compute_implementation_shortfall(catalog, run_id: str) -> dict:
     ]
 
     # By date
-    by_date_df = pf.group_by("trade_date").agg([
-        (pl.col("is_bps") * pl.col("notional")).sum() / pl.col("notional").sum()
-    ]).sort("trade_date")
-    # Re-alias the computed column
-    by_date_rows = []
-    for r in by_date_df.iter_rows(named=True):
-        by_date_rows.append({"date": r["trade_date"], "is_bps": round(float(list(r.values())[1]), 2)})
+    by_date_df = pf.group_by("trade_date").agg(
+        ((pl.col("is_bps") * pl.col("notional")).sum() / pl.col("notional").sum()).alias("weighted_is_bps")
+    ).sort("trade_date")
+    by_date_rows = [
+        {"date": r["trade_date"], "is_bps": round(float(r["weighted_is_bps"]), 2)}
+        for r in by_date_df.iter_rows(named=True)
+    ]
 
     # By order size bucket
     pf_with_bucket = pf.with_columns(
@@ -1237,13 +1210,13 @@ def _compute_implementation_shortfall(catalog, run_id: str) -> dict:
     ]
 
     # Cumulative IS timeseries
-    ts_df = pf.group_by("trade_date").agg([
-        (pl.col("is_bps") * pl.col("notional")).sum() / pl.col("notional").sum()
-    ]).sort("trade_date")
+    ts_df = pf.group_by("trade_date").agg(
+        ((pl.col("is_bps") * pl.col("notional")).sum() / pl.col("notional").sum()).alias("weighted_is_bps")
+    ).sort("trade_date")
     cum_is = 0.0
     timeseries = []
     for r in ts_df.iter_rows(named=True):
-        daily_is = float(list(r.values())[1])
+        daily_is = float(r["weighted_is_bps"])
         cum_is += daily_is
         timeseries.append({"date": r["trade_date"], "cumulative_is_bps": round(cum_is, 2)})
 
@@ -1274,7 +1247,10 @@ async def get_backtest_tca(run_id: str, catalog: CatalogDep) -> dict:
     if df.is_empty():
         raise HTTPException(status_code=404, detail=f"No TCA data for run '{run_id}'")
     result = df.to_dicts()[0]
-    result["implementation_shortfall"] = _compute_implementation_shortfall(catalog, run_id)
+    try:
+        result["implementation_shortfall"] = _compute_implementation_shortfall(catalog, run_id)
+    except Exception:
+        logger.warning("IS computation failed for run %s", run_id, exc_info=True)
     return result
 
 
