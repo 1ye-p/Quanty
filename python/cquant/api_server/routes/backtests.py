@@ -997,6 +997,14 @@ async def get_stress_test(
     """Run stress test scenarios on a backtest run."""
     from cquant.backtest_vector.risk_analysis import run_stress_test
 
+    # Validate date format
+    for label, val in [("custom_start", custom_start), ("custom_end", custom_end)]:
+        if val is not None:
+            try:
+                date.fromisoformat(val)
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=422, detail=f"Invalid {label} format: '{val}'. Use YYYY-MM-DD.")
+
     # Get portfolio returns with trade dates
     ret_df = catalog.query(
         "SELECT trade_date, portfolio_return FROM gold_portfolio_returns WHERE run_id = ? ORDER BY trade_date",

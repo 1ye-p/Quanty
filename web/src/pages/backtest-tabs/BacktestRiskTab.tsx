@@ -66,7 +66,11 @@ export function BacktestRiskTab() {
   const customStressMutation = useMutation({
     mutationFn: () => backtestsApi.getStressTest(selectedId!, customStartDate, customEndDate),
     onSuccess: (data) => {
-      setCustomStressResult(data)
+      // Extract the custom scenario result from the response
+      const resp = data as Record<string, unknown>
+      const historical = resp?.historical as Record<string, unknown>[] | undefined
+      const customEntry = historical?.[historical.length - 1] ?? resp
+      setCustomStressResult(customEntry)
     },
   })
 

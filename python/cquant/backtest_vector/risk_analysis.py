@@ -244,11 +244,13 @@ def run_stress_test(
 
     # Historical scenarios require date-indexed returns
     historical: list[dict] = []
+    parsed_dates = None
     if trade_dates is not None and len(trade_dates) == len(returns):
         parsed_dates = np.array(
             [datetime.strptime(str(d)[:10], "%Y-%m-%d") for d in trade_dates]
         )
 
+    if parsed_dates is not None:
         for scenario in HISTORICAL_SCENARIOS:
             start = datetime.strptime(scenario["start_date"], "%Y-%m-%d")
             end = datetime.strptime(scenario["end_date"], "%Y-%m-%d")
@@ -276,10 +278,7 @@ def run_stress_test(
             })
 
     # Custom date range scenario
-    if custom_start and custom_end and trade_dates is not None and len(trade_dates) == len(returns):
-        parsed_dates = np.array(
-            [datetime.strptime(str(d)[:10], "%Y-%m-%d") for d in trade_dates]
-        )
+    if custom_start and custom_end and parsed_dates is not None:
         start = datetime.strptime(custom_start, "%Y-%m-%d")
         end = datetime.strptime(custom_end, "%Y-%m-%d")
         mask = (parsed_dates >= start) & (parsed_dates <= end)
