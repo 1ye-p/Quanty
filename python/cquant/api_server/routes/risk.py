@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -12,6 +13,8 @@ import polars as pl
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from scipy import stats
+
+from cquant.api_server.deps import CatalogDep
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/risk", tags=["risk"])
@@ -516,3 +519,85 @@ def _create_policy(name: str, params: dict) -> Any:
     if not factory:
         raise HTTPException(status_code=422, detail=f"Unknown policy: {name}")
     return factory(params)
+
+
+# ── Factor Decomposition ─────────────────────────────────────────────────────
+
+
+class FactorDecompositionResponse(BaseModel):
+    """Response for portfolio factor risk decomposition."""
+
+    style_exposures: dict[str, float] = Field(
+        description="Style factor exposures (market_cap, value, momentum, volatility, turnover, quality)"
+    )
+    industry_exposures: dict[str, float] = Field(
+        description="Industry factor exposures (Shenwan Level-1 industry weights)"
+    )
+    risk_decomposition: dict[str, Any] = Field(
+        description="Risk decomposition with total_risk, factor_risk, idiosyncratic_risk, "
+        "factor_risk_pct, and per-factor risk contributions"
+    )
+
+
+@router.get("/factor-decomposition", response_model=FactorDecompositionResponse)
+async def get_factor_decomposition(
+    catalog: CatalogDep,
+    weights_json: str = "",
+    nav: float = 1_000_000.0,
+    as_of_date: str = "",
+) -> dict:
+    """Compute portfolio factor risk decomposition (Barra-style).
+
+    Decomposes portfolio risk into systematic (factor) and idiosyncratic
+    components using a simplified Barra-style factor model.
+
+    **Style factors:** market_cap (ln), value (1/PB), momentum (20d return),
+    volatility (60d std), turnover, quality (ROE).
+
+    **Industry factors:** Shenwan Level-1 industry dummies from silver_assets.
+
+    Args:
+        weights_json: JSON string of asset weights ``{"asset_id": weight}``.
+        nav: Portfolio Net Asset Value (informational, not used in risk math).
+        as_of_date: ISO date for data cutoff (optional, uses latest data).
+
+    Returns:
+        Style exposures, industry exposures, and risk decomposition breakdown.
+    """
+    # Parse weights
+    if not weights_json:
+        raise HTTPException(
+            status_code=422,
+            detail="weights_json is required. Provide a JSON string of {asset_id: weight}.",
+        )
+
+    try:
+        weights = json.loads(weights_json)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=422, detail="Invalid weights_json format")
+
+    if not isinstance(weights, dict) or not weights:
+        raise HTTPException(
+            status_code=422,
+            detail="weights_json must be a non-empty dict of {asset_id: weight}",
+        )
+
+    # Normalise weights if they don't sum to ~1
+    total_w = sum(weights.values())
+    if abs(total_w) > 1e-12 and abs(total_w - 1.0) > 0.01:
+        weights = {k: float(v) / total_w for k, v in weights.items()}
+
+    # Run factor decomposition
+    from cquant.riskguard.factor_decomposition import run_factor_decomposition
+
+    try:
+        result = run_factor_decomposition(
+            catalog=catalog,
+            weights=weights,
+            as_of_date=as_of_date or None,
+        )
+    except Exception as exc:
+        logger.exception("Factor decomposition failed")
+        raise HTTPException(status_code=500, detail=f"Factor decomposition failed: {exc}")
+
+    return result

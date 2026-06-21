@@ -1,6 +1,13 @@
 """cquant.riskguard — Risk policies, position sizing, and portfolio risk metrics."""
 
 from cquant.riskguard.bridge import RustRiskBridge
+from cquant.riskguard.factor_decomposition import (
+    STYLE_FACTORS,
+    compute_factor_exposures,
+    compute_portfolio_exposures,
+    compute_risk_decomposition,
+    run_factor_decomposition,
+)
 from cquant.riskguard.models import (
     RiskBudget,
     RiskContext,
@@ -18,4 +25,9 @@ __all__ = [
     "SizingContext",
     "RiskPolicy",
     "PositionSizer",
+    "STYLE_FACTORS",
+    "compute_factor_exposures",
+    "compute_portfolio_exposures",
+    "compute_risk_decomposition",
+    "run_factor_decomposition",
 ]
