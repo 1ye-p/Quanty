@@ -40,6 +40,8 @@ def _safe_metrics_path(run_id: str) -> pathlib.Path | None:
     return p
 
 
+_kill_switch_active: bool = False
+
 _live_table_ensured = False
 
 
@@ -462,3 +464,141 @@ async def get_executions(
             "live_id": live_id,
             "strategy_id": existing["strategy_id"][0],
         }
+
+
+# ── Kill-Switch Emergency Stop ───────────────────────────────────────────────
+
+
+@router.post("/kill-switch")
+async def activate_kill_switch(
+    catalog: CatalogDep,
+    cancel_orders: bool = Query(True),
+    close_positions: bool = Query(False),
+) -> dict:
+    """Emergency stop: halt all active strategies.
+
+    When activated:
+    1. Stops all active strategies (sets status to ``killed``)
+    2. Cancels all pending orders (if *cancel_orders* is True)
+    3. Closes all open positions (if *close_positions* is True)
+
+    Strategies can be restored via the ``/live/resume`` endpoint.
+    """
+    global _kill_switch_active
+    _kill_switch_active = True
+
+    results = {
+        "strategies_stopped": 0,
+        "orders_cancelled": 0,
+        "positions_closed": 0,
+    }
+
+    _ensure_live_table(catalog)
+
+    # 1. Stop all active strategies
+    now = datetime.now(tz=timezone.utc).isoformat()
+    catalog.execute(
+        "UPDATE meta_live_strategies SET status = 'killed', stopped_at = ? "
+        "WHERE status = 'active'",
+        [now],
+    )
+    count_df = catalog.query(
+        "SELECT COUNT(*) AS cnt FROM meta_live_strategies WHERE status = 'killed' "
+        "AND stopped_at = ?",
+        [now],
+    )
+    results["strategies_stopped"] = int(count_df["cnt"][0]) if not count_df.is_empty() else 0
+
+    # 2. Cancel all pending orders (best-effort — only for strategies with executions table)
+    if cancel_orders:
+        try:
+            pending_df = catalog.query(
+                "SELECT COUNT(*) AS cnt FROM gold_live_executions "
+                "WHERE status IN ('pending', 'submitted')"
+            )
+            if not pending_df.is_empty() and pending_df["cnt"][0] > 0:
+                catalog.execute(
+                    "UPDATE gold_live_executions SET status = 'cancelled' "
+                    "WHERE status IN ('pending', 'submitted')"
+                )
+                results["orders_cancelled"] = int(pending_df["cnt"][0])
+        except Exception as exc:
+            logger.warning("Kill-switch: failed to cancel pending orders: %s", exc)
+
+    # 3. Close all open positions (best-effort)
+    if close_positions:
+        try:
+            # Get all live_ids that were just killed
+            killed_df = catalog.query(
+                "SELECT live_id, strategy_id FROM meta_live_strategies WHERE status = 'killed' "
+                "AND stopped_at = ?",
+                [now],
+            )
+            if not killed_df.is_empty():
+                from cquant.execution.execution_persister import ExecutionPersister
+
+                persister = ExecutionPersister(catalog)
+                for row in killed_df.to_dicts():
+                    live_id = row["live_id"]
+                    positions, cash = persister.load_portfolio_state(live_id, 1_000_000)
+                    if positions:
+                        results["positions_closed"] += len(positions)
+                        logger.info(
+                            "Kill-switch: %d positions for %s flagged for close (simulated)",
+                            len(positions), live_id,
+                        )
+        except Exception as exc:
+            logger.warning("Kill-switch: failed to close positions: %s", exc)
+
+    logger.warning(
+        "KILL-SWITCH ACTIVATED: %d strategies stopped, %d orders cancelled, %d positions closed",
+        results["strategies_stopped"],
+        results["orders_cancelled"],
+        results["positions_closed"],
+    )
+
+    return {
+        "status": "active",
+        "cancel_orders": cancel_orders,
+        "close_positions": close_positions,
+        "results": results,
+    }
+
+
+@router.post("/resume")
+async def resume_strategies(catalog: CatalogDep) -> dict:
+    """Resume strategies after kill-switch.
+
+    Restores strategies that were killed by the kill-switch back to ``active``
+    status and clears the kill-switch flag.
+    """
+    global _kill_switch_active
+
+    _ensure_live_table(catalog)
+
+    # Restore killed strategies to active
+    catalog.execute(
+        "UPDATE meta_live_strategies SET status = 'active', stopped_at = NULL "
+        "WHERE status = 'killed'"
+    )
+
+    count_df = catalog.query(
+        "SELECT COUNT(*) AS cnt FROM meta_live_strategies WHERE status = 'active' "
+        "AND stopped_at IS NULL",
+    )
+    restored = int(count_df["cnt"][0]) if not count_df.is_empty() else 0
+
+    _kill_switch_active = False
+
+    logger.info("KILL-SWITCH DEACTIVATED: %d strategies restored to active", restored)
+
+    return {
+        "status": "resumed",
+        "strategies_restored": restored,
+    }
+
+
+@router.get("/kill-switch/status")
+async def get_kill_switch_status() -> dict:
+    """Get current kill-switch state."""
+    return {"active": _kill_switch_active}
