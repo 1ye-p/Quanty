@@ -98,6 +98,7 @@ openspec/
 # ── Local development context (AI planning docs, personal notes) ──────────────
 .context/
 docs/superpowers/
+docs/FRONTEND_PRODUCT_REVIEW*.md
 
 # ── Raw market data (large binary / source files, not for version control) ─────
 tdx.db
