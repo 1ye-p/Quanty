@@ -10,10 +10,11 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 RULE_TYPES = {
-    "data_stale":     "数据缺失超过 N 天",
-    "factor_ic_low":  "因子 IC 绝对值持续低于阈值",
-    "pnl_drawdown":   "策略 P&L 回撤超过阈值",
-    "risk_breach":    "风控策略拦截交易",
+    "data_stale":      "数据缺失超过 N 天",
+    "factor_ic_low":   "因子 IC 绝对值持续低于阈值",
+    "pnl_drawdown":    "策略 P&L 回撤超过阈值",
+    "risk_breach":     "风控策略拦截交易",
+    "news_sentiment":  "组合新闻情感恶化",
 }
 
 
@@ -146,10 +147,159 @@ def check_pnl_drawdown(catalog, rule_id: str, params: dict) -> bool:
     return False
 
 
+def check_news_sentiment(catalog, rule_id: str, params: dict) -> bool:
+    """检查组合持仓的新闻情感是否恶化。
+
+    Parameters in *params*:
+    - threshold:          sentiment score 低于此值时触发（默认 -0.5）
+    - change_threshold:   日间情感变化量低于此值时触发（默认 -0.3）
+    - scope:              "portfolio" | "all" — 检查范围（默认 "portfolio"）
+    - critical_events:    触发 critical 级别告警的事件类型列表
+    """
+    threshold = float(params.get("threshold", -0.5))
+    change_threshold = float(params.get("change_threshold", -0.3))
+    scope = params.get("scope", "portfolio")
+    critical_events = set(params.get("critical_events", [
+        "earnings_warning", "regulatory_action", "suspension",
+    ]))
+
+    # Collect asset IDs to check
+    asset_ids: set[str] = set()
+    if scope == "portfolio":
+        asset_ids = _get_portfolio_asset_ids(catalog)
+    if not asset_ids and scope == "portfolio":
+        logger.debug("check_news_sentiment: no portfolio positions found, skipping")
+        return False
+
+    triggered = False
+    from datetime import date, timedelta
+
+    today = date.today()
+
+    for aid in asset_ids:
+        # Latest day sentiment
+        latest_df = catalog.query(
+            "SELECT DATE_TRUNC('day', published_at) as d, "
+            "  AVG(sentiment_score) as avg_s, COUNT(*) as n "
+            "FROM silver_news_events "
+            "WHERE list_contains(asset_ids_mentioned, ?) "
+            "  AND published_at >= CURRENT_DATE - INTERVAL '3' DAY "
+            "  AND sentiment_score IS NOT NULL "
+            "GROUP BY 1 ORDER BY 1 DESC LIMIT 2",
+            [aid],
+        )
+        if latest_df.is_empty():
+            continue
+        rows = latest_df.to_dicts()
+        latest_score = float(rows[0]["avg_s"])
+
+        # Check absolute threshold
+        if latest_score < threshold:
+            _save_alert(
+                catalog, rule_id, "news_sentiment",
+                f"[{aid}] 新闻情感 {latest_score:.3f} 低于阈值 {threshold}",
+                severity="warning",
+            )
+            triggered = True
+
+        # Check day-over-day change
+        if len(rows) >= 2:
+            prev_score = float(rows[1]["avg_s"])
+            change = latest_score - prev_score
+            if change < change_threshold:
+                _save_alert(
+                    catalog, rule_id, "news_sentiment",
+                    f"[{aid}] 新闻情感日变化 {change:+.3f} 低于阈值 {change_threshold} "
+                    f"({prev_score:.3f} -> {latest_score:.3f})",
+                    severity="warning",
+                )
+                triggered = True
+
+        # Check critical event types
+        if critical_events:
+            ph = ", ".join("?" * len(critical_events))
+            crit_df = catalog.query(
+                f"SELECT event_id, headline, event_type, published_at "
+                f"FROM silver_news_events "
+                f"WHERE list_contains(asset_ids_mentioned, ?) "
+                f"  AND event_type IN ({ph}) "
+                f"  AND published_at >= CURRENT_DATE - INTERVAL '1' DAY "
+                f"ORDER BY published_at DESC LIMIT 5",
+                [aid, *critical_events],
+            )
+            for row in crit_df.to_dicts():
+                _save_alert(
+                    catalog, rule_id, "news_sentiment",
+                    f"[{aid}] 关键事件 ({row['event_type']}): {row['headline'][:80]}",
+                    severity="critical",
+                )
+                triggered = True
+
+    # If scope is "all", also check recent critical events across all assets
+    if scope == "all" and critical_events:
+        ph = ", ".join("?" * len(critical_events))
+        crit_df = catalog.query(
+            f"SELECT event_id, headline, event_type, asset_ids_mentioned, published_at "
+            f"FROM silver_news_events "
+            f"WHERE event_type IN ({ph}) "
+            f"  AND published_at >= CURRENT_DATE - INTERVAL '1' DAY "
+            f"ORDER BY published_at DESC LIMIT 10",
+            list(critical_events),
+        )
+        for row in crit_df.to_dicts():
+            assets = row.get("asset_ids_mentioned") or []
+            aid_label = ", ".join(assets[:3]) if assets else "market"
+            _save_alert(
+                catalog, rule_id, "news_sentiment",
+                f"[{aid_label}] 关键事件 ({row['event_type']}): {row['headline'][:80]}",
+                severity="critical",
+            )
+            triggered = True
+
+    return triggered
+
+
+def _get_portfolio_asset_ids(catalog) -> set[str]:
+    """从 PaperBroker 持仓和 gold_live_executions 中收集当前持仓资产 ID。"""
+    asset_ids: set[str] = set()
+
+    # Method 1: Try the global PaperBroker singleton
+    try:
+        from cquant.api_server.routes.trading import _get_paper_broker
+        broker = _get_paper_broker()
+        positions = broker.get_positions()
+        asset_ids.update(positions.keys())
+    except Exception as exc:
+        logger.debug("_get_portfolio_asset_ids (paper_broker): %s", exc)
+
+    # Method 2: From persisted executions — compute net positions
+    try:
+        df = catalog.query(
+            "SELECT asset_id, side, filled_qty "
+            "FROM gold_live_executions WHERE status = 'filled' "
+            "ORDER BY executed_at"
+        )
+        if not df.is_empty():
+            net: dict[str, int] = {}
+            for row in df.to_dicts():
+                aid = row["asset_id"]
+                qty = int(row["filled_qty"])
+                if row["side"] == "buy":
+                    net[aid] = net.get(aid, 0) + qty
+                else:
+                    net[aid] = net.get(aid, 0) - qty
+            asset_ids.update(aid for aid, q in net.items() if q > 0)
+    except Exception as exc:
+        logger.debug("_get_portfolio_asset_ids (executions): %s", exc)
+
+    return asset_ids
+
+
 CHECKERS = {
     "data_stale":    check_data_stale,
     "factor_ic_low": check_factor_ic_low,
     "pnl_drawdown":  check_pnl_drawdown,
+    "news_sentiment": check_news_sentiment,
 }
 
 

@@ -123,6 +123,59 @@ async def trigger_check(catalog: CatalogDep) -> dict:
     return {"triggered": triggered}
 
 
+class NewsSentimentCheckBody(BaseModel):
+    threshold: float = -0.5
+    change_threshold: float = -0.3
+    scope: str = "portfolio"
+    critical_events: list[str] | None = None
+
+
+@router.post("/check-news-sentiment")
+async def check_news_sentiment_endpoint(
+    body: NewsSentimentCheckBody | None = None,
+    catalog: CatalogDep = None,
+) -> dict:
+    """手动触发组合新闻情感检查。
+
+    Accepts optional parameters to override the default thresholds.
+    If no body is provided, uses defaults (threshold=-0.5, change_threshold=-0.3,
+    scope="portfolio").
+    """
+    from cquant.api_server.alert_checker import (
+        _ensure_tables,
+        _get_portfolio_asset_ids,
+        check_news_sentiment,
+    )
+
+    _ensure_tables(catalog)
+
+    if body is None:
+        body = NewsSentimentCheckBody()
+
+    # Find or create a temporary rule for this manual check
+    params = {
+        "threshold": body.threshold,
+        "change_threshold": body.change_threshold,
+        "scope": body.scope,
+    }
+    if body.critical_events is not None:
+        params["critical_events"] = body.critical_events
+
+    # Use a dedicated manual rule_id so alerts are traceable
+    rule_id = "manual_news_sentiment"
+    triggered = check_news_sentiment(catalog, rule_id, params)
+
+    # Collect the asset IDs that were checked for reporting
+    asset_ids = _get_portfolio_asset_ids(catalog) if body.scope == "portfolio" else set()
+
+    return {
+        "triggered": triggered,
+        "scope": body.scope,
+        "assets_checked": sorted(asset_ids),
+        "params": params,
+    }
+
+
 # ── Notification Channels ──────────────────────────────────────────────────────
 
 _channel_tables_ensured = False
