@@ -123,7 +123,7 @@ export const liveApi = {
   },
 
   resumeStrategies: (config?: RequestConfig) =>
-    api.post<{ status: string; count: number }>('/live/resume', undefined, config),
+    api.post<{ status: string; strategies_restored: number }>('/live/resume', undefined, config),
 
   getKillSwitchStatus: (config?: RequestConfig) =>
     api.get<{ active: boolean }>('/live/kill-switch/status', config),

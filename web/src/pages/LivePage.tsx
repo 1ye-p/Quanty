@@ -90,7 +90,7 @@ export function LivePage() {
     mutationFn: liveApi.resumeStrategies,
     onSuccess: (res) => {
       setResumeDialogOpen(false)
-      toast.success(`已恢复 ${res.count} 个策略执行`)
+      toast.success(`已恢复 ${res.strategies_restored} 个策略执行`)
       refetchKs()
       qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
     },

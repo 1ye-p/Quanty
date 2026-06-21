@@ -41,6 +41,7 @@ def _safe_metrics_path(run_id: str) -> pathlib.Path | None:
 
 
 _kill_switch_active: bool = False
+_kill_switch_activated_at: str | None = None
 
 _live_table_ensured = False
 
@@ -484,8 +485,9 @@ async def activate_kill_switch(
 
     Strategies can be restored via the ``/live/resume`` endpoint.
     """
-    global _kill_switch_active
+    global _kill_switch_active, _kill_switch_activated_at
     _kill_switch_active = True
+    _kill_switch_activated_at = datetime.now(tz=timezone.utc).isoformat()
 
     results = {
         "strategies_stopped": 0,
@@ -572,15 +574,24 @@ async def resume_strategies(catalog: CatalogDep) -> dict:
     Restores strategies that were killed by the kill-switch back to ``active``
     status and clears the kill-switch flag.
     """
-    global _kill_switch_active
+    global _kill_switch_active, _kill_switch_activated_at
 
     _ensure_live_table(catalog)
 
-    # Restore killed strategies to active
-    catalog.execute(
-        "UPDATE meta_live_strategies SET status = 'active', stopped_at = NULL "
-        "WHERE status = 'killed'"
-    )
+    # Only restore strategies that were killed by the kill-switch (after activation time)
+    # This preserves individually-stopped strategies
+    if _kill_switch_activated_at:
+        catalog.execute(
+            "UPDATE meta_live_strategies SET status = 'active', stopped_at = NULL "
+            "WHERE status = 'killed' AND stopped_at >= ?",
+            [_kill_switch_activated_at],
+        )
+    else:
+        # Fallback: restore all killed strategies (legacy behavior)
+        catalog.execute(
+            "UPDATE meta_live_strategies SET status = 'active', stopped_at = NULL "
+            "WHERE status = 'killed'"
+        )
 
     count_df = catalog.query(
         "SELECT COUNT(*) AS cnt FROM meta_live_strategies WHERE status = 'active' "
@@ -589,6 +600,7 @@ async def resume_strategies(catalog: CatalogDep) -> dict:
     restored = int(count_df["cnt"][0]) if not count_df.is_empty() else 0
 
     _kill_switch_active = False
+    _kill_switch_activated_at = None
 
     logger.info("KILL-SWITCH DEACTIVATED: %d strategies restored to active", restored)
 
@@ -599,6 +611,17 @@ async def resume_strategies(catalog: CatalogDep) -> dict:
 
 
 @router.get("/kill-switch/status")
-async def get_kill_switch_status() -> dict:
-    """Get current kill-switch state."""
-    return {"active": _kill_switch_active}
+async def get_kill_switch_status(catalog: CatalogDep) -> dict:
+    """Get current kill-switch state. Checks both in-memory flag and DB."""
+    # In-memory flag is primary; DB check survives process restarts
+    active = _kill_switch_active
+    if not active:
+        try:
+            df = catalog.query(
+                "SELECT COUNT(*) as cnt FROM live_strategies WHERE status = 'killed' LIMIT 1"
+            )
+            if not df.is_empty() and df["cnt"][0] > 0:
+                active = True
+        except Exception:
+            pass  # Table may not exist yet
+    return {"active": active}
