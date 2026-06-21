@@ -121,14 +121,17 @@ class AlgoOrder:
         """Convert to dictionary for API response."""
         return {
             "order_id": self.order_id,
-            "algo_type": self.params.algo_type.value,
+            "order_type": self.params.algo_type.value,
+            "algo_type": self.params.algo_type.value,  # backward compat
             "asset_id": self.params.asset_id,
             "side": self.params.side,
             "total_qty": self.params.total_qty,
             "status": self.status,
             "progress_pct": round(self.progress_pct, 2),
-            "cumulative_filled_qty": self.cumulative_filled_qty,
-            "cumulative_avg_price": self.cumulative_avg_price,
+            "filled_qty": self.cumulative_filled_qty,
+            "avg_price": self.cumulative_avg_price,
+            "slippage": 0.0,  # TODO: compute actual slippage vs arrival price
+            "updated_at": self.completed_at.isoformat() if self.completed_at else self.created_at.isoformat(),
             "created_at": self.created_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "params": {
@@ -141,7 +144,7 @@ class AlgoOrder:
             },
             "slices": [
                 {
-                    "slice_id": s.slice_id,
+                    "slice_id": str(s.slice_id),
                     "scheduled_time": s.scheduled_time.isoformat(),
                     "qty": s.qty,
                     "status": s.status,
@@ -265,22 +268,8 @@ class VWAPEngine:
             # Extract symbol from asset_id
             symbol = asset_id.split(":")[-1] if ":" in asset_id else asset_id
 
-            # Query historical volume data from silver layer
-            # Note: This assumes silver_prices_1d has volume data
-            # In a real implementation, you would query intraday data
-            query = f"""
-                SELECT
-                    EXTRACT(HOUR FROM trade_date) as hour,
-                    AVG(volume) as avg_volume
-                FROM silver_prices_1d
-                WHERE symbol = '{symbol}'
-                  AND trade_date >= CURRENT_DATE - INTERVAL '{lookback_days}' DAY
-                GROUP BY EXTRACT(HOUR FROM trade_date)
-                ORDER BY hour
-            """
-
-            # For now, return default profile since we don't have intraday data
-            # In production, this would query actual intraday volume data
+            # TODO: Implement intraday volume profile when data is available
+            # Current silver_prices_1d only has daily aggregates, not hourly
             logger.info(
                 "VWAP: Using default volume profile for %s (intraday data not available)",
                 asset_id,
@@ -530,6 +519,8 @@ class AlgoOrderManager:
         if order.status != "active":
             return []
 
+        from cquant.execution.broker import Order as BrokerOrder
+
         now = datetime.now()
         executed: list[AlgoSlice] = []
 
@@ -537,7 +528,6 @@ class AlgoOrderManager:
             if slice.scheduled_time <= now:
                 try:
                     # Create broker order
-                    from cquant.execution.broker import Order as BrokerOrder
 
                     broker_order = BrokerOrder(
                         order_id=f"{order_id}-s{slice.slice_id}",
