@@ -6,8 +6,48 @@ and risk contribution decomposition.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
+
+HISTORICAL_SCENARIOS: list[dict] = [
+    {
+        "name": "2015 A股股灾",
+        "start_date": "2015-06-12",
+        "end_date": "2015-07-08",
+        "benchmark_impact": -0.43,
+        "description": "杠杆牛市崩盘，沪指从5178跌至3507",
+    },
+    {
+        "name": "2016 熔断危机",
+        "start_date": "2016-01-04",
+        "end_date": "2016-01-07",
+        "benchmark_impact": -0.12,
+        "description": "熔断机制实施后连续跌停",
+    },
+    {
+        "name": "2018 贸易战",
+        "start_date": "2018-01-29",
+        "end_date": "2018-10-19",
+        "benchmark_impact": -0.30,
+        "description": "中美贸易摩擦，沪指持续下跌",
+    },
+    {
+        "name": "2020 COVID",
+        "start_date": "2020-01-20",
+        "end_date": "2020-03-23",
+        "benchmark_impact": -0.16,
+        "description": "新冠疫情全球爆发",
+    },
+    {
+        "name": "2022 俄乌冲突",
+        "start_date": "2022-02-24",
+        "end_date": "2022-04-27",
+        "benchmark_impact": -0.20,
+        "description": "俄乌战争引发全球避险",
+    },
+]
 
 
 def compute_correlation_matrix(
@@ -94,21 +134,71 @@ def compute_factor_exposures(
     return {"data": result, "window": window, "keys": [mom_key, vol_key]}
 
 
+def _compute_period_stats(
+    returns: np.ndarray,
+    nav_series: np.ndarray | None,
+    mask: np.ndarray,
+) -> dict:
+    """Compute strategy return, max drawdown, and vol for a subset of returns.
+
+    Args:
+        returns: Full array of daily returns.
+        nav_series: Full NAV series (same length as returns) or None.
+        mask: Boolean array selecting the sub-period.
+
+    Returns:
+        Dict with 'strategy_return', 'max_drawdown', 'volatility'.
+    """
+    period_returns = returns[mask]
+    if len(period_returns) == 0:
+        return {"strategy_return": None, "max_drawdown": None, "volatility": None}
+
+    cum = float(np.prod(1 + period_returns) - 1)
+    vol = float(np.std(period_returns)) if len(period_returns) > 1 else 0.0
+
+    # Max drawdown from NAV if available, otherwise from cumulative returns
+    max_dd = 0.0
+    if nav_series is not None and len(nav_series) > 0:
+        period_nav = nav_series[mask]
+        if len(period_nav) > 0:
+            peak = np.maximum.accumulate(period_nav)
+            dd = (period_nav - peak) / peak
+            max_dd = float(np.min(dd))
+    else:
+        period_nav = np.cumprod(1 + period_returns)
+        peak = np.maximum.accumulate(period_nav)
+        dd = (period_nav - peak) / peak
+        max_dd = float(np.min(dd))
+
+    return {"strategy_return": cum, "max_drawdown": max_dd, "volatility": vol}
+
+
 def run_stress_test(
     returns: np.ndarray,
     nav_series: np.ndarray | None = None,
+    trade_dates: np.ndarray | None = None,
+    custom_start: str | None = None,
+    custom_end: str | None = None,
 ) -> dict:
-    """Run 6 preset stress scenarios on portfolio returns.
+    """Run stress scenarios on portfolio returns.
+
+    Includes 6 synthetic scenarios plus A-share historical crisis periods.
+    When trade_dates is provided, historical scenarios compute actual strategy
+    performance during each crisis window and compare with the benchmark.
 
     Args:
         returns: Array of daily portfolio returns.
         nav_series: Optional NAV series for drawdown calculation.
+        trade_dates: Optional array of date strings (YYYY-MM-DD) aligned with returns.
+        custom_start: Optional start date (YYYY-MM-DD) for a custom stress window.
+        custom_end: Optional end date (YYYY-MM-DD) for a custom stress window.
 
     Returns:
-        Dict with 'scenarios' (list of {name, impact, description}).
+        Dict with 'scenarios' (list of synthetic scenarios) and
+        'historical' (list of historical scenario results with strategy vs benchmark).
     """
     if len(returns) == 0:
-        return {"scenarios": []}
+        return {"scenarios": [], "historical": []}
 
     mean_ret = float(np.mean(returns))
     std_ret = float(np.std(returns))
@@ -152,7 +242,63 @@ def run_stress_test(
         },
     ]
 
-    return {"scenarios": scenarios}
+    # Historical scenarios require date-indexed returns
+    historical: list[dict] = []
+    if trade_dates is not None and len(trade_dates) == len(returns):
+        parsed_dates = np.array(
+            [datetime.strptime(str(d)[:10], "%Y-%m-%d") for d in trade_dates]
+        )
+
+        for scenario in HISTORICAL_SCENARIOS:
+            start = datetime.strptime(scenario["start_date"], "%Y-%m-%d")
+            end = datetime.strptime(scenario["end_date"], "%Y-%m-%d")
+            mask = (parsed_dates >= start) & (parsed_dates <= end)
+
+            stats = _compute_period_stats(returns, nav_series, mask)
+            strategy_ret = stats["strategy_return"]
+            benchmark_ret = scenario["benchmark_impact"]
+
+            historical.append({
+                "name": scenario["name"],
+                "start_date": scenario["start_date"],
+                "end_date": scenario["end_date"],
+                "description": scenario["description"],
+                "strategy_return": strategy_ret,
+                "benchmark_return": benchmark_ret,
+                "excess_return": (
+                    round(strategy_ret - benchmark_ret, 6)
+                    if strategy_ret is not None
+                    else None
+                ),
+                "max_drawdown": stats["max_drawdown"],
+                "volatility": stats["volatility"],
+                "trading_days": int(mask.sum()),
+            })
+
+    # Custom date range scenario
+    if custom_start and custom_end and trade_dates is not None and len(trade_dates) == len(returns):
+        parsed_dates = np.array(
+            [datetime.strptime(str(d)[:10], "%Y-%m-%d") for d in trade_dates]
+        )
+        start = datetime.strptime(custom_start, "%Y-%m-%d")
+        end = datetime.strptime(custom_end, "%Y-%m-%d")
+        mask = (parsed_dates >= start) & (parsed_dates <= end)
+
+        stats = _compute_period_stats(returns, nav_series, mask)
+        historical.append({
+            "name": f"自定义区间 {custom_start} ~ {custom_end}",
+            "start_date": custom_start,
+            "end_date": custom_end,
+            "description": "用户自定义压力测试区间",
+            "strategy_return": stats["strategy_return"],
+            "benchmark_return": None,
+            "excess_return": None,
+            "max_drawdown": stats["max_drawdown"],
+            "volatility": stats["volatility"],
+            "trading_days": int(mask.sum()),
+        })
+
+    return {"scenarios": scenarios, "historical": historical}
 
 
 def compute_risk_contribution(

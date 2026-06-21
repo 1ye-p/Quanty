@@ -988,19 +988,25 @@ async def get_factor_exposure(
 
 
 @router.get("/{run_id}/stress-test")
-async def get_stress_test(run_id: str, catalog: CatalogDep) -> dict:
+async def get_stress_test(
+    run_id: str,
+    catalog: CatalogDep,
+    custom_start: str | None = Query(default=None, description="Custom stress period start (YYYY-MM-DD)"),
+    custom_end: str | None = Query(default=None, description="Custom stress period end (YYYY-MM-DD)"),
+) -> dict:
     """Run stress test scenarios on a backtest run."""
     from cquant.backtest_vector.risk_analysis import run_stress_test
 
-    # Get portfolio returns
+    # Get portfolio returns with trade dates
     ret_df = catalog.query(
-        "SELECT portfolio_return FROM gold_portfolio_returns WHERE run_id = ? ORDER BY trade_date",
+        "SELECT trade_date, portfolio_return FROM gold_portfolio_returns WHERE run_id = ? ORDER BY trade_date",
         [run_id],
     )
     if ret_df.is_empty():
         raise HTTPException(status_code=404, detail=f"No return data for run '{run_id}'")
 
     returns = ret_df["portfolio_return"].to_numpy()
+    trade_dates = ret_df["trade_date"].to_numpy()
 
     # Get NAV series
     snap_df = catalog.query(
@@ -1009,7 +1015,13 @@ async def get_stress_test(run_id: str, catalog: CatalogDep) -> dict:
     )
     nav_series = snap_df["nav"].to_numpy() if not snap_df.is_empty() else None
 
-    result = run_stress_test(returns, nav_series=nav_series)
+    result = run_stress_test(
+        returns,
+        nav_series=nav_series,
+        trade_dates=trade_dates,
+        custom_start=custom_start,
+        custom_end=custom_end,
+    )
     return result
 
 

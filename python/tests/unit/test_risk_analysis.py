@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from cquant.backtest_vector.risk_analysis import (
+    HISTORICAL_SCENARIOS,
     compute_correlation_matrix,
     compute_factor_exposures,
     run_stress_test,
@@ -84,7 +85,9 @@ class TestStressTest:
         result = run_stress_test(returns)
 
         assert "scenarios" in result
+        assert "historical" in result
         assert len(result["scenarios"]) == 6
+        assert len(result["historical"]) == 0  # no trade_dates
 
         # Check scenario names
         names = [s["name"] for s in result["scenarios"]]
@@ -95,6 +98,7 @@ class TestStressTest:
     def test_empty_returns(self):
         result = run_stress_test(np.array([]))
         assert result["scenarios"] == []
+        assert result["historical"] == []
 
     def test_with_nav_series(self):
         np.random.seed(42)
@@ -117,6 +121,60 @@ class TestStressTest:
 
         # Volatility spike should be negative
         assert result["scenarios"][1]["impact"] < 0
+
+    def test_historical_scenarios_with_dates(self):
+        """Test historical scenarios when trade_dates are provided."""
+        np.random.seed(42)
+        # Create dates spanning 2015 crisis period
+        dates = pd.bdate_range("2015-05-01", "2015-08-31")
+        returns = np.random.normal(-0.002, 0.03, len(dates))
+        trade_dates = np.array([d.strftime("%Y-%m-%d") for d in dates])
+
+        result = run_stress_test(returns, trade_dates=trade_dates)
+
+        assert len(result["historical"]) >= 1
+        # Find the 2015 scenario
+        found = [h for h in result["historical"] if "2015" in h["name"]]
+        assert len(found) == 1
+        h = found[0]
+        assert h["strategy_return"] is not None
+        assert h["benchmark_return"] == pytest.approx(-0.43, abs=1e-10)
+        assert h["excess_return"] is not None
+        assert h["max_drawdown"] is not None
+        assert h["trading_days"] > 0
+
+    def test_custom_date_range(self):
+        """Test custom date range stress scenario."""
+        np.random.seed(42)
+        dates = pd.bdate_range("2024-01-01", "2024-12-31")
+        returns = np.random.normal(0.001, 0.02, len(dates))
+        trade_dates = np.array([d.strftime("%Y-%m-%d") for d in dates])
+
+        result = run_stress_test(
+            returns,
+            trade_dates=trade_dates,
+            custom_start="2024-03-01",
+            custom_end="2024-04-30",
+        )
+
+        # Last historical entry should be the custom one
+        custom = result["historical"][-1]
+        assert "自定义区间" in custom["name"]
+        assert custom["strategy_return"] is not None
+        assert custom["benchmark_return"] is None
+        assert custom["excess_return"] is None
+        assert custom["trading_days"] > 0
+
+    def test_historical_constants(self):
+        """Test HISTORICAL_SCENARIOS constant is well-formed."""
+        assert len(HISTORICAL_SCENARIOS) == 5
+        for s in HISTORICAL_SCENARIOS:
+            assert "name" in s
+            assert "start_date" in s
+            assert "end_date" in s
+            assert "benchmark_impact" in s
+            assert "description" in s
+            assert s["benchmark_impact"] < 0
 
 
 class TestRiskContribution:
