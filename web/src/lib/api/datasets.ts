@@ -127,4 +127,18 @@ export const datasetsApi = {
         examples: string[]
       }[]
     }>(`/datasets/${encodeURIComponent(id)}/anomalies`, config),
+
+  compareVersions: (versionA: string, versionB: string, config?: RequestConfig) =>
+    api.get<{
+      version_a: string
+      version_b: string
+      row_changes: { version_a_count: number; version_b_count: number; added: number; removed: number }
+      field_changes: { added_fields: string[]; removed_fields: string[]; common_fields: string[] }
+      field_stats: {
+        field: string
+        version_a: { min: number; max: number; mean: number; null_rate: number }
+        version_b: { min: number; max: number; mean: number; null_rate: number }
+        change: { mean_diff: number; mean_pct_change: number }
+      }[]
+    }>('/datasets/compare', { ...config, params: { version_a: versionA, version_b: versionB, ...config?.params } }),
 }

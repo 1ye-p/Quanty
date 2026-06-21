@@ -8,14 +8,175 @@ import { FieldStats } from '@/components/datasets/FieldStats'
 import { QualityReport } from '@/components/datasets/QualityReport'
 import { AnomalyMarkers } from '@/components/datasets/AnomalyMarkers'
 
-type DetailTab = 'preview' | 'stats' | 'quality' | 'anomalies'
+type DetailTab = 'preview' | 'stats' | 'quality' | 'anomalies' | 'compare'
 
 const TABS: { key: DetailTab; label: string }[] = [
   { key: 'preview', label: '数据预览' },
   { key: 'stats', label: '字段统计' },
   { key: 'quality', label: '质量报告' },
   { key: 'anomalies', label: '异常标记' },
+  { key: 'compare', label: '版本对比' },
 ]
+
+function VersionComparison({ versions }: { versions: { version_id: string; dataset_name: string }[] }) {
+  const [versionA, setVersionA] = useState('')
+  const [versionB, setVersionB] = useState('')
+  const [triggered, setTriggered] = useState(false)
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['datasets', 'compare', versionA, versionB],
+    queryFn: () => datasetsApi.compareVersions(versionA, versionB),
+    enabled: triggered && !!versionA && !!versionB && versionA !== versionB,
+  })
+
+  const handleCompare = () => {
+    if (versionA && versionB && versionA !== versionB) {
+      setTriggered(true)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Selectors */}
+      <div className="flex items-end gap-3">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">版本 A</label>
+          <select
+            value={versionA}
+            onChange={e => { setVersionA(e.target.value); setTriggered(false) }}
+            className="input-field text-sm w-48"
+          >
+            <option value="">选择版本</option>
+            {versions.map(v => (
+              <option key={v.version_id} value={v.version_id}>{v.dataset_name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="text-gray-400 text-sm pb-1">vs</div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">版本 B</label>
+          <select
+            value={versionB}
+            onChange={e => { setVersionB(e.target.value); setTriggered(false) }}
+            className="input-field text-sm w-48"
+          >
+            <option value="">选择版本</option>
+            {versions.map(v => (
+              <option key={v.version_id} value={v.version_id}>{v.dataset_name}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={handleCompare}
+          disabled={!versionA || !versionB || versionA === versionB}
+          className="btn-primary text-sm disabled:opacity-40"
+        >
+          对比
+        </button>
+      </div>
+
+      {/* Empty / error states */}
+      {!triggered && (
+        <div className="card flex items-center justify-center h-32 text-gray-400 text-sm">
+          选择两个不同版本后点击对比
+        </div>
+      )}
+      {triggered && isLoading && (
+        <div className="card flex items-center justify-center h-32 text-gray-400 text-sm">
+          加载中...
+        </div>
+      )}
+      {triggered && error && (
+        <div className="card flex items-center justify-center h-32 text-red-500 text-sm">
+          对比失败：{(error as Error).message}
+        </div>
+      )}
+
+      {/* Results */}
+      {data && (
+        <div className="space-y-4">
+          {/* Summary cards */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="bg-white rounded-xl shadow-sm border p-4">
+              <div className="text-xs text-gray-500">版本 A 行数</div>
+              <div className="text-lg font-semibold mt-1">{data.row_changes.version_a_count.toLocaleString()}</div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border p-4">
+              <div className="text-xs text-gray-500">版本 B 行数</div>
+              <div className="text-lg font-semibold mt-1">{data.row_changes.version_b_count.toLocaleString()}</div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border p-4">
+              <div className="text-xs text-gray-500">新增行数</div>
+              <div className="text-lg font-semibold mt-1 text-green-600">+{data.row_changes.added.toLocaleString()}</div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border p-4">
+              <div className="text-xs text-gray-500">移除行数</div>
+              <div className="text-lg font-semibold mt-1 text-red-600">-{data.row_changes.removed.toLocaleString()}</div>
+            </div>
+          </div>
+
+          {/* Field changes */}
+          {(data.field_changes.added_fields.length > 0 || data.field_changes.removed_fields.length > 0) && (
+            <div className="bg-white rounded-xl shadow-sm border p-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">字段变更</h3>
+              <div className="flex flex-wrap gap-2">
+                {data.field_changes.added_fields.map(f => (
+                  <span key={f} className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+ {f}</span>
+                ))}
+                {data.field_changes.removed_fields.map(f => (
+                  <span key={f} className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">- {f}</span>
+                ))}
+                {data.field_changes.common_fields.length > 0 && (
+                  <span className="text-xs text-gray-400">{data.field_changes.common_fields.length} 个共同字段</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Field stats table */}
+          {data.field_stats.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border p-4 overflow-x-auto">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">字段统计对比</h3>
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="table-th text-left">字段</th>
+                    <th className="table-th text-right">A 均值</th>
+                    <th className="table-th text-right">B 均值</th>
+                    <th className="table-th text-right">差异</th>
+                    <th className="table-th text-right">变化率</th>
+                    <th className="table-th text-right">A 空值率</th>
+                    <th className="table-th text-right">B 空值率</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.field_stats.map(row => {
+                    const isSignificant = Math.abs(row.change.mean_pct_change) > 10
+                    return (
+                      <tr key={row.field} className={isSignificant ? 'bg-amber-50' : ''}>
+                        <td className="table-td font-medium">{row.field}</td>
+                        <td className="table-td text-right">{row.version_a.mean.toFixed(4)}</td>
+                        <td className="table-td text-right">{row.version_b.mean.toFixed(4)}</td>
+                        <td className={`table-td text-right ${row.change.mean_diff > 0 ? 'text-green-600' : row.change.mean_diff < 0 ? 'text-red-600' : ''}`}>
+                          {row.change.mean_diff > 0 ? '+' : ''}{row.change.mean_diff.toFixed(4)}
+                        </td>
+                        <td className={`table-td text-right font-medium ${isSignificant ? 'text-amber-700' : ''}`}>
+                          {row.change.mean_pct_change > 0 ? '+' : ''}{row.change.mean_pct_change.toFixed(2)}%
+                        </td>
+                        <td className="table-td text-right">{(row.version_a.null_rate * 100).toFixed(1)}%</td>
+                        <td className="table-td text-right">{(row.version_b.null_rate * 100).toFixed(1)}%</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function DatasetsPage() {
   const [selectedVersion, setSelectedVersion] = useState('')
@@ -170,12 +331,16 @@ export function DatasetsPage() {
               </div>
 
               {/* Tab content */}
-              <div className="card">
-                {activeTab === 'preview' && <DataPreview datasetId={selectedVersion} />}
-                {activeTab === 'stats' && <FieldStats datasetId={selectedVersion} />}
-                {activeTab === 'quality' && <QualityReport datasetId={selectedVersion} />}
-                {activeTab === 'anomalies' && <AnomalyMarkers datasetId={selectedVersion} />}
-              </div>
+              {activeTab === 'compare' ? (
+                <VersionComparison versions={data?.items ?? []} />
+              ) : (
+                <div className="card">
+                  {activeTab === 'preview' && <DataPreview datasetId={selectedVersion} />}
+                  {activeTab === 'stats' && <FieldStats datasetId={selectedVersion} />}
+                  {activeTab === 'quality' && <QualityReport datasetId={selectedVersion} />}
+                  {activeTab === 'anomalies' && <AnomalyMarkers datasetId={selectedVersion} />}
+                </div>
+              )}
             </div>
           )}
         </div>
