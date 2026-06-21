@@ -86,6 +86,8 @@ export const extendedQueryKeys = {
     positions: (broker: string) => ['trading', 'positions', broker] as const,
     fills: (broker: string) => ['trading', 'fills', broker] as const,
     pnl: (broker: string) => ['trading', 'pnl', broker] as const,
+    algoOrders: () => ['trading', 'algo-orders'] as const,
+    algoOrder: (id: string) => ['trading', 'algo-order', id] as const,
   },
   realtime: {
     quote: (symbol: string) => ['realtime', 'quote', symbol] as const,

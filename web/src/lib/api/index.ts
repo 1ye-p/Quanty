@@ -94,6 +94,9 @@ export type {
   TradePosition,
   TradeAccount,
   TradePnL,
+  AlgoOrderParams,
+  AlgoSlice,
+  AlgoOrderStatus,
 } from './trading'
 
 export { realtimeApi } from './realtime'
