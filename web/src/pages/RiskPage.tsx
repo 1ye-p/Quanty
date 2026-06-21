@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { riskApi } from '@/lib/api'
 import type { PolicyInfo, SizerInfo, RiskCheckResult } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { PositionRiskDashboard } from '@/components/risk/PositionRiskDashboard'
 import { RiskEventHistory } from '@/components/risk/RiskEventHistory'
+import { FactorRiskPanel } from '@/components/risk/FactorRiskPanel'
 
 export function RiskPage() {
   // Tab navigation
@@ -13,6 +14,7 @@ export function RiskPage() {
   const tabs = [
     { id: 'check', label: '风控检查' },
     { id: 'positions', label: '持仓风控' },
+    { id: 'factor', label: '因子风险' },
     { id: 'events', label: '风控事件' },
   ]
 
@@ -35,6 +37,21 @@ export function RiskPage() {
     queryKey: extendedQueryKeys.risk.sizers(),
     queryFn: riskApi.sizers,
   })
+
+  const { data: portfolioRisk } = useQuery({
+    queryKey: extendedQueryKeys.risk.positions(),
+    queryFn: () => riskApi.getPositions(),
+    enabled: activeTab === 'factor',
+  })
+
+  const positionWeights = useMemo(() => {
+    if (!portfolioRisk?.positions) return {}
+    const w: Record<string, number> = {}
+    for (const p of portfolioRisk.positions) {
+      if (p.weight) w[p.asset_id] = p.weight
+    }
+    return w
+  }, [portfolioRisk?.positions])
 
   const checkMutation = useMutation({
     mutationFn: riskApi.check,
@@ -210,6 +227,7 @@ export function RiskPage() {
       )}
 
       {activeTab === 'positions' && <PositionRiskDashboard />}
+      {activeTab === 'factor' && <FactorRiskPanel weights={positionWeights} />}
       {activeTab === 'events' && <RiskEventHistory />}
     </div>
   )

@@ -81,6 +81,19 @@ export interface PortfolioVarResult {
   confidence: number
 }
 
+export interface FactorDecompositionResult {
+  style_exposures: Record<string, number>
+  industry_exposures: Record<string, number>
+  risk_decomposition: {
+    total_risk: number
+    factor_risk: number
+    idiosyncratic_risk: number
+    factor_risk_pct: number
+    style_risk_contributions: Record<string, number>
+    industry_risk_contributions: Record<string, number>
+  }
+}
+
 export const riskApi = {
   policies: (config?: RequestConfig) =>
     api.get<PolicyInfo[]>('/risk/policies', config),
@@ -100,5 +113,10 @@ export const riskApi = {
   getPortfolioVar: (params: { method?: string; confidence?: number; horizon_days?: number; weights_json?: string; nav?: number }) =>
     api.get<PortfolioVarResult>(
       `/risk/portfolio-var?${new URLSearchParams(params as Record<string, string>)}`,
+    ),
+
+  getFactorDecomposition: (params: { weights_json: string; nav?: number }) =>
+    api.get<FactorDecompositionResult>(
+      `/risk/factor-decomposition?${new URLSearchParams(params as unknown as Record<string, string>)}`,
     ),
 }
