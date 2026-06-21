@@ -159,6 +159,10 @@ def check_news_sentiment(catalog, rule_id: str, params: dict) -> bool:
     threshold = float(params.get("threshold", -0.5))
     change_threshold = float(params.get("change_threshold", -0.3))
     scope = params.get("scope", "portfolio")
+    _VALID_SCOPES = {"portfolio", "all"}
+    if scope not in _VALID_SCOPES:
+        logger.warning("check_news_sentiment: invalid scope '%s', defaulting to 'portfolio'", scope)
+        scope = "portfolio"
     critical_events = set(params.get("critical_events", [
         "earnings_warning", "regulatory_action", "suspension",
     ]))
@@ -172,9 +176,6 @@ def check_news_sentiment(catalog, rule_id: str, params: dict) -> bool:
         return False
 
     triggered = False
-    from datetime import date, timedelta
-
-    today = date.today()
 
     for aid in asset_ids:
         # Latest day sentiment

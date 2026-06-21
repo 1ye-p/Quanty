@@ -105,7 +105,7 @@ export function AlertsPage() {
     ],
     news_sentiment: [
       { key: 'threshold', label: '情绪阈值', placeholder: '-0.5', defaultVal: '-0.5' },
-      { key: 'change_threshold', label: '日变化阈值', placeholder: '0.3', defaultVal: '0.3' },
+      { key: 'change_threshold', label: '日变化阈值', placeholder: '-0.3', defaultVal: '-0.3' },
       {
         key: 'scope',
         label: '监控范围',
@@ -113,7 +113,6 @@ export function AlertsPage() {
         defaultVal: 'portfolio',
         options: [
           { value: 'portfolio', label: '持仓' },
-          { value: 'watchlist', label: '自选' },
           { value: 'all', label: '全部' },
         ],
       },
