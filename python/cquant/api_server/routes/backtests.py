@@ -1037,9 +1037,234 @@ async def get_risk_contribution(
     return compute_risk_contribution(weights, pdf, window=window)
 
 
+def _compute_implementation_shortfall(catalog, run_id: str) -> dict:
+    """Compute Implementation Shortfall (IS) analysis for a backtest run.
+
+    For each fill:
+    - Decision price = close on the previous trading day (signal date)
+    - Execution price = fill price
+    - IS = (exec_price - decision_price) / decision_price * direction
+    - Delay cost = (open_on_exec_day - decision_price) / decision_price * direction
+    - Trading cost = (exec_price - open_on_exec_day) / open_on_exec_day * direction
+    """
+    fills_df = catalog.query(
+        "SELECT fill_id, trade_date, asset_id, side, qty, price, notional "
+        "FROM gold_fills WHERE run_id = ? ORDER BY trade_date",
+        [run_id],
+    )
+    if fills_df.is_empty():
+        return {
+            "total_is_bps": 0.0,
+            "total_is_pct": 0.0,
+            "components": {
+                "delay_cost_bps": 0.0,
+                "trading_cost_bps": 0.0,
+                "missed_trade_cost_bps": 0.0,
+            },
+            "by_asset": [],
+            "by_date": [],
+            "by_order_size": [],
+            "timeseries": [],
+        }
+
+    # Get unique (asset_id, trade_date) pairs from fills
+    fills_dates = fills_df.select("asset_id", "trade_date").unique()
+    asset_ids = fills_df["asset_id"].unique().to_list()
+
+    # Get all trade dates we need: fill dates + previous trading days
+    all_fill_dates = fills_df["trade_date"].unique().sort()
+    min_date = str(all_fill_dates[0])
+    max_date = str(all_fill_dates[-1])
+
+    # Query prices for all needed dates (a buffer before min_date for prev-day lookup)
+    asset_ph = ",".join(["?" for _ in asset_ids])
+    prices_df = catalog.query(
+        f"SELECT trade_date, asset_id, open, close FROM silver_prices_1d "
+        f"WHERE asset_id IN ({asset_ph}) AND trade_date >= date_add(?, INTERVAL -10 DAY) "
+        f"AND trade_date <= ? ORDER BY asset_id, trade_date",
+        asset_ids + [min_date, max_date],
+    )
+    if prices_df.is_empty():
+        return {
+            "total_is_bps": 0.0,
+            "total_is_pct": 0.0,
+            "components": {
+                "delay_cost_bps": 0.0,
+                "trading_cost_bps": 0.0,
+                "missed_trade_cost_bps": 0.0,
+            },
+            "by_asset": [],
+            "by_date": [],
+            "by_order_size": [],
+            "timeseries": [],
+        }
+
+    # Build price lookup: (asset_id, trade_date) -> {open, close}
+    price_lookup: dict[tuple[str, str], dict[str, float]] = {}
+    for row in prices_df.iter_rows(named=True):
+        key = (row["asset_id"], str(row["trade_date"]))
+        price_lookup[key] = {
+            "open": float(row["open"]) if row["open"] else 0.0,
+            "close": float(row["close"]) if row["close"] else 0.0,
+        }
+
+    # Build sorted date list per asset for prev-day lookup
+    dates_by_asset: dict[str, list[str]] = {}
+    for row in prices_df.iter_rows(named=True):
+        aid = row["asset_id"]
+        d = str(row["trade_date"])
+        dates_by_asset.setdefault(aid, [])
+        if not dates_by_asset[aid] or dates_by_asset[aid][-1] != d:
+            dates_by_asset[aid].append(d)
+    # Already sorted from ORDER BY
+
+    def _prev_trade_date(asset_id: str, trade_date: str) -> str | None:
+        """Get the previous trading date for an asset before trade_date."""
+        dates = dates_by_asset.get(asset_id, [])
+        for i, d in enumerate(dates):
+            if d == trade_date and i > 0:
+                return dates[i - 1]
+        return None
+
+    # Compute IS for each fill
+    per_fill = []
+    for row in fills_df.iter_rows(named=True):
+        td = str(row["trade_date"])
+        aid = row["asset_id"]
+        side = row["side"]
+        exec_price = float(row["price"])
+        notional = float(row["notional"])
+        direction = 1.0 if side == "buy" else -1.0
+
+        prev_td = _prev_trade_date(aid, td)
+        if prev_td is None:
+            continue
+
+        decision_key = (aid, prev_td)
+        exec_key = (aid, td)
+        decision_data = price_lookup.get(decision_key)
+        exec_data = price_lookup.get(exec_key)
+
+        if not decision_data or not exec_data:
+            continue
+
+        decision_price = decision_data["close"]  # close on signal date
+        open_price = exec_data["open"]  # open on execution date
+
+        if decision_price <= 0 or open_price <= 0 or exec_price <= 0:
+            continue
+
+        # IS = (exec - decision) / decision * direction (positive = worse for buyer)
+        is_pct = (exec_price - decision_price) / decision_price * direction
+        delay_pct = (open_price - decision_price) / decision_price * direction
+        trading_pct = (exec_price - open_price) / open_price * direction
+
+        per_fill.append({
+            "asset_id": aid,
+            "trade_date": td,
+            "side": side,
+            "notional": notional,
+            "is_bps": is_pct * 10000,
+            "delay_bps": delay_pct * 10000,
+            "trading_bps": trading_pct * 10000,
+            "num_trades": 1,
+        })
+
+    if not per_fill:
+        return {
+            "total_is_bps": 0.0,
+            "total_is_pct": 0.0,
+            "components": {
+                "delay_cost_bps": 0.0,
+                "trading_cost_bps": 0.0,
+                "missed_trade_cost_bps": 0.0,
+            },
+            "by_asset": [],
+            "by_date": [],
+            "by_order_size": [],
+            "timeseries": [],
+        }
+
+    import polars as pl
+
+    pf = pl.DataFrame(per_fill)
+
+    # Weighted average IS by notional
+    total_notional = float(pf["notional"].sum())
+    total_is_bps = float((pf["is_bps"] * pf["notional"]).sum() / total_notional) if total_notional > 0 else 0.0
+    total_delay_bps = float((pf["delay_bps"] * pf["notional"]).sum() / total_notional) if total_notional > 0 else 0.0
+    total_trading_bps = float((pf["trading_bps"] * pf["notional"]).sum() / total_notional) if total_notional > 0 else 0.0
+
+    # By asset
+    by_asset_df = pf.group_by("asset_id").agg([
+        pl.col("is_bps").mean().alias("is_bps"),
+        pl.col("num_trades").sum().alias("num_trades"),
+    ]).sort("is_bps", descending=True)
+    by_asset = [
+        {"asset_id": r["asset_id"], "is_bps": round(float(r["is_bps"]), 2), "num_trades": int(r["num_trades"])}
+        for r in by_asset_df.iter_rows(named=True)
+    ]
+
+    # By date
+    by_date_df = pf.group_by("trade_date").agg([
+        (pl.col("is_bps") * pl.col("notional")).sum() / pl.col("notional").sum()
+    ]).sort("trade_date")
+    # Re-alias the computed column
+    by_date_rows = []
+    for r in by_date_df.iter_rows(named=True):
+        by_date_rows.append({"date": r["trade_date"], "is_bps": round(float(list(r.values())[1]), 2)})
+
+    # By order size bucket
+    pf_with_bucket = pf.with_columns(
+        pl.when(pl.col("notional") < 50_000)
+        .then(pl.lit("<50K"))
+        .when(pl.col("notional") < 200_000)
+        .then(pl.lit("50K-200K"))
+        .when(pl.col("notional") < 500_000)
+        .then(pl.lit("200K-500K"))
+        .when(pl.col("notional") < 1_000_000)
+        .then(pl.lit("500K-1M"))
+        .otherwise(pl.lit(">1M"))
+        .alias("bucket")
+    )
+    by_size_df = pf_with_bucket.group_by("bucket").agg([
+        pl.col("is_bps").mean().alias("is_bps"),
+        pl.col("num_trades").sum().alias("count"),
+    ]).sort("is_bps", descending=True)
+    by_order_size = [
+        {"bucket": r["bucket"], "is_bps": round(float(r["is_bps"]), 2), "count": int(r["count"])}
+        for r in by_size_df.iter_rows(named=True)
+    ]
+
+    # Cumulative IS timeseries
+    ts_df = pf.group_by("trade_date").agg([
+        (pl.col("is_bps") * pl.col("notional")).sum() / pl.col("notional").sum()
+    ]).sort("trade_date")
+    cum_is = 0.0
+    timeseries = []
+    for r in ts_df.iter_rows(named=True):
+        daily_is = float(list(r.values())[1])
+        cum_is += daily_is
+        timeseries.append({"date": r["trade_date"], "cumulative_is_bps": round(cum_is, 2)})
+
+    return {
+        "total_is_bps": round(total_is_bps, 2),
+        "total_is_pct": round(total_is_bps / 100, 4),
+        "components": {
+            "delay_cost_bps": round(total_delay_bps, 2),
+            "trading_cost_bps": round(total_trading_bps, 2),
+            "missed_trade_cost_bps": 0.0,  # requires order-level data with intended vs filled qty
+        },
+        "by_asset": by_asset,
+        "by_date": by_date_rows,
+        "by_order_size": by_order_size,
+        "timeseries": timeseries,
+    }
+
+
 @router.get("/{run_id}/tca")
 async def get_backtest_tca(run_id: str, catalog: CatalogDep) -> dict:
-    """Get TCA for a backtest run."""
+    """Get TCA for a backtest run, including Implementation Shortfall analysis."""
     df = catalog.query(
         "SELECT * FROM gold_bt_tca WHERE analysis_run_id IN "
         "(SELECT analysis_run_id FROM gold_bt_analysis_runs WHERE backtest_run_id = ? "
@@ -1048,7 +1273,9 @@ async def get_backtest_tca(run_id: str, catalog: CatalogDep) -> dict:
     )
     if df.is_empty():
         raise HTTPException(status_code=404, detail=f"No TCA data for run '{run_id}'")
-    return df.to_dicts()[0]
+    result = df.to_dicts()[0]
+    result["implementation_shortfall"] = _compute_implementation_shortfall(catalog, run_id)
+    return result
 
 
 @router.get("/{run_id}/attribution")
@@ -1594,6 +1821,7 @@ async def export_backtest_report(
     )
     if not tca_df.is_empty():
         tca_data = tca_df.to_dicts()[0]
+        tca_data["implementation_shortfall"] = _compute_implementation_shortfall(catalog, run_id)
 
     # 11. 加载归因数据
     attribution_data: dict = {}
