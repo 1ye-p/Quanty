@@ -92,7 +92,7 @@ export function AlertsPage() {
     },
     onError: (e: Error) => toast.error(`告警检查失败: ${e.message}`),
   })
-  const PARAM_FORMS: Record<string, { key: string; label: string; placeholder: string; defaultVal: string }[]> = {
+  const PARAM_FORMS: Record<string, { key: string; label: string; placeholder: string; defaultVal: string; options?: { value: string; label: string }[] }[]> = {
     data_stale:    [{ key: 'max_days', label: '最大允许天数', placeholder: '2', defaultVal: '2' }],
     factor_ic_low: [
       { key: 'factor_name', label: '因子名称', placeholder: 'ret_20d', defaultVal: '' },
@@ -102,6 +102,21 @@ export function AlertsPage() {
     pnl_drawdown: [
       { key: 'strategy_id', label: '策略 ID', placeholder: 'my_strategy', defaultVal: '' },
       { key: 'threshold_pct', label: '回撤阈值 (%)', placeholder: '10', defaultVal: '10' },
+    ],
+    news_sentiment: [
+      { key: 'threshold', label: '情绪阈值', placeholder: '-0.5', defaultVal: '-0.5' },
+      { key: 'change_threshold', label: '日变化阈值', placeholder: '0.3', defaultVal: '0.3' },
+      {
+        key: 'scope',
+        label: '监控范围',
+        placeholder: 'portfolio',
+        defaultVal: 'portfolio',
+        options: [
+          { value: 'portfolio', label: '持仓' },
+          { value: 'watchlist', label: '自选' },
+          { value: 'all', label: '全部' },
+        ],
+      },
     ],
     risk_breach: [],
   }
@@ -187,12 +202,24 @@ export function AlertsPage() {
                 {paramFields.map(f => (
                   <div key={f.key}>
                     <label className="block text-xs text-gray-600 mb-1">{f.label}</label>
-                    <input
-                      className="input w-full text-sm"
-                      placeholder={f.placeholder}
-                      value={newParams[f.key] ?? f.defaultVal}
-                      onChange={e => setNewParams(p => ({ ...p, [f.key]: e.target.value }))}
-                    />
+                    {f.options ? (
+                      <select
+                        className="input w-full text-sm"
+                        value={newParams[f.key] ?? f.defaultVal}
+                        onChange={e => setNewParams(p => ({ ...p, [f.key]: e.target.value }))}
+                      >
+                        {f.options.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="input w-full text-sm"
+                        placeholder={f.placeholder}
+                        value={newParams[f.key] ?? f.defaultVal}
+                        onChange={e => setNewParams(p => ({ ...p, [f.key]: e.target.value }))}
+                      />
+                    )}
                   </div>
                 ))}
                 <div className="flex gap-2 pt-2">
@@ -327,12 +354,24 @@ export function AlertsPage() {
               {(PARAM_FORMS[editTarget.rule_type] ?? []).map(f => (
                 <div key={f.key}>
                   <label className="block text-xs text-gray-600 mb-1">{f.label}</label>
-                  <input
-                    className="input w-full text-sm"
-                    placeholder={f.placeholder}
-                    value={editParams[f.key] ?? ''}
-                    onChange={e => setEditParams(p => ({ ...p, [f.key]: e.target.value }))}
-                  />
+                  {f.options ? (
+                    <select
+                      className="input w-full text-sm"
+                      value={editParams[f.key] ?? ''}
+                      onChange={e => setEditParams(p => ({ ...p, [f.key]: e.target.value }))}
+                    >
+                      {f.options.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="input w-full text-sm"
+                      placeholder={f.placeholder}
+                      value={editParams[f.key] ?? ''}
+                      onChange={e => setEditParams(p => ({ ...p, [f.key]: e.target.value }))}
+                    />
+                  )}
                 </div>
               ))}
               <div className="flex items-center gap-2">

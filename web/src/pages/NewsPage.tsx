@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { newsApi, type NewsEvent } from '@/lib/api'
+import { newsApi, tradingApi, type NewsEvent } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ReferenceLine,
@@ -36,9 +36,101 @@ function SentimentDot({ score }: { score: number | null }) {
   return <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" title={`情绪: ${score.toFixed(2)}`} />
 }
 
+function PortfolioNewsTab({ newsItems }: { newsItems: NewsEvent[] }) {
+  const { data: positions, isLoading: posLoading } = useQuery({
+    queryKey: ['trading', 'positions'],
+    queryFn: () => tradingApi.positions(),
+  })
+
+  const positionAssets = useMemo(
+    () => new Set(positions?.items.map(p => p.asset_id) ?? []),
+    [positions],
+  )
+
+  const portfolioNews = useMemo(() => {
+    if (positionAssets.size === 0) return []
+    return newsItems
+      .filter(item => item.asset_ids_mentioned.some(id => positionAssets.has(id)))
+      .sort((a, b) => {
+        const sa = a.sentiment_score ?? 0
+        const sb = b.sentiment_score ?? 0
+        return sa - sb // most negative first
+      })
+  }, [newsItems, positionAssets])
+
+  if (posLoading) return <p className="text-gray-400">加载持仓中...</p>
+
+  if (positionAssets.size === 0) {
+    return (
+      <div className="text-center text-gray-400 py-12">
+        <p className="text-lg mb-1">暂无持仓</p>
+        <p className="text-sm">请先在交易模块建仓后查看持仓相关新闻</p>
+      </div>
+    )
+  }
+
+  if (portfolioNews.length === 0) {
+    return <p className="text-sm text-gray-400 py-8 text-center">暂无与持仓相关的新闻</p>
+  }
+
+  const abnormal = portfolioNews.filter(n => n.sentiment_score !== null && n.sentiment_score < -0.3)
+
+  return (
+    <div className="space-y-4">
+      {abnormal.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-sm font-medium text-red-700">
+            {abnormal.length} 条持仓资产存在异常负面情绪，请关注
+          </p>
+        </div>
+      )}
+
+      <div className="text-xs text-gray-500">
+        共 {portfolioNews.length} 条持仓相关新闻（持仓资产: {positionAssets.size} 个）
+      </div>
+
+      <div className="space-y-3">
+        {portfolioNews.map(item => (
+          <div key={item.event_id} className="card">
+            <div className="flex items-start gap-3">
+              <SentimentDot score={item.sentiment_score} />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-gray-900 leading-snug">{item.headline}</div>
+                <div className="flex gap-3 mt-1 text-xs text-gray-400">
+                  <span>{item.source}</span>
+                  <span>{item.event_type}</span>
+                  <span>{item.published_at?.slice(0, 16) ?? '---'}</span>
+                  {item.sentiment_score !== null && (
+                    <span className={item.sentiment_score < -0.3 ? 'text-red-600 font-medium' : item.sentiment_score > 0.3 ? 'text-green-600' : ''}>
+                      情绪: {item.sentiment_score.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                {item.asset_ids_mentioned.length > 0 && (
+                  <div className="flex gap-1 mt-2 flex-wrap">
+                    {item.asset_ids_mentioned.map(a => (
+                      <span
+                        key={a}
+                        className={`badge text-xs ${positionAssets.has(a) ? 'bg-amber-50 text-amber-700 font-medium' : 'bg-indigo-50 text-indigo-700'}`}
+                      >
+                        {a}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const tabs = [
   { id: 'timeline', label: '新闻时间线' },
   { id: 'impact', label: '影响分析' },
+  { id: 'portfolio', label: '持仓新闻' },
 ] as const
 
 type NewsTab = typeof tabs[number]['id']
@@ -456,6 +548,8 @@ export function NewsPage() {
       </>)}
 
       {activeTab === 'impact' && <NewsImpact />}
+
+      {activeTab === 'portfolio' && <PortfolioNewsTab newsItems={data?.items ?? []} />}
     </div>
   )
 }
