@@ -62,11 +62,30 @@ class MonthEndEffect:
 
 
 @dataclass
+class HolidayPreDayEffect:
+    """Effect statistics for N trading days before a holiday."""
+    n: int
+    mean_return: float
+    std_return: float
+    win_rate: float
+    t_stat: float
+    count: int
+
+
+@dataclass
+class HolidayEffect:
+    """Holiday effect analysis for one holiday type."""
+    holiday: str
+    pre_days: list[HolidayPreDayEffect] = field(default_factory=list)
+
+
+@dataclass
 class CalendarAnalysisResult:
     """Full calendar analysis result."""
     month_effects: list[MonthEffect] = field(default_factory=list)
     weekday_effects: list[WeekdayEffect] = field(default_factory=list)
     month_end_effect: MonthEndEffect | None = None
+    holiday_effects: list[HolidayEffect] = field(default_factory=list)
     total_observations: int = 0
 
     def to_dict(self) -> dict[str, Any]:
@@ -106,6 +125,23 @@ class CalendarAnalysisResult:
             }
             if self.month_end_effect
             else None,
+            "holiday_effects": [
+                {
+                    "holiday": h.holiday,
+                    "pre_days": [
+                        {
+                            "n": pd.n,
+                            "mean_return": pd.mean_return,
+                            "std_return": pd.std_return,
+                            "win_rate": pd.win_rate,
+                            "t_stat": pd.t_stat,
+                            "count": pd.count,
+                        }
+                        for pd in h.pre_days
+                    ],
+                }
+                for h in self.holiday_effects
+            ],
             "total_observations": self.total_observations,
         }
 
@@ -119,6 +155,16 @@ MONTH_LABELS = {
 WEEKDAY_LABELS = {
     0: "周一", 1: "周二", 2: "周三", 3: "周四", 4: "周五",
 }
+
+# Holiday detection ranges: (display_name, start_month, start_day, end_month, end_day)
+# We scan the CNCalendar holiday set to find consecutive non-trading days within
+# these windows. The first day of each cluster is the "holiday start" we use for
+# pre-holiday effect analysis.
+_HOLIDAY_WINDOWS: list[tuple[str, int, int, int, int]] = [
+    ("春节", 1, 20, 2, 15),    # Spring Festival: late Jan to mid Feb
+    ("国庆", 9, 25, 10, 10),   # National Day: late Sep to early Oct
+    ("元旦", 12, 25, 1, 5),    # New Year: late Dec to early Jan (cross-year)
+]
 
 
 class CalendarAnalyzer:
@@ -285,12 +331,166 @@ class CalendarAnalyzer:
         else:
             month_end_effect = None
 
+        # --- Holiday effect ---
+        holiday_effects = self._compute_holiday_effects(df)
+
         return CalendarAnalysisResult(
             month_effects=month_effects,
             weekday_effects=weekday_effects,
             month_end_effect=month_end_effect,
+            holiday_effects=holiday_effects,
             total_observations=total,
         )
+
+    def _compute_holiday_effects(self, df: pl.DataFrame) -> list[HolidayEffect]:
+        """Compute pre-holiday return effects for CN A-share holidays.
+
+        For each holiday (Spring Festival, National Day, New Year):
+        - Find the first trading day after the holiday break (the "reopening" day)
+        - Look back N=1,3,5 trading days before the holiday break
+        - Compute mean return, win rate, and t-stat for those pre-holiday days
+
+        Uses the CNCalendar to identify holiday dates from the built-in set.
+        """
+        from datetime import date, timedelta
+
+        try:
+            from cquant.market_calendar.calendars.cn import CNCalendar
+            cal = CNCalendar()
+        except ImportError:
+            logger.debug("CNCalendar not available, skipping holiday effects")
+            return []
+
+        # Build the set of trading dates present in the returns data
+        trading_dates_in_data: set[date] = set()
+        for row in df.select("dt").iter_rows():
+            d = row[0]
+            if isinstance(d, date):
+                trading_dates_in_data.add(d)
+
+        if not trading_dates_in_data:
+            return []
+
+        # Sorted list of trading dates from the data for prev-day lookup
+        sorted_trading_dates = sorted(trading_dates_in_data)
+
+        # For each holiday, find the "reopening" dates (first trading day after each
+        # holiday break) and then look backwards to find pre-holiday trading days.
+        holiday_effects: list[HolidayEffect] = []
+
+        for holiday_name, win_start_m, win_start_d, win_end_m, win_end_d in _HOLIDAY_WINDOWS:
+            # Find all years covered by the data
+            min_year = min(d.year for d in sorted_trading_dates)
+            max_year = max(d.year for d in sorted_trading_dates)
+
+            pre_day_returns: dict[int, list[float]] = {1: [], 3: [], 5: []}
+
+            for year in range(min_year, max_year + 1):
+                # Build the window date range for this year
+                try:
+                    if holiday_name == "元旦":
+                        # Cross-year: Dec 25 year-1 to Jan 5 year
+                        win_start = date(year, win_start_m, win_start_d)
+                        win_end = date(year + 1, win_end_m, win_end_d)
+                    else:
+                        win_start = date(year, win_start_m, win_start_d)
+                        win_end = date(year, win_end_m, win_end_d)
+                except ValueError:
+                    continue
+
+                # Find all non-trading days (holidays) within this window
+                # that are in the CNCalendar holiday set
+                holiday_cluster: list[date] = []
+                current = win_start
+                while current <= win_end:
+                    if not cal.is_trading_day(current):
+                        holiday_cluster.append(current)
+                    current += timedelta(days=1)
+
+                if not holiday_cluster:
+                    continue
+
+                # The last day of the holiday cluster is the day before reopening
+                # Find the reopening date (first trading day after the cluster)
+                last_holiday = holiday_cluster[-1]
+                # Walk forward to find the first trading day (reopening)
+                reopening = last_holiday + timedelta(days=1)
+                while reopening <= win_end + timedelta(days=5):
+                    if cal.is_trading_day(reopening) and reopening in trading_dates_in_data:
+                        break
+                    reopening += timedelta(days=1)
+                else:
+                    continue
+
+                # Now look backwards from the first day of the holiday cluster
+                # to find the N trading days before it
+                first_holiday = holiday_cluster[0]
+                # Find the trading day immediately before the holiday cluster
+                prev_day = first_holiday - timedelta(days=1)
+                while prev_day >= first_holiday - timedelta(days=10):
+                    if prev_day in trading_dates_in_data:
+                        break
+                    prev_day -= timedelta(days=1)
+                else:
+                    continue
+
+                # prev_day is the last trading day before the holiday
+                # Find its index in sorted_trading_dates
+                import bisect
+                idx = bisect.bisect_left(sorted_trading_dates, prev_day)
+                if idx >= len(sorted_trading_dates) or sorted_trading_dates[idx] != prev_day:
+                    continue
+
+                # Collect returns for N=1,3,5 trading days before the holiday
+                for n in [1, 3, 5]:
+                    start_idx = max(0, idx - n + 1)
+                    for i in range(start_idx, idx + 1):
+                        td = sorted_trading_dates[i]
+                        # Look up the return for this date from df
+                        ret_rows = df.filter(pl.col("dt") == td).select("ret").to_list()
+                        if ret_rows:
+                            pre_day_returns[n].append(ret_rows[0][0])
+
+            # Build HolidayPreDayEffect for each N
+            pre_days: list[HolidayPreDayEffect] = []
+            for n in [1, 3, 5]:
+                rets = pre_day_returns[n]
+                if not rets:
+                    pre_days.append(HolidayPreDayEffect(
+                        n=n, mean_return=0.0, std_return=0.0,
+                        win_rate=0.0, t_stat=0.0, count=0,
+                    ))
+                    continue
+
+                mean_r = sum(rets) / len(rets)
+                if len(rets) > 1:
+                    var = sum((r - mean_r) ** 2 for r in rets) / (len(rets) - 1)
+                    std_r = var ** 0.5
+                else:
+                    std_r = 0.0
+
+                wins = sum(1 for r in rets if r > 0)
+                wr = wins / len(rets) if rets else 0.0
+
+                # t-stat: test if mean return is significantly different from 0
+                se = std_r / (len(rets) ** 0.5) if std_r > 0 and len(rets) > 0 else 0.0
+                t = mean_r / se if se > 0 else 0.0
+
+                pre_days.append(HolidayPreDayEffect(
+                    n=n,
+                    mean_return=round(mean_r, 6),
+                    std_return=round(std_r, 6),
+                    win_rate=round(wr, 4),
+                    t_stat=round(t, 4),
+                    count=len(rets),
+                ))
+
+            holiday_effects.append(HolidayEffect(
+                holiday=holiday_name,
+                pre_days=pre_days,
+            ))
+
+        return holiday_effects
 
 
 def _norm_cdf(x: float) -> float:
