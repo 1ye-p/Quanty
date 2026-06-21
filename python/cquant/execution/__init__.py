@@ -9,10 +9,20 @@ Provides:
 - SignalConverter: convert signals to Order objects
 - ExecutionPersister: persist execution results
 - LiveExecutor: daily execution engine
+- AlgoOrderManager: TWAP/VWAP algorithmic order execution
 """
 
 from cquant.execution.adapter import BrokerAdapter, BrokerInfo
 from cquant.execution.adapters import create_adapter, list_adapters, register_adapter
+from cquant.execution.algo_orders import (
+    AlgoOrder,
+    AlgoOrderManager,
+    AlgoOrderParams,
+    AlgoSlice,
+    AlgoType,
+    TWAPEngine,
+    VWAPEngine,
+)
 from cquant.execution.broker import Broker, OrderStatus
 from cquant.execution.execution_persister import ExecutionPersister
 from cquant.execution.live_executor import LiveExecutor
@@ -33,4 +43,11 @@ __all__ = [
     "SignalConverter",
     "ExecutionPersister",
     "LiveExecutor",
+    "AlgoType",
+    "AlgoOrderParams",
+    "AlgoSlice",
+    "AlgoOrder",
+    "TWAPEngine",
+    "VWAPEngine",
+    "AlgoOrderManager",
 ]

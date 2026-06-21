@@ -1,17 +1,24 @@
 """cquant.api_server.routes.trading — Trading operations API.
 
-Provides endpoints for order management, position queries, and account state.
+Provides endpoints for order management, position queries, account state,
+and algorithmic order execution (TWAP/VWAP).
 """
 
 from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, field_validator
 
+from cquant.execution.algo_orders import (
+    AlgoOrderManager,
+    AlgoOrderParams,
+    AlgoType,
+)
 from cquant.execution.broker import Order, OrderStatus
 from cquant.execution.paper_broker import PaperBroker
 
@@ -20,6 +27,7 @@ router = APIRouter(prefix="/trading", tags=["trading"])
 
 # Singleton PaperBroker for demo (in production, per-session or per-user)
 _paper_broker: PaperBroker | None = None
+_algo_manager: AlgoOrderManager | None = None
 
 
 def _get_paper_broker() -> PaperBroker:
@@ -28,6 +36,14 @@ def _get_paper_broker() -> PaperBroker:
         from cquant.core.config import settings
         _paper_broker = PaperBroker(initial_cash=settings.backtest.initial_cash)
     return _paper_broker
+
+
+def _get_algo_manager() -> AlgoOrderManager:
+    global _algo_manager
+    if _algo_manager is None:
+        broker = _get_paper_broker()
+        _algo_manager = AlgoOrderManager(broker)
+    return _algo_manager
 
 
 def _get_broker(name: str):
@@ -270,4 +286,202 @@ def _order_to_dict(order: Order) -> dict[str, Any]:
         "reject_reason": order.reject_reason,
         "submitted_at": order.submitted_at.isoformat() if order.submitted_at else None,
         "filled_at": order.filled_at.isoformat() if order.filled_at else None,
+    }
+
+
+# ── Algo Order Models ─────────────────────────────────────────────────────────
+
+
+class AlgoOrderRequest(BaseModel):
+    """Request to place an algorithmic order."""
+    algo_type: str  # "twap" | "vwap"
+    asset_id: str
+    side: str  # "buy", "sell"
+    total_qty: int
+    start_time: datetime
+    end_time: datetime
+    num_slices: int = 10
+    lookback_days: int = 20
+    broker: str = "paper"
+    strategy_id: str = ""
+
+    @field_validator("total_qty")
+    @classmethod
+    def validate_qty(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("total_qty must be > 0")
+        return v
+
+    @field_validator("side")
+    @classmethod
+    def validate_side(cls, v: str) -> str:
+        if v not in {"buy", "sell"}:
+            raise ValueError("side must be 'buy' or 'sell'")
+        return v
+
+    @field_validator("algo_type")
+    @classmethod
+    def validate_algo_type(cls, v: str) -> str:
+        if v not in {"twap", "vwap"}:
+            raise ValueError("algo_type must be 'twap' or 'vwap'")
+        return v
+
+    @field_validator("asset_id")
+    @classmethod
+    def validate_asset_id(cls, v: str) -> str:
+        if ":" not in v:
+            raise ValueError("asset_id must be EXCHANGE:CODE (e.g. SSE:600036)")
+        return v
+
+    @field_validator("num_slices")
+    @classmethod
+    def validate_num_slices(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("num_slices must be > 0")
+        return v
+
+
+# ── Algo Order Endpoints ──────────────────────────────────────────────────────
+
+
+@router.post("/algo-order")
+async def place_algo_order(req: AlgoOrderRequest) -> dict[str, Any]:
+    """Place a TWAP or VWAP algorithm order.
+
+    Creates an algorithmic order that splits execution into multiple slices
+    over the specified time window.
+
+    - **TWAP**: Equal time intervals, equal quantities
+    - **VWAP**: Based on historical volume profile
+    """
+    # Validate time window
+    if req.end_time <= req.start_time:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="end_time must be after start_time",
+        )
+
+    # Create AlgoOrderParams
+    params = AlgoOrderParams(
+        algo_type=AlgoType(req.algo_type),
+        asset_id=req.asset_id,
+        side=req.side,
+        total_qty=req.total_qty,
+        start_time=req.start_time,
+        end_time=req.end_time,
+        num_slices=req.num_slices,
+        lookback_days=req.lookback_days,
+        broker=req.broker,
+        strategy_id=req.strategy_id,
+    )
+
+    manager = _get_algo_manager()
+    try:
+        order = manager.create_order(params)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    logger.info(
+        "Algo order placed: %s %s %s x%d (%s)",
+        order.order_id,
+        req.algo_type,
+        req.asset_id,
+        req.total_qty,
+        req.side,
+    )
+
+    return order.to_dict()
+
+
+@router.get("/algo-order/{order_id}")
+async def get_algo_order_status(order_id: str) -> dict[str, Any]:
+    """Get algo order execution status.
+
+    Returns the current status of the algorithmic order including:
+    - Overall order status and progress
+    - Individual slice details (scheduled time, fill status, prices)
+    - Cumulative filled quantity and average price
+    """
+    manager = _get_algo_manager()
+    order = manager.get_order(order_id)
+
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Algo order not found: {order_id}",
+        )
+
+    return order.to_dict()
+
+
+@router.get("/algo-orders")
+async def list_algo_orders(
+    status: str | None = None,
+) -> dict[str, Any]:
+    """List all algorithmic orders.
+
+    Parameters
+    ----------
+    status:
+        Filter by order status: "active", "completed", "cancelled".
+    """
+    manager = _get_algo_manager()
+    orders = manager.get_orders(status=status)
+
+    return {
+        "items": [o.to_dict() for o in orders],
+        "total": len(orders),
+    }
+
+
+@router.delete("/algo-order/{order_id}")
+async def cancel_algo_order(order_id: str) -> dict[str, Any]:
+    """Cancel an algorithmic order.
+
+    Cancels all pending slices. Already-filled slices are not affected.
+    """
+    manager = _get_algo_manager()
+    try:
+        order = manager.cancel_order(order_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+
+    return order.to_dict()
+
+
+@router.post("/algo-order/{order_id}/execute")
+async def execute_algo_slices(order_id: str) -> dict[str, Any]:
+    """Execute due slices for an algorithmic order.
+
+    Triggers execution of any slices whose scheduled_time has passed.
+    This endpoint can be called periodically (e.g., by a scheduler) to
+    advance the algo order execution.
+    """
+    manager = _get_algo_manager()
+    order = manager.get_order(order_id)
+
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Algo order not found: {order_id}",
+        )
+
+    if order.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Algo order is not active (status: {order.status})",
+        )
+
+    executed = manager.execute_due_slices(order_id)
+
+    return {
+        "order_id": order_id,
+        "executed_slices": len(executed),
+        "order": order.to_dict(),
     }
