@@ -5,6 +5,7 @@ export const queryKeys = {
     all: ['datasets'] as const,
     list: (limit: number) => ['datasets', 'list', limit] as const,
     detail: (id: string) => ['datasets', id] as const,
+    compare: (a: string, b: string) => ['datasets', 'compare', a, b] as const,
   },
   backtests: {
     all: ['backtests'] as const,

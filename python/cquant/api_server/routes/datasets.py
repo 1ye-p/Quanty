@@ -272,6 +272,11 @@ async def compare_datasets(
             status_code=400,
             detail="Both version_a and version_b query parameters are required.",
         )
+    if version_a == version_b:
+        raise HTTPException(
+            status_code=400,
+            detail="version_a and version_b must be different.",
+        )
 
     # -- Fetch metadata for both versions ------------------------------------
     meta_a = catalog.query(
@@ -303,7 +308,7 @@ async def compare_datasets(
         catalog.execute("SELECT dataset_version FROM silver_prices_1d LIMIT 1")
         has_version_col = True
     except Exception:
-        pass
+        logger.debug("silver_prices_1d has no dataset_version column")
 
     # -- Field schema comparison (from silver_prices_1d columns) ---------------
     field_changes: dict = {

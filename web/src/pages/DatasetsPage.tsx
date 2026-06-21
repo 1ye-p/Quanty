@@ -24,7 +24,7 @@ function VersionComparison({ versions }: { versions: { version_id: string; datas
   const [triggered, setTriggered] = useState(false)
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['datasets', 'compare', versionA, versionB],
+    queryKey: queryKeys.datasets.compare(versionA, versionB),
     queryFn: () => datasetsApi.compareVersions(versionA, versionB),
     enabled: triggered && !!versionA && !!versionB && versionA !== versionB,
   })
