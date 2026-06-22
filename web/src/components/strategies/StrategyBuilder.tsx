@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { datasetsApi, riskApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
+import { ConditionEditor } from '@/components/strategies/ConditionEditor'
 
 interface StrategyBuilderProps {
   initialConfig: string
@@ -48,6 +49,17 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
   )
   const [market, setMarket] = useState(parsed.market_rule?.market ?? 'CN')
   const [adjType, setAdjType] = useState(parsed.market_rule?.adj_type ?? 'forward')
+  // IndicatorSignal state
+  const [entryConditions, setEntryConditions] = useState<string[]>(
+    parsed.entry_conditions ?? ['']
+  )
+  const [exitConditions, setExitConditions] = useState<string[]>(
+    parsed.exit_conditions ?? ['']
+  )
+  const [maxPositions, setMaxPositions] = useState(String(parsed.max_positions ?? 10))
+  const [filterST, setFilterST] = useState(parsed.filters?.exclude_st ?? true)
+  const [filterSuspended, setFilterSuspended] = useState(parsed.filters?.exclude_suspended ?? true)
+  const [filterLimitUpDown, setFilterLimitUpDown] = useState(parsed.filters?.exclude_limit_up_down ?? true)
 
   const { data: policies } = useQuery({
     queryKey: extendedQueryKeys.risk.policies(),
@@ -87,6 +99,39 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       config.combo_method = comboMethod
       try { config.sub_strategy_configs = JSON.parse(subStrategyConfigs) } catch { config.sub_strategy_configs = [] }
     }
+    if (strategyType === 'IndicatorSignal') {
+      config.entry_conditions = entryConditions.filter(c => c.trim())
+      config.exit_conditions = exitConditions.filter(c => c.trim())
+      config.max_positions = Number(maxPositions) || 10
+      config.filters = {
+        exclude_st: filterST,
+        exclude_suspended: filterSuspended,
+        exclude_limit_up_down: filterLimitUpDown,
+      }
+      // Extract indicator specs from DSL conditions
+      const allDsl = [...entryConditions, ...exitConditions].filter(c => c.trim()).join(' ')
+      const indicatorSpecs: { name: string; params: Record<string, number> }[] = []
+      const specMap = new Map<string, Record<string, number>>()
+      const indicatorPattern = /(\w+)\(([^)]*)\)/g
+      let m: RegExpExecArray | null
+      while ((m = indicatorPattern.exec(allDsl)) !== null) {
+        const name = m[1]
+        const paramStr = m[2]
+        if (!specMap.has(name) && paramStr) {
+          const nums = paramStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n))
+          if (nums.length > 0) {
+            const keys = ['period', 'fast', 'slow', 'signal', 'std_dev', 'k_period', 'd_period']
+            const params: Record<string, number> = {}
+            nums.forEach((n, i) => { if (keys[i]) params[keys[i]] = n })
+            specMap.set(name, params)
+          }
+        }
+      }
+      specMap.forEach((params, name) => indicatorSpecs.push({ name, params }))
+      if (indicatorSpecs.length > 0) {
+        config.indicator_specs = indicatorSpecs
+      }
+    }
     if (Object.keys(sizerParams).length > 0) {
       config.sizer_params = sizerParams
     }
@@ -112,7 +157,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
     }
     config.market_rule = { market, adj_type: adjType }
     onChange(JSON.stringify(config, null, 2))
-  }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker, market, adjType])
+  }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker, market, adjType, entryConditions, exitConditions, maxPositions, filterST, filterSuspended, filterLimitUpDown])
 
   const selectedSizerInfo = sizers?.find(s => s.name === sizer)
 
@@ -128,6 +173,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           <option value="MarketNeutral">MarketNeutral — 市场中性（多空）</option>
           <option value="SectorRotation">SectorRotation — 行业轮动</option>
           <option value="Combo">Combo — 组合策略</option>
+          <option value="IndicatorSignal">IndicatorSignal — 指标信号</option>
         </select>
       </div>
 
@@ -220,6 +266,106 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
             <textarea className="input w-full font-mono text-xs" rows={4}
               value={subStrategyConfigs} onChange={e => setSubStrategyConfigs(e.target.value)}
               placeholder='[{"strategy_type":"StaticTopN","top_n":5,"sort_factor":"ret_20d"},{"strategy_type":"MultiFactor","top_n":5,"sort_factor":"vol_20d"}]' />
+          </div>
+        </div>
+      )}
+
+      {/* IndicatorSignal params */}
+      {strategyType === 'IndicatorSignal' && (
+        <div className="border rounded-lg p-3 bg-blue-50 space-y-4">
+          <div className="text-xs font-medium text-gray-600 mb-2">指标信号参数</div>
+
+          {/* Entry conditions */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-gray-500 font-medium">入场条件</label>
+              <button
+                className="text-xs text-blue-600 hover:text-blue-800"
+                onClick={() => setEntryConditions(prev => [...prev, ''])}
+              >
+                + 添加条件
+              </button>
+            </div>
+            {entryConditions.map((cond, idx) => (
+              <div key={idx} className="mb-2">
+                <ConditionEditor
+                  label={`入场条件 ${idx + 1}`}
+                  value={cond}
+                  onChange={(dsl) => {
+                    setEntryConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
+                  }}
+                />
+                {entryConditions.length > 1 && (
+                  <button
+                    className="mt-1 text-xs text-red-500 hover:text-red-700"
+                    onClick={() => setEntryConditions(prev => prev.filter((_, i) => i !== idx))}
+                  >
+                    删除此条件
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Exit conditions */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-gray-500 font-medium">出场条件</label>
+              <button
+                className="text-xs text-blue-600 hover:text-blue-800"
+                onClick={() => setExitConditions(prev => [...prev, ''])}
+              >
+                + 添加条件
+              </button>
+            </div>
+            {exitConditions.map((cond, idx) => (
+              <div key={idx} className="mb-2">
+                <ConditionEditor
+                  label={`出场条件 ${idx + 1}`}
+                  value={cond}
+                  onChange={(dsl) => {
+                    setExitConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
+                  }}
+                />
+                {exitConditions.length > 1 && (
+                  <button
+                    className="mt-1 text-xs text-red-500 hover:text-red-700"
+                    onClick={() => setExitConditions(prev => prev.filter((_, i) => i !== idx))}
+                  >
+                    删除此条件
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Position sizing */}
+          <div>
+            <label className="text-xs text-gray-500">最大持仓数</label>
+            <input type="number" className="input w-full" value={maxPositions}
+              onChange={e => setMaxPositions(e.target.value)} min={1} />
+          </div>
+
+          {/* Filters */}
+          <div>
+            <label className="text-xs text-gray-500 font-medium mb-2 block">过滤选项</label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={filterST}
+                  onChange={e => setFilterST(e.target.checked)} />
+                <span className="text-gray-700">排除 ST 股票</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={filterSuspended}
+                  onChange={e => setFilterSuspended(e.target.checked)} />
+                <span className="text-gray-700">排除停牌股票</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={filterLimitUpDown}
+                  onChange={e => setFilterLimitUpDown(e.target.checked)} />
+                <span className="text-gray-700">排除涨跌停股票</span>
+              </label>
+            </div>
           </div>
         </div>
       )}
