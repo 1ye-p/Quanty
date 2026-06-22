@@ -93,10 +93,15 @@ function validateDsl(dsl: string): DslDiagnostic[] {
     if (/\($/.test(tok)) continue
     // Could be a number parameter inside parens
     if (/^\d+(\.\d+)?[),]?$/.test(clean)) continue
+    // Unknown token
+    errors.push({ line: 1, column: 0, message: `未知标识符: "${clean}"`, severity: 'error' })
   }
 
   return errors
 }
+
+// ── Module-level state for Monaco language registration ─────────────────────
+let _langRegistered = false
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -106,7 +111,6 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
   const [diagnostics, setDiagnostics] = useState<DslDiagnostic[]>([])
   const editorRef = useRef<editorTypes.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
-  const langRegistered = useRef(false)
 
   // Validate on every change
   useEffect(() => {
@@ -119,7 +123,7 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
       editorRef.current = editor
       monacoRef.current = monaco
 
-      if (!langRegistered.current) {
+      if (!_langRegistered) {
         // Register language
         monaco.languages.register({ id: CONDITION_DSL_LANG_ID })
         monaco.languages.setMonarchTokensProvider(CONDITION_DSL_LANG_ID, CONDITION_DSL_LANG)
@@ -146,7 +150,7 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
           },
         })
 
-        langRegistered.current = true
+        _langRegistered = true
       }
 
       // Apply the theme
