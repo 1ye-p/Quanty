@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { datasetsApi, riskApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { ConditionEditor } from '@/components/strategies/ConditionEditor'
+import { RuleConditionEditor } from '@/components/strategies/RuleConditionEditor'
+import { StrategyTemplates, type StrategyTemplate } from '@/components/strategies/StrategyTemplates'
 
 interface StrategyBuilderProps {
   initialConfig: string
@@ -60,6 +62,8 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
   const [filterST, setFilterST] = useState(parsed.filters?.exclude_st ?? true)
   const [filterSuspended, setFilterSuspended] = useState(parsed.filters?.exclude_suspended ?? true)
   const [filterLimitUpDown, setFilterLimitUpDown] = useState(parsed.filters?.exclude_limit_up_down ?? true)
+  const [editorMode, setEditorMode] = useState<'ui' | 'code'>('ui')
+  const [showTemplates, setShowTemplates] = useState(false)
 
   const { data: policies } = useQuery({
     queryKey: extendedQueryKeys.risk.policies(),
@@ -158,6 +162,13 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
     config.market_rule = { market, adj_type: adjType }
     onChange(JSON.stringify(config, null, 2))
   }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker, market, adjType, entryConditions, exitConditions, maxPositions, filterST, filterSuspended, filterLimitUpDown])
+
+  // Handle template selection — populate entry/exit conditions
+  const handleTemplateSelect = (tpl: StrategyTemplate) => {
+    setEntryConditions(tpl.entry.length > 0 ? tpl.entry : [''])
+    setExitConditions(tpl.exit.length > 0 ? tpl.exit : [''])
+    setShowTemplates(false)
+  }
 
   const selectedSizerInfo = sizers?.find(s => s.name === sizer)
 
@@ -275,6 +286,44 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
         <div className="border rounded-lg p-3 bg-blue-50 space-y-4">
           <div className="text-xs font-medium text-gray-600 mb-2">指标信号参数</div>
 
+          {/* Mode toggle + template button */}
+          <div className="flex gap-2 mb-4">
+            <button
+              className={`text-xs px-3 py-1.5 rounded transition-colors ${editorMode === 'ui' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}
+              onClick={() => setEditorMode('ui')}
+            >
+              UI 模式
+            </button>
+            <button
+              className={`text-xs px-3 py-1.5 rounded transition-colors ${editorMode === 'code' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}
+              onClick={() => setEditorMode('code')}
+            >
+              代码模式
+            </button>
+            <button
+              className="text-xs px-3 py-1.5 rounded bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 transition-colors"
+              onClick={() => setShowTemplates(true)}
+            >
+              加载模板
+            </button>
+          </div>
+
+          {/* Template modal */}
+          {showTemplates && (
+            <div className="border rounded-lg p-3 bg-white">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-gray-600">选择策略模板</span>
+                <button
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                  onClick={() => setShowTemplates(false)}
+                >
+                  关闭
+                </button>
+              </div>
+              <StrategyTemplates onSelect={handleTemplateSelect} />
+            </div>
+          )}
+
           {/* Entry conditions */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -288,13 +337,23 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
             </div>
             {entryConditions.map((cond, idx) => (
               <div key={idx} className="mb-2">
-                <ConditionEditor
-                  label={`入场条件 ${idx + 1}`}
-                  value={cond}
-                  onChange={(dsl) => {
-                    setEntryConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
-                  }}
-                />
+                {editorMode === 'ui' ? (
+                  <ConditionEditor
+                    label={`入场条件 ${idx + 1}`}
+                    value={cond}
+                    onChange={(dsl) => {
+                      setEntryConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
+                    }}
+                  />
+                ) : (
+                  <RuleConditionEditor
+                    label={`入场条件 ${idx + 1}`}
+                    value={cond}
+                    onChange={(dsl) => {
+                      setEntryConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
+                    }}
+                  />
+                )}
                 {entryConditions.length > 1 && (
                   <button
                     className="mt-1 text-xs text-red-500 hover:text-red-700"
@@ -320,13 +379,23 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
             </div>
             {exitConditions.map((cond, idx) => (
               <div key={idx} className="mb-2">
-                <ConditionEditor
-                  label={`出场条件 ${idx + 1}`}
-                  value={cond}
-                  onChange={(dsl) => {
-                    setExitConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
-                  }}
-                />
+                {editorMode === 'ui' ? (
+                  <ConditionEditor
+                    label={`出场条件 ${idx + 1}`}
+                    value={cond}
+                    onChange={(dsl) => {
+                      setExitConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
+                    }}
+                  />
+                ) : (
+                  <RuleConditionEditor
+                    label={`出场条件 ${idx + 1}`}
+                    value={cond}
+                    onChange={(dsl) => {
+                      setExitConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
+                    }}
+                  />
+                )}
                 {exitConditions.length > 1 && (
                   <button
                     className="mt-1 text-xs text-red-500 hover:text-red-700"
