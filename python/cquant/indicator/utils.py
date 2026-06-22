@@ -54,5 +54,5 @@ def wilder_smooth(series: pl.Series, period: int) -> pl.Series:
     Returns:
         Smoothed series.
     """
-    alpha = 1.0 / period
-    return series.ewm_mean(span=period, min_periods=period)
+    # Wilder's smoothing uses alpha = 1/period (not standard EMA's 2/(period+1))
+    return series.ewm_mean(alpha=1.0 / period, min_periods=period)

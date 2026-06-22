@@ -69,6 +69,8 @@ async def compute_indicators(body: ComputeBody) -> dict:
 
     if not body.data:
         raise HTTPException(status_code=400, detail="data must not be empty")
+    if len(body.data) > 50_000:
+        raise HTTPException(status_code=400, detail="data exceeds maximum 50,000 rows")
     if not body.indicators:
         raise HTTPException(status_code=400, detail="indicators must not be empty")
 
@@ -84,3 +86,22 @@ async def compute_indicators(body: ComputeBody) -> dict:
         raise HTTPException(status_code=400, detail=str(exc))
 
     return {"columns": result.columns, "rows": result.to_dicts()}
+
+
+@router.get("/ohlcv/{asset_id}")
+async def get_ohlcv(
+    asset_id: str,
+    catalog: CatalogDep,
+    days: int = Query(default=252, ge=1, le=1000),
+) -> dict:
+    """Get OHLCV data for an asset for indicator preview."""
+    df = catalog.query(
+        "SELECT trade_date, open, high, low, close, volume "
+        "FROM silver_prices_1d WHERE asset_id = ? "
+        "ORDER BY trade_date DESC LIMIT ?",
+        [asset_id, days],
+    )
+    if df.is_empty():
+        return {"asset_id": asset_id, "data": [], "count": 0}
+    rows = df.sort("trade_date").to_dicts()
+    return {"asset_id": asset_id, "data": rows, "count": len(rows)}
