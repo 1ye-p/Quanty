@@ -8,6 +8,12 @@ Provides 30+ technical indicators organized by category:
 - volatility: bollinger_bands, atr, keltner_channels, stddev, variance
 - volume: obv, vpt, mfi, ad_line, cmf, volume_sma, volume_ratio
 
+Also provides a condition DSL for defining strategy signal conditions::
+
+    from cquant.indicator.conditions import parse_condition, evaluate_condition
+
+    signals = evaluate_condition(df, "rsi(14) > 70 AND close > sma(20)")
+
 Usage::
 
     from cquant.indicator import list_indicators, compute
