@@ -99,3 +99,6 @@ export type { PipelineStage, PipelineStatusResponse } from './api/pipeline'
 
 export { alertsApi } from './api/alerts'
 export type { AlertRule, AlertHistory, NotificationChannel } from './api/alerts'
+
+export { indicatorsApi } from './api/indicators'
+export type { IndicatorInfo, IndicatorParam, IndicatorCategories } from './api/indicators'

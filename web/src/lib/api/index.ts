@@ -118,3 +118,6 @@ export type {
   RiskCheckRequest,
   RiskCheckResult,
 } from './risk'
+
+export { indicatorsApi } from './indicators'
+export type { IndicatorInfo, IndicatorParam, IndicatorCategories } from './indicators'
