@@ -26,6 +26,7 @@ from cquant.bt_analyzer.multiple_testing import MultipleTestingCorrector
 from cquant.bt_analyzer.sensitivity import SensitivityAnalyzer
 from cquant.bt_analyzer.sharpe import SharpeMetrics
 from cquant.bt_analyzer.stability import StabilityAnalyzer
+from cquant.bt_analyzer.statistical_tests import bootstrap_test, mcs_test, psr_difference
 from cquant.bt_analyzer.trade_analysis import TradeAnalyzer
 from cquant.bt_analyzer.walk_forward import WalkForwardAnalyzer
 
@@ -43,4 +44,7 @@ __all__ = [
     "TradeAnalyzer",
     "ValidationWindow",
     "WalkForwardAnalyzer",
+    "bootstrap_test",
+    "mcs_test",
+    "psr_difference",
 ]

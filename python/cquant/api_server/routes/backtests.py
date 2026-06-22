@@ -684,6 +684,115 @@ async def compare_backtests(run_ids: str, catalog: CatalogDep) -> dict:
     return {"runs": results}
 
 
+class StatisticalTestBody(BaseModel):
+    """Request body for statistical significance test between backtests."""
+    backtest_ids: list[str]
+    test_type: str = "psr_diff"  # "psr_diff" | "bootstrap" | "mcs"
+    confidence: float = 0.95
+
+
+@router.post("/compare/statistical-test")
+async def statistical_test(
+    body: StatisticalTestBody,
+    catalog: CatalogDep,
+) -> dict:
+    """Run statistical significance test between backtests.
+
+    Compares return distributions of multiple backtests using one of:
+    - psr_diff: Jobson & Korkie (1981) Sharpe ratio difference test
+    - bootstrap: Bootstrap confidence interval for Sharpe difference
+    - mcs: Model Confidence Set to identify statistically best strategies
+
+    Args:
+        body: backtest_ids (2-6 run IDs), test_type, confidence level.
+    """
+    import numpy as np
+
+    if len(body.backtest_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 backtest IDs required")
+    if len(body.backtest_ids) > 6:
+        raise HTTPException(status_code=400, detail="Maximum 6 backtests for comparison")
+    if body.test_type not in ("psr_diff", "bootstrap", "mcs"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid test_type '{body.test_type}'. Use: psr_diff, bootstrap, mcs",
+        )
+
+    # Validate UUIDs
+    for bid in body.backtest_ids:
+        if not _UUID_RE.match(bid):
+            raise HTTPException(status_code=400, detail=f"Invalid backtest ID format: '{bid}'")
+
+    # Load returns for each backtest
+    in_ph = ",".join(["?" for _ in body.backtest_ids])
+    returns_df = catalog.query(
+        f"SELECT run_id, portfolio_return FROM gold_portfolio_returns "
+        f"WHERE run_id IN ({in_ph}) ORDER BY run_id, trade_date",
+        body.backtest_ids,
+    )
+    if returns_df.is_empty():
+        raise HTTPException(status_code=404, detail="No return data found for provided backtest IDs")
+
+    returns_by_run: dict[str, np.ndarray] = {}
+    for row in returns_df.to_dicts():
+        returns_by_run.setdefault(row["run_id"], []).append(float(row["portfolio_return"]))
+
+    # Convert to numpy arrays, preserving order from request
+    returns_arrays = []
+    valid_ids = []
+    for bid in body.backtest_ids:
+        arr = returns_by_run.get(bid)
+        if arr and len(arr) >= 2:
+            returns_arrays.append(np.array(arr))
+            valid_ids.append(bid)
+
+    if len(returns_arrays) < 2:
+        raise HTTPException(status_code=422, detail="Need at least 2 backtests with sufficient return data")
+
+    from cquant.bt_analyzer.statistical_tests import (
+        bootstrap_test,
+        mcs_test,
+        psr_difference,
+    )
+
+    if body.test_type == "psr_diff":
+        if len(valid_ids) != 2:
+            raise HTTPException(
+                status_code=422,
+                detail="psr_diff test requires exactly 2 backtests",
+            )
+        result = psr_difference(returns_arrays[0], returns_arrays[1])
+        return {
+            "test_type": "psr_diff",
+            "backtest_ids": valid_ids,
+            "result": result,
+        }
+
+    elif body.test_type == "bootstrap":
+        if len(valid_ids) != 2:
+            raise HTTPException(
+                status_code=422,
+                detail="bootstrap test requires exactly 2 backtests",
+            )
+        result = bootstrap_test(returns_arrays[0], returns_arrays[1])
+        return {
+            "test_type": "bootstrap",
+            "backtest_ids": valid_ids,
+            "result": result,
+        }
+
+    else:  # mcs
+        result = mcs_test(returns_arrays, confidence=body.confidence)
+        # Map indices back to run IDs
+        for r in result["results"]:
+            r["run_id"] = valid_ids[r["index"]]
+        return {
+            "test_type": "mcs",
+            "backtest_ids": valid_ids,
+            "result": result,
+        }
+
+
 @router.get("/best-recent")
 async def best_recent_backtest(catalog: CatalogDep, days: int = 7) -> dict:
     """返回最近 N 天 Sharpe 最高的已完成回测摘要（用于 Dashboard）。"""
