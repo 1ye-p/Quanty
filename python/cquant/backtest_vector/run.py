@@ -86,6 +86,10 @@ class BacktestRunSpec:
     scoring_run_id: str = ""
     # CustomWeightStrategy
     custom_weights: dict = field(default_factory=dict)
+    # IndicatorSignalStrategy params
+    entry_conditions: list[str] = field(default_factory=list)
+    exit_conditions: list[str] = field(default_factory=list)
+    indicator_specs: list[dict] = field(default_factory=list)
 
 
 class StaticTopNStrategy(Strategy):
@@ -861,6 +865,15 @@ class BacktestRunner:
             return CustomWeightStrategy(
                 strategy_id=spec.strategy_id,
                 weights=spec.custom_weights or {},
+            )
+        if spec.strategy_type == "IndicatorSignal":
+            from cquant.backtest_vector.strategies.indicator_signal import IndicatorSignalStrategy
+            return IndicatorSignalStrategy(
+                strategy_id=spec.strategy_id,
+                entry_conditions=spec.entry_conditions,
+                exit_conditions=spec.exit_conditions,
+                indicators=spec.indicator_specs,
+                max_positions=spec.top_n,
             )
         return StaticTopNStrategy(
             strategy_id=spec.strategy_id,
