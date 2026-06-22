@@ -359,6 +359,8 @@ class _Parser:
             tok = self._advance()
             num_tok = self._expect(_TokenType.NUMBER)
             bars = int(num_tok.value)
+            if bars < 1:
+                raise SyntaxError(f"Temporal modifier bars must be >= 1, got {bars}")
             # Optionally consume trailing "bars" keyword
             if self._peek().type == _TokenType.BARS:
                 self._advance()

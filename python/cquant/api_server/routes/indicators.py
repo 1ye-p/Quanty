@@ -91,14 +91,14 @@ async def compute_indicators(body: ComputeBody) -> dict:
 class ConditionEvalBody(BaseModel):
     """Request body for /indicators/evaluate-condition."""
 
-    condition_dsl: str
+    condition_dsl: str = Field(max_length=10_000)
     data: list[dict]
 
 
 class ConditionPreviewBody(BaseModel):
     """Request body for /indicators/condition-preview."""
 
-    condition_dsl: str
+    condition_dsl: str = Field(max_length=10_000)
     data: list[dict]
 
 
@@ -110,6 +110,8 @@ async def evaluate_condition(body: ConditionEvalBody) -> dict:
 
     if not body.data:
         raise HTTPException(status_code=400, detail="data must not be empty")
+    if len(body.data) > 50_000:
+        raise HTTPException(status_code=400, detail="data exceeds maximum 50,000 rows")
     if not body.condition_dsl.strip():
         raise HTTPException(status_code=400, detail="condition_dsl must not be empty")
 
@@ -117,7 +119,8 @@ async def evaluate_condition(body: ConditionEvalBody) -> dict:
     try:
         result = _eval(df, body.condition_dsl)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Condition evaluation failed: {exc}")
+        logger.exception("Condition evaluation failed")
+        raise HTTPException(status_code=400, detail="Condition evaluation failed. Check DSL syntax and column names.")
 
     return result
 
@@ -130,6 +133,8 @@ async def condition_preview(body: ConditionPreviewBody) -> dict:
 
     if not body.data:
         raise HTTPException(status_code=400, detail="data must not be empty")
+    if len(body.data) > 50_000:
+        raise HTTPException(status_code=400, detail="data exceeds maximum 50,000 rows")
     if not body.condition_dsl.strip():
         raise HTTPException(status_code=400, detail="condition_dsl must not be empty")
 
@@ -137,7 +142,8 @@ async def condition_preview(body: ConditionPreviewBody) -> dict:
     try:
         mask = signals_as_mask(df, body.condition_dsl)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Condition preview failed: {exc}")
+        logger.exception("Condition preview failed")
+        raise HTTPException(status_code=400, detail="Condition preview failed. Check DSL syntax and column names.")
 
     # Return signal points for chart overlay
     signal_indices = mask.to_list()
