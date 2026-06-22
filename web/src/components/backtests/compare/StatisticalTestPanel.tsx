@@ -25,7 +25,7 @@ interface BootstrapResult {
 
 /** MCS result row */
 interface McsRow {
-  strategy_id: string;
+  run_id: string;
   sharpe: number;
   in_confidence_set: boolean;
 }
@@ -168,9 +168,9 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.strategy_id} className="border-t">
+            <tr key={row.run_id} className="border-t">
               <td className="p-2 font-medium">
-                {backtestNames[row.strategy_id] ?? row.strategy_id}
+                {backtestNames[row.run_id] ?? row.run_id}
               </td>
               <td className="p-2 text-right font-medium">{row.sharpe?.toFixed(3)}</td>
               <td className="p-2 text-center">
@@ -195,7 +195,7 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
   const renderResult = () => {
     if (!data) return null;
     switch (data.test_type) {
-      case 'psr':
+      case 'psr_diff':
         return renderPsrResult();
       case 'bootstrap':
         return renderBootstrapResult();
@@ -219,13 +219,9 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
             onChange={(e) => setTestType(e.target.value)}
             className="border rounded px-2 py-1.5 text-sm"
           >
-            {isTwoStrategies && <option value="psr">PSR 差异检验</option>}
-            {isTwoStrategies && <option value="bootstrap">Bootstrap</option>}
-            {backtestIds.length >= 3 && <option value="mcs">MCS 检验</option>}
-            {/* Always allow all for flexibility */}
-            <option value="psr">PSR 差异检验</option>
+            <option value="psr_diff">PSR 差异检验</option>
             <option value="bootstrap">Bootstrap</option>
-            <option value="mcs">MCS 检验</option>
+            {backtestIds.length >= 3 && <option value="mcs">MCS 检验</option>}
           </select>
         </div>
 

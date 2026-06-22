@@ -231,6 +231,10 @@ class BacktestCreateBody(BaseModel):
     combo_method: str = "equal_weight"
     # CustomWeightStrategy params
     custom_weights: dict[str, float] | None = None
+    # IndicatorSignalStrategy params
+    entry_conditions: list[str] | None = None
+    exit_conditions: list[str] | None = None
+    indicator_specs: list[dict] | None = None
     # Universe filtering
     universe_id: str = "all"
     # Benchmark
@@ -358,6 +362,9 @@ async def create_backtest(
     sub_strategy_configs = body.sub_strategy_configs or parsed.get("sub_strategy_configs", [])
     combo_method = body.combo_method if body.combo_method != "equal_weight" else parsed.get("combo_method", "equal_weight")
     custom_weights = body.custom_weights or parsed.get("custom_weights", {}) or {}
+    entry_conditions = body.entry_conditions or parsed.get("entry_conditions", [])
+    exit_conditions = body.exit_conditions or parsed.get("exit_conditions", [])
+    indicator_specs = body.indicator_specs or parsed.get("indicator_specs", [])
     universe_id = body.universe_id if body.universe_id != "all" else parsed.get("universe_id", "all")
 
     from cquant.backtest_vector.run import BacktestRunSpec
@@ -457,6 +464,9 @@ async def create_backtest(
         sub_strategy_configs=sub_strategy_configs,
         combo_method=combo_method,
         custom_weights=custom_weights,
+        entry_conditions=entry_conditions,
+        exit_conditions=exit_conditions,
+        indicator_specs=indicator_specs,
         universe_id=universe_id,
         benchmark_asset_id=body.benchmark_asset_id,
         scoring_run_id=body.scoring_run_id,
@@ -688,7 +698,7 @@ class StatisticalTestBody(BaseModel):
     """Request body for statistical significance test between backtests."""
     backtest_ids: list[str]
     test_type: str = "psr_diff"  # "psr_diff" | "bootstrap" | "mcs"
-    confidence: float = 0.95
+    confidence: float = Field(default=0.95, ge=0.5, le=0.999)
 
 
 @router.post("/compare/statistical-test")
