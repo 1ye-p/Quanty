@@ -170,6 +170,16 @@ export const backtestsApi = {
       `/backtests/${id}/multiple-testing`,
       config,
     ),
+
+  statisticalTest: (
+    body: { backtest_ids: string[]; test_type: string; confidence?: number },
+    config?: RequestConfig,
+  ) =>
+    api.post<{ test_type: string; results: Record<string, unknown> }>(
+      '/backtests/compare/statistical-test',
+      body,
+      config,
+    ),
 }
 
 // ── Backward-compatible alias ───────────────────────────────────────────────

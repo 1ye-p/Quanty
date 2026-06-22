@@ -5,6 +5,8 @@ import { backtestsApi } from '@/lib/api/backtests';
 import { useBacktestCompareStore } from '@/stores/backtestCompareStore';
 import { CompareMetricsTable } from '@/components/backtests/compare/CompareMetricsTable';
 import { CompareNavChart } from '@/components/backtests/compare/CompareNavChart';
+import { StatisticalTestPanel } from '@/components/backtests/compare/StatisticalTestPanel';
+import { CompareDrawdownChart } from '@/components/backtests/compare/CompareDrawdownChart';
 
 export const BacktestComparePage: React.FC = () => {
   const navigate = useNavigate();
@@ -35,6 +37,24 @@ export const BacktestComparePage: React.FC = () => {
     data: run.nav_series?.map(p => ({ date: p.date, nav: p.nav })) ?? [],
   }));
 
+  const backtestNames = Object.fromEntries(
+    (apiData?.runs ?? []).map(r => [r.run_id, r.strategy_id]),
+  );
+
+  // Compute drawdown series from NAV data
+  const drawdowns = apiData?.runs?.map(run => {
+    const navs = run.nav_series ?? [];
+    let peak = -Infinity;
+    const data = navs.map(p => {
+      if (p.nav > peak) peak = p.nav;
+      return {
+        date: p.date,
+        drawdown: peak > 0 ? (p.nav - peak) / peak : 0,
+      };
+    });
+    return { backtest_id: run.run_id, name: run.strategy_id, data };
+  });
+
   if (selectedIds.length < 2) {
     return (
       <div className="space-y-4">
@@ -63,6 +83,8 @@ export const BacktestComparePage: React.FC = () => {
       </div>
       {metrics && metrics.length > 0 && <CompareMetricsTable metrics={metrics} />}
       {navCurves && navCurves.length > 0 && <CompareNavChart curves={navCurves} />}
+      {drawdowns && drawdowns.length > 0 && <CompareDrawdownChart drawdowns={drawdowns} />}
+      <StatisticalTestPanel backtestIds={selectedIds} backtestNames={backtestNames} />
     </div>
   );
 };
