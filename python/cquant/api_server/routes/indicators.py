@@ -88,6 +88,66 @@ async def compute_indicators(body: ComputeBody) -> dict:
     return {"columns": result.columns, "rows": result.to_dicts()}
 
 
+class ConditionEvalBody(BaseModel):
+    """Request body for /indicators/evaluate-condition."""
+
+    condition_dsl: str
+    data: list[dict]
+
+
+class ConditionPreviewBody(BaseModel):
+    """Request body for /indicators/condition-preview."""
+
+    condition_dsl: str
+    data: list[dict]
+
+
+@router.post("/evaluate-condition")
+async def evaluate_condition(body: ConditionEvalBody) -> dict:
+    """Evaluate a condition DSL on provided data."""
+    from cquant.indicator.conditions import evaluate_condition as _eval
+    import polars as pl
+
+    if not body.data:
+        raise HTTPException(status_code=400, detail="data must not be empty")
+    if not body.condition_dsl.strip():
+        raise HTTPException(status_code=400, detail="condition_dsl must not be empty")
+
+    df = pl.DataFrame(body.data)
+    try:
+        result = _eval(df, body.condition_dsl)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Condition evaluation failed: {exc}")
+
+    return result
+
+
+@router.post("/condition-preview")
+async def condition_preview(body: ConditionPreviewBody) -> dict:
+    """Preview condition signals on data (for chart overlay)."""
+    from cquant.indicator.conditions import signals_as_mask
+    import polars as pl
+
+    if not body.data:
+        raise HTTPException(status_code=400, detail="data must not be empty")
+    if not body.condition_dsl.strip():
+        raise HTTPException(status_code=400, detail="condition_dsl must not be empty")
+
+    df = pl.DataFrame(body.data)
+    try:
+        mask = signals_as_mask(df, body.condition_dsl)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Condition preview failed: {exc}")
+
+    # Return signal points for chart overlay
+    signal_indices = mask.to_list()
+    return {
+        "signals": signal_indices,
+        "buy_signals": [i for i, v in enumerate(signal_indices) if v],
+        "total_signals": sum(1 for v in signal_indices if v),
+    }
+
+
 @router.get("/ohlcv/{asset_id}")
 async def get_ohlcv(
     asset_id: str,
