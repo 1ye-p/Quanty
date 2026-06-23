@@ -77,6 +77,7 @@ class BacktestResult:
     completed_at: datetime | None = None
     error: str | None = None
     pretrade_decisions: list[dict] = field(default_factory=list)
+    rebalance_dates: list[date] = field(default_factory=list)
 
     def to_summary_dict(self) -> dict:
         """返回回测结果的核心指标摘要字典。
@@ -238,6 +239,47 @@ class VectorBacktestEngine:
             for a in asset_ids
         }
 
+    def _is_rebalance_date(
+        self,
+        current_date: date,
+        prev_date: date | None,
+        rebalance_frequency: str,
+    ) -> bool:
+        """Check if current_date is a rebalance day based on frequency.
+
+        Parameters
+        ----------
+        current_date:
+            The current trading date being evaluated.
+        prev_date:
+            The previous trading date (None for the first date).
+        rebalance_frequency:
+            One of '1d'/'daily', '1w'/'weekly', '1mo'/'monthly'.
+
+        Returns
+        -------
+        bool
+            True if signals should be generated on this date.
+        """
+        if rebalance_frequency in ("1d", "daily"):
+            return True
+
+        if rebalance_frequency in ("1w", "weekly"):
+            # First trading day of the week: weekday decreased (Mon=0 < Fri=4)
+            if prev_date is None:
+                return True
+            return current_date.weekday() < prev_date.weekday()
+
+        if rebalance_frequency in ("1mo", "monthly"):
+            # First trading day of the month
+            if prev_date is None:
+                return True
+            return current_date.month != prev_date.month
+
+        # Unknown frequency: default to daily
+        logger.warning("Unknown rebalance_frequency '%s', defaulting to daily", rebalance_frequency)
+        return True
+
     def run(self, spec: BacktestSpec) -> BacktestResult:
         """Execute a vectorized backtest according to *spec*."""
         run_id = str(uuid.uuid4())
@@ -292,6 +334,7 @@ class VectorBacktestEngine:
         # signal generation and return computation.
         all_weights: list[dict] = []
         pretrade_decisions: list[dict] = []
+        rebalance_dates: list[date] = []
         # Track committed weights for building risk context positions
         committed_weights: dict[str, float] = {}
         daily_returns: list[float] = []
@@ -302,72 +345,75 @@ class VectorBacktestEngine:
         _current_drawdown = 0.0
 
         for i, td in enumerate(trade_dates):
-            ctx = StrategyContext(
-                as_of_date=td,
-                universe_id=spec.universe_id,
-                features=spec.features,
-                prices=prices.filter(pl.col("trade_date") <= td),
-                extra=spec.extra,
-            )
-            signals = spec.strategy.generate_signals(ctx)
+            prev_date = trade_dates[i - 1] if i > 0 else None
+            is_rebalance = self._is_rebalance_date(td, prev_date, spec.rebalance_frequency)
 
-            if signals.is_empty():
-                continue
+            weights_dict: dict[str, float] = {}
 
-            # Apply position sizer
-            if spec.sizer is not None:
-                from cquant.riskguard.models import SizingContext
-                sizing_ctx = SizingContext(
+            if is_rebalance:
+                rebalance_dates.append(td)
+                ctx = StrategyContext(
                     as_of_date=td,
-                    portfolio_nav=spec.initial_cash,
-                    universe_ids=[spec.universe_id] if spec.universe_id else [],
+                    universe_id=spec.universe_id,
+                    features=spec.features,
+                    prices=prices.filter(pl.col("trade_date") <= td),
+                    extra=spec.extra,
                 )
-                target_weights = spec.sizer.target_weights(signals, sizing_ctx)
-                weights_dict = target_weights.weights
-            else:
-                # Default: equal weight for all positive-signal assets
-                active_assets = signals.filter(pl.col("strength") > 0)["asset_id"].to_list()
-                n = len(active_assets)
-                weights_dict = {aid: 1.0 / n for aid in active_assets} if n else {}
+                signals = spec.strategy.generate_signals(ctx)
 
-            # Apply portfolio optimizer if set (overrides sizer weights)
-            if spec.optimizer is not None and weights_dict:
-                try:
-                    expected_returns = self._compute_expected_returns(
-                        signals, prices, td,
-                        ml_predictions=spec.extra.get("ml_predictions"),
-                    )
-                    covariance = self._compute_covariance(
-                        list(weights_dict.keys()), prices, td,
-                    )
-                    opt_result = spec.optimizer.optimize(expected_returns, covariance)
-                    if opt_result.weights:
-                        weights_dict = opt_result.weights
-                except Exception as _exc:
-                    logger.warning("Optimizer skipped for %s: %s", td, _exc)
+                if not signals.is_empty():
+                    # Apply position sizer
+                    if spec.sizer is not None:
+                        from cquant.riskguard.models import SizingContext
+                        sizing_ctx = SizingContext(
+                            as_of_date=td,
+                            portfolio_nav=spec.initial_cash,
+                            universe_ids=[spec.universe_id] if spec.universe_id else [],
+                        )
+                        target_weights = spec.sizer.target_weights(signals, sizing_ctx)
+                        weights_dict = target_weights.weights
+                    else:
+                        # Default: equal weight for all positive-signal assets
+                        active_assets = signals.filter(pl.col("strength") > 0)["asset_id"].to_list()
+                        n = len(active_assets)
+                        weights_dict = {aid: 1.0 / n for aid in active_assets} if n else {}
 
-            # Apply risk policies if configured
-            if spec.risk_policies and weights_dict:
-                # Build positions from previously committed weights
-                accumulated_pos = self._build_positions_from_weights(
-                    committed_weights, td, prices, spec.initial_cash,
-                ) if committed_weights else pl.DataFrame()
+                    # Apply portfolio optimizer if set (overrides sizer weights)
+                    if spec.optimizer is not None and weights_dict:
+                        try:
+                            expected_returns = self._compute_expected_returns(
+                                signals, prices, td,
+                                ml_predictions=spec.extra.get("ml_predictions"),
+                            )
+                            covariance = self._compute_covariance(
+                                list(weights_dict.keys()), prices, td,
+                            )
+                            opt_result = spec.optimizer.optimize(expected_returns, covariance)
+                            if opt_result.weights:
+                                weights_dict = opt_result.weights
+                        except Exception as _exc:
+                            logger.warning("Optimizer skipped for %s: %s", td, _exc)
 
-                weights_dict, decisions = self._apply_risk_checks(
-                    weights_dict, spec, td, prices,
-                    accumulated_positions=accumulated_pos,
-                    daily_returns=daily_returns,
-                    current_drawdown=_current_drawdown,
-                )
-                pretrade_decisions.extend(decisions)
+                    # Apply risk policies if configured
+                    if spec.risk_policies and weights_dict:
+                        # Build positions from previously committed weights
+                        accumulated_pos = self._build_positions_from_weights(
+                            committed_weights, td, prices, spec.initial_cash,
+                        ) if committed_weights else pl.DataFrame()
 
-            # Update committed weights and approximate daily return
-            if weights_dict:
-                # Estimate return from weight change (simplified)
-                # Real return is computed later from fill simulator NAV
-                committed_weights = weights_dict.copy()
+                        weights_dict, decisions = self._apply_risk_checks(
+                            weights_dict, spec, td, prices,
+                            accumulated_positions=accumulated_pos,
+                            daily_returns=daily_returns,
+                            current_drawdown=_current_drawdown,
+                        )
+                        pretrade_decisions.extend(decisions)
 
-            # Estimate current NAV using committed weights and today's prices
+                    # Update committed weights
+                    if weights_dict:
+                        committed_weights = weights_dict.copy()
+
+            # Always: update NAV using committed weights and today's prices
             if committed_weights:
                 day_prices_map: dict[str, float] = {}
                 prev_prices_map: dict[str, float] = {}
@@ -402,7 +448,8 @@ class VectorBacktestEngine:
             _current_drawdown = float((_current_nav - _peak_nav) / _peak_nav) if _peak_nav > 0 else 0.0
 
             # NEXT-BAR EXECUTION: signal on day T, execute on day T+1
-            if i + 1 < len(trade_dates):
+            # Only add weights on rebalance days when new signals were generated
+            if is_rebalance and weights_dict and i + 1 < len(trade_dates):
                 exec_date = trade_dates[i + 1]
                 for asset_id, w in weights_dict.items():
                     all_weights.append({"trade_date": exec_date, "asset_id": asset_id, "target_weight": w})
@@ -471,6 +518,7 @@ class VectorBacktestEngine:
             started_at=started_at,
             completed_at=completed_at,
             pretrade_decisions=pretrade_decisions,
+            rebalance_dates=rebalance_dates,
         )
 
     def _apply_risk_checks(
