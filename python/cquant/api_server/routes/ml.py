@@ -285,6 +285,137 @@ async def predict(body: PredictRequest, catalog: CatalogDep) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Model Diagnostics
+# ---------------------------------------------------------------------------
+
+@router.get("/models/{model_version}/diagnostics")
+async def get_model_diagnostics(model_version: str, catalog: CatalogDep) -> dict:
+    """Return diagnostics data for a model version.
+
+    Three sections:
+      1. training_curve  — epoch vs train_loss, valid_loss, valid_ic
+      2. prediction_distribution — histogram bins of gold_predictions
+      3. walk_forward_stability — fold vs IC, Sharpe, win_rate
+    """
+    result: dict = {
+        "model_version": model_version,
+        "training_curve": [],
+        "prediction_distribution": [],
+        "walk_forward_stability": [],
+    }
+
+    # 1. Training curve — try MLflow metrics history first
+    try:
+        import mlflow
+        mlflow.set_tracking_uri(settings.mlflow.tracking_uri)
+        client = mlflow.tracking.MlflowClient()
+        run = client.get_run(model_version)
+        metrics = run.data.metrics or {}
+
+        # MLflow logs scalar metrics; build a synthetic curve from available keys
+        # Typical keys: train_loss, valid_loss, valid_ic, best_iteration
+        curve: list[dict] = []
+        # If epoch-level metrics are stored as train_loss_0, train_loss_1, ...
+        epoch_keys = sorted(
+            [k for k in metrics if k.startswith("train_loss_") or k.startswith("valid_loss_")],
+            key=lambda k: int(k.rsplit("_", 1)[-1]),
+        )
+        if epoch_keys:
+            seen_epochs: set[int] = set()
+            for k in epoch_keys:
+                epoch = int(k.rsplit("_", 1)[-1])
+                seen_epochs.add(epoch)
+            for epoch in sorted(seen_epochs):
+                entry: dict = {"epoch": epoch}
+                tl = metrics.get(f"train_loss_{epoch}")
+                vl = metrics.get(f"valid_loss_{epoch}")
+                vi = metrics.get(f"valid_ic_{epoch}")
+                if tl is not None:
+                    entry["train_loss"] = float(tl)
+                if vl is not None:
+                    entry["valid_loss"] = float(vl)
+                if vi is not None:
+                    entry["valid_ic"] = float(vi)
+                curve.append(entry)
+        else:
+            # Fallback: single-point curve from scalar metrics
+            if any(k in metrics for k in ("train_loss", "valid_loss", "rmse", "mae")):
+                curve.append({
+                    "epoch": 0,
+                    "train_loss": float(metrics.get("train_loss", metrics.get("rmse", 0))),
+                    "valid_loss": float(metrics.get("valid_loss", metrics.get("mae", 0))),
+                    "valid_ic": float(metrics.get("valid_ic", metrics.get("ic", 0))) if "valid_ic" in metrics or "ic" in metrics else None,
+                })
+        result["training_curve"] = curve
+    except Exception as exc:
+        logger.debug("Training curve extraction failed for %s: %s", model_version, exc)
+
+    # 2. Prediction distribution from gold_predictions
+    try:
+        df = catalog.query(
+            "SELECT prediction FROM gold_predictions WHERE model_version = ? LIMIT 10000",
+            [model_version],
+        )
+        if not df.is_empty():
+            preds = df["prediction"].to_list()
+            if preds:
+                import math
+                n_bins = 30
+                mn, mx = min(preds), max(preds)
+                if mn == mx:
+                    result["prediction_distribution"] = [
+                        {"bin_start": mn, "bin_end": mx, "count": len(preds)}
+                    ]
+                else:
+                    bin_width = (mx - mn) / n_bins
+                    bins: list[dict] = []
+                    for i in range(n_bins):
+                        lo = mn + i * bin_width
+                        hi = mn + (i + 1) * bin_width
+                        cnt = sum(1 for p in preds if (lo <= p < hi) or (i == n_bins - 1 and p == hi))
+                        bins.append({
+                            "bin_start": round(lo, 6),
+                            "bin_end": round(hi, 6),
+                            "count": cnt,
+                        })
+                    result["prediction_distribution"] = bins
+    except Exception as exc:
+        logger.debug("Prediction distribution extraction failed for %s: %s", model_version, exc)
+
+    # 3. Walk-forward stability from gold_backtest_runs (walk-forward folds)
+    try:
+        df = catalog.query(
+            "SELECT run_id, metrics_json FROM gold_backtest_runs "
+            "WHERE strategy_id LIKE ? OR run_id LIKE ? "
+            "ORDER BY started_at LIMIT 50",
+            [f"%{model_version}%", f"%{model_version}%"],
+        )
+        if not df.is_empty():
+            folds: list[dict] = []
+            for row in df.to_dicts():
+                metrics_json = row.get("metrics_json")
+                if not metrics_json:
+                    continue
+                if isinstance(metrics_json, str):
+                    import json as _json
+                    m = _json.loads(metrics_json)
+                else:
+                    m = metrics_json
+                folds.append({
+                    "fold_id": len(folds) + 1,
+                    "run_id": row.get("run_id", ""),
+                    "ic": float(m.get("information_ratio", 0) or 0),
+                    "sharpe": float(m.get("sharpe_ratio", 0) or 0),
+                    "win_rate": float(m.get("win_rate", 0) or 0),
+                })
+            result["walk_forward_stability"] = folds
+    except Exception as exc:
+        logger.debug("Walk-forward stability extraction failed for %s: %s", model_version, exc)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Model Registry endpoints
 # ---------------------------------------------------------------------------
 

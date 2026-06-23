@@ -899,6 +899,9 @@ class BacktestRunner:
             sector_map=cfg.get("sector_map", {}),
             top_sectors=cfg.get("top_sectors", 3),
             top_n_per_sector=cfg.get("top_n_per_sector", 3),
+            entry_conditions=cfg.get("entry_conditions", []),
+            exit_conditions=cfg.get("exit_conditions", []),
+            indicator_specs=cfg.get("indicator_specs", []),
         )
         return self._build_strategy(sub_spec)
 
