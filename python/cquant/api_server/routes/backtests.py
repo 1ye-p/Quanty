@@ -14,7 +14,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from cquant.api_server.deps import CatalogDep
 
