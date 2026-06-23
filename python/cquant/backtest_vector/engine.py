@@ -29,8 +29,9 @@ from cquant.backtest_vector.costs import CostModel
 from cquant.backtest_vector.fill_simulator import AShareFillSimulator
 from cquant.backtest_vector.metrics import BacktestMetrics, compute_metrics
 from cquant.backtest_vector.strategy import Strategy, StrategyContext
-from cquant.core.enums import EngineType, RiskDecisionType
+from cquant.core.enums import EngineType, OrderSide, RiskDecisionType
 from cquant.core.types import OrderIntent, RiskDecision, RiskSnapshot
+from cquant.riskguard.policies.forced_exit import ForcedExit, ForcedExitPolicy
 
 if TYPE_CHECKING:
     from cquant.portfolio_opt.base import PortfolioOptimizer
@@ -78,6 +79,7 @@ class BacktestResult:
     error: str | None = None
     pretrade_decisions: list[dict] = field(default_factory=list)
     rebalance_dates: list[date] = field(default_factory=list)
+    forced_exits: list[dict] = field(default_factory=list)
 
     def to_summary_dict(self) -> dict:
         """返回回测结果的核心指标摘要字典。
@@ -344,6 +346,13 @@ class VectorBacktestEngine:
         _current_nav = float(spec.initial_cash)
         _current_drawdown = 0.0
 
+        # Forced exit tracking
+        forced_exit_policies: list[ForcedExitPolicy] = [
+            p for p in spec.risk_policies if isinstance(p, ForcedExitPolicy)
+        ]
+        forced_exit_log: list[dict] = []
+        entry_prices: dict[str, float] = {}  # asset_id -> entry price (first commit)
+
         for i, td in enumerate(trade_dates):
             prev_date = trade_dates[i - 1] if i > 0 else None
             is_rebalance = self._is_rebalance_date(td, prev_date, spec.rebalance_frequency)
@@ -412,6 +421,52 @@ class VectorBacktestEngine:
                     # Update committed weights
                     if weights_dict:
                         committed_weights = weights_dict.copy()
+
+            # Track entry prices for new positions
+            for aid in committed_weights:
+                if aid not in entry_prices:
+                    ep = prices.filter(
+                        (pl.col("trade_date") == td) & (pl.col("asset_id") == aid)
+                    )
+                    if not ep.is_empty():
+                        entry_prices[aid] = float(ep["close"].item())
+
+            # Forced exit check (runs every day, not just rebalance days)
+            if forced_exit_policies and committed_weights:
+                # Build current prices map for committed positions
+                current_prices_map: dict[str, float] = {}
+                for aid in committed_weights:
+                    dp = prices.filter(
+                        (pl.col("trade_date") == td) & (pl.col("asset_id") == aid)
+                    )
+                    if not dp.is_empty():
+                        current_prices_map[aid] = float(dp["close"].item())
+
+                # Build a minimal positions dict (policies only need to iterate keys)
+                positions_dict = {aid: {"weight": w} for aid, w in committed_weights.items()}
+
+                for policy in forced_exit_policies:
+                    exits = policy.check_exits(
+                        positions_dict, current_prices_map, entry_prices,
+                    )
+                    for forced_exit in exits:
+                        if forced_exit.asset_id in committed_weights:
+                            # Execute forced exit: remove from committed weights
+                            self._execute_forced_exit(
+                                forced_exit.asset_id, committed_weights,
+                            )
+                            # Record the event
+                            ep = entry_prices.get(forced_exit.asset_id, 0)
+                            cp = current_prices_map.get(forced_exit.asset_id, 0)
+                            forced_exit_log.append({
+                                "date": td,
+                                "asset_id": forced_exit.asset_id,
+                                "reason": forced_exit.reason,
+                                "urgency": forced_exit.urgency,
+                                "entry_price": ep,
+                                "exit_price": cp,
+                                "loss_pct": (cp - ep) / ep if ep else 0,
+                            })
 
             # Always: update NAV using committed weights and today's prices
             if committed_weights:
@@ -519,6 +574,7 @@ class VectorBacktestEngine:
             completed_at=completed_at,
             pretrade_decisions=pretrade_decisions,
             rebalance_dates=rebalance_dates,
+            forced_exits=forced_exit_log,
         )
 
     def _apply_risk_checks(
@@ -765,4 +821,25 @@ class VectorBacktestEngine:
                 }
             )
         return pl.DataFrame(rows)
+
+    @staticmethod
+    def _execute_forced_exit(
+        asset_id: str,
+        committed_weights: dict[str, float],
+    ) -> None:
+        """Execute a forced exit by removing the asset from committed weights.
+
+        This immediately stops tracking the position so it no longer
+        contributes to NAV calculations on subsequent days.
+
+        Parameters
+        ----------
+        asset_id:
+            Identifier of the asset to liquidate.
+        committed_weights:
+            Mutable mapping ``{asset_id: weight}`` — the entry for
+            *asset_id* is deleted in-place.
+        """
+        if asset_id in committed_weights:
+            del committed_weights[asset_id]
 
