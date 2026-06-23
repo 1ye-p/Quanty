@@ -341,9 +341,7 @@ class VectorBacktestEngine:
         committed_weights: dict[str, float] = {}
         daily_returns: list[float] = []
 
-        # High-water mark NAV for accurate drawdown calculation
-        _peak_nav = float(spec.initial_cash)
-        _current_nav = float(spec.initial_cash)
+        # Drawdown tracking (real NAV comes from FillSimulator after the loop)
         _current_drawdown = 0.0
 
         # Forced exit tracking
@@ -468,8 +466,9 @@ class VectorBacktestEngine:
                                 "loss_pct": (cp - ep) / ep if ep else 0,
                             })
 
-            # Always: update NAV using committed weights and today's prices
-            if committed_weights:
+            # Track daily returns for risk decisions (approximate NAV removed;
+            # real NAV comes from FillSimulator after the loop)
+            if committed_weights and i > 0:
                 day_prices_map: dict[str, float] = {}
                 prev_prices_map: dict[str, float] = {}
                 for aid in committed_weights:
@@ -478,29 +477,31 @@ class VectorBacktestEngine:
                     )
                     if not dp.is_empty():
                         day_prices_map[aid] = float(dp["close"].item())
-                    if i > 0:
-                        prev_td = trade_dates[i - 1]
-                        pp = prices.filter(
-                            (pl.col("trade_date") == prev_td) & (pl.col("asset_id") == aid)
-                        )
-                        if not pp.is_empty():
-                            prev_prices_map[aid] = float(pp["close"].item())
+                    prev_td = trade_dates[i - 1]
+                    pp = prices.filter(
+                        (pl.col("trade_date") == prev_td) & (pl.col("asset_id") == aid)
+                    )
+                    if not pp.is_empty():
+                        prev_prices_map[aid] = float(pp["close"].item())
 
                 # Compute weighted return for the day
                 day_ret = 0.0
-                if i > 0:
-                    for aid, w in committed_weights.items():
-                        p_cur = day_prices_map.get(aid)
-                        p_prev = prev_prices_map.get(aid)
-                        if p_cur and p_prev and p_prev > 0:
-                            day_ret += w * (p_cur - p_prev) / p_prev
-                    daily_returns.append(day_ret)
-                    _current_nav *= (1 + day_ret)
+                for aid, w in committed_weights.items():
+                    p_cur = day_prices_map.get(aid)
+                    p_prev = prev_prices_map.get(aid)
+                    if p_cur and p_prev and p_prev > 0:
+                        day_ret += w * (p_cur - p_prev) / p_prev
+                daily_returns.append(day_ret)
 
-            # 更新高水位 NAV 和当前回撤
-            if _current_nav > _peak_nav:
-                _peak_nav = _current_nav
-            _current_drawdown = float((_current_nav - _peak_nav) / _peak_nav) if _peak_nav > 0 else 0.0
+                # Update approximate drawdown from weighted returns for risk decisions
+                # (real NAV from FillSimulator will be used after the loop)
+                if daily_returns:
+                    cum = 1.0
+                    peak = 1.0
+                    for r in daily_returns:
+                        cum *= (1 + r)
+                        peak = max(peak, cum)
+                    _current_drawdown = float((cum - peak) / peak) if peak > 0 else 0.0
 
             # NEXT-BAR EXECUTION: signal on day T, execute on day T+1
             # Only add weights on rebalance days when new signals were generated
@@ -616,9 +617,8 @@ class VectorBacktestEngine:
         # Build risk context with real positions
         ctx = self._build_risk_context(trade_date, current_positions, spec.initial_cash)
 
-        # Use the accurate drawdown passed from _run_impl (tracked via _peak_nav)
-        # Fall back to computing from daily_returns if current_drawdown is default 0.0
-        # and daily_returns are available (backward compatibility)
+        # Use approximate drawdown from weighted returns for risk decisions
+        # (real NAV from FillSimulator will be used after the loop for final metrics)
         drawdown = current_drawdown
         if drawdown == 0.0 and daily_returns:
             cum = 1.0
