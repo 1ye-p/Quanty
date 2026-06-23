@@ -30,6 +30,8 @@ interface Props {
   benchmarkNav?: NavPoint[]
   /** Benchmark label for display */
   benchmarkLabel?: string
+  /** Rebalance dates to show as vertical markers (optional) */
+  rebalanceDates?: string[]
 }
 
 /** Annualization factor for daily returns (252 trading days). */
@@ -147,6 +149,7 @@ export function BenchmarkCompare({
   strategyNav,
   benchmarkNav,
   benchmarkLabel = 'Benchmark',
+  rebalanceDates,
 }: Props) {
   // Merge data
   const merged = useMemo(() => {
@@ -215,6 +218,13 @@ export function BenchmarkCompare({
     return result
   }, [merged, benchmarkRollingWindow])
 
+  // Filter rebalance dates to those within the merged data range
+  const visibleRebalanceDates = useMemo(() => {
+    if (!rebalanceDates || rebalanceDates.length === 0 || merged.length === 0) return []
+    const dateSet = new Set(merged.map(d => d.date))
+    return rebalanceDates.filter(d => dateSet.has(d))
+  }, [rebalanceDates, merged])
+
   // Early return if no benchmark data
   if (!benchmarkNav || benchmarkNav.length === 0) {
     return null
@@ -258,6 +268,26 @@ export function BenchmarkCompare({
             <YAxis tick={{ fontSize: 10 }} tickFormatter={v => v.toFixed(2)} />
             <Tooltip formatter={(v: number) => v.toFixed(4)} />
             <Legend />
+            {visibleRebalanceDates.length > 0 && visibleRebalanceDates.length <= 60 && (
+              <>
+                <ReferenceLine
+                  x={visibleRebalanceDates[0]}
+                  stroke="#f59e0b"
+                  strokeDasharray="4 4"
+                  strokeWidth={1}
+                  label={{ value: 'Rebalance', position: 'top', fontSize: 9, fill: '#f59e0b' }}
+                />
+                {visibleRebalanceDates.slice(1).map(d => (
+                  <ReferenceLine
+                    key={d}
+                    x={d}
+                    stroke="#f59e0b"
+                    strokeDasharray="4 4"
+                    strokeWidth={1}
+                  />
+                ))}
+              </>
+            )}
             <Line
               dataKey="strategy"
               name="Strategy"

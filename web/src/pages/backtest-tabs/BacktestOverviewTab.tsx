@@ -17,7 +17,7 @@ function adjLabel(a?: string) {
   return { forward: '前复权', backward: '后复权', none: '不复权' }[a ?? 'forward'] ?? '前复权'
 }
 function rebalanceLabel(r?: string) {
-  return { '1d': '每日', '5d': '每周', '20d': '每月' }[r ?? '1d'] ?? r ?? '每日'
+  return { '1d': '每日', '1w': '每周', '1mo': '每月', '5d': '每周', '20d': '每月' }[r ?? '1d'] ?? r ?? '每日'
 }
 
 
@@ -100,6 +100,7 @@ export function BacktestOverviewTab() {
   })).filter(d => d.date)
   const benchmarkNav = (tearsheet?.benchmark_nav as { date: string; nav: number }[] ?? [])
   const benchmarkLabel = String(tearsheet?.benchmark_asset_id ?? 'Benchmark')
+  const rebalanceDates = (tearsheet?.rebalance_dates as string[] ?? [])
 
   // Transform drawdown timeseries data
   const drawdownChart = Array.isArray(drawdownTimeseriesData)
@@ -463,6 +464,7 @@ export function BacktestOverviewTab() {
           strategyNav={strategyNav}
           benchmarkNav={benchmarkNav}
           benchmarkLabel={benchmarkLabel}
+          rebalanceDates={rebalanceDates}
         />
       )}
 

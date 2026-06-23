@@ -2100,6 +2100,18 @@ async def get_tearsheet(run_id: str, catalog: CatalogDep) -> dict:
     except Exception as e:
         logger.warning("Failed to load benchmark NAV for %s: %s", run_id, e)
 
+    # Load rebalance dates from fills (distinct trade dates where fills occurred)
+    rebalance_dates: list[str] = []
+    try:
+        fills_df = catalog.query(
+            "SELECT DISTINCT trade_date FROM gold_fills WHERE run_id = ? ORDER BY trade_date",
+            [run_id],
+        )
+        if not fills_df.is_empty():
+            rebalance_dates = [str(d) for d in fills_df["trade_date"].to_list()]
+    except Exception as e:
+        logger.warning("Failed to load rebalance dates for %s: %s", run_id, e)
+
     return {
         "run": run_df.to_dicts()[0],
         "analysis": analysis,
@@ -2108,6 +2120,7 @@ async def get_tearsheet(run_id: str, catalog: CatalogDep) -> dict:
         "note": "portfolio_returns are not yet persisted; use risk_series for PnL approximation",
         "benchmark_asset_id": benchmark_asset_id,
         "benchmark_nav": benchmark_nav,
+        "rebalance_dates": rebalance_dates,
     }
 
 

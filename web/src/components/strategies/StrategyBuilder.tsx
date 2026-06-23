@@ -443,9 +443,9 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
         <div>
           <label className="text-xs text-gray-500 mb-1 block">调仓频率</label>
           <select className="input w-full" value={rebalance} onChange={e => setRebalance(e.target.value)}>
-            <option value="1d">每日</option>
-            <option value="5d">每周</option>
-            <option value="20d">每月</option>
+            <option value="1d">每日 (1d)</option>
+            <option value="1w">每周 (1w)</option>
+            <option value="1mo">每月 (1mo)</option>
           </select>
         </div>
         <div>
