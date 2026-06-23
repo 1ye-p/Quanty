@@ -10,6 +10,7 @@ from cquant.core.enums import RiskDecisionType
 from cquant.core.types import OrderIntent, RiskDecision, RiskSnapshot
 from cquant.riskguard.models import RiskContext
 from cquant.riskguard.policies.base import RiskPolicy
+from cquant.riskguard.policies.forced_exit import ForcedExit
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,37 @@ class ATRStopLossPolicy(RiskPolicy):
             )
 
         return self._approve(candidate)
+
+    def check_exits(
+        self,
+        positions: dict,
+        current_prices: dict[str, float],
+        entry_prices: dict[str, float],
+    ) -> list[ForcedExit]:
+        """Return positions where price falls below ATR-based stop."""
+        exits: list[ForcedExit] = []
+        for asset_id, pos in positions.items():
+            if (
+                asset_id in current_prices
+                and asset_id in entry_prices
+                and hasattr(pos, "atr")
+            ):
+                atr = pos.atr
+                entry = entry_prices[asset_id]
+                if atr > 0 and entry > 0:
+                    stop_price = entry - self._n_atr * atr
+                    if current_prices[asset_id] < stop_price:
+                        exits.append(
+                            ForcedExit(
+                                asset_id=asset_id,
+                                reason=(
+                                    f"atr_stop: price {current_prices[asset_id]:.2f} "
+                                    f"< stop {stop_price:.2f}"
+                                ),
+                                urgency="critical",
+                            )
+                        )
+        return exits
 
     def _approve(self, candidate: OrderIntent) -> RiskDecision:
         return RiskDecision(

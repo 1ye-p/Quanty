@@ -9,6 +9,7 @@ from cquant.core.enums import RiskDecisionType
 from cquant.core.types import OrderIntent, RiskDecision, RiskSnapshot
 from cquant.riskguard.models import RiskContext
 from cquant.riskguard.policies.base import RiskPolicy
+from cquant.riskguard.policies.forced_exit import ForcedExit
 
 
 class FixedStopLossPolicy(RiskPolicy):
@@ -74,6 +75,32 @@ class FixedStopLossPolicy(RiskPolicy):
                 )
 
         return self._approve(candidate)
+
+    def check_exits(
+        self,
+        positions: dict,
+        current_prices: dict[str, float],
+        entry_prices: dict[str, float],
+    ) -> list[ForcedExit]:
+        """Return positions whose loss exceeds the fixed stop threshold."""
+        exits: list[ForcedExit] = []
+        for asset_id, _pos in positions.items():
+            if asset_id in current_prices and asset_id in entry_prices:
+                entry = entry_prices[asset_id]
+                if entry > 0:
+                    pnl_pct = (current_prices[asset_id] - entry) / entry
+                    if pnl_pct < self._stop_pct:
+                        exits.append(
+                            ForcedExit(
+                                asset_id=asset_id,
+                                reason=(
+                                    f"fixed_stop_loss: P&L {pnl_pct:.2%} "
+                                    f"< -{self._stop_pct:.2%}"
+                                ),
+                                urgency="high",
+                            )
+                        )
+        return exits
 
     @staticmethod
     def _approve(candidate: OrderIntent) -> RiskDecision:
@@ -150,3 +177,29 @@ class TrailingStopLossPolicy(RiskPolicy):
             reasons=[],
             policy_names=[self.name],
         )
+
+    def check_exits(
+        self,
+        positions: dict,
+        current_prices: dict[str, float],
+        entry_prices: dict[str, float],
+    ) -> list[ForcedExit]:
+        """Return positions whose drawdown from peak exceeds the trailing threshold."""
+        exits: list[ForcedExit] = []
+        for asset_id, pos in positions.items():
+            if asset_id in current_prices and hasattr(pos, "peak_price"):
+                peak = pos.peak_price
+                if peak > 0:
+                    drawdown = (current_prices[asset_id] - peak) / peak
+                    if drawdown < self._trail_pct:
+                        exits.append(
+                            ForcedExit(
+                                asset_id=asset_id,
+                                reason=(
+                                    f"trailing_stop: drawdown {drawdown:.2%} "
+                                    f"from peak"
+                                ),
+                                urgency="high",
+                            )
+                        )
+        return exits
