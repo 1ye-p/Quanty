@@ -359,7 +359,6 @@ async def get_model_diagnostics(model_version: str, catalog: CatalogDep) -> dict
         if not df.is_empty():
             preds = df["prediction"].to_list()
             if preds:
-                import math
                 n_bins = 30
                 mn, mx = min(preds), max(preds)
                 if mn == mx:
@@ -384,11 +383,13 @@ async def get_model_diagnostics(model_version: str, catalog: CatalogDep) -> dict
 
     # 3. Walk-forward stability from gold_backtest_runs (walk-forward folds)
     try:
+        # Escape LIKE wildcards to prevent unintended matches
+        escaped = model_version.replace("%", "\\%").replace("_", "\\_")
         df = catalog.query(
             "SELECT run_id, metrics_json FROM gold_backtest_runs "
             "WHERE strategy_id LIKE ? OR run_id LIKE ? "
             "ORDER BY started_at LIMIT 50",
-            [f"%{model_version}%", f"%{model_version}%"],
+            [f"%{escaped}%", f"%{escaped}%"],
         )
         if not df.is_empty():
             folds: list[dict] = []
@@ -397,8 +398,7 @@ async def get_model_diagnostics(model_version: str, catalog: CatalogDep) -> dict
                 if not metrics_json:
                     continue
                 if isinstance(metrics_json, str):
-                    import json as _json
-                    m = _json.loads(metrics_json)
+                    m = json.loads(metrics_json)
                 else:
                     m = metrics_json
                 folds.append({
