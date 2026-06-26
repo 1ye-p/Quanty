@@ -511,7 +511,7 @@ class VectorBacktestEngine:
                     as_of_date=td,
                     universe_id=spec.universe_id,
                     features=spec.features,
-                    prices=self._get_prices_up_to(td, date_to_idx, price_matrix),
+                    prices=prices.filter(pl.col("trade_date") <= td),
                     extra=spec.extra,
                 )
                 signals = spec.strategy.generate_signals(ctx)
