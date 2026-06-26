@@ -55,7 +55,7 @@ def psr_difference(returns_a: np.ndarray, returns_b: np.ndarray) -> dict:
     }
 
 
-def block_bootstrap(returns: np.ndarray, block_size: int, n_bootstrap: int) -> np.ndarray:
+def block_bootstrap(returns: np.ndarray, block_size: int, n_bootstrap: int, seed: int | None = None) -> np.ndarray:
     """Block bootstrap: sample contiguous blocks to preserve autocorrelation.
 
     Args:
@@ -67,10 +67,12 @@ def block_bootstrap(returns: np.ndarray, block_size: int, n_bootstrap: int) -> n
         2-D array of shape (n_bootstrap, len(returns)).
     """
     n = len(returns)
+    block_size = min(block_size, n)  # Clamp to available data
     n_blocks = int(np.ceil(n / block_size))
+    rng = np.random.default_rng(seed)
     samples = []
     for _ in range(n_bootstrap):
-        start_indices = np.random.randint(0, n - block_size + 1, size=n_blocks)
+        start_indices = rng.integers(0, n - block_size + 1, size=n_blocks)
         sample = np.concatenate([returns[b:b + block_size] for b in start_indices])[:n]
         samples.append(sample)
     return np.array(samples)
@@ -100,9 +102,6 @@ def bootstrap_test(
         Dict with diff_mean, ci_lower, ci_upper, p_value, significant,
         block_size.
     """
-    if seed is not None:
-        np.random.seed(seed)
-
     n = len(returns_a)
     if block_size is None:
         block_size = max(1, int(n ** (1 / 3)))
@@ -113,8 +112,8 @@ def bootstrap_test(
     sr_b = np.mean(returns_b) / std_b * np.sqrt(252) if std_b > 0 else 0.0
     observed_diff = sr_a - sr_b
 
-    samples_a = block_bootstrap(returns_a, block_size, n_bootstrap)
-    samples_b = block_bootstrap(returns_b, block_size, n_bootstrap)
+    samples_a = block_bootstrap(returns_a, block_size, n_bootstrap, seed=seed)
+    samples_b = block_bootstrap(returns_b, block_size, n_bootstrap, seed=seed + 1 if seed else None)
 
     std_sa = np.std(samples_a, axis=1)
     std_sb = np.std(samples_b, axis=1)

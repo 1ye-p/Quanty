@@ -867,12 +867,12 @@ async def get_backtest(run_id: str, catalog: CatalogDep) -> dict:
     return result
 
 
-@router.post("/{run_id}/analyze")
 class AnalysisTriggerBody(BaseModel):
     """Request body for triggering overfitting analysis."""
     embargo_days: int = Field(default=0, ge=0, le=365)
 
 
+@router.post("/{run_id}/analyze")
 async def trigger_analysis(
     run_id: str,
     background_tasks: BackgroundTasks,
