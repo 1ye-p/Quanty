@@ -132,6 +132,20 @@ class TrailingStopLossPolicy(RiskPolicy):
     def name(self) -> str:
         return "trailing_stop_loss"
 
+    def get_state(self) -> dict:
+        """Serialize peak prices state for persistence."""
+        return {
+            asset_id: {"peak_price": float(price)}
+            for asset_id, price in self._peak_prices.items()
+        }
+
+    def set_state(self, state: dict) -> None:
+        """Restore peak prices from persisted state."""
+        self._peak_prices = {
+            asset_id: float(data["peak_price"])
+            for asset_id, data in state.items()
+        }
+
     def evaluate(
         self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext
     ) -> RiskDecision:

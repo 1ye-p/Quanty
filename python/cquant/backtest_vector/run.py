@@ -49,6 +49,19 @@ def _ensure_run_schema_extensions(catalog: Catalog) -> None:
     _schema_ensured_for.add(cat_id)
 
 
+def _ensure_policy_state_table(catalog: Catalog) -> None:
+    """Create gold_risk_policy_states table if it does not exist."""
+    catalog.execute("""
+        CREATE TABLE IF NOT EXISTS gold_risk_policy_states (
+            run_id       VARCHAR NOT NULL,
+            policy_name  VARCHAR NOT NULL,
+            state_json   JSON    NOT NULL,
+            trade_date   VARCHAR,
+            PRIMARY KEY (run_id, policy_name)
+        )
+    """)
+
+
 @dataclass
 class BacktestRunSpec:
     """Specification for a backtest run with DuckDB persistence."""
@@ -320,6 +333,7 @@ class BacktestRunner:
         self._persist_drawdown_periods(result, run_id)
         self._persist_portfolio_snapshots(result, run_id)
         self._persist_risk_snapshots(result, run_id)
+        self._persist_risk_policy_states(run_id, spec.risk_policies)
         if result.pretrade_decisions:
             self._persist_pretrade_decisions(result, run_id)
         return run_id
@@ -695,6 +709,7 @@ class BacktestRunner:
         self._persist_risk_snapshots(result, run_id)
         if result.pretrade_decisions:
             self._persist_pretrade_decisions(result, run_id)
+        self._persist_risk_policy_states(run_id, risk_policies or [])
 
         logger.info("run_engine 完成: run_id=%s strategy=%s", run_id, strategy.strategy_id)
         return run_id
@@ -1432,3 +1447,62 @@ class BacktestRunner:
             logger.info("Persisted %d pretrade decisions", len(rows))
         except Exception as exc:
             logger.warning("Failed to persist pretrade decisions: %s", exc)
+
+    def _persist_risk_policy_states(
+        self, run_id: str, risk_policies: list[RiskPolicy], trade_date: str | None = None
+    ) -> None:
+        """Persist serializable risk policy states to gold_risk_policy_states."""
+        _ensure_policy_state_table(self._catalog)
+        rows = []
+        for policy in risk_policies:
+            if hasattr(policy, "get_state"):
+                try:
+                    state = policy.get_state()
+                    rows.append((
+                        run_id,
+                        type(policy).__name__,
+                        json.dumps(state),
+                        trade_date,
+                    ))
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to serialize state for %s: %s",
+                        type(policy).__name__, exc,
+                    )
+        if not rows:
+            return
+        try:
+            self._catalog.upsert(
+                "gold_risk_policy_states",
+                ["run_id", "policy_name", "state_json", "trade_date"],
+                rows,
+                ["run_id", "policy_name"],
+            )
+            logger.info("Persisted %d risk policy states", len(rows))
+        except Exception as exc:
+            logger.warning("Failed to persist risk policy states: %s", exc)
+
+    def _restore_risk_policy_states(
+        self, run_id: str, risk_policies: list[RiskPolicy]
+    ) -> None:
+        """Restore risk policy states from gold_risk_policy_states if available."""
+        for policy in risk_policies:
+            if not hasattr(policy, "set_state"):
+                continue
+            policy_name = type(policy).__name__
+            try:
+                df = self._catalog.query(
+                    "SELECT state_json FROM gold_risk_policy_states "
+                    "WHERE run_id = ? AND policy_name = ?",
+                    [run_id, policy_name],
+                )
+                if df.is_empty():
+                    continue
+                state_json = df["state_json"][0]
+                state = json.loads(state_json) if isinstance(state_json, str) else state_json
+                policy.set_state(state)
+                logger.info("Restored state for %s from run %s", policy_name, run_id)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to restore state for %s: %s", policy_name, exc
+                )
