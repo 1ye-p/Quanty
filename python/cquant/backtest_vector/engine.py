@@ -313,6 +313,21 @@ class VectorBacktestEngine:
 
         return result
 
+    @staticmethod
+    def _compute_drawdown(daily_returns: list[float]) -> float:
+        """Compute current drawdown from a list of daily returns.
+
+        Returns the drawdown as a negative fraction (e.g., -0.05 = -5%).
+        """
+        if not daily_returns:
+            return 0.0
+        cum = 1.0
+        peak = 1.0
+        for r in daily_returns:
+            cum *= (1 + r)
+            peak = max(peak, cum)
+        return float((cum - peak) / peak) if peak > 0 else 0.0
+
     def _run_impl(
         self,
         spec: BacktestSpec,
@@ -495,13 +510,7 @@ class VectorBacktestEngine:
 
                 # Update approximate drawdown from weighted returns for risk decisions
                 # (real NAV from FillSimulator will be used after the loop)
-                if daily_returns:
-                    cum = 1.0
-                    peak = 1.0
-                    for r in daily_returns:
-                        cum *= (1 + r)
-                        peak = max(peak, cum)
-                    _current_drawdown = float((cum - peak) / peak) if peak > 0 else 0.0
+                _current_drawdown = self._compute_drawdown(daily_returns)
 
             # NEXT-BAR EXECUTION: signal on day T, execute on day T+1
             # Only add weights on rebalance days when new signals were generated
@@ -621,12 +630,7 @@ class VectorBacktestEngine:
         # (real NAV from FillSimulator will be used after the loop for final metrics)
         drawdown = current_drawdown
         if drawdown == 0.0 and daily_returns:
-            cum = 1.0
-            peak = 1.0
-            for r in daily_returns:
-                cum *= (1 + r)
-                peak = max(peak, cum)
-            drawdown = (cum - peak) / peak if peak > 0 else 0.0
+            drawdown = self._compute_drawdown(daily_returns)
 
         # Create a risk snapshot with real values
         snapshot = RiskSnapshot(
