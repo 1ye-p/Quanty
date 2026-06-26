@@ -408,14 +408,15 @@ class BacktestRunner:
         Returns a callable (base_spec, train_start, train_end) -> modified_spec
         suitable for WalkForwardRefit.refit_callback.
         """
-        def _refit(base_spec: BacktestSpec, train_start, train_end) -> BacktestSpec:
+        def _refit(base_spec: BacktestSpec, train_start, train_end, fold_idx: int = 0) -> BacktestSpec:
             from dataclasses import replace as dc_replace
+            import copy
 
             # Train a model for this fold
-            model_id = self._train_fold_model(spec, train_start, train_end, 0)
+            model_id = self._train_fold_model(spec, train_start, train_end, fold_idx)
 
-            # Update the strategy with the new model version
-            strategy = base_spec.strategy
+            # Clone strategy to avoid mutating the shared base_spec.strategy
+            strategy = copy.deepcopy(base_spec.strategy)
             if hasattr(strategy, "_model_version"):
                 strategy._model_version = model_id
 
@@ -429,22 +430,11 @@ class BacktestRunner:
 
             return dc_replace(
                 base_spec,
+                strategy=strategy,
                 features=fold_features,
             )
 
         return _refit
-
-    def _get_trade_dates(self, spec: BacktestRunSpec) -> list[date]:
-        """Get sorted unique trade dates for the spec's date range."""
-        df = self._catalog.query(
-            "SELECT DISTINCT trade_date FROM silver_prices_1d "
-            "WHERE trade_date >= ? AND trade_date <= ? ORDER BY trade_date",
-            [spec.start_date.isoformat(), spec.end_date.isoformat()],
-        )
-        if df.is_empty():
-            return []
-        return [d if isinstance(d, date) else date.fromisoformat(str(d))
-                for d in df["trade_date"].to_list()]
 
     @staticmethod
     def _generate_splits_static(

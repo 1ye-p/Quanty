@@ -41,7 +41,7 @@ class AnalysisEngine:
         result: BacktestResult,
         spec: AnalysisSpec | None = None,
         use_refit: bool = False,
-        refit_callback=None,
+        refit_callback: "Callable[[BacktestSpec, date, date], BacktestSpec] | None" = None,
     ) -> AnalysisReport:
         """Execute all analyzers and return a consolidated AnalysisReport.
 
