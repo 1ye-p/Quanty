@@ -325,48 +325,114 @@ class BacktestRunner:
         return run_id
 
     def _run_walk_forward(self, spec: BacktestRunSpec) -> str:
-        """Run walk-forward backtest: train on each fold, test on OOS."""
+        """Run walk-forward backtest with strategy re-fitting per fold.
+
+        Uses WalkForwardRefit for rigorous fold splitting and IS/OOS evaluation,
+        while keeping existing persistence logic for fold results.
+        """
         from dataclasses import replace
 
-        dates = self._get_trade_dates(spec)
-        if len(dates) < spec.walk_forward.n_splits + 1:
-            raise ValueError(
-                f"Not enough dates ({len(dates)}) for {spec.walk_forward.n_splits} splits"
-            )
+        from cquant.bt_analyzer.walk_forward_refit import WalkForwardRefit
 
-        splits = self._generate_splits_static(dates, spec.walk_forward)
+        prices = self._load_prices(spec)
+        if prices.is_empty():
+            raise ValueError(f"No price data for {spec.start_date} to {spec.end_date}")
 
+        features = self._load_features(spec)
+        strategy = self._build_strategy(spec)
+        cost_model = self._detect_cost_model(prices)
+
+        bt_spec = BacktestSpec(
+            strategy=strategy,
+            prices=prices,
+            start_date=spec.start_date,
+            end_date=spec.end_date,
+            initial_cash=spec.initial_cash,
+            cost_model=cost_model,
+            features=features,
+            tags=spec.tags,
+            risk_policies=spec.risk_policies,
+            extra={"catalog": self._catalog},
+        )
+
+        # Build refit callback that re-trains ML models per fold
+        wf_config = spec.walk_forward
+        refit_callback = self._build_refit_callback(spec, features) if spec.model_version else None
+
+        refit = WalkForwardRefit(
+            base_spec=bt_spec,
+            n_folds=wf_config.n_splits,
+            train_ratio=0.7,
+            gap_days=wf_config.gap_days,
+            refit_callback=refit_callback,
+            engine=self._engine,
+        )
+
+        wf_result = refit.run()
+
+        # Persist individual fold backtest runs for downstream consumers
         fold_results = []
-        for i, (train_start, train_end, test_start, test_end) in enumerate(splits):
-            logger.info(
-                "Walk-forward fold %d: train=[%s, %s] test=[%s, %s]",
-                i, train_start, train_end, test_start, test_end,
-            )
+        for fold in wf_result.folds:
+            if not fold.success:
+                logger.warning("Fold %d failed: %s", fold.fold_id, fold.error)
+                continue
 
-            model_id = self._train_fold_model(spec, train_start, train_end, i)
-
+            # Run a full single backtest for the OOS period to get persisted fills/positions
             fold_spec = replace(
                 spec,
-                start_date=test_start,
-                end_date=test_end,
-                model_version=model_id,
+                start_date=fold.test_start,
+                end_date=fold.test_end,
                 eval_mode="test",
                 walk_forward=None,  # prevent recursion
             )
-
             fold_run_id = self._run_single(fold_spec)
             fold_results.append({
-                "fold_id": i,
-                "train_start": train_start.isoformat(),
-                "train_end": train_end.isoformat(),
-                "test_start": test_start.isoformat(),
-                "test_end": test_end.isoformat(),
+                "fold_id": fold.fold_id,
+                "train_start": fold.train_start.isoformat(),
+                "train_end": fold.train_end.isoformat(),
+                "test_start": fold.test_start.isoformat(),
+                "test_end": fold.test_end.isoformat(),
                 "run_id": fold_run_id,
             })
 
-        aggregated = self._aggregate_fold_metrics(fold_results)
+        # Use WalkForwardRefit aggregated metrics (OOS-based, not just slice)
+        aggregated = wf_result.summary()
         run_id = self._persist_walk_forward_result(spec, fold_results, aggregated)
         return run_id
+
+    def _build_refit_callback(
+        self, spec: BacktestRunSpec, features: pl.DataFrame | None
+    ):
+        """Build a refit callback that re-trains ML models per fold.
+
+        Returns a callable (base_spec, train_start, train_end) -> modified_spec
+        suitable for WalkForwardRefit.refit_callback.
+        """
+        def _refit(base_spec: BacktestSpec, train_start, train_end) -> BacktestSpec:
+            from dataclasses import replace as dc_replace
+
+            # Train a model for this fold
+            model_id = self._train_fold_model(spec, train_start, train_end, 0)
+
+            # Update the strategy with the new model version
+            strategy = base_spec.strategy
+            if hasattr(strategy, "_model_version"):
+                strategy._model_version = model_id
+
+            # Update features to training window
+            fold_features = None
+            if features is not None and not features.is_empty():
+                fold_features = features.filter(
+                    (pl.col("trade_date") >= train_start)
+                    & (pl.col("trade_date") <= train_end)
+                )
+
+            return dc_replace(
+                base_spec,
+                features=fold_features,
+            )
+
+        return _refit
 
     def _get_trade_dates(self, spec: BacktestRunSpec) -> list[date]:
         """Get sorted unique trade dates for the spec's date range."""

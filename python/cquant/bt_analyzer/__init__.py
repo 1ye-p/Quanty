@@ -29,6 +29,7 @@ from cquant.bt_analyzer.stability import StabilityAnalyzer
 from cquant.bt_analyzer.statistical_tests import bootstrap_test, mcs_test, psr_difference
 from cquant.bt_analyzer.trade_analysis import TradeAnalyzer
 from cquant.bt_analyzer.walk_forward import WalkForwardAnalyzer
+from cquant.bt_analyzer.walk_forward_refit import WalkForwardRefit
 
 __all__ = [
     "AnalysisEngine",
@@ -44,6 +45,7 @@ __all__ = [
     "TradeAnalyzer",
     "ValidationWindow",
     "WalkForwardAnalyzer",
+    "WalkForwardRefit",
     "bootstrap_test",
     "mcs_test",
     "psr_difference",

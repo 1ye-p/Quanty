@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Any
 
 import polars as pl
 
 from cquant.core.types import SignalFrame
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -28,6 +32,11 @@ class Strategy(ABC):
 
     A strategy is a pure function: given context, return signals.
     Strategies do NOT manage positions, risk, or execution.
+
+    Subclasses may override ``fit()`` to support walk-forward re-fitting.
+    The default implementation is a no-op, so strategies that do not require
+    training (e.g. StaticTopN, MultiFactor with fixed weights) work without
+    modification.
     """
 
     @property
@@ -43,3 +52,26 @@ class Strategy(ABC):
             [asset_id (str), signal_date (date), direction (str),
              strength (f64), confidence (f64)]
         """
+
+    def fit(self, train_data: dict[str, Any]) -> None:
+        """Re-fit the strategy on training data.
+
+        Called by WalkForwardRefit before each out-of-sample evaluation
+        fold.  The default implementation is a no-op.
+
+        Parameters
+        ----------
+        train_data:
+            Dictionary with training-period data.  Common keys:
+
+            - ``"prices"`` (pl.DataFrame): OHLCV for the training window.
+            - ``"features"`` (pl.DataFrame): Factor values for the window.
+            - ``"train_start"`` / ``"train_end"`` (date): Window boundaries.
+
+            Strategy-specific keys may also be present (e.g. ``"model_id"``
+            for MLModelStrategy).
+        """
+        logger.debug(
+            "Strategy.fit() called on '%s' — no-op (override to support re-fit)",
+            self.strategy_id,
+        )

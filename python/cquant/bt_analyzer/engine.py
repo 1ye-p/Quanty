@@ -18,6 +18,7 @@ from cquant.bt_analyzer.sensitivity import SensitivityAnalyzer
 from cquant.bt_analyzer.sharpe import SharpeMetrics
 from cquant.bt_analyzer.stability import StabilityAnalyzer
 from cquant.bt_analyzer.walk_forward import WalkForwardAnalyzer
+from cquant.bt_analyzer.walk_forward_refit import WalkForwardRefit
 
 
 class AnalysisEngine:
@@ -35,15 +36,39 @@ class AnalysisEngine:
     def __init__(self, spec: AnalysisSpec | None = None) -> None:
         self.spec = spec or AnalysisSpec()
 
-    def run(self, result: BacktestResult, spec: AnalysisSpec | None = None) -> AnalysisReport:
-        """Execute all analyzers and return a consolidated AnalysisReport."""
+    def run(
+        self,
+        result: BacktestResult,
+        spec: AnalysisSpec | None = None,
+        use_refit: bool = False,
+        refit_callback=None,
+    ) -> AnalysisReport:
+        """Execute all analyzers and return a consolidated AnalysisReport.
+
+        Parameters
+        ----------
+        result:
+            Completed backtest result to analyze.
+        spec:
+            Analysis configuration.  Falls back to ``self.spec``.
+        use_refit:
+            If True, use WalkForwardRefit (with strategy re-fitting per fold)
+            instead of WalkForwardAnalyzer (return slicing only).
+            Requires a strategy that supports ``fit()`` or a refit_callback.
+        refit_callback:
+            Optional callback ``(base_spec, train_start, train_end) -> spec``
+            for WalkForwardRefit.  Only used when ``use_refit=True``.
+        """
         active = spec or self.spec
         if result.portfolio_returns.is_empty():
             raise ValueError("BacktestResult.portfolio_returns is empty — nothing to analyze")
 
         returns = result.portfolio_returns.sort("trade_date").get_column("portfolio_return")
 
-        wf_windows = WalkForwardAnalyzer(active).analyze(result)
+        if use_refit:
+            wf_windows = self._run_walk_forward_refit(result, active, refit_callback)
+        else:
+            wf_windows = WalkForwardAnalyzer(active).analyze(result)
         cpcv_windows = CPCVAnalyzer(active).analyze(result)
 
         psr = SharpeMetrics.probabilistic_sharpe_ratio(
@@ -167,6 +192,40 @@ class AnalysisEngine:
 
     # Alias for convenience
     analyze = run
+
+    @staticmethod
+    def _run_walk_forward_refit(
+        result: BacktestResult,
+        spec: AnalysisSpec,
+        refit_callback=None,
+    ) -> list[ValidationWindow]:
+        """Run WalkForwardRefit and convert folds to ValidationWindow format.
+
+        This bridges the WalkForwardRefit output (FoldResult with train/test
+        metrics) into the ValidationWindow format expected by overfit scoring.
+        """
+        refit = WalkForwardRefit(
+            base_spec=result.spec,
+            n_folds=spec.n_oos_windows,
+            train_ratio=0.7,
+            gap_days=spec.gap_days,
+            refit_callback=refit_callback,
+        )
+        wf_result = refit.run()
+
+        windows: list[ValidationWindow] = []
+        for fold in wf_result.folds:
+            if not fold.success:
+                continue
+            windows.append(ValidationWindow(
+                window_id=fold.fold_id,
+                train_start=fold.train_start,
+                train_end=fold.train_end,
+                test_start=fold.test_start,
+                test_end=fold.test_end,
+                metrics=fold.test_metrics,
+            ))
+        return windows
 
     @staticmethod
     def _compute_overfit(
