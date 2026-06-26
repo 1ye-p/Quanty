@@ -314,6 +314,136 @@ class VectorBacktestEngine:
         return result
 
     @staticmethod
+    def _build_price_matrix(prices: pl.DataFrame) -> tuple[pl.DataFrame, dict[date, int]]:
+        """Pre-compute price matrix for O(1) lookups.
+
+        Pivots the long-format prices DataFrame into a wide matrix indexed by
+        trade_date with one column per asset_id.
+
+        Parameters
+        ----------
+        prices:
+            Long-format DataFrame with ``[asset_id, trade_date, close]`` columns.
+
+        Returns
+        -------
+        tuple[pl.DataFrame, dict[date, int]]
+            ``(price_matrix, date_to_idx)`` where *price_matrix* has
+            ``trade_date`` as the first column followed by asset columns,
+            and *date_to_idx* maps each trade_date to its row index.
+        """
+        # Pivot to wide: rows = trade_dates, columns = asset_ids
+        price_matrix = prices.pivot(
+            index="trade_date", on="asset_id", values="close"
+        ).sort("trade_date")
+
+        trade_dates = price_matrix["trade_date"].to_list()
+        date_to_idx = {d: i for i, d in enumerate(trade_dates)}
+
+        return price_matrix, date_to_idx
+
+    def _get_price_on_date(
+        self,
+        asset_id: str,
+        td: date,
+        date_to_idx: dict[date, int],
+        price_matrix: pl.DataFrame,
+    ) -> float | None:
+        """Get close price for a single asset on a specific date. O(1).
+
+        Parameters
+        ----------
+        asset_id:
+            Asset identifier.
+        td:
+            Trade date.
+        date_to_idx:
+            Mapping from date to row index in *price_matrix*.
+        price_matrix:
+            Wide-format price matrix from :meth:`_build_price_matrix`.
+
+        Returns
+        -------
+        float | None
+            Close price, or ``None`` if asset/date not found.
+        """
+        idx = date_to_idx.get(td)
+        if idx is None:
+            return None
+        if asset_id not in price_matrix.columns:
+            return None
+        val = price_matrix.row(idx, named=True).get(asset_id)
+        return float(val) if val is not None else None
+
+    def _get_prices_on_date(
+        self,
+        td: date,
+        date_to_idx: dict[date, int],
+        price_matrix: pl.DataFrame,
+        asset_ids: list[str] | None = None,
+    ) -> dict[str, float]:
+        """Get prices for multiple assets on a specific date. O(1) per asset.
+
+        Parameters
+        ----------
+        td:
+            Trade date.
+        date_to_idx:
+            Mapping from date to row index in *price_matrix*.
+        price_matrix:
+            Wide-format price matrix from :meth:`_build_price_matrix`.
+        asset_ids:
+            Optional list of asset IDs to filter. If ``None``, returns all.
+
+        Returns
+        -------
+        dict[str, float]
+            Mapping ``{asset_id: close_price}`` for assets with valid prices.
+        """
+        idx = date_to_idx.get(td)
+        if idx is None:
+            return {}
+        row = price_matrix.row(idx, named=True)
+        if asset_ids is not None:
+            return {
+                aid: float(row[aid])
+                for aid in asset_ids
+                if aid in row and row[aid] is not None
+            }
+        return {
+            k: float(v)
+            for k, v in row.items()
+            if k != "trade_date" and v is not None
+        }
+
+    def _get_prices_up_to(
+        self,
+        td: date,
+        date_to_idx: dict[date, int],
+        price_matrix: pl.DataFrame,
+    ) -> pl.DataFrame:
+        """Get price matrix slice up to and including *td*. O(1).
+
+        Parameters
+        ----------
+        td:
+            Trade date (inclusive upper bound).
+        date_to_idx:
+            Mapping from date to row index in *price_matrix*.
+        price_matrix:
+            Wide-format price matrix from :meth:`_build_price_matrix`.
+
+        Returns
+        -------
+        pl.DataFrame
+            Subset of *price_matrix* with rows ``<= idx``.
+        """
+        idx = date_to_idx.get(td)
+        if idx is None:
+            return price_matrix.clear()
+        return price_matrix.head(idx + 1)
+
+    @staticmethod
     def _compute_drawdown(daily_returns: list[float]) -> float:
         """Compute current drawdown from a list of daily returns.
 
@@ -344,6 +474,9 @@ class VectorBacktestEngine:
             raise ValueError("No price data in the specified date range")
 
         trade_dates = sorted(prices["trade_date"].unique().to_list())
+
+        # Pre-compute price matrices for O(1) lookups
+        price_matrix, date_to_idx = self._build_price_matrix(prices)
 
         # Generate signals for each rebalance date
         # KEY FIX: signals on day T execute on day T+1 (next-bar execution)
@@ -378,7 +511,7 @@ class VectorBacktestEngine:
                     as_of_date=td,
                     universe_id=spec.universe_id,
                     features=spec.features,
-                    prices=prices.filter(pl.col("trade_date") <= td),
+                    prices=self._get_prices_up_to(td, date_to_idx, price_matrix),
                     extra=spec.extra,
                 )
                 signals = spec.strategy.generate_signals(ctx)
@@ -418,9 +551,10 @@ class VectorBacktestEngine:
 
                     # Apply risk policies if configured
                     if spec.risk_policies and weights_dict:
-                        # Build positions from previously committed weights
+                        # Build positions from previously committed weights (O(1) lookup)
                         accumulated_pos = self._build_positions_from_weights(
                             committed_weights, td, prices, spec.initial_cash,
+                            date_to_idx=date_to_idx, price_matrix=price_matrix,
                         ) if committed_weights else pl.DataFrame()
 
                         weights_dict, decisions = self._apply_risk_checks(
@@ -428,6 +562,8 @@ class VectorBacktestEngine:
                             accumulated_positions=accumulated_pos,
                             daily_returns=daily_returns,
                             current_drawdown=_current_drawdown,
+                            date_to_idx=date_to_idx,
+                            price_matrix=price_matrix,
                         )
                         pretrade_decisions.extend(decisions)
 
@@ -435,25 +571,19 @@ class VectorBacktestEngine:
                     if weights_dict:
                         committed_weights = weights_dict.copy()
 
-            # Track entry prices for new positions
+            # Track entry prices for new positions (O(1) per asset)
             for aid in committed_weights:
                 if aid not in entry_prices:
-                    ep = prices.filter(
-                        (pl.col("trade_date") == td) & (pl.col("asset_id") == aid)
-                    )
-                    if not ep.is_empty():
-                        entry_prices[aid] = float(ep["close"].item())
+                    price = self._get_price_on_date(aid, td, date_to_idx, price_matrix)
+                    if price is not None:
+                        entry_prices[aid] = price
 
             # Forced exit check (runs every day, not just rebalance days)
             if forced_exit_policies and committed_weights:
-                # Build current prices map for committed positions
-                current_prices_map: dict[str, float] = {}
-                for aid in committed_weights:
-                    dp = prices.filter(
-                        (pl.col("trade_date") == td) & (pl.col("asset_id") == aid)
-                    )
-                    if not dp.is_empty():
-                        current_prices_map[aid] = float(dp["close"].item())
+                # Build current prices map for committed positions (O(N) batch)
+                current_prices_map = self._get_prices_on_date(
+                    td, date_to_idx, price_matrix, list(committed_weights.keys())
+                )
 
                 # Build a minimal positions dict (policies only need to iterate keys)
                 positions_dict = {aid: {"weight": w} for aid, w in committed_weights.items()}
@@ -484,20 +614,15 @@ class VectorBacktestEngine:
             # Track daily returns for risk decisions (approximate NAV removed;
             # real NAV comes from FillSimulator after the loop)
             if committed_weights and i > 0:
-                day_prices_map: dict[str, float] = {}
-                prev_prices_map: dict[str, float] = {}
-                for aid in committed_weights:
-                    dp = prices.filter(
-                        (pl.col("trade_date") == td) & (pl.col("asset_id") == aid)
-                    )
-                    if not dp.is_empty():
-                        day_prices_map[aid] = float(dp["close"].item())
-                    prev_td = trade_dates[i - 1]
-                    pp = prices.filter(
-                        (pl.col("trade_date") == prev_td) & (pl.col("asset_id") == aid)
-                    )
-                    if not pp.is_empty():
-                        prev_prices_map[aid] = float(pp["close"].item())
+                # Batch fetch prices for all committed assets (O(N) instead of O(N*T))
+                asset_list = list(committed_weights.keys())
+                day_prices_map = self._get_prices_on_date(
+                    td, date_to_idx, price_matrix, asset_list
+                )
+                prev_td = trade_dates[i - 1]
+                prev_prices_map = self._get_prices_on_date(
+                    prev_td, date_to_idx, price_matrix, asset_list
+                )
 
                 # Compute weighted return for the day
                 day_ret = 0.0
@@ -596,6 +721,8 @@ class VectorBacktestEngine:
         accumulated_positions: pl.DataFrame | None = None,
         daily_returns: list[float] | None = None,
         current_drawdown: float = 0.0,
+        date_to_idx: dict[date, int] | None = None,
+        price_matrix: pl.DataFrame | None = None,
     ) -> tuple[dict[str, float], list[dict]]:
         """Apply risk policies to target weights. Returns adjusted weights and decisions.
 
@@ -603,9 +730,11 @@ class VectorBacktestEngine:
             weights_dict: Target weights for this rebalance date.
             spec: Backtest specification.
             trade_date: Current evaluation date.
-            prices: Full prices DataFrame.
+            prices: Full prices DataFrame (used for position building if matrix not provided).
             accumulated_positions: Positions from prior fills (may be empty).
             daily_returns: Returns accumulated so far (for drawdown computation).
+            date_to_idx: Optional pre-computed date-to-index mapping for O(1) lookups.
+            price_matrix: Optional pre-computed price matrix for O(1) lookups.
         """
         adjusted_weights: dict[str, float] = {}
         decisions: list[dict] = []
@@ -613,6 +742,7 @@ class VectorBacktestEngine:
         # Build positions from current target weights combined with prior holdings
         current_positions = self._build_positions_from_weights(
             weights_dict, trade_date, prices, spec.initial_cash,
+            date_to_idx=date_to_idx, price_matrix=price_matrix,
         )
         if accumulated_positions is not None and not accumulated_positions.is_empty():
             # Merge: keep accumulated positions that aren't in current targets
@@ -642,11 +772,14 @@ class VectorBacktestEngine:
         )
 
         for asset_id, weight in weights_dict.items():
-            # Get current price for this asset
-            day_prices = prices.filter(
-                (pl.col("trade_date") == trade_date) & (pl.col("asset_id") == asset_id)
-            )
-            price = float(day_prices["close"].item()) if not day_prices.is_empty() else 0.0
+            # Get current price for this asset (O(1) with matrix)
+            if date_to_idx is not None and price_matrix is not None:
+                price = self._get_price_on_date(asset_id, trade_date, date_to_idx, price_matrix) or 0.0
+            else:
+                day_prices = prices.filter(
+                    (pl.col("trade_date") == trade_date) & (pl.col("asset_id") == asset_id)
+                )
+                price = float(day_prices["close"].item()) if not day_prices.is_empty() else 0.0
 
             # Calculate requested qty from weight
             if price <= 0:
@@ -785,36 +918,59 @@ class VectorBacktestEngine:
         trade_date: date,
         prices: pl.DataFrame,
         nav: Decimal,
+        date_to_idx: dict[date, int] | None = None,
+        price_matrix: pl.DataFrame | None = None,
     ) -> pl.DataFrame:
         """Build a positions DataFrame from target weights and prices.
 
         Args:
             weights_dict: asset_id -> target weight (fraction of NAV).
             trade_date: Current date for price lookup.
-            prices: Full prices DataFrame.
+            prices: Full prices DataFrame (fallback if matrix not provided).
             nav: Current portfolio NAV.
+            date_to_idx: Optional pre-computed date-to-index mapping for O(1) lookups.
+            price_matrix: Optional pre-computed price matrix for O(1) lookups.
 
         Returns:
             DataFrame with [asset_id, quantity, market_value].
         """
         rows = []
         nav_float = float(nav)
-        for asset_id, weight in weights_dict.items():
-            day_prices = prices.filter(
-                (pl.col("trade_date") == trade_date) & (pl.col("asset_id") == asset_id)
+
+        # Use matrix for O(1) lookups if available
+        if date_to_idx is not None and price_matrix is not None:
+            prices_on_date = self._get_prices_on_date(
+                trade_date, date_to_idx, price_matrix, list(weights_dict.keys())
             )
-            if day_prices.is_empty():
-                continue
-            price = float(day_prices["close"].item())
-            if price <= 0:
-                continue
-            market_value = nav_float * weight
-            quantity = market_value / price
-            rows.append({
-                "asset_id": asset_id,
-                "quantity": quantity,
-                "market_value": market_value,
-            })
+            for asset_id, weight in weights_dict.items():
+                price = prices_on_date.get(asset_id)
+                if price is None or price <= 0:
+                    continue
+                market_value = nav_float * weight
+                quantity = market_value / price
+                rows.append({
+                    "asset_id": asset_id,
+                    "quantity": quantity,
+                    "market_value": market_value,
+                })
+        else:
+            # Fallback to DataFrame filter
+            for asset_id, weight in weights_dict.items():
+                day_prices = prices.filter(
+                    (pl.col("trade_date") == trade_date) & (pl.col("asset_id") == asset_id)
+                )
+                if day_prices.is_empty():
+                    continue
+                price = float(day_prices["close"].item())
+                if price <= 0:
+                    continue
+                market_value = nav_float * weight
+                quantity = market_value / price
+                rows.append({
+                    "asset_id": asset_id,
+                    "quantity": quantity,
+                    "market_value": market_value,
+                })
 
         if not rows:
             return pl.DataFrame(
