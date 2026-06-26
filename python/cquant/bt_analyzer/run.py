@@ -27,6 +27,7 @@ class AnalysisRunSpec:
     oos_fraction: float = 0.2
     n_splits: int = 6
     n_test_splits: int = 2
+    embargo_days: int = 0
     benchmark_sharpe: float = 0.0
     n_trials: int = 1
     alpha: float = 0.05
@@ -55,6 +56,7 @@ class AnalysisRunner:
             oos_fraction=spec.oos_fraction if spec else 0.2,
             n_splits=spec.n_splits if spec else 6,
             n_test_splits=spec.n_test_splits if spec else 2,
+            embargo_days=spec.embargo_days if spec else 0,
             benchmark_sharpe=spec.benchmark_sharpe if spec else 0.0,
             n_trials=spec.n_trials if spec else 1,
             alpha=spec.alpha if spec else 0.05,

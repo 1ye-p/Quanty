@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom'
 import { backtestsApi, backtestExtApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
+import { useState } from 'react'
 import {
   BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -62,6 +63,7 @@ function OverfitScore({ score }: { score: number }) {
 
 export function BacktestOverfittingTab() {
   const { id: selectedId } = useParams<{ id: string }>()
+  const [cpcvEmbargoDays, setCpcvEmbargoDays] = useState(0)
 
   const { data: analysisData } = useQuery({
     queryKey: queryKeys.backtests.analysis(selectedId!),
@@ -175,19 +177,33 @@ export function BacktestOverfittingTab() {
           <p className="text-xs text-gray-400 mb-4">
             Analysis runs automatically after backtest completion. Trigger manually if not yet generated.
           </p>
-          <button
-            className="btn-primary"
-            onClick={async () => {
-              try {
-                await backtestsApi.triggerAnalysis(selectedId!)
-                toast.info('Analysis task submitted, check results in ~30 seconds')
-              } catch (e) {
-                toast.error(`Failed to trigger analysis: ${(e as Error).message}`)
-              }
-            }}
-          >
-            Re-run Analysis
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-600">CPCV Embargo Days:</label>
+              <input
+                type="number"
+                className="input w-20 text-sm"
+                value={cpcvEmbargoDays}
+                onChange={e => setCpcvEmbargoDays(Number(e.target.value))}
+                min={0}
+                max={30}
+              />
+              <span className="text-xs text-gray-400">Exclude N days after each test fold from training set</span>
+            </div>
+            <button
+              className="btn-primary"
+              onClick={async () => {
+                try {
+                  await backtestsApi.triggerAnalysis(selectedId!, { embargo_days: cpcvEmbargoDays })
+                  toast.info('Analysis task submitted, check results in ~30 seconds')
+                } catch (e) {
+                  toast.error(`Failed to trigger analysis: ${(e as Error).message}`)
+                }
+              }}
+            >
+              Re-run Analysis
+            </button>
+          </div>
           <p className="text-xs text-gray-400 mt-2">Analysis includes PSR/DSR/CPCV overfitting detection</p>
         </div>
       )}

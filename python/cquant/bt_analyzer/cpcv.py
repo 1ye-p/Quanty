@@ -29,6 +29,8 @@ class CPCVAnalyzer:
             raise ValueError("n_test_splits must satisfy 1 <= n_test_splits < n_splits")
         if spec.gap_days < 0:
             raise ValueError("gap_days must be >= 0")
+        if spec.embargo_days < 0:
+            raise ValueError("embargo_days must be >= 0")
         self.spec = spec
 
     def analyze(self, result: BacktestResult) -> list[ValidationWindow]:
@@ -77,15 +79,28 @@ class CPCVAnalyzer:
         return windows
 
     def _purged_train(self, folds: list[list], test_ids: set[int]) -> list:
-        """Return train dates with a gap around each test fold boundary purged."""
+        """Return train dates with purge and embargo around test fold boundaries.
+
+        Purge removes data near the test fold boundaries to prevent leakage.
+        Embargo additionally removes *embargo_days* after each test fold starts,
+        accounting for the fact that test-fold information may not be fully
+        reflected in training labels until some time has passed.
+        """
         exclusions: list[tuple] = []
         for i in test_ids:
             fd = folds[i]
             if fd:
+                # Purge: gap around both boundaries of the test fold
                 exclusions.append((
                     fd[0] - timedelta(days=self.spec.gap_days),
                     fd[-1] + timedelta(days=self.spec.gap_days),
                 ))
+                # Embargo: window after the test fold start date
+                if self.spec.embargo_days > 0:
+                    exclusions.append((
+                        fd[0],
+                        fd[0] + timedelta(days=self.spec.embargo_days),
+                    ))
         result = []
         for i, fold in enumerate(folds):
             if i in test_ids:

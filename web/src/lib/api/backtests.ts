@@ -69,10 +69,10 @@ export const backtestsApi = {
   pollJob: (jobId: string, config?: RequestConfig) =>
     api.get<BacktestJobStatus>(`/backtests/jobs/${jobId}`, config),
 
-  triggerAnalysis: (id: string, config?: RequestConfig) =>
+  triggerAnalysis: (id: string, params?: { embargo_days?: number }, config?: RequestConfig) =>
     api.post<{ job_id: string; run_id: string; status: string }>(
       `/backtests/${id}/analyze`,
-      undefined,
+      params,
       config,
     ),
 

@@ -23,6 +23,7 @@ class AnalysisSpec:
     # CPCV (Combinatorial Purged Cross-Validation)
     n_splits: int = 6
     n_test_splits: int = 2
+    embargo_days: int = 0
 
     # Sharpe significance
     benchmark_sharpe: float = 0.0    # H0: true SR > this value

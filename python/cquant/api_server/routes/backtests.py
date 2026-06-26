@@ -871,6 +871,7 @@ async def trigger_analysis(
     run_id: str,
     background_tasks: BackgroundTasks,
     catalog: CatalogDep,
+    body: dict | None = None,
 ) -> dict:
     """触发指定回测的过拟合分析（后台异步执行）。
 
@@ -886,6 +887,8 @@ async def trigger_analysis(
     if df["status"][0] != "completed":
         raise HTTPException(status_code=422, detail="Only completed backtests can be analyzed")
 
+    embargo_days = (body or {}).get("embargo_days", 0)
+
     _ensure_job_table(catalog)
     job_id = str(uuid.uuid4())
     _save_job(catalog, job_id, job_type="analysis", status="running")
@@ -894,7 +897,10 @@ async def trigger_analysis(
         try:
             from cquant.bt_analyzer.run import AnalysisRunner, AnalysisRunSpec
             runner = AnalysisRunner(catalog)
-            analysis_id = runner.run(AnalysisRunSpec(backtest_run_id=run_id))
+            analysis_id = runner.run(AnalysisRunSpec(
+                backtest_run_id=run_id,
+                embargo_days=embargo_days,
+            ))
             _save_job(catalog, job_id, "analysis", "completed", run_id=analysis_id)
         except Exception as exc:
             logger.exception("Analysis job %s failed", job_id)
