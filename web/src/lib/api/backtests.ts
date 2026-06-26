@@ -172,7 +172,7 @@ export const backtestsApi = {
     ),
 
   statisticalTest: (
-    body: { backtest_ids: string[]; test_type: string; confidence?: number },
+    body: { backtest_ids: string[]; test_type: string; confidence?: number; block_size?: number },
     config?: RequestConfig,
   ) =>
     api.post<{ test_type: string; results: Record<string, unknown> }>(

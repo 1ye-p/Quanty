@@ -699,6 +699,7 @@ class StatisticalTestBody(BaseModel):
     backtest_ids: list[str]
     test_type: str = "psr_diff"  # "psr_diff" | "bootstrap" | "mcs"
     confidence: float = Field(default=0.95, ge=0.5, le=0.999)
+    block_size: int | None = Field(default=None, ge=1, description="Block size for block bootstrap (auto if omitted)")
 
 
 @router.post("/compare/statistical-test")
@@ -784,7 +785,7 @@ async def statistical_test(
                 status_code=422,
                 detail="bootstrap test requires exactly 2 backtests",
             )
-        result = bootstrap_test(returns_arrays[0], returns_arrays[1])
+        result = bootstrap_test(returns_arrays[0], returns_arrays[1], block_size=body.block_size)
         return {
             "test_type": "bootstrap",
             "backtest_ids": valid_ids,
@@ -867,11 +868,16 @@ async def get_backtest(run_id: str, catalog: CatalogDep) -> dict:
 
 
 @router.post("/{run_id}/analyze")
+class AnalysisTriggerBody(BaseModel):
+    """Request body for triggering overfitting analysis."""
+    embargo_days: int = Field(default=0, ge=0, le=365)
+
+
 async def trigger_analysis(
     run_id: str,
     background_tasks: BackgroundTasks,
     catalog: CatalogDep,
-    body: dict | None = None,
+    body: AnalysisTriggerBody | None = None,
 ) -> dict:
     """触发指定回测的过拟合分析（后台异步执行）。
 
@@ -887,7 +893,7 @@ async def trigger_analysis(
     if df["status"][0] != "completed":
         raise HTTPException(status_code=422, detail="Only completed backtests can be analyzed")
 
-    embargo_days = (body or {}).get("embargo_days", 0)
+    embargo_days = body.embargo_days if body else 0
 
     _ensure_job_table(catalog)
     job_id = str(uuid.uuid4())

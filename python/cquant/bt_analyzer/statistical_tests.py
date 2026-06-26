@@ -55,24 +55,57 @@ def psr_difference(returns_a: np.ndarray, returns_b: np.ndarray) -> dict:
     }
 
 
+def block_bootstrap(returns: np.ndarray, block_size: int, n_bootstrap: int) -> np.ndarray:
+    """Block bootstrap: sample contiguous blocks to preserve autocorrelation.
+
+    Args:
+        returns: 1-D array of daily returns.
+        block_size: Length of each contiguous block.
+        n_bootstrap: Number of bootstrap replications.
+
+    Returns:
+        2-D array of shape (n_bootstrap, len(returns)).
+    """
+    n = len(returns)
+    n_blocks = int(np.ceil(n / block_size))
+    samples = []
+    for _ in range(n_bootstrap):
+        start_indices = np.random.randint(0, n - block_size + 1, size=n_blocks)
+        sample = np.concatenate([returns[b:b + block_size] for b in start_indices])[:n]
+        samples.append(sample)
+    return np.array(samples)
+
+
 def bootstrap_test(
     returns_a: np.ndarray,
     returns_b: np.ndarray,
     n_bootstrap: int = 10000,
     seed: int | None = None,
+    block_size: int | None = None,
 ) -> dict:
-    """Bootstrap test for Sharpe ratio difference.
+    """Block bootstrap test for Sharpe ratio difference.
+
+    Uses contiguous block resampling to preserve serial correlation
+    in the return series (Politis & White 2004).
 
     Args:
         returns_a: Daily returns for strategy A.
         returns_b: Daily returns for strategy B.
         n_bootstrap: Number of bootstrap iterations.
         seed: Random seed for reproducibility.
+        block_size: Contiguous block length.  ``None`` selects the
+            Politis & White (2004) rule of ``n^(1/3)``.
 
     Returns:
-        Dict with diff_mean, ci_lower, ci_upper, p_value, significant.
+        Dict with diff_mean, ci_lower, ci_upper, p_value, significant,
+        block_size.
     """
-    rng = np.random.default_rng(seed)
+    if seed is not None:
+        np.random.seed(seed)
+
+    n = len(returns_a)
+    if block_size is None:
+        block_size = max(1, int(n ** (1 / 3)))
 
     std_a = np.std(returns_a, ddof=1)
     std_b = np.std(returns_b, ddof=1)
@@ -80,15 +113,14 @@ def bootstrap_test(
     sr_b = np.mean(returns_b) / std_b * np.sqrt(252) if std_b > 0 else 0.0
     observed_diff = sr_a - sr_b
 
-    diffs = np.empty(n_bootstrap)
-    for i in range(n_bootstrap):
-        idx_a = rng.integers(0, len(returns_a), size=len(returns_a))
-        idx_b = rng.integers(0, len(returns_b), size=len(returns_b))
-        r_a = returns_a[idx_a]
-        r_b = returns_b[idx_b]
-        s_a = np.mean(r_a) / np.std(r_a) * np.sqrt(252) if np.std(r_a) > 0 else 0.0
-        s_b = np.mean(r_b) / np.std(r_b) * np.sqrt(252) if np.std(r_b) > 0 else 0.0
-        diffs[i] = s_a - s_b
+    samples_a = block_bootstrap(returns_a, block_size, n_bootstrap)
+    samples_b = block_bootstrap(returns_b, block_size, n_bootstrap)
+
+    std_sa = np.std(samples_a, axis=1)
+    std_sb = np.std(samples_b, axis=1)
+    sharpes_a = np.where(std_sa > 0, np.mean(samples_a, axis=1) / std_sa * np.sqrt(252), 0.0)
+    sharpes_b = np.where(std_sb > 0, np.mean(samples_b, axis=1) / std_sb * np.sqrt(252), 0.0)
+    diffs = sharpes_a - sharpes_b
 
     ci_lower = float(np.percentile(diffs, 2.5))
     ci_upper = float(np.percentile(diffs, 97.5))
@@ -100,6 +132,7 @@ def bootstrap_test(
         "ci_upper": ci_upper,
         "p_value": p_value,
         "significant": ci_lower > 0 or ci_upper < 0,
+        "block_size": block_size,
     }
 
 

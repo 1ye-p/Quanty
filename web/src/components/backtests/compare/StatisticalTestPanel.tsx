@@ -21,6 +21,7 @@ interface BootstrapResult {
   diff_mean: number;
   ci_lower: number;
   ci_upper: number;
+  block_size?: number;
 }
 
 /** MCS result row */
@@ -38,14 +39,16 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
   const defaultTestType = isTwoStrategies ? 'psr' : 'mcs';
   const [testType, setTestType] = useState<string>(defaultTestType);
   const [confidence, setConfidence] = useState(0.95);
+  const [blockSize, setBlockSize] = useState<string>('');
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['statistical-test', backtestIds, testType, confidence],
+    queryKey: ['statistical-test', backtestIds, testType, confidence, blockSize],
     queryFn: () =>
       backtestsApi.statisticalTest({
         backtest_ids: backtestIds,
         test_type: testType,
         confidence,
+        ...(testType === 'bootstrap' && blockSize ? { block_size: Number(blockSize) } : {}),
       }),
     enabled: false,
   });
@@ -148,6 +151,11 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
           <span>
             95% CI: <span className="font-medium">[{r.ci_lower?.toFixed(4)}, {r.ci_upper?.toFixed(4)}]</span>
           </span>
+          {r.block_size && (
+            <span>
+              块大小: <span className="font-medium">{r.block_size}</span>
+            </span>
+          )}
         </div>
       </div>
     );
@@ -238,6 +246,21 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
             <option value={0.99}>99%</option>
           </select>
         </div>
+
+        {/* Block size input (bootstrap only) */}
+        {testType === 'bootstrap' && (
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">块大小 (Block Size)</label>
+            <input
+              type="number"
+              min={1}
+              placeholder="自动"
+              value={blockSize}
+              onChange={(e) => setBlockSize(e.target.value)}
+              className="border rounded px-2 py-1.5 text-sm w-24"
+            />
+          </div>
+        )}
 
         <button
           onClick={handleRun}
