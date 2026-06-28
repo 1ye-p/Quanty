@@ -26,6 +26,7 @@ class RiskPolicy(ABC):
         candidate: OrderIntent,
         snapshot: RiskSnapshot,
         ctx: RiskContext,
+        price: float = 0.0,
     ) -> RiskDecision:
         """Evaluate *candidate* against this policy.
 

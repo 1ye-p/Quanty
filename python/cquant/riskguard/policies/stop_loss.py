@@ -31,7 +31,8 @@ class FixedStopLossPolicy(RiskPolicy):
         return "fixed_stop_loss"
 
     def evaluate(
-        self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext
+        self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext,
+        price: float = 0.0,
     ) -> RiskDecision:
         # Always allow sells -- they reduce risk
         if candidate.side == "sell":
@@ -148,7 +149,8 @@ class TrailingStopLossPolicy(RiskPolicy):
         }
 
     def evaluate(
-        self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext
+        self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext,
+        price: float = 0.0,
     ) -> RiskDecision:
         # Always allow sells -- they reduce risk
         if candidate.side == "sell":

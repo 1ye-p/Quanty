@@ -50,7 +50,8 @@ class DrawdownBreakerPolicy(RiskPolicy):
         return "drawdown_breaker"
 
     def evaluate(
-        self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext
+        self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext,
+        price: float = 0.0,
     ) -> RiskDecision:
         # Always allow sells
         if candidate.side == "sell":

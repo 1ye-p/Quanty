@@ -81,7 +81,8 @@ class ATRStopLossPolicy(RiskPolicy):
         return "atr_stop_loss"
 
     def evaluate(
-        self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext
+        self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext,
+        price: float = 0.0,
     ) -> RiskDecision:
         if candidate.side == "sell":
             return self._approve(candidate)

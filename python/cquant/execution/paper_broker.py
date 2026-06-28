@@ -97,7 +97,7 @@ class PaperBroker(Broker):
         )
 
         for policy in self._risk_policies:
-            decision = policy.evaluate(candidate, snapshot, ctx)
+            decision = policy.evaluate(candidate, snapshot, ctx, price=float(candidate.limit_price or 0))
             if decision.decision == RiskDecisionType.REJECTED:
                 reasons = "; ".join(decision.reasons) if decision.reasons else f"Rejected by {policy.name}"
                 return reasons
