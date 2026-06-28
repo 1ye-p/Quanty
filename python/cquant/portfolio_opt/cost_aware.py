@@ -87,17 +87,6 @@ class CostAwareOptimizer(PortfolioOptimizer):
                 for a in assets
             ]
 
-        if self._long_only:
-            bounds = [
-                (max(0.0, min_weights.get(a, min_weight)), max_weights.get(a, max_weight))
-                for a in assets
-            ]
-        else:
-            bounds = [
-                (-max_weights.get(a, max_weight), max_weights.get(a, max_weight))
-                for a in assets
-            ]
-
         eq_constraint = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
 
         def objective(w: np.ndarray) -> float:
