@@ -228,6 +228,18 @@ class IndicatorSignalStrategy(Strategy):
             .unique()
             .to_list()
         )
+
+        # Extract suspended stocks from tradability (defense-in-depth)
+        suspended_today: set[str] = set()
+        if ctx.tradability is not None and not ctx.tradability.is_empty():
+            today_flags = ctx.tradability.filter(pl.col("trade_date") == ctx.as_of_date)
+            if "is_suspended" in today_flags.columns:
+                suspended_today = set(today_flags.filter(pl.col("is_suspended"))["asset_id"].to_list())
+
+        # Filter suspended stocks from processing
+        if suspended_today:
+            asset_ids = [a for a in asset_ids if a not in suspended_today]
+
         if not asset_ids:
             return empty
 
@@ -266,7 +278,7 @@ class IndicatorSignalStrategy(Strategy):
             )
             return empty
 
-        # Extract limit-up / limit-down sets from tradability
+        # Extract limit-up / limit-down / suspended sets from tradability
         limit_up_today: set[str] = set()
         limit_down_today: set[str] = set()
         if ctx.tradability is not None and not ctx.tradability.is_empty():
@@ -275,6 +287,7 @@ class IndicatorSignalStrategy(Strategy):
                 limit_up_today = set(today_flags.filter(pl.col("is_limit_up"))["asset_id"].to_list())
             if "is_limit_down" in today_flags.columns:
                 limit_down_today = set(today_flags.filter(pl.col("is_limit_down"))["asset_id"].to_list())
+            # Note: suspended_today already extracted above for asset_id filtering
 
         # Process each asset
         all_buy_frames: list[SignalFrame] = []
@@ -309,7 +322,7 @@ class IndicatorSignalStrategy(Strategy):
                         d for d in result["signal_dates"]
                         if d == ctx.as_of_date
                     ]
-                    if dates and asset_id not in limit_up_today:
+                    if dates and asset_id not in limit_up_today and asset_id not in suspended_today:
                         all_buy_frames.append(
                             _build_signal_frame(asset_id, dates, "long")
                         )
@@ -327,7 +340,7 @@ class IndicatorSignalStrategy(Strategy):
                         d for d in result["signal_dates"]
                         if d == ctx.as_of_date
                     ]
-                    if dates and asset_id not in limit_down_today:
+                    if dates and asset_id not in limit_down_today and asset_id not in suspended_today:
                         all_sell_frames.append(
                             _build_signal_frame(asset_id, dates, "sell")
                         )
