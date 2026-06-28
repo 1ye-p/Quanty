@@ -43,36 +43,92 @@ interface DslDiagnostic {
   column: number
 }
 
+// Built-in function/keyword names that cannot be used as let-binding names
+const BUILTIN_NAMES = new Set([
+  'AND', 'OR', 'NOT', 'for', 'within', 'after', 'bars', 'let',
+  'crosses_above', 'crosses_below',
+  'rsi', 'sma', 'ema', 'wma', 'macd', 'macd_signal', 'macd_hist',
+  'bb_upper', 'bb_lower', 'bb_mid', 'atr', 'kdj_k', 'kdj_d', 'kdj_j',
+  'adx', 'cci', 'stoch_k', 'stoch_d', 'williams_r', 'roc', 'momentum',
+  'obv', 'mfi', 'volume_sma', 'volume_ratio',
+  'close', 'open', 'high', 'low', 'volume',
+])
+
 function validateDsl(dsl: string): DslDiagnostic[] {
   if (!dsl.trim()) return []
 
   const errors: DslDiagnostic[] = []
+  const lines = dsl.split('\n')
+  const definedVars = new Set<string>()
 
-  // Check balanced parentheses
-  let depth = 0
-  for (let i = 0; i < dsl.length; i++) {
-    if (dsl[i] === '(') depth++
-    if (dsl[i] === ')') depth--
-    if (depth < 0) {
-      errors.push({ message: 'Unmatched closing parenthesis', line: 1, column: i + 1 })
-      return errors
+  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+    const line = lines[lineIdx]
+    const lineNum = lineIdx + 1
+    const trimmed = line.trim()
+
+    // Skip empty lines
+    if (!trimmed) continue
+
+    // Let binding line
+    if (trimmed.startsWith('let ')) {
+      const eqIdx = trimmed.indexOf('=')
+      if (eqIdx === -1) {
+        errors.push({ message: 'let binding must have format: let name = expression', line: lineNum, column: 1 })
+        continue
+      }
+      const varName = trimmed.slice(4, eqIdx).trim()
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(varName)) {
+        errors.push({ message: `Invalid variable name "${varName}"`, line: lineNum, column: 5 })
+      } else if (BUILTIN_NAMES.has(varName)) {
+        errors.push({ message: `"${varName}" conflicts with a built-in name`, line: lineNum, column: 5 })
+      } else {
+        definedVars.add(varName)
+      }
+      const expr = trimmed.slice(eqIdx + 1).trim()
+      if (!expr) {
+        errors.push({ message: 'let binding expression is empty', line: lineNum, column: eqIdx + 2 })
+      }
+      continue
     }
-  }
-  if (depth > 0) {
-    errors.push({ message: 'Unmatched opening parenthesis', line: 1, column: dsl.length })
-  }
 
-  // Check that comparisons have two sides
-  const tokens = dsl.split(/\s+/)
-  for (let i = 0; i < tokens.length; i++) {
-    if (/^(>=|<=|!=|==|>|<)$/.test(tokens[i])) {
-      if (i === 0 || i === tokens.length - 1) {
-        errors.push({ message: `Operator "${tokens[i]}" needs operands on both sides`, line: 1, column: 0 })
+    // Condition line — validate parentheses and operators
+    let depth = 0
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '(') depth++
+      if (line[i] === ')') depth--
+      if (depth < 0) {
+        errors.push({ message: 'Unmatched closing parenthesis', line: lineNum, column: i + 1 })
+        break
       }
     }
-    if (/^crosses_above|crosses_below$/.test(tokens[i])) {
-      if (i === 0 || i === tokens.length - 1) {
-        errors.push({ message: `"${tokens[i]}" needs operands on both sides`, line: 1, column: 0 })
+    if (depth > 0) {
+      errors.push({ message: 'Unmatched opening parenthesis', line: lineNum, column: line.length })
+    }
+
+    // Check that comparisons have two sides
+    const tokens = trimmed.split(/\s+/)
+    for (let i = 0; i < tokens.length; i++) {
+      if (/^(>=|<=|!=|==|>|<)$/.test(tokens[i])) {
+        if (i === 0 || i === tokens.length - 1) {
+          errors.push({ message: `Operator "${tokens[i]}" needs operands on both sides`, line: lineNum, column: 0 })
+        }
+      }
+      if (/^crosses_above|crosses_below$/.test(tokens[i])) {
+        if (i === 0 || i === tokens.length - 1) {
+          errors.push({ message: `"${tokens[i]}" needs operands on both sides`, line: lineNum, column: 0 })
+        }
+      }
+    }
+
+    // Check that referenced variables are defined
+    for (const tok of tokens) {
+      const ident = tok.replace(/[^a-zA-Z0-9_]/g, '')
+      if (ident && /^[a-zA-Z_]/.test(ident) && !BUILTIN_NAMES.has(ident) && /^\d/.test(ident) === false) {
+        // Looks like an identifier; if it's not a number and not built-in, it could be a let var
+        // Only flag if it looks like a user variable reference (lowercase, no parens)
+        if (/^[a-z_][a-z0-9_]*$/.test(ident) && !ident.includes('(') && definedVars.size > 0 && !definedVars.has(ident)) {
+          // Don't flag — could be a dynamic indicator name from API
+        }
       }
     }
   }

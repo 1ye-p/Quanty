@@ -12,7 +12,7 @@ export const CONDITION_DSL_LANG_ID = 'condition-dsl'
 
 export const CONDITION_DSL_LANG: languages.IMonarchLanguage = {
   defaultToken: '',
-  keywords: ['AND', 'OR', 'NOT', 'for', 'within', 'after', 'bars'],
+  keywords: ['AND', 'OR', 'NOT', 'for', 'within', 'after', 'bars', 'let'],
   builtinFunctions: [
     'crosses_above',
     'crosses_below',
@@ -32,7 +32,7 @@ export const CONDITION_DSL_LANG: languages.IMonarchLanguage = {
       [/\/\/.*$/, 'comment'],
 
       // Keywords (uppercase words)
-      [/\b(?:AND|OR|NOT|for|within|after|bars)\b/, 'keyword'],
+      [/\b(?:AND|OR|NOT|for|within|after|bars|let)\b/, 'keyword'],
 
       // Built-in functions
       [/\b(?:crosses_above|crosses_below)\b/, 'type.identifier'],
@@ -127,6 +127,7 @@ export const CONDITION_DSL_COMPLETIONS: CompletionBase[] = [
   { label: 'crosses_below', kind: CompletionItemKind.Keyword, insertText: 'crosses_below', detail: 'Crosses below', documentation: 'True when first value crosses below second' },
   { label: 'for', kind: CompletionItemKind.Keyword, insertText: 'for ${1:N} bars', insertTextRules: InsertTextRule.InsertAsSnippet, detail: 'for N bars', documentation: 'Condition holds for N consecutive bars' },
   { label: 'within', kind: CompletionItemKind.Keyword, insertText: 'within ${1:N} bars', insertTextRules: InsertTextRule.InsertAsSnippet, detail: 'within N bars', documentation: 'Condition was true within the last N bars' },
+  { label: 'let', kind: CompletionItemKind.Keyword, insertText: 'let ${1:name} = ${2:expr}', insertTextRules: InsertTextRule.InsertAsSnippet, detail: 'let binding', documentation: 'Define a reusable variable: let name = expression' },
 ]
 
 // ── Dynamic completions builder ────────────────────────────────────────────
