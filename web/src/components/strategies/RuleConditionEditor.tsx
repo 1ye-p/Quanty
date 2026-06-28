@@ -7,12 +7,15 @@
  */
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import type { editor as editorTypes } from 'monaco-editor'
+import { useQuery } from '@tanstack/react-query'
 import {
   CONDITION_DSL_LANG_ID,
   CONDITION_DSL_LANG,
   CONDITION_DSL_COMPLETIONS,
   CONDITION_DSL_THEME,
+  buildDynamicCompletions,
 } from './ConditionDSLHighlight'
+import { indicatorsApi } from '@/lib/api/indicators'
 import { ConditionEditor } from './ConditionEditor'
 import { StrategyTemplates, type StrategyTemplate } from './StrategyTemplates'
 import { IndicatorReferencePanel } from '@/components/indicators/IndicatorReferencePanel'
@@ -103,6 +106,8 @@ function validateDsl(dsl: string): DslDiagnostic[] {
 
 // ── Module-level state for Monaco language registration ─────────────────────
 let _langRegistered = false
+// Module-level completions reference, updated when API data arrives
+let _latestCompletions = CONDITION_DSL_COMPLETIONS
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -113,6 +118,20 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
   const [diagnostics, setDiagnostics] = useState<DslDiagnostic[]>([])
   const editorRef = useRef<editorTypes.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
+
+  // Fetch indicators for dynamic autocomplete
+  const { data: indData } = useQuery({
+    queryKey: ['indicators'],
+    queryFn: () => indicatorsApi.list(),
+    staleTime: 300_000,
+  })
+
+  // Update module-level completions when API data changes
+  useEffect(() => {
+    if (indData?.indicators) {
+      _latestCompletions = buildDynamicCompletions(indData.indicators)
+    }
+  }, [indData])
 
   // Validate on every change
   useEffect(() => {
@@ -144,7 +163,7 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
               endColumn: word.endColumn,
             }
             return {
-              suggestions: CONDITION_DSL_COMPLETIONS.map(item => ({
+              suggestions: _latestCompletions.map(item => ({
                 ...item,
                 range,
               })),

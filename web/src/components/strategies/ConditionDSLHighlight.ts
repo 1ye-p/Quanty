@@ -129,6 +129,58 @@ export const CONDITION_DSL_COMPLETIONS: CompletionBase[] = [
   { label: 'within', kind: CompletionItemKind.Keyword, insertText: 'within ${1:N} bars', insertTextRules: InsertTextRule.InsertAsSnippet, detail: 'within N bars', documentation: 'Condition was true within the last N bars' },
 ]
 
+// ── Dynamic completions builder ────────────────────────────────────────────
+
+/**
+ * Generate completion items from API indicator data.
+ * Falls back to static CONDITION_DSL_COMPLETIONS if no data.
+ */
+export function buildDynamicCompletions(
+  indicators: Array<{
+    name: string
+    description?: string
+    params?: Array<{ name: string; default?: number }>
+  }>,
+): CompletionBase[] {
+  if (!indicators.length) return CONDITION_DSL_COMPLETIONS
+
+  const indicatorCompletions: CompletionBase[] = indicators.map(ind => {
+    const params = ind.params || []
+    let insertText: string
+    if (params.length === 0) {
+      insertText = `${ind.name}()`
+    } else {
+      const snippetParts = params.map((p, i) => {
+        const defaultVal = p.default ?? ''
+        return `\${${i + 1}:${defaultVal}}`
+      })
+      insertText = `${ind.name}(${snippetParts.join(', ')})`
+    }
+
+    const detailParts = params.map(p => p.name).join(', ')
+    const detail =
+      params.length > 0
+        ? `${ind.name}(${detailParts})`
+        : `${ind.name}()`
+
+    return {
+      label: ind.name,
+      kind: CompletionItemKind.Function,
+      insertText,
+      insertTextRules: InsertTextRule.InsertAsSnippet,
+      detail,
+      documentation: ind.description || ind.name,
+    }
+  })
+
+  // Keep non-indicator completions (price fields, keywords, operators) from static list
+  const nonIndicatorCompletions = CONDITION_DSL_COMPLETIONS.filter(
+    c => c.kind !== CompletionItemKind.Function,
+  )
+
+  return [...indicatorCompletions, ...nonIndicatorCompletions]
+}
+
 // ── Theme rules ───────────────────────────────────────────────────────────
 
 export const CONDITION_DSL_THEME: editor.IStandaloneThemeData = {
