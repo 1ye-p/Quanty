@@ -830,11 +830,8 @@ class VectorBacktestEngine:
         # Build risk context with real positions
         ctx = self._build_risk_context(trade_date, current_positions, spec.initial_cash)
 
-        # Use approximate drawdown from weighted returns for risk decisions
-        # (real NAV from FillSimulator will be used after the loop for final metrics)
+        # Use incremental drawdown from NAV estimator (O(1) per call)
         drawdown = current_drawdown
-        if drawdown == 0.0 and daily_returns:
-            drawdown = self._compute_drawdown(daily_returns)
 
         # Create a risk snapshot with real values
         snapshot = RiskSnapshot(
