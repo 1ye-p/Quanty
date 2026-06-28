@@ -1485,7 +1485,11 @@ class BacktestRunner:
     def _restore_risk_policy_states(
         self, run_id: str, risk_policies: list[RiskPolicy]
     ) -> None:
-        """Restore risk policy states from gold_risk_policy_states if available."""
+        """Restore risk policy states from gold_risk_policy_states if available.
+
+        TODO: Wire into run_engine before executing to restore state from prior runs.
+        Currently only persisted (by _persist_risk_policy_states) but never consumed.
+        """
         for policy in risk_policies:
             if not hasattr(policy, "set_state"):
                 continue
