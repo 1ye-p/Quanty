@@ -596,7 +596,7 @@ class VectorBacktestEngine:
             for aid in committed_weights:
                 price = self._get_price_on_date(aid, td, date_to_idx, price_matrix)
                 if price is not None:
-                    current_peak = trailing_state["peak_prices"].get(aid, 0.0)
+                    current_peak = trailing_state["peak_prices"].get(aid, price)
                     if price > current_peak:
                         trailing_state["peak_prices"][aid] = price
 

@@ -50,6 +50,10 @@ class ForcedExitPolicy(ABC):
             ``{asset_id: current_market_price}``.
         entry_prices:
             ``{asset_id: average_entry_price}``.
+        state:
+            Optional mutable state dict managed by the engine (e.g. peak
+            prices for trailing stops, ATR values).  When ``None`` the
+            policy falls back to instance-level state.
 
         Returns
         -------
