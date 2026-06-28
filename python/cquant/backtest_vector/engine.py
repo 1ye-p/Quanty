@@ -498,6 +498,7 @@ class VectorBacktestEngine:
         ]
         forced_exit_log: list[dict] = []
         force_exited_assets: set[str] = set()  # cooldown until next rebalance
+        pending_force_exits: set[str] = set()  # re-inject zero-weight for T+1 blocked sells
         entry_prices: dict[str, float] = {}  # asset_id -> entry price (first commit)
 
         for i, td in enumerate(trade_dates):
@@ -574,7 +575,9 @@ class VectorBacktestEngine:
                     # Update committed weights
                     if weights_dict:
                         committed_weights = weights_dict.copy()
-                        force_exited_assets.clear()  # New rebalance allows re-entry
+                    # Always clear on rebalance, regardless of weights_dict
+                    force_exited_assets.clear()
+                    pending_force_exits.clear()
 
             # Track entry prices for new positions (O(1) per asset)
             for aid in committed_weights:
@@ -606,6 +609,9 @@ class VectorBacktestEngine:
                             )
                             # Add to cooldown set
                             force_exited_assets.add(forced_exit.asset_id)
+                            pending_force_exits.add(forced_exit.asset_id)
+                            # Clean up entry price
+                            entry_prices.pop(forced_exit.asset_id, None)
                             # Record the event
                             ep = entry_prices.get(forced_exit.asset_id, 0)
                             cp = current_prices_map.get(forced_exit.asset_id, 0)
@@ -644,6 +650,12 @@ class VectorBacktestEngine:
                 # Update approximate drawdown from weighted returns for risk decisions
                 # (real NAV from FillSimulator will be used after the loop)
                 _current_drawdown = self._compute_drawdown(daily_returns)
+
+            # Re-inject zero-weight for pending force exits (handles T+1 blocked sells)
+            if pending_force_exits and i + 1 < len(trade_dates):
+                next_td = trade_dates[i + 1]
+                for fe_asset in list(pending_force_exits):
+                    all_weights.append({"trade_date": next_td, "asset_id": fe_asset, "target_weight": 0.0})
 
             # NEXT-BAR EXECUTION: signal on day T, execute on day T+1
             # Only add weights on rebalance days when new signals were generated
