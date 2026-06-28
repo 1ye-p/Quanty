@@ -1,0 +1,74 @@
+{
+  "strategy": {
+    "types": {
+      "StaticTopN": "静态 Top N",
+      "MLModelStrategy": "ML 模型",
+      "MultiFactor": "多因子",
+      "MarketNeutral": "市场中性",
+      "SectorRotation": "行业轮动",
+      "Combo": "组合策略",
+      "IndicatorSignal": "指标信号",
+      "RuleCondition": "规则条件"
+    },
+    "params": {
+      "rebalance_frequency": "调仓频率",
+      "stock_pool": "股票池",
+      "max_positions": "最大持仓",
+      "universe": "股票池"
+    }
+  },
+  "risk": {
+    "stop_loss": "止损",
+    "trailing_stop": "追踪止损",
+    "atr_stop": "ATR 止损",
+    "drawdown_breaker": "回撤熔断",
+    "position_limit": "仓位限制",
+    "leverage_limit": "杠杆限制"
+  },
+  "metrics": {
+    "total_return": "总收益",
+    "annualized_return": "年化收益",
+    "sharpe_ratio": "夏普比率",
+    "sortino_ratio": "索提诺比率",
+    "max_drawdown": "最大回撤",
+    "win_rate": "胜率",
+    "information_ratio": "信息比率",
+    "tracking_error": "跟踪误差",
+    "alpha": "Alpha",
+    "beta": "Beta",
+    "calmar_ratio": "卡玛比率",
+    "volatility": "波动率"
+  },
+  "alerts": {
+    "data_stale": "数据过期",
+    "factor_ic_low": "因子 IC 过低",
+    "pnl_drawdown": "净值回撤",
+    "risk_breach": "风控违规",
+    "news_sentiment": "新闻情绪"
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "cancel": "取消",
+    "confirm": "确认",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "search": "搜索",
+    "filter": "筛选",
+    "export": "导出",
+    "import": "导入"
+  },
+  "nav": {
+    "dashboard": "仪表盘",
+    "strategies": "策略",
+    "backtests": "回测",
+    "factors": "因子",
+    "ml": "机器学习",
+    "risk": "风控",
+    "trading": "交易",
+    "settings": "设置"
+  }
+}

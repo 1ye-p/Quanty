@@ -1,0 +1,74 @@
+{
+  "strategy": {
+    "types": {
+      "StaticTopN": "Static Top N",
+      "MLModelStrategy": "ML Model",
+      "MultiFactor": "Multi-Factor",
+      "MarketNeutral": "Market Neutral",
+      "SectorRotation": "Sector Rotation",
+      "Combo": "Combo Strategy",
+      "IndicatorSignal": "Indicator Signal",
+      "RuleCondition": "Rule Condition"
+    },
+    "params": {
+      "rebalance_frequency": "Rebalance Frequency",
+      "stock_pool": "Stock Pool",
+      "max_positions": "Max Positions",
+      "universe": "Universe"
+    }
+  },
+  "risk": {
+    "stop_loss": "Stop Loss",
+    "trailing_stop": "Trailing Stop",
+    "atr_stop": "ATR Stop",
+    "drawdown_breaker": "Drawdown Breaker",
+    "position_limit": "Position Limit",
+    "leverage_limit": "Leverage Limit"
+  },
+  "metrics": {
+    "total_return": "Total Return",
+    "annualized_return": "Annualized Return",
+    "sharpe_ratio": "Sharpe Ratio",
+    "sortino_ratio": "Sortino Ratio",
+    "max_drawdown": "Max Drawdown",
+    "win_rate": "Win Rate",
+    "information_ratio": "Information Ratio",
+    "tracking_error": "Tracking Error",
+    "alpha": "Alpha",
+    "beta": "Beta",
+    "calmar_ratio": "Calmar Ratio",
+    "volatility": "Volatility"
+  },
+  "alerts": {
+    "data_stale": "Data Stale",
+    "factor_ic_low": "Factor IC Low",
+    "pnl_drawdown": "P&L Drawdown",
+    "risk_breach": "Risk Breach",
+    "news_sentiment": "News Sentiment"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "strategies": "Strategies",
+    "backtests": "Backtests",
+    "factors": "Factors",
+    "ml": "ML Lab",
+    "risk": "Risk",
+    "trading": "Trading",
+    "settings": "Settings"
+  }
+}
