@@ -497,6 +497,7 @@ class VectorBacktestEngine:
             p for p in spec.risk_policies if isinstance(p, ForcedExitPolicy)
         ]
         forced_exit_log: list[dict] = []
+        force_exited_assets: set[str] = set()  # cooldown until next rebalance
         entry_prices: dict[str, float] = {}  # asset_id -> entry price (first commit)
 
         for i, td in enumerate(trade_dates):
@@ -515,6 +516,9 @@ class VectorBacktestEngine:
                     extra=spec.extra,
                 )
                 signals = spec.strategy.generate_signals(ctx)
+                # Exclude force-exited stocks (cooldown until next rebalance)
+                if force_exited_assets:
+                    signals = signals.filter(~pl.col("asset_id").is_in(list(force_exited_assets)))
 
                 if not signals.is_empty():
                     # Apply position sizer
@@ -570,6 +574,7 @@ class VectorBacktestEngine:
                     # Update committed weights
                     if weights_dict:
                         committed_weights = weights_dict.copy()
+                        force_exited_assets.clear()  # New rebalance allows re-entry
 
             # Track entry prices for new positions (O(1) per asset)
             for aid in committed_weights:
@@ -597,7 +602,10 @@ class VectorBacktestEngine:
                             # Execute forced exit: remove from committed weights
                             self._execute_forced_exit(
                                 forced_exit.asset_id, committed_weights,
+                                all_weights, td,
                             )
+                            # Add to cooldown set
+                            force_exited_assets.add(forced_exit.asset_id)
                             # Record the event
                             ep = entry_prices.get(forced_exit.asset_id, 0)
                             cp = current_prices_map.get(forced_exit.asset_id, 0)
@@ -986,11 +994,14 @@ class VectorBacktestEngine:
     def _execute_forced_exit(
         asset_id: str,
         committed_weights: dict[str, float],
+        all_weights: list[dict],
+        exit_date: date,
     ) -> None:
-        """Execute a forced exit by removing the asset from committed weights.
+        """Execute a forced exit: remove from committed weights and inject sell order.
 
-        This immediately stops tracking the position so it no longer
-        contributes to NAV calculations on subsequent days.
+        Removes the asset from *committed_weights* so it stops contributing to
+        NAV, and appends a ``target_weight=0`` entry into *all_weights* so
+        FillSimulator will generate a proper sell fill.
 
         Parameters
         ----------
@@ -999,7 +1010,14 @@ class VectorBacktestEngine:
         committed_weights:
             Mutable mapping ``{asset_id: weight}`` — the entry for
             *asset_id* is deleted in-place.
+        all_weights:
+            Mutable list of weight dicts consumed by FillSimulator.
+            A zero-weight entry is appended for the forced exit.
+        exit_date:
+            Trade date on which the forced exit is executed.
         """
         if asset_id in committed_weights:
             del committed_weights[asset_id]
+            # Inject zero-weight entry so FillSimulator will sell
+            all_weights.append({"trade_date": exit_date, "asset_id": asset_id, "target_weight": 0.0})
 
