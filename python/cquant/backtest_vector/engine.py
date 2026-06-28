@@ -493,6 +493,8 @@ class VectorBacktestEngine:
 
         # Drawdown tracking (real NAV comes from FillSimulator after the loop)
         _current_drawdown = 0.0
+        nav_estimate = 1.0      # normalized NAV (starts at 1.0)
+        peak_nav = 1.0          # running peak NAV
 
         # Forced exit tracking
         forced_exit_policies: list[ForcedExitPolicy] = [
@@ -578,9 +580,25 @@ class VectorBacktestEngine:
                         )
                         pretrade_decisions.extend(decisions)
 
+                    # Save old weights for turnover calculation
+                    old_weights = committed_weights.copy() if committed_weights else {}
+
                     # Update committed weights
                     if weights_dict:
                         committed_weights = weights_dict.copy()
+
+                    # Deduct estimated turnover cost from NAV estimate
+                    if weights_dict and nav_estimate > 0:
+                        all_assets = set(old_weights.keys()) | set(weights_dict.keys())
+                        turnover = sum(
+                            abs(weights_dict.get(a, 0) - old_weights.get(a, 0))
+                            for a in all_assets
+                        )
+                        cost_model = spec.cost_model
+                        est_cost_rate = float(cost_model.commission_rate) * 2 + float(cost_model.stamp_duty_rate) + float(cost_model.slippage_rate)
+                        nav_estimate *= (1 - turnover * est_cost_rate)
+                        peak_nav = max(peak_nav, nav_estimate)
+
                     # Always clear on rebalance, regardless of weights_dict
                     force_exited_assets.clear()
                     pending_force_exits.clear()
@@ -682,9 +700,10 @@ class VectorBacktestEngine:
                         day_ret += w * (p_cur - p_prev) / p_prev
                 daily_returns.append(day_ret)
 
-                # Update approximate drawdown from weighted returns for risk decisions
-                # (real NAV from FillSimulator will be used after the loop)
-                _current_drawdown = self._compute_drawdown(daily_returns)
+                # Incremental NAV estimate (O(1) per day)
+                nav_estimate *= (1 + day_ret)
+                peak_nav = max(peak_nav, nav_estimate)
+                _current_drawdown = (nav_estimate - peak_nav) / peak_nav if peak_nav > 0 else 0.0
 
             # Re-inject zero-weight for pending force exits (handles T+1 blocked sells)
             if pending_force_exits and i + 1 < len(trade_dates):
