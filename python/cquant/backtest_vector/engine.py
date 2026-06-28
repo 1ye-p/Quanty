@@ -445,21 +445,6 @@ class VectorBacktestEngine:
             return price_matrix.clear()
         return price_matrix.head(idx + 1)
 
-    @staticmethod
-    def _compute_drawdown(daily_returns: list[float]) -> float:
-        """Compute current drawdown from a list of daily returns.
-
-        Returns the drawdown as a negative fraction (e.g., -0.05 = -5%).
-        """
-        if not daily_returns:
-            return 0.0
-        cum = 1.0
-        peak = 1.0
-        for r in daily_returns:
-            cum *= (1 + r)
-            peak = max(peak, cum)
-        return float((cum - peak) / peak) if peak > 0 else 0.0
-
     def _run_impl(
         self,
         spec: BacktestSpec,
@@ -492,7 +477,7 @@ class VectorBacktestEngine:
         daily_returns: list[float] = []
 
         # Drawdown tracking (real NAV comes from FillSimulator after the loop)
-        _current_drawdown = 0.0
+        current_drawdown = 0.0
         nav_estimate = 1.0      # normalized NAV (starts at 1.0)
         peak_nav = 1.0          # running peak NAV
 
@@ -574,7 +559,7 @@ class VectorBacktestEngine:
                             weights_dict, spec, td, prices,
                             accumulated_positions=accumulated_pos,
                             daily_returns=daily_returns,
-                            current_drawdown=_current_drawdown,
+                            current_drawdown=current_drawdown,
                             date_to_idx=date_to_idx,
                             price_matrix=price_matrix,
                         )
@@ -703,7 +688,7 @@ class VectorBacktestEngine:
                 # Incremental NAV estimate (O(1) per day)
                 nav_estimate *= (1 + day_ret)
                 peak_nav = max(peak_nav, nav_estimate)
-                _current_drawdown = (nav_estimate - peak_nav) / peak_nav if peak_nav > 0 else 0.0
+                current_drawdown = (nav_estimate - peak_nav) / peak_nav if peak_nav > 0 else 0.0
 
             # Re-inject zero-weight for pending force exits (handles T+1 blocked sells)
             if pending_force_exits and i + 1 < len(trade_dates):
