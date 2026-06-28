@@ -15,6 +15,7 @@ import {
 } from './ConditionDSLHighlight'
 import { ConditionEditor } from './ConditionEditor'
 import { StrategyTemplates, type StrategyTemplate } from './StrategyTemplates'
+import { IndicatorReferencePanel } from '@/components/indicators/IndicatorReferencePanel'
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -108,6 +109,7 @@ let _langRegistered = false
 export function RuleConditionEditor({ label, value, onChange, assetId }: RuleConditionEditorProps) {
   const [isVisual, setIsVisual] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [diagnostics, setDiagnostics] = useState<DslDiagnostic[]>([])
   const editorRef = useRef<editorTypes.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
@@ -210,6 +212,12 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
             模板
           </button>
           <button
+            className={`text-xs px-2 py-1 rounded transition-colors ${showHelp ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            onClick={() => setShowHelp(!showHelp)}
+          >
+            帮助
+          </button>
+          <button
             className={`text-xs px-2 py-1 rounded transition-colors ${isVisual ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             onClick={() => setIsVisual(!isVisual)}
           >
@@ -223,68 +231,80 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
         <StrategyTemplates onSelect={handleTemplateSelect} />
       )}
 
-      {/* Monaco editor (code mode) */}
-      {!isVisual && (
-        <div className="space-y-2">
-          <Suspense
-            fallback={
-              <div className="h-32 bg-gray-50 animate-pulse rounded flex items-center justify-center text-xs text-gray-400">
-                Loading editor...
-              </div>
-            }
-          >
-            <MonacoEditor
-              height="120px"
-              language={CONDITION_DSL_LANG_ID}
-              value={value}
-              onChange={v => onChange(v ?? '')}
-              onMount={handleEditorMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                scrollBeyondLastLine: false,
-                lineNumbers: 'off',
-                folding: false,
-                glyphMargin: false,
-                lineDecorationsWidth: 4,
-                overviewRulerLanes: 0,
-                scrollbar: { vertical: 'hidden' },
-                wordWrap: 'on',
-                suggest: { showKeywords: true },
-              }}
-            />
-          </Suspense>
+      {/* Editor area with optional help panel */}
+      <div className="flex gap-2">
+        <div className="flex-1 min-w-0">
+          {/* Monaco editor (code mode) */}
+          {!isVisual && (
+            <div className="space-y-2">
+              <Suspense
+                fallback={
+                  <div className="h-32 bg-gray-50 animate-pulse rounded flex items-center justify-center text-xs text-gray-400">
+                    Loading editor...
+                  </div>
+                }
+              >
+                <MonacoEditor
+                  height="120px"
+                  language={CONDITION_DSL_LANG_ID}
+                  value={value}
+                  onChange={v => onChange(v ?? '')}
+                  onMount={handleEditorMount}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    scrollBeyondLastLine: false,
+                    lineNumbers: 'off',
+                    folding: false,
+                    glyphMargin: false,
+                    lineDecorationsWidth: 4,
+                    overviewRulerLanes: 0,
+                    scrollbar: { vertical: 'hidden' },
+                    wordWrap: 'on',
+                    suggest: { showKeywords: true },
+                  }}
+                />
+              </Suspense>
 
-          {/* Inline error messages */}
-          {diagnostics.length > 0 && (
-            <div className="space-y-1">
-              {diagnostics.map((d, i) => (
-                <div key={i} className="text-xs text-red-600 flex items-center gap-1">
-                  <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  {d.message}
+              {/* Inline error messages */}
+              {diagnostics.length > 0 && (
+                <div className="space-y-1">
+                  {diagnostics.map((d, i) => (
+                    <div key={i} className="text-xs text-red-600 flex items-center gap-1">
+                      <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {d.message}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              {/* Hint */}
+              <div className="text-[11px] text-gray-400">
+                支持: sma(20), rsi(14), close, AND/OR, crosses_above, &gt;/&lt;/==
+              </div>
             </div>
           )}
 
-          {/* Hint */}
-          <div className="text-[11px] text-gray-400">
-            支持: sma(20), rsi(14), close, AND/OR, crosses_above, &gt;/&lt;/==
-          </div>
+          {/* Visual editor mode */}
+          {isVisual && (
+            <ConditionEditor
+              label=""
+              value={value}
+              onChange={onChange}
+              assetId={assetId}
+            />
+          )}
         </div>
-      )}
 
-      {/* Visual editor mode */}
-      {isVisual && (
-        <ConditionEditor
-          label=""
-          value={value}
-          onChange={onChange}
-          assetId={assetId}
-        />
-      )}
+        {/* Help panel */}
+        {showHelp && (
+          <div className="w-64 border-l overflow-y-auto max-h-[400px]">
+            <IndicatorReferencePanel />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
