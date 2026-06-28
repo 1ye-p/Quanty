@@ -13,7 +13,6 @@ import pytest
 from cquant.backtest_vector.costs import CostModel
 from cquant.backtest_vector.engine import VectorBacktestEngine, BacktestSpec
 from cquant.backtest_vector.strategy import Strategy, StrategyContext
-from cquant.core.enums import EngineType
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +153,6 @@ def _build_tradability_price_data(
 
     for i in range(n_days):
         d = start_date + timedelta(days=i)
-        prev_price = initial_price if i == 0 else None  # filled below
 
         # --- Suspended asset ---
         if i <= event_day:

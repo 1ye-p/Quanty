@@ -1080,6 +1080,7 @@ class VectorBacktestEngine:
         from cquant.backtest_vector.limit_rules import is_at_limit_down, is_at_limit_up
 
         if "is_suspended" not in prices.columns:
+            logger.debug("Tradability filtering disabled: 'is_suspended' column not in prices")
             return None
 
         today_prices = prices.filter(pl.col("trade_date") == td)
