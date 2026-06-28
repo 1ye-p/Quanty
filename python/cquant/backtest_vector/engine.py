@@ -32,6 +32,8 @@ from cquant.backtest_vector.strategy import Strategy, StrategyContext
 from cquant.core.enums import EngineType, OrderSide, RiskDecisionType
 from cquant.core.types import OrderIntent, RiskDecision, RiskSnapshot
 from cquant.riskguard.policies.forced_exit import ForcedExit, ForcedExitPolicy
+from cquant.riskguard.policies.stop_loss import TrailingStopLossPolicy
+from cquant.riskguard.policies.atr_stop_loss import ATRStopLossPolicy
 
 if TYPE_CHECKING:
     from cquant.portfolio_opt.base import PortfolioOptimizer
@@ -501,6 +503,10 @@ class VectorBacktestEngine:
         pending_force_exits: set[str] = set()  # re-inject zero-weight for T+1 blocked sells
         entry_prices: dict[str, float] = {}  # asset_id -> entry price (first commit)
 
+        # State dicts for forced exit policies
+        trailing_state: dict = {"peak_prices": {}}
+        atr_state: dict = {"atr_values": {}}
+
         for i, td in enumerate(trade_dates):
             prev_date = trade_dates[i - 1] if i > 0 else None
             is_rebalance = self._is_rebalance_date(td, prev_date, spec.rebalance_frequency)
@@ -586,6 +592,14 @@ class VectorBacktestEngine:
                     if price is not None:
                         entry_prices[aid] = price
 
+            # Update peak prices for trailing stop
+            for aid in committed_weights:
+                price = self._get_price_on_date(aid, td, date_to_idx, price_matrix)
+                if price is not None:
+                    current_peak = trailing_state["peak_prices"].get(aid, 0.0)
+                    if price > current_peak:
+                        trailing_state["peak_prices"][aid] = price
+
             # Forced exit check (runs every day, not just rebalance days)
             if forced_exit_policies and committed_weights:
                 # Build current prices map for committed positions (O(N) batch)
@@ -593,12 +607,30 @@ class VectorBacktestEngine:
                     td, date_to_idx, price_matrix, list(committed_weights.keys())
                 )
 
+                # Compute ATR for committed positions (if any ATR policy is active)
+                if any(isinstance(p, ATRStopLossPolicy) for p in forced_exit_policies):
+                    from cquant.riskguard.policies.atr_stop_loss import compute_atr
+                    atr_prices = prices.filter(
+                        (pl.col("trade_date") <= td)
+                        & (pl.col("asset_id").is_in(list(committed_weights.keys())))
+                    )
+                    atr_state["atr_values"] = compute_atr(atr_prices)
+
                 # Build a minimal positions dict (policies only need to iterate keys)
                 positions_dict = {aid: {"weight": w} for aid, w in committed_weights.items()}
 
                 for policy in forced_exit_policies:
+                    # Determine state dict based on policy type
+                    if isinstance(policy, TrailingStopLossPolicy):
+                        state = trailing_state
+                    elif isinstance(policy, ATRStopLossPolicy):
+                        state = atr_state
+                    else:
+                        state = None
+
                     exits = policy.check_exits(
                         positions_dict, current_prices_map, entry_prices,
+                        state=state,
                     )
                     for forced_exit in exits:
                         if forced_exit.asset_id in committed_weights:
@@ -624,6 +656,9 @@ class VectorBacktestEngine:
                             })
                             # Clean up entry price after logging
                             entry_prices.pop(forced_exit.asset_id, None)
+                            # Clean up state for force-exited asset
+                            trailing_state["peak_prices"].pop(forced_exit.asset_id, None)
+                            atr_state["atr_values"].pop(forced_exit.asset_id, None)
 
             # Track daily returns for risk decisions (approximate NAV removed;
             # real NAV comes from FillSimulator after the loop)
