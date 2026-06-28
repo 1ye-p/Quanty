@@ -81,6 +81,7 @@ class FixedStopLossPolicy(RiskPolicy):
         positions: dict,
         current_prices: dict[str, float],
         entry_prices: dict[str, float],
+        state: dict | None = None,
     ) -> list[ForcedExit]:
         """Return positions whose loss exceeds the fixed stop threshold."""
         exits: list[ForcedExit] = []
@@ -197,23 +198,24 @@ class TrailingStopLossPolicy(RiskPolicy):
         positions: dict,
         current_prices: dict[str, float],
         entry_prices: dict[str, float],
+        state: dict | None = None,
     ) -> list[ForcedExit]:
         """Return positions whose drawdown from peak exceeds the trailing threshold."""
+        peak_prices = (state or {}).get("peak_prices", {})
         exits: list[ForcedExit] = []
-        for asset_id, pos in positions.items():
-            if asset_id in current_prices and hasattr(pos, "peak_price"):
-                peak = pos.peak_price
-                if peak > 0:
-                    drawdown = (current_prices[asset_id] - peak) / peak
-                    if drawdown < self._trail_pct:
-                        exits.append(
-                            ForcedExit(
-                                asset_id=asset_id,
-                                reason=(
-                                    f"trailing_stop: drawdown {drawdown:.2%} "
-                                    f"from peak"
-                                ),
-                                urgency="high",
-                            )
+        for asset_id in positions:
+            if asset_id not in current_prices:
+                continue
+            price = current_prices[asset_id]
+            peak = peak_prices.get(asset_id, price)
+            if peak > 0:
+                drawdown = (price - peak) / peak
+                if drawdown < self._trail_pct:
+                    exits.append(
+                        ForcedExit(
+                            asset_id=asset_id,
+                            reason=f"trailing_stop: drawdown {drawdown:.2%} from peak",
+                            urgency="high",
                         )
+                    )
         return exits

@@ -130,30 +130,29 @@ class ATRStopLossPolicy(RiskPolicy):
         positions: dict,
         current_prices: dict[str, float],
         entry_prices: dict[str, float],
+        state: dict | None = None,
     ) -> list[ForcedExit]:
         """Return positions where price falls below ATR-based stop."""
+        atr_values = (state or {}).get("atr_values", {})
         exits: list[ForcedExit] = []
-        for asset_id, pos in positions.items():
-            if (
-                asset_id in current_prices
-                and asset_id in entry_prices
-                and hasattr(pos, "atr")
-            ):
-                atr = pos.atr
-                entry = entry_prices[asset_id]
-                if atr > 0 and entry > 0:
-                    stop_price = entry - self._n_atr * atr
-                    if current_prices[asset_id] < stop_price:
-                        exits.append(
-                            ForcedExit(
-                                asset_id=asset_id,
-                                reason=(
-                                    f"atr_stop: price {current_prices[asset_id]:.2f} "
-                                    f"< stop {stop_price:.2f}"
-                                ),
-                                urgency="critical",
-                            )
+        for asset_id in positions:
+            if asset_id not in current_prices or asset_id not in entry_prices:
+                continue
+            if asset_id not in atr_values:
+                continue
+            price = current_prices[asset_id]
+            atr = atr_values[asset_id]
+            entry = entry_prices[asset_id]
+            if atr > 0 and entry > 0:
+                stop_price = entry - self._n_atr * atr
+                if price < stop_price:
+                    exits.append(
+                        ForcedExit(
+                            asset_id=asset_id,
+                            reason=f"atr_stop: price {price:.2f} < stop {stop_price:.2f}",
+                            urgency="critical",
                         )
+                    )
         return exits
 
     def _approve(self, candidate: OrderIntent) -> RiskDecision:

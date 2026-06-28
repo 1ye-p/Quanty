@@ -36,6 +36,7 @@ class ForcedExitPolicy(ABC):
         positions: dict,
         current_prices: dict[str, float],
         entry_prices: dict[str, float],
+        state: dict | None = None,
     ) -> list[ForcedExit]:
         """Check all positions and return those that need forced exit.
 

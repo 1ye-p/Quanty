@@ -60,6 +60,7 @@ class _FixedStopLossForcedExit(ForcedExitPolicy, RiskPolicy):
         positions: dict,
         current_prices: dict[str, float],
         entry_prices: dict[str, float],
+        state: dict | None = None,
     ) -> list[ForcedExit]:
         exits: list[ForcedExit] = []
         for asset_id in positions:
