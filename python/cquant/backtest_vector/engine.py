@@ -502,11 +502,27 @@ class VectorBacktestEngine:
 
             if is_rebalance:
                 rebalance_dates.append(td)
+
+                # Build tradability flags for today
+                trad_today = self._build_tradability_today(prices, td)
+
+                # Pre-filter suspended stocks from context prices
+                prices_for_ctx = prices.filter(pl.col("trade_date") <= td)
+                if "is_suspended" in prices.columns:
+                    suspended_today = prices.filter(
+                        (pl.col("trade_date") == td) & pl.col("is_suspended")
+                    )["asset_id"].unique().to_list()
+                    if suspended_today:
+                        prices_for_ctx = prices_for_ctx.filter(
+                            ~pl.col("asset_id").is_in(suspended_today)
+                        )
+
                 ctx = StrategyContext(
                     as_of_date=td,
                     universe_id=spec.universe_id,
                     features=spec.features,
-                    prices=prices.filter(pl.col("trade_date") <= td),
+                    prices=prices_for_ctx,
+                    tradability=trad_today,
                     extra=spec.extra,
                 )
                 signals = spec.strategy.generate_signals(ctx)
@@ -1043,6 +1059,56 @@ class VectorBacktestEngine:
                 }
             )
         return pl.DataFrame(rows)
+
+    @staticmethod
+    def _build_tradability_today(
+        prices: pl.DataFrame,
+        td: date,
+    ) -> pl.DataFrame | None:
+        """Build a tradability DataFrame for the given date.
+
+        Computes ``is_limit_up`` and ``is_limit_down`` columns from price data
+        and includes the existing ``is_suspended`` column if present.
+
+        Returns
+        -------
+        pl.DataFrame | None
+            DataFrame with columns ``[trade_date, asset_id, is_suspended,
+            is_limit_up, is_limit_down]`` for *td*, or ``None`` if the
+            ``is_suspended`` column is absent from *prices*.
+        """
+        from cquant.backtest_vector.limit_rules import is_at_limit_down, is_at_limit_up
+
+        if "is_suspended" not in prices.columns:
+            return None
+
+        today_prices = prices.filter(pl.col("trade_date") == td)
+        if today_prices.is_empty():
+            return None
+
+        # Gather previous-day close for each asset
+        prev_prices = prices.filter(pl.col("trade_date") < td)
+
+        limit_up_ids: set[str] = set()
+        limit_down_ids: set[str] = set()
+
+        for row in today_prices.iter_rows(named=True):
+            aid = row["asset_id"]
+            close = row["close"]
+            prev = prev_prices.filter(pl.col("asset_id") == aid).sort("trade_date").tail(1)
+            if prev.is_empty():
+                continue
+            prev_close = prev["close"][0]
+
+            if is_at_limit_up(close, prev_close, aid) and close == row["high"]:
+                limit_up_ids.add(aid)
+            if is_at_limit_down(close, prev_close, aid) and close == row["low"]:
+                limit_down_ids.add(aid)
+
+        return today_prices.select(["trade_date", "asset_id", "is_suspended"]).with_columns([
+            pl.col("asset_id").is_in(list(limit_up_ids)).alias("is_limit_up"),
+            pl.col("asset_id").is_in(list(limit_down_ids)).alias("is_limit_down"),
+        ])
 
     @staticmethod
     def _execute_forced_exit(

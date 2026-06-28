@@ -246,6 +246,16 @@ class IndicatorSignalStrategy(Strategy):
             )
             return empty
 
+        # Extract limit-up / limit-down sets from tradability
+        limit_up_today: set[str] = set()
+        limit_down_today: set[str] = set()
+        if ctx.tradability is not None and not ctx.tradability.is_empty():
+            today_flags = ctx.tradability.filter(pl.col("trade_date") == ctx.as_of_date)
+            if "is_limit_up" in today_flags.columns:
+                limit_up_today = set(today_flags.filter(pl.col("is_limit_up"))["asset_id"].to_list())
+            if "is_limit_down" in today_flags.columns:
+                limit_down_today = set(today_flags.filter(pl.col("is_limit_down"))["asset_id"].to_list())
+
         # Process each asset
         all_buy_frames: list[SignalFrame] = []
         all_sell_frames: list[SignalFrame] = []
@@ -279,7 +289,7 @@ class IndicatorSignalStrategy(Strategy):
                         d for d in result["signal_dates"]
                         if d == ctx.as_of_date
                     ]
-                    if dates:
+                    if dates and asset_id not in limit_up_today:
                         all_buy_frames.append(
                             _build_signal_frame(asset_id, dates, "long")
                         )
@@ -297,7 +307,7 @@ class IndicatorSignalStrategy(Strategy):
                         d for d in result["signal_dates"]
                         if d == ctx.as_of_date
                     ]
-                    if dates:
+                    if dates and asset_id not in limit_down_today:
                         all_sell_frames.append(
                             _build_signal_frame(asset_id, dates, "sell")
                         )

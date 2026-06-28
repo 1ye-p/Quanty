@@ -24,6 +24,7 @@ class StrategyContext:
     feature_set_version: str = ""
     features: pl.DataFrame | None = None    # Gold factor values for the universe
     prices: pl.DataFrame | None = None      # Silver OHLCV
+    tradability: pl.DataFrame | None = None  # [trade_date, asset_id, is_suspended, is_limit_up, is_limit_down]
     extra: dict = field(default_factory=dict)
 
 
