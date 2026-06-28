@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from cquant.datahub.catalog import Catalog
 
 import polars as pl
 
@@ -94,3 +97,21 @@ class XGBTrainer(Trainer):
         model.load_model(model_artifact.model_path)
         predictions = model.predict(frame_to_matrix(features, model_artifact.feature_names))
         return pl.Series(name="prediction", values=predictions)
+
+    def predict_and_persist(
+        self,
+        features: pl.DataFrame,
+        model_artifact: ModelArtifact,
+        catalog: "Catalog",
+        horizon: str = "5d",
+        fold_id: str | None = None,
+    ) -> pl.Series:
+        """Generate predictions and write them to gold_predictions.
+
+        Returns the predictions Series for immediate use.
+        """
+        from cquant.ml_lab.base import persist_predictions
+
+        predictions = self.predict(features, model_artifact)
+        persist_predictions(model_artifact, features, predictions, catalog, horizon, fold_id=fold_id)
+        return predictions

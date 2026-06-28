@@ -42,6 +42,10 @@ def _create_trainer(model_type: str, model_params: dict | None = None):
         from cquant.ml_lab.trainers.xgb import XGBTrainer
         return XGBTrainer()
 
+    if model_type == "xgb_clf":
+        from cquant.ml_lab.trainers.xgb_classifier import XGBClassifierTrainer
+        return XGBClassifierTrainer()
+
     # Default to LightGBM
     from cquant.ml_lab.trainers.lgbm import LGBMTrainer
     return LGBMTrainer()
