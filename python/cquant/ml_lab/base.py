@@ -53,6 +53,24 @@ class Trainer(ABC):
     def predict(self, features: pl.DataFrame, model_artifact: ModelArtifact) -> pl.Series:
         """Generate predictions from *features* using *model_artifact*."""
 
+    def predict_and_persist(
+        self,
+        features: pl.DataFrame,
+        model_artifact: ModelArtifact,
+        catalog: Any,
+        horizon: str = "5d",
+        fold_id: str | None = None,
+    ) -> pl.Series:
+        """Generate predictions and write them to gold_predictions.
+
+        Returns the predictions Series for immediate use.  Subclasses may
+        override for custom persistence logic, but the default implementation
+        covers the common case.
+        """
+        predictions = self.predict(features, model_artifact)
+        persist_predictions(model_artifact, features, predictions, catalog, horizon, fold_id=fold_id)
+        return predictions
+
 
 def infer_feature_names(
     frame: pl.DataFrame,
