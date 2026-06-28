@@ -30,6 +30,9 @@ def _extract_indicator_refs(conditions: list[str]) -> list[dict[str, str | dict]
     Parses ``rsi(14)``, ``sma(20, column=close)`` etc. into indicator specs
     compatible with :func:`cquant.indicator.registry.compute`.
 
+    Supports multi-line DSL with let bindings — extracts indicator refs
+    from both the condition line and let binding expressions.
+
     Returns a list of dicts with keys:
       - ``name``: indicator name (e.g. ``"rsi"``)
       - ``params``: parameter dict (e.g. ``{"period": 14}``)
@@ -39,34 +42,51 @@ def _extract_indicator_refs(conditions: list[str]) -> list[dict[str, str | dict]
     refs: list[dict[str, str | dict]] = []
 
     for cond_str in conditions:
-        for match in _IND_REF_RE.finditer(cond_str):
-            name = match.group(1)
-            args_str = match.group(2)
-            col_name = f"{name}({args_str})"
-
-            if col_name in seen:
+        # Process each line — may contain let bindings or the condition
+        for line in cond_str.split('\n'):
+            stripped = line.strip()
+            if not stripped:
                 continue
-            seen.add(col_name)
 
-            # Parse arguments: positional (int/float) or keyword (key=value)
-            params: dict = {}
-            if args_str.strip():
-                for arg in args_str.split(","):
-                    arg = arg.strip()
-                    if "=" in arg:
-                        k, v = arg.split("=", 1)
-                        params[k.strip()] = _parse_value(v.strip())
-                    else:
-                        # Positional argument — use the first param name from registry
-                        spec = registry.get_indicator(name)
-                        if spec and spec.params:
-                            first_param_name = spec.params[0][0]
-                            params[first_param_name] = _parse_value(arg)
+            # For let bindings, extract refs from the expression part
+            if stripped.startswith('let '):
+                rest = stripped[4:]
+                if '=' in rest:
+                    _, expr = rest.split('=', 1)
+                    search_str = expr.strip()
+                else:
+                    search_str = stripped
+            else:
+                search_str = stripped
+
+            for match in _IND_REF_RE.finditer(search_str):
+                name = match.group(1)
+                args_str = match.group(2)
+                col_name = f"{name}({args_str})"
+
+                if col_name in seen:
+                    continue
+                seen.add(col_name)
+
+                # Parse arguments: positional (int/float) or keyword (key=value)
+                params: dict = {}
+                if args_str.strip():
+                    for arg in args_str.split(","):
+                        arg = arg.strip()
+                        if "=" in arg:
+                            k, v = arg.split("=", 1)
+                            params[k.strip()] = _parse_value(v.strip())
                         else:
-                            # Fallback: try 'period' as common default
-                            params["period"] = _parse_value(arg)
+                            # Positional argument — use the first param name from registry
+                            spec = registry.get_indicator(name)
+                            if spec and spec.params:
+                                first_param_name = spec.params[0][0]
+                                params[first_param_name] = _parse_value(arg)
+                            else:
+                                # Fallback: try 'period' as common default
+                                params["period"] = _parse_value(arg)
 
-            refs.append({"name": name, "params": params, "col_name": col_name})
+                refs.append({"name": name, "params": params, "col_name": col_name})
 
     return refs
 
