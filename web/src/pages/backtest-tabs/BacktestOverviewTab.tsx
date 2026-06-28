@@ -2,6 +2,7 @@ import { MetricCard } from '../../components/ui/MetricCard'
 import { ROLLING_WINDOWS } from '@/lib/constants'
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import { backtestsApi, backtestExtApi, liveApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -10,20 +11,20 @@ import { BenchmarkCompare } from '@/components/charts/BenchmarkCompare'
 import { RollingMetricsChart } from '@/components/charts/RollingMetricsChart'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from 'recharts'
 
-function marketLabel(m?: string) {
-  return { CN: 'A股', US: '美股', HK: '港股' }[m ?? 'CN'] ?? 'A股'
-}
-function adjLabel(a?: string) {
-  return { forward: '前复权', backward: '后复权', none: '不复权' }[a ?? 'forward'] ?? '前复权'
-}
-function rebalanceLabel(r?: string) {
-  return { '1d': '每日', '1w': '每周', '1mo': '每月', '5d': '每周', '20d': '每月' }[r ?? '1d'] ?? r ?? '每日'
-}
-
-
 import { downloadJson } from '@/lib/download'
 
 export function BacktestOverviewTab() {
+  const { t } = useTranslation()
+
+  function marketLabel(m?: string) {
+    return { CN: t('market.cn'), US: t('market.us'), HK: t('market.hk') }[m ?? 'CN'] ?? t('market.cn')
+  }
+  function adjLabel(a?: string) {
+    return { forward: t('market.adj_forward'), backward: t('market.adj_backward'), none: t('market.adj_none') }[a ?? 'forward'] ?? t('market.adj_forward')
+  }
+  function rebalanceLabel(r?: string) {
+    return { '1d': t('market.daily'), '1w': t('market.weekly'), '1mo': t('market.monthly'), '5d': t('market.weekly'), '20d': t('market.monthly') }[r ?? '1d'] ?? r ?? t('market.daily')
+  }
   const { id: selectedId } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()

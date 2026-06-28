@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { datasetsApi, riskApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { ConditionEditor } from '@/components/strategies/ConditionEditor'
@@ -12,6 +13,7 @@ interface StrategyBuilderProps {
 }
 
 export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProps) {
+  const { t } = useTranslation()
   const parsed = useMemo(() => {
     try { return JSON.parse(initialConfig) } catch { return {} }
   }, [initialConfig])
@@ -176,15 +178,15 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
     <div className="space-y-4 p-4">
       {/* Strategy Type */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">策略类型</label>
+        <label className="text-xs text-gray-500 mb-1 block">{t('strategy.type')}</label>
         <select className="input w-full" value={strategyType} onChange={e => setStrategyType(e.target.value)}>
-          <option value="StaticTopN">StaticTopN — 静态 Top N 截面动量</option>
-          <option value="MLModelStrategy">MLModelStrategy — ML 模型预测</option>
-          <option value="MultiFactor">MultiFactor — 多因子加权</option>
-          <option value="MarketNeutral">MarketNeutral — 市场中性（多空）</option>
-          <option value="SectorRotation">SectorRotation — 行业轮动</option>
-          <option value="Combo">Combo — 组合策略</option>
-          <option value="IndicatorSignal">IndicatorSignal — 指标信号</option>
+          <option value="StaticTopN">StaticTopN — {t('strategy.types.StaticTopN')}</option>
+          <option value="MLModelStrategy">MLModelStrategy — {t('strategy.types.MLModelStrategy')}</option>
+          <option value="MultiFactor">MultiFactor — {t('strategy.types.MultiFactor')}</option>
+          <option value="MarketNeutral">MarketNeutral — {t('strategy.types.MarketNeutral')}</option>
+          <option value="SectorRotation">SectorRotation — {t('strategy.types.SectorRotation')}</option>
+          <option value="Combo">Combo — {t('strategy.types.Combo')}</option>
+          <option value="IndicatorSignal">IndicatorSignal — {t('strategy.types.IndicatorSignal')}</option>
         </select>
       </div>
 
@@ -441,7 +443,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">调仓频率</label>
+          <label className="text-xs text-gray-500 mb-1 block">{t('strategy.params.rebalance_frequency')}</label>
           <select className="input w-full" value={rebalance} onChange={e => setRebalance(e.target.value)}>
             <option value="1d">每日 (1d)</option>
             <option value="1w">每周 (1w)</option>
@@ -517,12 +519,12 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
       {/* Quick risk config */}
       <div className="border rounded-lg p-3 bg-amber-50 space-y-3">
-        <h4 className="text-sm font-medium text-amber-800">常用风控参数</h4>
+        <h4 className="text-sm font-medium text-amber-800">{t('strategy.quick_risk_params')}</h4>
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              止损比例 (%)
-              <span className="ml-1 text-gray-400 cursor-help" title="单笔持仓亏损超过此比例时强制平仓">ⓘ</span>
+              {t('risk.stop_loss')} (%)
+              <span className="ml-1 text-gray-400 cursor-help" title={t('risk.stop_loss_hint')}>ⓘ</span>
             </label>
             <input
               type="number"
@@ -545,8 +547,8 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           </div>
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              单仓最大比例 (%)
-              <span className="ml-1 text-gray-400 cursor-help" title="单只股票持仓不超过组合的此比例">ⓘ</span>
+              {t('risk.position_limit')} (%)
+              <span className="ml-1 text-gray-400 cursor-help" title={t('risk.position_limit_hint')}>ⓘ</span>
             </label>
             <input
               type="number"
@@ -559,13 +561,13 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
                 setMaxPositionPct(pct)
               }}
               className="input w-full text-sm"
-              placeholder="不限制"
+              placeholder={t('common.unlimited')}
             />
           </div>
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              最大回撤熔断 (%)
-              <span className="ml-1 text-gray-400 cursor-help" title="组合从高点回撤超过此比例时暂停交易">ⓘ</span>
+              {t('risk.drawdown_breaker')} (%)
+              <span className="ml-1 text-gray-400 cursor-help" title={t('risk.drawdown_breaker_hint')}>ⓘ</span>
             </label>
             <input
               type="number"
@@ -591,7 +593,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
       {/* Risk policies */}
       <div className="border rounded-lg p-3">
-        <div className="text-xs font-medium text-gray-600 mb-2">风控策略</div>
+        <div className="text-xs font-medium text-gray-600 mb-2">{t('risk.policies')}</div>
         <div className="grid grid-cols-2 gap-2">
           {policies?.map(p => (
             <label key={p.name} className="flex items-start gap-2 text-sm cursor-pointer">

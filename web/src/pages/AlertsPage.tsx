@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { alertsApi, type AlertRule, type NotificationChannel } from '@/lib/api'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -7,11 +8,11 @@ import { ChannelList } from '@/components/alerts/ChannelList'
 import { ChannelForm } from '@/components/alerts/ChannelForm'
 import { SilenceRules } from '@/components/alerts/SilenceRules'
 
-function severityBadge(severity: string) {
+function severityBadge(severity: string, t: (key: string) => string) {
   const map: Record<string, { bg: string; text: string; label: string }> = {
-    critical: { bg: 'bg-red-100', text: 'text-red-700', label: '严重' },
-    warning:  { bg: 'bg-orange-100', text: 'text-orange-700', label: '警告' },
-    info:     { bg: 'bg-blue-100', text: 'text-blue-700', label: '信息' },
+    critical: { bg: 'bg-red-100', text: 'text-red-700', label: t('alerts.severity.critical') },
+    warning:  { bg: 'bg-orange-100', text: 'text-orange-700', label: t('alerts.severity.warning') },
+    info:     { bg: 'bg-blue-100', text: 'text-blue-700', label: t('alerts.severity.info') },
   }
   const s = map[severity] ?? map.warning
   return (
@@ -22,6 +23,7 @@ function severityBadge(severity: string) {
 }
 
 export function AlertsPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newRuleType, setNewRuleType] = useState('data_stale')
@@ -123,9 +125,9 @@ export function AlertsPage() {
   const paramFields = PARAM_FORMS[newRuleType] ?? []
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: 'rules', label: '告警规则' },
-    { key: 'history', label: '告警历史' },
-    { key: 'channels', label: '通道配置' },
+    { key: 'rules', label: t('alerts.tabs.rules') },
+    { key: 'history', label: t('alerts.tabs.history') },
+    { key: 'channels', label: t('alerts.tabs.channels') },
   ]
 
   function handleEditChannel(ch: NotificationChannel) {
@@ -143,18 +145,18 @@ export function AlertsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title">告警中心</h1>
+          <h1 className="page-title">{t('alerts.center')}</h1>
           {history?.unread_count ? (
-            <p className="page-subtitle text-red-500">{history.unread_count} 条未读告警</p>
+            <p className="page-subtitle text-red-500">{history.unread_count} {t('alerts.unread_count')}</p>
           ) : (
-            <p className="page-subtitle">无未读告警</p>
+            <p className="page-subtitle">{t('alerts.no_unread')}</p>
           )}
         </div>
         <div className="flex gap-2">
           <button onClick={() => checkMutation.mutate()} disabled={checkMutation.isPending}
-            className="btn-secondary text-sm">立即检查</button>
+            className="btn-secondary text-sm">{t('alerts.check_now')}</button>
           {(history?.unread_count ?? 0) > 0 && (
-            <button onClick={() => markReadMutation.mutate()} className="btn-secondary text-sm">全部标为已读</button>
+            <button onClick={() => markReadMutation.mutate()} className="btn-secondary text-sm">{t('alerts.mark_all_read')}</button>
           )}
         </div>
       </div>
@@ -182,15 +184,15 @@ export function AlertsPage() {
       {activeTab === 'rules' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateForm(true)} className="btn-primary text-sm">+ 新增规则</button>
+            <button onClick={() => setShowCreateForm(true)} className="btn-primary text-sm">+ {t('alerts.new_rule')}</button>
           </div>
 
           {showCreateForm && (
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-4">新增告警规则</h3>
+              <h3 className="font-semibold text-gray-800 mb-4">{t('alerts.new_alert_rule')}</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">规则类型</label>
+                  <label className="block text-xs text-gray-600 mb-1">{t('alerts.rule_type')}</label>
                   <select value={newRuleType} onChange={e => { setNewRuleType(e.target.value); setNewParams({}) }}
                     className="input w-full text-sm">
                     {rules?.rule_types.map(rt => (
@@ -234,16 +236,16 @@ export function AlertsPage() {
                     disabled={createMutation.isPending}
                     className="btn-primary text-sm"
                   >
-                    保存规则
+                    {t('common.save')}
                   </button>
-                  <button onClick={() => setShowCreateForm(false)} className="btn-secondary text-sm">取消</button>
+                  <button onClick={() => setShowCreateForm(false)} className="btn-secondary text-sm">{t('common.cancel')}</button>
                 </div>
               </div>
             </div>
           )}
 
           <div className="card">
-            <h2 className="font-semibold text-gray-800 mb-3">告警规则（{rules?.items.length ?? 0}）</h2>
+            <h2 className="font-semibold text-gray-800 mb-3">{t('alerts.rules')}（{rules?.items.length ?? 0}）</h2>
             {(rules?.items.length ?? 0) > 0 ? (
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-gray-500 border-b">
@@ -257,7 +259,7 @@ export function AlertsPage() {
                       <td className="py-2 font-mono text-xs text-gray-500">{JSON.stringify(r.params)}</td>
                       <td className="py-2">
                         <span className={`text-xs px-1.5 py-0.5 rounded ${r.enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                          {r.enabled ? '启用' : '禁用'}
+                          {r.enabled ? t('common.enabled') : t('common.disabled')}
                         </span>
                       </td>
                       <td className="py-2 flex gap-2">
@@ -267,16 +269,16 @@ export function AlertsPage() {
                             Object.entries(r.params).map(([k, v]) => [k, String(v)])
                           ))
                           setEditEnabled(r.enabled)
-                        }} className="text-xs text-blue-500 hover:underline">编辑</button>
+                        }} className="text-xs text-blue-500 hover:underline">{t('common.edit')}</button>
                         <button onClick={() => setDeleteTarget(r.rule_id)}
-                          className="text-xs text-red-500 hover:underline">删除</button>
+                          className="text-xs text-red-500 hover:underline">{t('common.delete')}</button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
-              <p className="text-sm text-gray-400">暂无告警规则，点击"+ 新增规则"配置</p>
+              <p className="text-sm text-gray-400">{t('alerts.no_rules_hint')}</p>
             )}
           </div>
         </div>
@@ -285,7 +287,7 @@ export function AlertsPage() {
       {/* Tab: History */}
       {activeTab === 'history' && (
         <div className="card">
-          <h2 className="font-semibold text-gray-800 mb-3">告警历史</h2>
+          <h2 className="font-semibold text-gray-800 mb-3">{t('alerts.history')}</h2>
           {(history?.items.length ?? 0) > 0 ? (
             <ul className="space-y-2">
               {history!.items.map(a => (
@@ -294,7 +296,7 @@ export function AlertsPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-2">
                       {!a.read && <span className="w-2 h-2 rounded-full bg-amber-500 inline-block mt-1.5 flex-shrink-0" />}
-                      {severityBadge(a.severity)}
+                      {severityBadge(a.severity, t)}
                       <span className="text-gray-700">{a.message}</span>
                     </div>
                     <span className="text-xs text-gray-400 ml-3 flex-shrink-0">
@@ -305,7 +307,7 @@ export function AlertsPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-gray-400">暂无告警历史</p>
+            <p className="text-sm text-gray-400">{t('alerts.no_history')}</p>
           )}
         </div>
       )}
@@ -325,7 +327,7 @@ export function AlertsPage() {
               <div className="card">
                 <div className="flex justify-end mb-3">
                   <button onClick={() => setShowChannelForm(true)} className="btn-primary text-sm">
-                    + 新增渠道
+                    + {t('alerts.new_channel')}
                   </button>
                 </div>
               </div>
@@ -342,12 +344,12 @@ export function AlertsPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="font-semibold text-gray-900">编辑告警规则</h2>
+              <h2 className="font-semibold text-gray-900">{t('alerts.edit_rule')}</h2>
               <button onClick={() => setEditTarget(null)} className="text-gray-400 hover:text-gray-600">&times;</button>
             </div>
             <div className="p-4 space-y-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">规则类型</label>
+                <label className="block text-xs text-gray-600 mb-1">{t('alerts.rule_type')}</label>
                 <div className="font-mono text-sm bg-gray-50 px-2 py-1.5 rounded">{editTarget.rule_type_label}</div>
               </div>
               {(PARAM_FORMS[editTarget.rule_type] ?? []).map(f => (
@@ -376,11 +378,11 @@ export function AlertsPage() {
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="edit-enabled" checked={editEnabled}
                   onChange={e => setEditEnabled(e.target.checked)} />
-                <label htmlFor="edit-enabled" className="text-sm text-gray-700">启用</label>
+                <label htmlFor="edit-enabled" className="text-sm text-gray-700">{t('common.enabled')}</label>
               </div>
             </div>
             <div className="flex justify-end gap-2 p-4 border-t">
-              <button onClick={() => setEditTarget(null)} className="btn-secondary text-sm">取消</button>
+              <button onClick={() => setEditTarget(null)} className="btn-secondary text-sm">{t('common.cancel')}</button>
               <button
                 disabled={updateMutation.isPending}
                 onClick={() => {
@@ -396,7 +398,7 @@ export function AlertsPage() {
                 }}
                 className="btn-primary text-sm disabled:opacity-50"
               >
-                {updateMutation.isPending ? '保存中...' : '保存'}
+                {updateMutation.isPending ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>
@@ -405,9 +407,9 @@ export function AlertsPage() {
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title="确认删除规则"
-        message="确定删除此告警规则？此操作不可撤销。"
-        confirmLabel="删除"
+        title={t('alerts.confirm_delete_rule')}
+        message={t('alerts.confirm_delete_message')}
+        confirmLabel={t('common.delete')}
         variant="danger"
         onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget) }}
         onCancel={() => setDeleteTarget(null)}

@@ -1,10 +1,11 @@
 {
   "strategy": {
+    "type": "Strategy Type",
     "types": {
-      "StaticTopN": "Static Top N",
-      "MLModelStrategy": "ML Model",
-      "MultiFactor": "Multi-Factor",
-      "MarketNeutral": "Market Neutral",
+      "StaticTopN": "Static Top N Cross-Sectional Momentum",
+      "MLModelStrategy": "ML Model Prediction",
+      "MultiFactor": "Multi-Factor Weighted",
+      "MarketNeutral": "Market Neutral (Long-Short)",
       "SectorRotation": "Sector Rotation",
       "Combo": "Combo Strategy",
       "IndicatorSignal": "Indicator Signal",
@@ -15,15 +16,32 @@
       "stock_pool": "Stock Pool",
       "max_positions": "Max Positions",
       "universe": "Universe"
-    }
+    },
+    "quick_risk_params": "Quick Risk Parameters"
   },
   "risk": {
-    "stop_loss": "Stop Loss",
+    "stop_loss": "Stop Loss Ratio",
+    "stop_loss_hint": "Force close position when loss exceeds this ratio",
     "trailing_stop": "Trailing Stop",
     "atr_stop": "ATR Stop",
-    "drawdown_breaker": "Drawdown Breaker",
-    "position_limit": "Position Limit",
-    "leverage_limit": "Leverage Limit"
+    "drawdown_breaker": "Max Drawdown Breaker",
+    "drawdown_breaker_hint": "Pause trading when portfolio drawdown exceeds this ratio",
+    "position_limit": "Max Single Position",
+    "position_limit_hint": "Single stock position not exceeding this ratio of portfolio",
+    "leverage_limit": "Leverage Limit",
+    "policies": "Risk Policies",
+    "historical_scenarios": "Historical Scenarios",
+    "benchmark_impact": "Benchmark Impact",
+    "strategy_return": "Strategy Return",
+    "excess_return": "Excess Return",
+    "outperform_benchmark": "Outperformed Benchmark",
+    "underperform_benchmark": "Underperformed Benchmark",
+    "custom_stress_test": "Custom Time Range Stress Test",
+    "run_stress_test": "Run Stress Test",
+    "custom_range_results": "Custom Range Results",
+    "scenario_comparison": "Scenario Comparison Summary",
+    "scenario": "Scenario",
+    "benchmark_return": "Benchmark Return"
   },
   "metrics": {
     "total_return": "Total Return",
@@ -40,6 +58,32 @@
     "volatility": "Volatility"
   },
   "alerts": {
+    "center": "Alert Center",
+    "unread_count": "unread alerts",
+    "no_unread": "No unread alerts",
+    "check_now": "Check Now",
+    "mark_all_read": "Mark All Read",
+    "tabs": {
+      "rules": "Alert Rules",
+      "history": "Alert History",
+      "channels": "Channel Config"
+    },
+    "new_rule": "New Rule",
+    "new_alert_rule": "New Alert Rule",
+    "rule_type": "Rule Type",
+    "rules": "Alert Rules",
+    "no_rules_hint": "No alert rules yet. Click \"+ New Rule\" to configure",
+    "history": "Alert History",
+    "no_history": "No alert history",
+    "new_channel": "New Channel",
+    "edit_rule": "Edit Alert Rule",
+    "confirm_delete_rule": "Confirm Delete Rule",
+    "confirm_delete_message": "Are you sure you want to delete this alert rule? This action cannot be undone.",
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning",
+      "info": "Info"
+    },
     "data_stale": "Data Stale",
     "factor_ic_low": "Factor IC Low",
     "pnl_drawdown": "P&L Drawdown",
@@ -53,13 +97,22 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "save": "Save",
+    "saving": "Saving...",
     "delete": "Delete",
     "edit": "Edit",
     "create": "Create",
     "search": "Search",
     "filter": "Filter",
     "export": "Export",
-    "import": "Import"
+    "import": "Import",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "unlimited": "Unlimited",
+    "start_date": "Start Date",
+    "end_date": "End Date",
+    "running": "Running...",
+    "run_failed_retry": "Run failed, please retry",
+    "date_range": "Date Range"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -70,5 +123,16 @@
     "risk": "Risk",
     "trading": "Trading",
     "settings": "Settings"
+  },
+  "market": {
+    "cn": "A-Share",
+    "us": "US Stock",
+    "hk": "HK Stock",
+    "adj_forward": "Forward Adjusted",
+    "adj_backward": "Backward Adjusted",
+    "adj_none": "No Adjustment",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly"
   }
 }

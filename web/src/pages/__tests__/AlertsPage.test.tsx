@@ -72,9 +72,9 @@ describe('AlertsPage', () => {
 
   it('renders page title and unread count', async () => {
     renderWithProviders(<AlertsPage />)
-    expect(screen.getByText('告警中心')).toBeInTheDocument()
+    expect(screen.getByText('alerts.center')).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByText(/1 条未读告警/)).toBeInTheDocument()
+      expect(screen.getByText(/1 alerts.unread_count/)).toBeInTheDocument()
     })
   })
 
@@ -83,39 +83,39 @@ describe('AlertsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('数据过期')).toBeInTheDocument()
     })
-    expect(screen.getByText('启用')).toBeInTheDocument()
-    expect(screen.getByText('删除')).toBeInTheDocument()
+    expect(screen.getByText('common.enabled')).toBeInTheDocument()
+    expect(screen.getByText('common.delete')).toBeInTheDocument()
   })
 
   it('renders alert history with read/unread styling', async () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
     // Click on history tab
-    await user.click(screen.getByText('告警历史'))
+    await user.click(screen.getByText('alerts.tabs.history'))
     await waitFor(() => {
       expect(screen.getByText('数据已过期 3 天')).toBeInTheDocument()
     })
     expect(screen.getByText('数据已过期 5 天')).toBeInTheDocument()
   })
 
-  it('shows create form when + 新增规则 is clicked', async () => {
+  it('shows create form when + alerts.new_rule is clicked', async () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ 新增规则'))
-    expect(screen.getByText('新增告警规则')).toBeInTheDocument()
-    expect(screen.getByText('保存规则')).toBeInTheDocument()
+    await user.click(screen.getByText('+ alerts.new_rule'))
+    expect(screen.getByText('alerts.new_alert_rule')).toBeInTheDocument()
+    expect(screen.getByText('common.save')).toBeInTheDocument()
   })
 
-  it('closes create form when 取消 is clicked', async () => {
+  it('closes create form when common.cancel is clicked', async () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ 新增规则'))
-    expect(screen.getByText('新增告警规则')).toBeInTheDocument()
+    await user.click(screen.getByText('+ alerts.new_rule'))
+    expect(screen.getByText('alerts.new_alert_rule')).toBeInTheDocument()
 
-    await user.click(screen.getByText('取消'))
-    expect(screen.queryByText('新增告警规则')).not.toBeInTheDocument()
+    await user.click(screen.getByText('common.cancel'))
+    expect(screen.queryByText('alerts.new_alert_rule')).not.toBeInTheDocument()
   })
 
   it('submits create rule mutation', async () => {
@@ -123,10 +123,10 @@ describe('AlertsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ 新增规则'))
+    await user.click(screen.getByText('+ alerts.new_rule'))
 
     // The default rule type is data_stale with max_days=2
-    const submitButton = screen.getByText('保存规则')
+    const submitButton = screen.getByText('common.save')
     await user.click(submitButton)
 
     await waitFor(() => {
@@ -134,28 +134,28 @@ describe('AlertsPage', () => {
     })
   })
 
-  it('calls check mutation when 立即检查 is clicked', async () => {
+  it('calls check mutation when alerts.check_now is clicked', async () => {
     const { alertsApi } = await import('@/lib/api')
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('立即检查'))
+    await user.click(screen.getByText('alerts.check_now'))
 
     await waitFor(() => {
       expect(alertsApi.check).toHaveBeenCalled()
     })
   })
 
-  it('shows 全部标为已读 button when unread_count > 0', async () => {
+  it('shows alerts.mark_all_read button when unread_count > 0', async () => {
     const { alertsApi } = await import('@/lib/api')
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('全部标为已读')).toBeInTheDocument()
+      expect(screen.getByText('alerts.mark_all_read')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('全部标为已读'))
+    await user.click(screen.getByText('alerts.mark_all_read'))
 
     await waitFor(() => {
       expect(alertsApi.markAllRead).toHaveBeenCalled()
@@ -167,12 +167,12 @@ describe('AlertsPage', () => {
     renderWithProviders(<AlertsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('删除')).toBeInTheDocument()
+      expect(screen.getByText('common.delete')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('删除'))
-    expect(screen.getByText('确认删除规则')).toBeInTheDocument()
-    expect(screen.getByText('确定删除此告警规则？此操作不可撤销。')).toBeInTheDocument()
+    await user.click(screen.getByText('common.delete'))
+    expect(screen.getByText('alerts.confirm_delete_rule')).toBeInTheDocument()
+    expect(screen.getByText('alerts.confirm_delete_message')).toBeInTheDocument()
   })
 
   it('deletes rule on confirm', async () => {
@@ -181,12 +181,12 @@ describe('AlertsPage', () => {
     renderWithProviders(<AlertsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('删除')).toBeInTheDocument()
+      expect(screen.getByText('common.delete')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('删除'))
-    // Confirm button in dialog also says "删除" (btn-danger)
-    const deleteButtons = screen.getAllByText('删除')
+    await user.click(screen.getByText('common.delete'))
+    // Confirm button in dialog also says "common.delete" (btn-danger)
+    const deleteButtons = screen.getAllByText('common.delete')
     await user.click(deleteButtons[deleteButtons.length - 1])
 
     await waitFor(() => {
@@ -202,8 +202,8 @@ describe('AlertsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ 新增规则'))
-    await user.click(screen.getByText('保存规则'))
+    await user.click(screen.getByText('+ alerts.new_rule'))
+    await user.click(screen.getByText('common.save'))
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalled()
@@ -214,7 +214,7 @@ describe('AlertsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ 新增规则'))
+    await user.click(screen.getByText('+ alerts.new_rule'))
 
     const select = screen.getByRole('combobox')
     await user.selectOptions(select, 'factor_ic_low')
@@ -239,13 +239,13 @@ describe('AlertsPage', () => {
     renderWithProviders(<AlertsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('暂无告警规则，点击"+ 新增规则"配置')).toBeInTheDocument()
+      expect(screen.getByText('alerts.no_rules_hint')).toBeInTheDocument()
     })
 
     // Click on history tab to see history empty state
-    await user.click(screen.getByText('告警历史'))
+    await user.click(screen.getByText('alerts.tabs.history'))
     await waitFor(() => {
-      expect(screen.getByText('暂无告警历史')).toBeInTheDocument()
+      expect(screen.getByText('alerts.no_history')).toBeInTheDocument()
     })
   })
 })

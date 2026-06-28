@@ -1,10 +1,11 @@
 {
   "strategy": {
+    "type": "策略类型",
     "types": {
-      "StaticTopN": "静态 Top N",
-      "MLModelStrategy": "ML 模型",
-      "MultiFactor": "多因子",
-      "MarketNeutral": "市场中性",
+      "StaticTopN": "静态 Top N 截面动量",
+      "MLModelStrategy": "ML 模型预测",
+      "MultiFactor": "多因子加权",
+      "MarketNeutral": "市场中性（多空）",
       "SectorRotation": "行业轮动",
       "Combo": "组合策略",
       "IndicatorSignal": "指标信号",
@@ -15,15 +16,32 @@
       "stock_pool": "股票池",
       "max_positions": "最大持仓",
       "universe": "股票池"
-    }
+    },
+    "quick_risk_params": "常用风控参数"
   },
   "risk": {
-    "stop_loss": "止损",
+    "stop_loss": "止损比例",
+    "stop_loss_hint": "单笔持仓亏损超过此比例时强制平仓",
     "trailing_stop": "追踪止损",
     "atr_stop": "ATR 止损",
-    "drawdown_breaker": "回撤熔断",
-    "position_limit": "仓位限制",
-    "leverage_limit": "杠杆限制"
+    "drawdown_breaker": "最大回撤熔断",
+    "drawdown_breaker_hint": "组合从高点回撤超过此比例时暂停交易",
+    "position_limit": "单仓最大比例",
+    "position_limit_hint": "单只股票持仓不超过组合的此比例",
+    "leverage_limit": "杠杆限制",
+    "policies": "风控策略",
+    "historical_scenarios": "历史情景",
+    "benchmark_impact": "基准影响",
+    "strategy_return": "策略收益",
+    "excess_return": "超额收益",
+    "outperform_benchmark": "跑赢基准",
+    "underperform_benchmark": "跑输基准",
+    "custom_stress_test": "自定义时间区间压力测试",
+    "run_stress_test": "运行压力测试",
+    "custom_range_results": "自定义区间结果",
+    "scenario_comparison": "情景对比汇总",
+    "scenario": "情景",
+    "benchmark_return": "基准收益"
   },
   "metrics": {
     "total_return": "总收益",
@@ -40,6 +58,32 @@
     "volatility": "波动率"
   },
   "alerts": {
+    "center": "告警中心",
+    "unread_count": "条未读告警",
+    "no_unread": "无未读告警",
+    "check_now": "立即检查",
+    "mark_all_read": "全部标为已读",
+    "tabs": {
+      "rules": "告警规则",
+      "history": "告警历史",
+      "channels": "通道配置"
+    },
+    "new_rule": "新增规则",
+    "new_alert_rule": "新增告警规则",
+    "rule_type": "规则类型",
+    "rules": "告警规则",
+    "no_rules_hint": "暂无告警规则，点击\"+ 新增规则\"配置",
+    "history": "告警历史",
+    "no_history": "暂无告警历史",
+    "new_channel": "新增渠道",
+    "edit_rule": "编辑告警规则",
+    "confirm_delete_rule": "确认删除规则",
+    "confirm_delete_message": "确定删除此告警规则？此操作不可撤销。",
+    "severity": {
+      "critical": "严重",
+      "warning": "警告",
+      "info": "信息"
+    },
     "data_stale": "数据过期",
     "factor_ic_low": "因子 IC 过低",
     "pnl_drawdown": "净值回撤",
@@ -53,13 +97,22 @@
     "cancel": "取消",
     "confirm": "确认",
     "save": "保存",
+    "saving": "保存中...",
     "delete": "删除",
     "edit": "编辑",
     "create": "创建",
     "search": "搜索",
     "filter": "筛选",
     "export": "导出",
-    "import": "导入"
+    "import": "导入",
+    "enabled": "启用",
+    "disabled": "禁用",
+    "unlimited": "不限制",
+    "start_date": "开始日期",
+    "end_date": "结束日期",
+    "running": "运行中...",
+    "run_failed_retry": "运行失败，请重试",
+    "date_range": "日期范围"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -70,5 +123,16 @@
     "risk": "风控",
     "trading": "交易",
     "settings": "设置"
+  },
+  "market": {
+    "cn": "A股",
+    "us": "美股",
+    "hk": "港股",
+    "adj_forward": "前复权",
+    "adj_backward": "后复权",
+    "adj_none": "不复权",
+    "daily": "每日",
+    "weekly": "每周",
+    "monthly": "每月"
   }
 }
