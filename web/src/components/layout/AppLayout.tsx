@@ -1,6 +1,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, alertsApi, jobsApi } from '@/lib/api'
 import { elapsedStr } from '@/lib/utils'
@@ -77,6 +78,21 @@ if (import.meta.env.DEV) {
       console.warn(`[AppLayout] Missing icon for nav route "${to}" (${label}). Add an entry to NAV_ICONS.`)
     }
   })
+}
+
+function LanguageSwitcher() {
+  const { i18n } = useTranslation()
+
+  return (
+    <select
+      value={i18n.language}
+      onChange={e => i18n.changeLanguage(e.target.value)}
+      className="text-xs bg-transparent border rounded px-2 py-1"
+    >
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+    </select>
+  )
 }
 
 export function AppLayout() {
@@ -347,6 +363,7 @@ export function AppLayout() {
             <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-gray-100 mr-2" title="切换主题">
               {mode === 'light' ? '\u{1F319}' : '\u{2600}\u{FE0F}'}
             </button>
+            <LanguageSwitcher />
             {runningCount > 0 ? (
               <div className="relative">
                 <button
