@@ -20,6 +20,8 @@ from cquant.core.types import OrderIntent, RiskDecision, RiskSnapshot
 from cquant.riskguard.models import RiskContext
 from cquant.riskguard.policies.base import RiskPolicy
 from cquant.riskguard.policies.forced_exit import ForcedExit, ForcedExitPolicy
+from cquant.riskguard.policies.stop_loss import TrailingStopLossPolicy
+from cquant.riskguard.policies.atr_stop_loss import ATRStopLossPolicy
 
 
 # ---------------------------------------------------------------------------
@@ -77,6 +79,28 @@ class _FixedStopLossForcedExit(ForcedExitPolicy, RiskPolicy):
                     urgency="high",
                 ))
         return exits
+
+
+class _TrailingStopForcedExit(TrailingStopLossPolicy, ForcedExitPolicy):
+    """Dual policy: trailing stop (for daily checks) + ForcedExitPolicy (for engine forced exits).
+
+    TrailingStopLossPolicy already implements check_exits (satisfies ForcedExitPolicy ABC)
+    and evaluate/name (satisfies RiskPolicy ABC).
+    """
+
+    def __init__(self, trail_pct: float = -0.08) -> None:
+        TrailingStopLossPolicy.__init__(self, trail_pct=trail_pct)
+
+
+class _ATRStopForcedExit(ATRStopLossPolicy, ForcedExitPolicy):
+    """Dual policy: ATR stop loss + ForcedExitPolicy.
+
+    ATRStopLossPolicy already implements check_exits (satisfies ForcedExitPolicy ABC)
+    and evaluate/name (satisfies RiskPolicy ABC).
+    """
+
+    def __init__(self, n_atr: float = 2.0) -> None:
+        ATRStopLossPolicy.__init__(self, n_atr=n_atr)
 
 
 class _BuyAndHoldStrategy(Strategy):
@@ -336,3 +360,205 @@ class TestForcedExitFills:
         assert entry["asset_id"] == self.ASSET_DROP
         assert entry["urgency"] in ("normal", "high", "critical")
         assert "fixed_stop_loss" in entry["reason"]
+
+    # ---- Test 6: trailing stop triggers in engine ----
+
+    def test_trailing_stop_triggers_in_engine(self) -> None:
+        """Trailing stop-loss triggers when price drops 8% from peak.
+
+        Scenario: asset rises from 10 to 11.5 over 10 days, then drops to 9.5
+        over 5 days. Peak = 11.5, current = 9.5, drawdown = (9.5-11.5)/11.5
+        = -17.4% > 8% threshold -> triggers forced exit.
+        """
+        asset = "SH600001"
+        stable = "SH600002"
+        n_days = 20
+        start = date(2025, 1, 2)
+
+        rows: list[dict] = []
+        for i in range(n_days):
+            d = start + timedelta(days=i)
+            # Asset rises from 10 to 11.5 over days 0-10, then drops to 9.5
+            if i <= 10:
+                p = 10.0 + (11.5 - 10.0) * (i / 10.0)
+            else:
+                # Linear drop from 11.5 to 9.5 over days 11-15, then flat at 9.5
+                drop_progress = min((i - 10) / 5.0, 1.0)
+                p = 11.5 + (9.5 - 11.5) * drop_progress
+
+            rows.append({
+                "trade_date": d, "asset_id": asset,
+                "open": p, "high": p * 1.01, "low": p * 0.99, "close": p,
+                "volume": 1_000_000.0, "amount": p * 1_000_000,
+                "is_suspended": False,
+            })
+            # Stable asset
+            sp = 10.0 * (1 + 0.001 * i)
+            rows.append({
+                "trade_date": d, "asset_id": stable,
+                "open": sp, "high": sp * 1.01, "low": sp * 0.99, "close": sp,
+                "volume": 1_000_000.0, "amount": sp * 1_000_000,
+                "is_suspended": False,
+            })
+
+        prices = pl.DataFrame(rows)
+        result = _run_backtest(
+            prices=prices,
+            asset_ids=[asset, stable],
+            risk_policies=[_TrailingStopForcedExit(trail_pct=-0.08)],
+            start_date=start,
+            end_date=start + timedelta(days=n_days - 1),
+        )
+
+        assert len(result.forced_exits) > 0, (
+            "Expected trailing stop forced exit but none was recorded"
+        )
+        exited_assets = {fe["asset_id"] for fe in result.forced_exits}
+        assert asset in exited_assets, (
+            f"Expected {asset} in forced_exits, got {exited_assets}"
+        )
+
+        # Verify reason mentions trailing_stop
+        trailing_exit = [fe for fe in result.forced_exits if fe["asset_id"] == asset][0]
+        assert "trailing_stop" in trailing_exit["reason"], (
+            f"Expected 'trailing_stop' in reason, got: {trailing_exit['reason']}"
+        )
+
+    # ---- Test 7: ATR stop triggers in engine ----
+
+    def test_atr_stop_triggers_in_engine(self) -> None:
+        """ATR-based stop triggers when price falls below entry - n_atr * ATR.
+
+        Builds volatile OHLCV data (14+ days for ATR calc), then a sharp drop
+        that breaches the ATR stop level.
+        """
+        asset = "SH600001"
+        stable = "SH600002"
+        n_days = 25
+        start = date(2025, 1, 2)
+        atr_n = 2.0
+
+        rows: list[dict] = []
+        for i in range(n_days):
+            d = start + timedelta(days=i)
+
+            if i < 15:
+                # Volatile phase: high/low range ~3% to build ATR
+                p = 10.0
+                hi = p * 1.03
+                lo = p * 0.97
+            else:
+                # Sharp drop phase: price falls significantly
+                p = 10.0 - (i - 14) * 1.0  # drops 1.0/day
+                hi = p * 1.01
+                lo = p * 0.99
+
+            rows.append({
+                "trade_date": d, "asset_id": asset,
+                "open": p, "high": hi, "low": lo, "close": p,
+                "volume": 1_000_000.0, "amount": p * 1_000_000,
+                "is_suspended": False,
+            })
+            # Stable asset
+            sp = 10.0 * (1 + 0.001 * i)
+            rows.append({
+                "trade_date": d, "asset_id": stable,
+                "open": sp, "high": sp * 1.01, "low": sp * 0.99, "close": sp,
+                "volume": 1_000_000.0, "amount": sp * 1_000_000,
+                "is_suspended": False,
+            })
+
+        prices = pl.DataFrame(rows)
+        result = _run_backtest(
+            prices=prices,
+            asset_ids=[asset, stable],
+            risk_policies=[_ATRStopForcedExit(n_atr=atr_n)],
+            start_date=start,
+            end_date=start + timedelta(days=n_days - 1),
+        )
+
+        assert len(result.forced_exits) > 0, (
+            "Expected ATR stop forced exit but none was recorded"
+        )
+        exited_assets = {fe["asset_id"] for fe in result.forced_exits}
+        assert asset in exited_assets, (
+            f"Expected {asset} in forced_exits, got {exited_assets}"
+        )
+
+        atr_exit = [fe for fe in result.forced_exits if fe["asset_id"] == asset][0]
+        assert "atr_stop" in atr_exit["reason"], (
+            f"Expected 'atr_stop' in reason, got: {atr_exit['reason']}"
+        )
+
+    # ---- Test 8: peak prices update correctly ----
+
+    def test_peak_prices_update_correctly(self) -> None:
+        """Peak prices should track the highest observed price for trailing stops.
+
+        Scenario: asset rises from 10 to 11.5, then drops to 10.5.
+        The trailing stop should NOT trigger because 10.5 is within 8% of 11.5.
+        But if it drops to 9.5, it should trigger.
+        """
+        asset = "SH600001"
+        stable = "SH600002"
+        start = date(2025, 1, 2)
+
+        # Phase 1: rise to 11.5, then drop to 10.5 (within 8% of 11.5)
+        # drawdown = (10.5 - 11.5) / 11.5 = -8.7% < -8% ... actually -8.7% IS > 8%
+        # Let's use -5% trail so 10.5 is -8.7% > 5% threshold
+        trail_pct = -0.05
+        n_days = 20
+
+        rows: list[dict] = []
+        for i in range(n_days):
+            d = start + timedelta(days=i)
+            if i <= 10:
+                p = 10.0 + (11.5 - 10.0) * (i / 10.0)
+            else:
+                # Drop to 10.5 (within 5% of 11.5? No: (10.5-11.5)/11.5 = -8.7%)
+                # Actually let's keep 10.8 which is (10.8-11.5)/11.5 = -6.1%, still > 5%
+                # So use trail of -0.10 (10%) and drop to 10.5 (8.7% drawdown, < 10%)
+                p = 10.5
+
+            rows.append({
+                "trade_date": d, "asset_id": asset,
+                "open": p, "high": p * 1.01, "low": p * 0.99, "close": p,
+                "volume": 1_000_000.0, "amount": p * 1_000_000,
+                "is_suspended": False,
+            })
+            sp = 10.0 * (1 + 0.001 * i)
+            rows.append({
+                "trade_date": d, "asset_id": stable,
+                "open": sp, "high": sp * 1.01, "low": sp * 0.99, "close": sp,
+                "volume": 1_000_000.0, "amount": sp * 1_000_000,
+                "is_suspended": False,
+            })
+
+        prices = pl.DataFrame(rows)
+
+        # With 10% trail: peak=11.5, current=10.5, drawdown=-8.7% which IS < -10%
+        # So it should NOT trigger (drawdown magnitude 8.7% < 10% threshold)
+        result_no_trigger = _run_backtest(
+            prices=prices,
+            asset_ids=[asset, stable],
+            risk_policies=[_TrailingStopForcedExit(trail_pct=-0.10)],
+            start_date=start,
+            end_date=start + timedelta(days=n_days - 1),
+        )
+        assert len(result_no_trigger.forced_exits) == 0, (
+            "Trailing stop should NOT trigger: 8.7% drawdown < 10% threshold"
+        )
+
+        # Now with 5% trail: drawdown -8.7% > 5% threshold -> should trigger
+        result_trigger = _run_backtest(
+            prices=prices,
+            asset_ids=[asset, stable],
+            risk_policies=[_TrailingStopForcedExit(trail_pct=-0.05)],
+            start_date=start,
+            end_date=start + timedelta(days=n_days - 1),
+        )
+        assert len(result_trigger.forced_exits) > 0, (
+            "Trailing stop SHOULD trigger: 8.7% drawdown > 5% threshold"
+        )
+        exited_assets = {fe["asset_id"] for fe in result_trigger.forced_exits}
+        assert asset in exited_assets
