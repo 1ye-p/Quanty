@@ -120,17 +120,6 @@ function validateDsl(dsl: string): DslDiagnostic[] {
       }
     }
 
-    // Check that referenced variables are defined
-    for (const tok of tokens) {
-      const ident = tok.replace(/[^a-zA-Z0-9_]/g, '')
-      if (ident && /^[a-zA-Z_]/.test(ident) && !BUILTIN_NAMES.has(ident) && /^\d/.test(ident) === false) {
-        // Looks like an identifier; if it's not a number and not built-in, it could be a let var
-        // Only flag if it looks like a user variable reference (lowercase, no parens)
-        if (/^[a-z_][a-z0-9_]*$/.test(ident) && !ident.includes('(') && definedVars.size > 0 && !definedVars.has(ident)) {
-          // Don't flag — could be a dynamic indicator name from API
-        }
-      }
-    }
   }
 
   // Note: Unknown identifier validation is intentionally omitted here.

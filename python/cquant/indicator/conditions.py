@@ -476,6 +476,11 @@ def _process_let_bindings(
             if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
                 raise SyntaxError(f"Invalid variable name: {name!r}")
 
+            _KEYWORDS = {'AND', 'OR', 'NOT', 'for', 'within', 'after', 'bars',
+                         'let', 'crosses_above', 'crosses_below'}
+            if name in _KEYWORDS:
+                raise SyntaxError(f"Variable name '{name}' conflicts with DSL keyword")
+
             if expr_str in enriched_data.columns:
                 enriched_data = enriched_data.with_columns(
                     pl.col(expr_str).alias(name)
