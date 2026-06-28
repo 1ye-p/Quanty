@@ -1011,6 +1011,9 @@ class VectorBacktestEngine:
     ) -> None:
         """Execute a forced exit: remove from committed weights and inject sell order.
 
+        Note: static because it doesn't access instance state; it mutates
+        the passed-in dicts directly.
+
         Removes the asset from *committed_weights* so it stops contributing to
         NAV, and appends a ``target_weight=0`` entry into *all_weights* so
         FillSimulator will generate a proper sell fill.

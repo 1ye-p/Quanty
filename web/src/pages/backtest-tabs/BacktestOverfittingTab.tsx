@@ -184,7 +184,7 @@ export function BacktestOverfittingTab() {
                 type="number"
                 className="input w-20 text-sm"
                 value={cpcvEmbargoDays}
-                onChange={e => setCpcvEmbargoDays(Number(e.target.value))}
+                onChange={e => setCpcvEmbargoDays(Math.max(0, Number(e.target.value)))}
                 min={0}
                 max={30}
               />
