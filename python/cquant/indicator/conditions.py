@@ -438,8 +438,10 @@ def parse_condition(dsl: str) -> Condition:
     return _Parser(tokens).parse()
 
 
-def evaluate_condition(data: pl.DataFrame, dsl: str) -> dict[str, Any]:
-    """Parse and evaluate a condition DSL on a DataFrame.
+def _process_let_bindings(
+    data: pl.DataFrame, dsl: str
+) -> tuple[pl.DataFrame, str]:
+    """Process let bindings and return enriched data + condition line.
 
     Supports multi-line DSL with let bindings::
 
@@ -449,22 +451,10 @@ def evaluate_condition(data: pl.DataFrame, dsl: str) -> dict[str, Any]:
 
     Let bindings create column aliases from existing columns in the data.
 
-    Args:
-        data: DataFrame containing indicator columns.
-        dsl: Condition DSL string (may contain let bindings).
-
     Returns:
-        Dict with keys:
-        - ``signals``: list[bool] — per-bar boolean results.
-        - ``signal_dates``: list — dates where signal fired (if ``trade_date``
-          column exists).
-        - ``hit_count``: int — number of bars where condition was true.
-        - ``total_bars``: int — total number of bars.
-        - ``hit_rate``: float — hit_count / total_bars.
+        Tuple of (enriched DataFrame, condition expression string).
     """
     lines = dsl.strip().split('\n')
-
-    # Process let bindings — create column aliases
     enriched_data = data.clone()
     condition_line = None
 
@@ -483,11 +473,9 @@ def evaluate_condition(data: pl.DataFrame, dsl: str) -> dict[str, Any]:
             if not name or not expr_str:
                 raise SyntaxError(f"Invalid let binding: {stripped!r}")
 
-            # Validate variable name
             if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
                 raise SyntaxError(f"Invalid variable name: {name!r}")
 
-            # The expression should be a column name in data
             if expr_str in enriched_data.columns:
                 enriched_data = enriched_data.with_columns(
                     pl.col(expr_str).alias(name)
@@ -501,6 +489,29 @@ def evaluate_condition(data: pl.DataFrame, dsl: str) -> dict[str, Any]:
 
     if condition_line is None:
         raise SyntaxError("No condition expression found")
+
+    return enriched_data, condition_line
+
+
+def evaluate_condition(data: pl.DataFrame, dsl: str) -> dict[str, Any]:
+    """Parse and evaluate a condition DSL on a DataFrame.
+
+    Supports multi-line DSL with let bindings.
+
+    Args:
+        data: DataFrame containing indicator columns.
+        dsl: Condition DSL string (may contain let bindings).
+
+    Returns:
+        Dict with keys:
+        - ``signals``: list[bool] — per-bar boolean results.
+        - ``signal_dates``: list — dates where signal fired (if ``trade_date``
+          column exists).
+        - ``hit_count``: int — number of bars where condition was true.
+        - ``total_bars``: int — total number of bars.
+        - ``hit_rate``: float — hit_count / total_bars.
+    """
+    enriched_data, condition_line = _process_let_bindings(data, dsl)
 
     # Parse and evaluate the condition line
     condition = parse_condition(condition_line)
@@ -537,44 +548,7 @@ def signals_as_mask(data: pl.DataFrame, dsl: str) -> pl.Series:
     Returns:
         Boolean Series — True where the condition fires.
     """
-    lines = dsl.strip().split('\n')
-
-    # Process let bindings
-    enriched_data = data.clone()
-    condition_line = None
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped.startswith('let '):
-            rest = stripped[4:]
-            if '=' not in rest:
-                raise SyntaxError(f"Invalid let binding: {stripped!r}")
-            name, expr_str = rest.split('=', 1)
-            name = name.strip()
-            expr_str = expr_str.strip()
-
-            if not name or not expr_str:
-                raise SyntaxError(f"Invalid let binding: {stripped!r}")
-
-            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
-                raise SyntaxError(f"Invalid variable name: {name!r}")
-
-            if expr_str in enriched_data.columns:
-                enriched_data = enriched_data.with_columns(
-                    pl.col(expr_str).alias(name)
-                )
-            else:
-                raise ValueError(
-                    f"Column {expr_str!r} not found in data for let binding"
-                )
-        else:
-            condition_line = stripped
-
-    if condition_line is None:
-        raise SyntaxError("No condition expression found")
-
+    enriched_data, condition_line = _process_let_bindings(data, dsl)
     return parse_condition(condition_line).evaluate(enriched_data)
 
 

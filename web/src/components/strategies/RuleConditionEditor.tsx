@@ -77,29 +77,9 @@ function validateDsl(dsl: string): DslDiagnostic[] {
     }
   }
 
-  // Check for unknown keywords
-  const knownKeywords = new Set([
-    'AND', 'OR', 'NOT', 'for', 'within', 'after', 'bars',
-    'crosses_above', 'crosses_below',
-    'rsi', 'sma', 'ema', 'wma', 'macd', 'macd_signal', 'macd_hist',
-    'bb_upper', 'bb_lower', 'bb_mid', 'atr', 'kdj_k', 'kdj_d', 'kdj_j',
-    'adx', 'cci', 'stoch_k', 'stoch_d', 'williams_r', 'roc', 'momentum',
-    'obv', 'mfi', 'volume_sma', 'volume_ratio',
-    'close', 'open', 'high', 'low', 'volume',
-  ])
-
-  for (const tok of tokens) {
-    const clean = tok.replace(/[(),]/g, '')
-    if (!clean || /^(>=|<=|!=|==|>|<)$/.test(clean)) continue
-    if (/^\d+(\.\d+)?$/.test(clean)) continue
-    if (knownKeywords.has(clean)) continue
-    // Could be a function with params — check if it ends with '('
-    if (/\($/.test(tok)) continue
-    // Could be a number parameter inside parens
-    if (/^\d+(\.\d+)?[),]?$/.test(clean)) continue
-    // Unknown token
-    errors.push({ line: 1, column: 0, message: `未知标识符: "${clean}"`, severity: 'error' })
-  }
+  // Note: Unknown identifier validation is intentionally omitted here.
+  // The Monaco autocomplete provides dynamic indicator names from the API,
+  // so a static keyword list would produce false positives for valid indicators.
 
   return errors
 }
