@@ -1100,9 +1100,9 @@ class VectorBacktestEngine:
                 continue
             prev_close = prev["close"][0]
 
-            if is_at_limit_up(close, prev_close, aid) and close == row["high"]:
+            if is_at_limit_up(float(close), float(prev_close), aid) and close == row["high"]:
                 limit_up_ids.add(aid)
-            if is_at_limit_down(close, prev_close, aid) and close == row["low"]:
+            if is_at_limit_down(float(close), float(prev_close), aid) and close == row["low"]:
                 limit_down_ids.add(aid)
 
         return today_prices.select(["trade_date", "asset_id", "is_suspended"]).with_columns([
