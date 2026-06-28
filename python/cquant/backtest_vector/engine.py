@@ -610,9 +610,7 @@ class VectorBacktestEngine:
                             # Add to cooldown set
                             force_exited_assets.add(forced_exit.asset_id)
                             pending_force_exits.add(forced_exit.asset_id)
-                            # Clean up entry price
-                            entry_prices.pop(forced_exit.asset_id, None)
-                            # Record the event
+                            # Record the event (read entry price BEFORE popping)
                             ep = entry_prices.get(forced_exit.asset_id, 0)
                             cp = current_prices_map.get(forced_exit.asset_id, 0)
                             forced_exit_log.append({
@@ -624,6 +622,8 @@ class VectorBacktestEngine:
                                 "exit_price": cp,
                                 "loss_pct": (cp - ep) / ep if ep else 0,
                             })
+                            # Clean up entry price after logging
+                            entry_prices.pop(forced_exit.asset_id, None)
 
             # Track daily returns for risk decisions (approximate NAV removed;
             # real NAV comes from FillSimulator after the loop)
