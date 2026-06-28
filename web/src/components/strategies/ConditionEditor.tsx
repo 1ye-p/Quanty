@@ -372,6 +372,24 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
                         </optgroup>
                       </select>
 
+                      {/* Help tooltip for current indicator */}
+                      {indicatorInfo && (
+                        <div className="relative group">
+                          <button className="w-5 h-5 rounded-full bg-gray-200 text-gray-500 text-xs flex items-center justify-center hover:bg-blue-100 hover:text-blue-600">
+                            ?
+                          </button>
+                          <div className="absolute z-10 left-0 bottom-full mb-1 w-56 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+                            <div className="font-semibold mb-1">{indicatorInfo.name}</div>
+                            <div className="text-gray-300 mb-1">{indicatorInfo.description}</div>
+                            {indicatorInfo.params.length > 0 && (
+                              <div className="text-gray-400">
+                                参数: {indicatorInfo.params.map(p => `${p.name}=${p.default}`).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Params input (if indicator has params) */}
                       {hasParams && (
                         <input
