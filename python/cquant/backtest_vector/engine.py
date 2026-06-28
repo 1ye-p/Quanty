@@ -580,7 +580,13 @@ class VectorBacktestEngine:
                             for a in all_assets
                         )
                         cost_model = spec.cost_model
-                        est_cost_rate = float(cost_model.commission_rate) * 2 + float(cost_model.stamp_duty_rate) + float(cost_model.slippage_rate)
+                        # Estimate cost rate: commission on both sides, slippage on both,
+                        # stamp duty on sells only (approximate as half-weight)
+                        est_cost_rate = (
+                            float(cost_model.commission_rate) * 2
+                            + float(cost_model.stamp_duty_rate) * 0.5
+                            + float(cost_model.slippage_rate)
+                        )
                         nav_estimate *= (1 - turnover * est_cost_rate)
                         peak_nav = max(peak_nav, nav_estimate)
 
