@@ -88,6 +88,7 @@ function LanguageSwitcher() {
       value={i18n.language}
       onChange={e => i18n.changeLanguage(e.target.value)}
       className="text-xs bg-transparent border rounded px-2 py-1"
+      aria-label="Language"
     >
       <option value="zh">中文</option>
       <option value="en">English</option>
@@ -96,6 +97,7 @@ function LanguageSwitcher() {
 }
 
 export function AppLayout() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const location = useLocation()
   const { mode, toggle: toggleTheme } = useThemeStore()
@@ -230,7 +232,7 @@ export function AppLayout() {
           <button
             onClick={toggleCollapsed}
             className="p-3 hover:bg-white/10 text-center text-lg w-full"
-            title="展开侧边栏"
+            title={t('layout.expand_sidebar')}
           >
             ☰
           </button>
@@ -242,7 +244,7 @@ export function AppLayout() {
             <button
               onClick={toggleCollapsed}
               className="text-blue-200 hover:text-white text-sm"
-              title="折叠侧边栏"
+              title={t('layout.collapse_sidebar')}
             >
               ◀
             </button>
@@ -360,7 +362,7 @@ export function AppLayout() {
             >
               ☰
             </button>
-            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-gray-100 mr-2" title="切换主题">
+            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-gray-100 mr-2" title={t('layout.toggle_theme')}>
               {mode === 'light' ? '\u{1F319}' : '\u{2600}\u{FE0F}'}
             </button>
             <LanguageSwitcher />
