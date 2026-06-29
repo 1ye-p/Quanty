@@ -19,7 +19,7 @@ class _AlwaysRejectBuysPolicy(RiskPolicy):
     def name(self) -> str:
         return "always_reject_buys"
 
-    def evaluate(self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext) -> RiskDecision:
+    def evaluate(self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext, price: float = 0.0) -> RiskDecision:
         if candidate.side == "buy":
             return RiskDecision(
                 decision=RiskDecisionType.REJECTED,
@@ -42,7 +42,7 @@ class _AlwaysApprovePolicy(RiskPolicy):
     def name(self) -> str:
         return "always_approve"
 
-    def evaluate(self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext) -> RiskDecision:
+    def evaluate(self, candidate: OrderIntent, snapshot: RiskSnapshot, ctx: RiskContext, price: float = 0.0) -> RiskDecision:
         return RiskDecision(
             decision=RiskDecisionType.APPROVED,
             original_qty=candidate.requested_qty,
