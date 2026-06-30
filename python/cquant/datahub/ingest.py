@@ -15,8 +15,10 @@ import polars as pl
 from cquant.core.enums import Frequency, Market
 from cquant.core.errors import IngestError
 from cquant.datahub.catalog import Catalog
+from cquant.datahub.bronze_writer import BronzeWriter
 from cquant.datahub.connectors.base import DataConnector, DataSpec, RawBatch
 from cquant.datahub.pipelines.silver import SilverNormalizer
+from cquant.datahub.quality_scorer import DataQualityScorer
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,8 @@ class MarketIngestionOrchestrator:
             for m in c.supported_markets:
                 self._market_connectors.setdefault(m, c)
         self._normalizer = normalizer or SilverNormalizer()
+        self._bronze_writer = BronzeWriter(catalog)
+        self._quality_threshold = 0.7
 
     def ingest(self, spec: IngestionSpec) -> str:
         """Run the full ingestion pipeline and return a dataset_version_id."""
@@ -81,12 +85,41 @@ class MarketIngestionOrchestrator:
                 f"Ensure silver_assets is populated (run bootstrap) or provide explicit symbols."
             )
 
+        # Write raw batches to Bronze layer (data provenance)
+        for batch in batches:
+            self._bronze_writer.write(
+                source=connector.source_name,
+                dataset=spec.dataset_name,
+                data=batch.data,
+                fetch_start=spec.start_date,
+                fetch_end=spec.end_date,
+            )
+
         frame = self._normalize_batches(batches)
         self._validate_schema(frame)
 
         row_count = len(frame)
         asset_count = frame["asset_id"].n_unique()
         ingestion_id = self._write_prices(frame)
+
+        # Quality gate
+        try:
+            scorer = DataQualityScorer(self._catalog)
+            report = scorer.score(
+                "silver_prices_1d",
+                spec.start_date.isoformat(),
+                spec.end_date.isoformat(),
+            )
+            if report.overall_score < self._quality_threshold:
+                logger.warning(
+                    "Data quality gate: score=%.3f below threshold %.1f — "
+                    "completeness=%.3f consistency=%.3f freshness=%.3f",
+                    report.overall_score, self._quality_threshold,
+                    report.completeness.score, report.consistency.score, report.freshness.score,
+                )
+        except Exception as exc:
+            logger.warning("Data quality scoring failed (non-blocking): %s", exc)
+
         version_id = self._register_dataset_version(frame, spec, connector.source_name)
 
         logger.info(
@@ -212,6 +245,15 @@ class MarketIngestionOrchestrator:
         last_version_id = ""
 
         for batch in connector.fetch_all(start_date, end_date, chunk_days):
+            # Write raw batch to Bronze layer (data provenance)
+            self._bronze_writer.write(
+                source="tdx",
+                dataset="daily_bar",
+                data=batch.data,
+                fetch_start=start_date,
+                fetch_end=end_date,
+            )
+
             frame = self._normalizer.normalize(batch)
             if frame.is_empty():
                 continue
@@ -223,6 +265,24 @@ class MarketIngestionOrchestrator:
 
         if total_rows == 0:
             raise IngestError("No data ingested from TDX")
+
+        # Quality gate (bulk)
+        try:
+            scorer = DataQualityScorer(self._catalog)
+            report = scorer.score(
+                "silver_prices_1d",
+                start_date.isoformat(),
+                end_date.isoformat(),
+            )
+            if report.overall_score < self._quality_threshold:
+                logger.warning(
+                    "Data quality gate (bulk TDX): score=%.3f below threshold %.1f — "
+                    "completeness=%.3f consistency=%.3f freshness=%.3f",
+                    report.overall_score, self._quality_threshold,
+                    report.completeness.score, report.consistency.score, report.freshness.score,
+                )
+        except Exception as exc:
+            logger.warning("Data quality scoring failed (non-blocking): %s", exc)
 
         last_version_id = self._catalog.register_dataset(
             dataset_name="daily_bar",
