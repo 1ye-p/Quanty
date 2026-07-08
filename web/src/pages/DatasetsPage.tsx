@@ -7,8 +7,9 @@ import { DataPreview } from '@/components/datasets/DataPreview'
 import { FieldStats } from '@/components/datasets/FieldStats'
 import { QualityReport } from '@/components/datasets/QualityReport'
 import { AnomalyMarkers } from '@/components/datasets/AnomalyMarkers'
+import { PriceChart } from '@/components/datasets/PriceChart'
 
-type DetailTab = 'preview' | 'stats' | 'quality' | 'anomalies' | 'compare'
+type DetailTab = 'preview' | 'stats' | 'quality' | 'anomalies' | 'compare' | 'prices'
 
 const TABS: { key: DetailTab; label: string }[] = [
   { key: 'preview', label: '数据预览' },
@@ -16,6 +17,7 @@ const TABS: { key: DetailTab; label: string }[] = [
   { key: 'quality', label: '质量报告' },
   { key: 'anomalies', label: '异常标记' },
   { key: 'compare', label: '版本对比' },
+  { key: 'prices', label: '行情浏览' },
 ]
 
 function VersionComparison({ versions }: { versions: { version_id: string; dataset_name: string }[] }) {
@@ -333,6 +335,8 @@ export function DatasetsPage() {
               {/* Tab content */}
               {activeTab === 'compare' ? (
                 <VersionComparison versions={data?.items ?? []} />
+              ) : activeTab === 'prices' ? (
+                <PriceChart />
               ) : (
                 <div className="card">
                   {activeTab === 'preview' && <DataPreview datasetId={selectedVersion} />}
