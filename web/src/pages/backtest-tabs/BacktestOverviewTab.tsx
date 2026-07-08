@@ -12,6 +12,8 @@ import { RollingMetricsChart } from '@/components/charts/RollingMetricsChart'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from 'recharts'
 
 import { downloadJson } from '@/lib/download'
+import { SensitivityPanel } from '@/components/backtests/SensitivityPanel'
+import { SensitivityChart } from '@/components/backtests/SensitivityChart'
 
 export function BacktestOverviewTab() {
   const { t } = useTranslation()
@@ -30,6 +32,8 @@ export function BacktestOverviewTab() {
   const qc = useQueryClient()
   const [showDeployWizard, setShowDeployWizard] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [showSensitivity, setShowSensitivity] = useState(false)
+  const [sensitivityResult, setSensitivityResult] = useState<any>(null)
   const [exportLoading, setExportLoading] = useState<string | null>(null)
   const [deployStep, setDeployStep] = useState(1)
   const [deployCash, setDeployCash] = useState('1000000')
@@ -150,8 +154,17 @@ export function BacktestOverviewTab() {
 
   return (
     <div className="space-y-4">
-      {/* Export / Deploy buttons */}
+      {/* Export / Deploy / Sensitivity buttons */}
       <div className="flex justify-end gap-2">
+        {/* Sensitivity analysis button */}
+        {detail?.status === 'completed' && (
+          <button
+            onClick={() => setShowSensitivity(!showSensitivity)}
+            className="btn-secondary text-xs flex items-center gap-1"
+          >
+            {showSensitivity ? '关闭扫描' : '参数扫描'}
+          </button>
+        )}
         {/* Export dropdown */}
         <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setExportOpen(false) }} tabIndex={-1}>
           <button
@@ -244,6 +257,23 @@ export function BacktestOverviewTab() {
           </button>
         )}
       </div>
+
+      {/* Sensitivity analysis panel */}
+      {showSensitivity && selectedId && (
+        <SensitivityPanel
+          runId={selectedId}
+          onComplete={(result) => setSensitivityResult(result)}
+        />
+      )}
+
+      {/* Sensitivity chart */}
+      {sensitivityResult?.metrics && (
+        <SensitivityChart
+          data={sensitivityResult.metrics.param_results || []}
+          paramKey="param_value"
+          metricKeys={['sharpe_ratio', 'total_return', 'max_drawdown']}
+        />
+      )}
 
       {/* Parameter summary */}
       {(() => {
