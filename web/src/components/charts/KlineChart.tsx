@@ -164,14 +164,17 @@ export function KlineChart({
       candleSeriesRef.current.setMarkers([])
     }
 
-    // Set default visible range to last N months
+    // Set default visible range to last N months (clamped to data range)
     if (sorted.length > 0) {
       const lastDate = sorted[sorted.length - 1].trade_date
+      const firstDate = sorted[0].trade_date
       const endDate = new Date(lastDate)
       const startDate = new Date(endDate)
       startDate.setMonth(startDate.getMonth() - defaultRangeMonths)
+      // Clamp to earliest available data
+      const clampedStart = startDate < new Date(firstDate) ? new Date(firstDate) : startDate
 
-      const startStr = startDate.toISOString().slice(0, 10)
+      const startStr = clampedStart.toISOString().slice(0, 10)
       const endStr = endDate.toISOString().slice(0, 10)
 
       chartRef.current?.timeScale().setVisibleRange({
