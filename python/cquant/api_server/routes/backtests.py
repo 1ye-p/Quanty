@@ -2556,15 +2556,143 @@ async def run_sensitivity_analysis(
             detail=f"Too many combinations ({total_combinations}). Max allowed: {body.max_combinations}"
         )
 
-    # Load backtest spec from artifacts
-    # Note: In a real implementation, we'd need to reconstruct the spec
-    # Sensitivity analysis requires reconstructing the full BacktestSpec,
-    # which is not yet supported. Return 501 until implementation is complete.
-    raise HTTPException(
-        status_code=501,
-        detail="Sensitivity analysis is not yet implemented. "
-               "Use the CLI `cquant sensitivity` command instead.",
-    )
+    # Ensure job table exists
+    _ensure_job_table(catalog)
+
+    # Generate job_id and save initial status
+    job_id = str(uuid.uuid4())
+    _save_job(catalog, job_id, job_type="sensitivity", status="running", run_id=run_id)
+
+    def _run_sensitivity():
+        try:
+            # Load original backtest run info
+            run_row = catalog.query(
+                "SELECT strategy_id, dataset_version, start_date, end_date, tags, "
+                "signal_set_version, benchmark_asset_id "
+                "FROM gold_backtest_runs WHERE run_id = ?",
+                [run_id],
+            )
+            if run_row.is_empty():
+                raise ValueError(f"Backtest run '{run_id}' not found")
+
+            run_info = run_row.to_dicts()[0]
+
+            # Load the backtest spec to reconstruct for sensitivity analysis
+            from cquant.backtest_vector.run import BacktestRunner, BacktestRunSpec
+
+            # Parse tags to get strategy parameters
+            tags = json.loads(run_info.get("tags") or "{}")
+
+            # Build a BacktestRunSpec from the original run
+            spec = BacktestRunSpec(
+                dataset_version=run_info["dataset_version"],
+                strategy_id=run_info["strategy_id"],
+                start_date=date.fromisoformat(run_info["start_date"]),
+                end_date=date.fromisoformat(run_info["end_date"]),
+                feature_set_version=run_info.get("signal_set_version") or "",
+                benchmark_asset_id=run_info.get("benchmark_asset_id") or "",
+                top_n=tags.get("top_n", 10),
+                sort_factor=tags.get("sort_factor", "ret_20d"),
+                tags=tags,
+            )
+
+            # Build the BacktestSpec using the runner
+            runner = BacktestRunner(catalog)
+            prices = runner._load_prices(spec)
+            if prices.is_empty():
+                raise ValueError(f"No price data for {spec.start_date} to {spec.end_date}")
+
+            features = runner._load_features(spec)
+            strategy = runner._build_strategy(spec)
+            cost_model = runner._detect_cost_model(prices)
+
+            from cquant.backtest_vector.engine import BacktestSpec
+
+            base_spec = BacktestSpec(
+                strategy=strategy,
+                prices=prices,
+                start_date=spec.start_date,
+                end_date=spec.end_date,
+                initial_cash=spec.initial_cash,
+                cost_model=cost_model,
+                features=features,
+                tags=spec.tags,
+                risk_policies=spec.risk_policies,
+                extra={"catalog": catalog},
+            )
+
+            # Create ParameterGrid and run sensitivity analysis
+            from cquant.backtest_vector.sensitivity import GridSearchSensitivity, ParameterGrid
+
+            param_grid = ParameterGrid(body.param_grid)
+            analyzer = GridSearchSensitivity(
+                base_spec=base_spec,
+                param_grid=param_grid,
+                primary_metric=body.primary_metric,
+            )
+
+            result = analyzer.run(catalog)
+
+            # Save results
+            result_data = {
+                "summary": result.summary(),
+                "best_params": result.best_params,
+                "best_metric_value": result.best_metric_value,
+                "robustness_score": result.robustness_score,
+                "param_grid": body.param_grid,
+                "primary_metric": body.primary_metric,
+                "total_combinations": len(result.combinations),
+            }
+
+            # Save result to artifacts
+            result_dir = pathlib.Path("data/sensitivity_artifacts")
+            result_dir.mkdir(parents=True, exist_ok=True)
+            result_path = result_dir / f"{job_id}.json"
+            result_path.write_text(json.dumps(result_data, indent=2, default=str))
+
+            _save_job(catalog, job_id, "sensitivity", "completed", run_id=run_id)
+            logger.info("Sensitivity analysis completed for job %s", job_id)
+
+        except Exception as e:
+            logger.exception("Sensitivity analysis failed for job %s", job_id)
+            _save_job(catalog, job_id, "sensitivity", "failed",
+                      run_id=run_id, error=f"Sensitivity failed: {str(e)[:300]}")
+
+    background_tasks.add_task(_run_sensitivity)
+    return {"job_id": job_id, "run_id": run_id, "status": "running"}
+
+
+@router.get("/{run_id}/sensitivity/{job_id}")
+async def get_sensitivity_result(
+    run_id: str,
+    job_id: str,
+    catalog: CatalogDep,
+) -> dict:
+    """Get sensitivity analysis result.
+
+    Returns job status and results when completed.
+    """
+    _ensure_job_table(catalog)
+    job = _load_job(catalog, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+
+    if job.get("run_id") and job["run_id"] != run_id:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' does not belong to run '{run_id}'")
+
+    result = None
+    if job["status"] == "completed":
+        result_path = pathlib.Path("data/sensitivity_artifacts") / f"{job_id}.json"
+        if result_path.exists():
+            result = json.loads(result_path.read_text())
+
+    return {
+        "job_id": job_id,
+        "run_id": run_id,
+        "status": job["status"],
+        "result": result,
+        "error": job.get("error"),
+    }
 
 
 # ── Calendar Analysis ───────────────────────────────────────────────────────
