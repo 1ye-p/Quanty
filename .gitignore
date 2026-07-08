@@ -99,6 +99,7 @@ openspec/
 .context/
 docs/superpowers/
 docs/FRONTEND_PRODUCT_REVIEW*.md
+docs/PRD_*.md
 
 # ── Raw market data (large binary / source files, not for version control) ─────
 tdx.db

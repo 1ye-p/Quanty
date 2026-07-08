@@ -127,3 +127,6 @@ export type {
   EvaluateConditionResponse,
   ConditionPreviewResponse,
 } from './indicators'
+
+export { marketApi } from './market'
+export type { OHLCV, PriceStats, PricesResponse } from './market'
