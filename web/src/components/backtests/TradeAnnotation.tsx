@@ -14,10 +14,16 @@ import type { TradeAnnotation } from '@/components/charts/KlineChart'
  * Groups by asset, computes P&L for sell fills.
  */
 export function fillsToAnnotations(fills: BacktestFill[]): TradeAnnotation[] {
+  // Sort fills chronologically to ensure correct P&L tracking
+  const sorted = [...fills].sort((a, b) => {
+    const d = a.trade_date.localeCompare(b.trade_date)
+    return d !== 0 ? d : (a.order_idx ?? 0) - (b.order_idx ?? 0)
+  })
+
   // Track positions per asset for P&L computation
   const positions = new Map<string, { qty: number; avgCost: number }>()
 
-  return fills.map(fill => {
+  return sorted.map(fill => {
     const isBuy = fill.side === 'buy'
 
     // Update position tracking

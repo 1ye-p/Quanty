@@ -22,7 +22,6 @@ interface TradeKlineChartProps {
 
 export function TradeKlineChart({ backtestId, height = 400 }: TradeKlineChartProps) {
   const [selectedAsset, setSelectedAsset] = useState('')
-  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
 
   // Fetch all fills to get asset list
   const { data: fillsData } = useQuery({
@@ -90,18 +89,7 @@ export function TradeKlineChart({ backtestId, height = 400 }: TradeKlineChartPro
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">周期</label>
-          <select
-            value={period}
-            onChange={e => setPeriod(e.target.value as typeof period)}
-            className="input-field text-sm"
-          >
-            <option value="daily">日K</option>
-            <option value="weekly">周K</option>
-            <option value="monthly">月K</option>
-          </select>
-        </div>
+        {/* TODO: Add period selector (daily/weekly/monthly) when backend supports resampled data */}
       </div>
 
       {/* Chart */}
