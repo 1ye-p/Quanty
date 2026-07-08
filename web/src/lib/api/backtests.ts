@@ -180,6 +180,25 @@ export const backtestsApi = {
       body,
       config,
     ),
+
+  // ── Sensitivity Analysis ──────────────────────────────────────────────────
+
+  runSensitivity: (
+    runId: string,
+    body: { param_grid: Record<string, any[]>; primary_metric?: string; max_combinations?: number },
+    config?: RequestConfig,
+  ) =>
+    api.post<{ job_id: string; status: string }>(
+      `/backtests/${runId}/sensitivity`,
+      body,
+      config,
+    ),
+
+  getSensitivityResult: (runId: string, jobId: string, config?: RequestConfig) =>
+    api.get<{ job_id: string; status: string; result?: any; error?: string }>(
+      `/backtests/${runId}/sensitivity/${jobId}`,
+      config,
+    ),
 }
 
 // ── Backward-compatible alias ───────────────────────────────────────────────
