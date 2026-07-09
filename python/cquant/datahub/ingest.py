@@ -85,6 +85,43 @@ class MarketIngestionOrchestrator:
                 f"Ensure silver_assets is populated (run bootstrap) or provide explicit symbols."
             )
 
+        # Dedup: filter out rows with dates that already exist
+        existing_dates = self._get_existing_date_boundaries(symbols)
+        if existing_dates:
+            original_total = sum(len(b.data) for b in batches)
+
+            for batch in batches:
+                if batch.data.is_empty():
+                    continue
+
+                # Build filter: keep rows where trade_date > existing max for that asset
+                # Use Polars expression for efficiency
+                conditions = []
+                for asset_id, max_date in existing_dates.items():
+                    conditions.append(
+                        ~((pl.col("asset_id") == asset_id) & (pl.col("trade_date") <= max_date))
+                    )
+
+                if conditions:
+                    # Combine with AND: keep row if it passes ALL conditions
+                    combined = conditions[0]
+                    for c in conditions[1:]:
+                        combined = combined & c
+                    batch.data = batch.data.filter(combined)
+
+            # Remove empty batches
+            batches = [b for b in batches if not b.data.is_empty()]
+
+            new_total = sum(len(b.data) for b in batches)
+            skipped = original_total - new_total
+            if skipped > 0:
+                logger.info("Dedup: skipped %d rows already in silver_prices_1d", skipped)
+
+            if not batches:
+                logger.info("All data already exists — nothing to ingest")
+                version_id = self._register_dataset_version(pl.DataFrame(), spec, connector.source_name)
+                return version_id
+
         # Write raw batches to Bronze layer (data provenance)
         for batch in batches:
             self._bronze_writer.write(
@@ -127,6 +164,28 @@ class MarketIngestionOrchestrator:
             row_count, asset_count, version_id,
         )
         return version_id
+
+    def _get_existing_date_boundaries(self, asset_ids: list[str]) -> dict[str, str]:
+        """Get the latest trade_date for each asset in silver_prices_1d.
+
+        Returns:
+            Dict mapping asset_id to its latest trade_date (YYYY-MM-DD string).
+        """
+        if not asset_ids:
+            return {}
+
+        # Build parameterized query
+        placeholders = ", ".join(["?" for _ in asset_ids])
+        df = self._catalog.query(
+            f"SELECT asset_id, MAX(trade_date) as max_date "
+            f"FROM silver_prices_1d "
+            f"WHERE asset_id IN ({placeholders}) "
+            f"GROUP BY asset_id",
+            asset_ids,
+        )
+        if df.is_empty():
+            return {}
+        return {row["asset_id"]: str(row["max_date"]) for row in df.to_dicts()}
 
     def _select_connector(self, spec: IngestionSpec) -> DataConnector:
         connector = self._market_connectors.get(spec.market)
