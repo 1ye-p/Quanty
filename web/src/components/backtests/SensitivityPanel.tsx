@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { backtestsApi } from '@/lib/api'
 
@@ -44,6 +44,13 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
   const isRunning = mutation.isPending || (result?.status === 'running')
   const isComplete = result?.status === 'completed'
   const isFailed = result?.status === 'failed'
+
+  // Invoke onComplete callback when results arrive
+  useEffect(() => {
+    if (isComplete && result?.result && onComplete) {
+      onComplete(result.result)
+    }
+  }, [isComplete, result?.result, onComplete])
 
   return (
     <div className="card space-y-4">

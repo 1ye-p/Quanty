@@ -32,7 +32,7 @@ export function SensitivityChart({ data, paramKey, metricKeys, height = 300 }: S
           <YAxis tick={{ fontSize: 11 }} />
           <Tooltip
             contentStyle={{ fontSize: 12 }}
-            formatter={(value: number, name: string) => [value.toFixed(4), name]}
+            formatter={(value: unknown, name: string) => [Number(value ?? 0).toFixed(4), name]}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} />
           {metricKeys.map((key, i) => (

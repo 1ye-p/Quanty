@@ -2680,6 +2680,9 @@ async def get_sensitivity_result(
     if job.get("run_id") and job["run_id"] != run_id:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' does not belong to run '{run_id}'")
 
+    if not _UUID_RE.match(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
+
     result = None
     if job["status"] == "completed":
         result_path = pathlib.Path("data/sensitivity_artifacts") / f"{job_id}.json"

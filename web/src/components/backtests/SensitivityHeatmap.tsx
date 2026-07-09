@@ -13,8 +13,12 @@ export function SensitivityHeatmap({ data, paramX, paramY, metricKey }: Sensitiv
   const { xValues, yValues, grid, minVal, maxVal } = useMemo(() => {
     if (!data || data.length === 0) return { xValues: [], yValues: [], grid: {}, minVal: 0, maxVal: 1 }
 
-    const xs = [...new Set(data.map(d => d[paramX]))].sort()
-    const ys = [...new Set(data.map(d => d[paramY]))].sort()
+    const numSort = (a: unknown, b: unknown) => {
+      const na = Number(a), nb = Number(b)
+      return !isNaN(na) && !isNaN(nb) ? na - nb : String(a).localeCompare(String(b))
+    }
+    const xs = [...new Set(data.map(d => d[paramX]))].sort(numSort)
+    const ys = [...new Set(data.map(d => d[paramY]))].sort(numSort)
 
     const gridMap: Record<string, Record<string, number>> = {}
     let min = Infinity
