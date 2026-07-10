@@ -32,9 +32,9 @@ export interface PricesResponse {
 // ── API ──────────────────────────────────────────────────────────────────────
 
 export const marketApi = {
-  getPrices: (assetId: string, start: string, end: string, config?: RequestConfig) =>
+  getPrices: (assetId: string, start: string, end: string, period: string = 'daily', config?: RequestConfig) =>
     api.get<PricesResponse>(
-      `/market/prices?asset_id=${encodeURIComponent(assetId)}&start=${start}&end=${end}`,
+      `/market/prices?asset_id=${encodeURIComponent(assetId)}&start=${start}&end=${end}&period=${period}`,
       config,
     ),
 }

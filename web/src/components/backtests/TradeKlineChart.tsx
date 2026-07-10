@@ -22,6 +22,7 @@ interface TradeKlineChartProps {
 
 export function TradeKlineChart({ backtestId, height = 400 }: TradeKlineChartProps) {
   const [selectedAsset, setSelectedAsset] = useState('')
+  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
 
   // Fetch all fills to get asset list
   const { data: fillsData } = useQuery({
@@ -61,8 +62,8 @@ export function TradeKlineChart({ backtestId, height = 400 }: TradeKlineChartPro
 
   // Fetch OHLCV data
   const { data: priceData, isLoading } = useQuery({
-    queryKey: ['market-prices', effectiveAsset, dateRange?.start, dateRange?.end],
-    queryFn: () => marketApi.getPrices(effectiveAsset, dateRange!.start, dateRange!.end),
+    queryKey: ['market-prices', effectiveAsset, dateRange?.start, dateRange?.end, period],
+    queryFn: () => marketApi.getPrices(effectiveAsset, dateRange!.start, dateRange!.end, period),
     enabled: !!effectiveAsset && !!dateRange,
     staleTime: 60_000,
   })
@@ -89,7 +90,24 @@ export function TradeKlineChart({ backtestId, height = 400 }: TradeKlineChartPro
             ))}
           </select>
         </div>
-        {/* TODO: Add period selector (daily/weekly/monthly) when backend supports resampled data */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">周期</label>
+          <div className="flex gap-1">
+            {(['daily', 'weekly', 'monthly'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1 text-sm rounded ${
+                  period === p
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {p === 'daily' ? '日' : p === 'weekly' ? '周' : '月'}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Chart */}

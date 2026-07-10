@@ -16,16 +16,46 @@ async def get_prices(
     asset_id: str = Query(..., description="Asset ID, e.g. SSE:600036"),
     start: str = Query(..., description="Start date YYYY-MM-DD", pattern=r"^\d{4}-\d{2}-\d{2}$"),
     end: str = Query(..., description="End date YYYY-MM-DD", pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    period: str = Query("daily", description="K-line period: daily, weekly, monthly"),
     catalog: CatalogDep = None,
 ):
     """Get OHLCV price data with summary statistics."""
-    df = catalog.query(
-        "SELECT trade_date, open, high, low, close, volume "
-        "FROM silver_prices_1d "
-        "WHERE asset_id = $1 AND trade_date BETWEEN $2 AND $3 "
-        "ORDER BY trade_date",
-        [asset_id, start, end],
-    )
+    if period == "weekly":
+        sql = """
+            SELECT
+                date_trunc('week', trade_date)::DATE AS trade_date,
+                (ARRAY_AGG(open ORDER BY trade_date))[1] AS open,
+                MAX(high) AS high,
+                MIN(low) AS low,
+                (ARRAY_AGG(close ORDER BY trade_date DESC))[1] AS close,
+                SUM(volume) AS volume
+            FROM silver_prices_1d
+            WHERE asset_id = $1 AND trade_date BETWEEN $2 AND $3
+            GROUP BY date_trunc('week', trade_date)
+            ORDER BY 1
+        """
+    elif period == "monthly":
+        sql = """
+            SELECT
+                date_trunc('month', trade_date)::DATE AS trade_date,
+                (ARRAY_AGG(open ORDER BY trade_date))[1] AS open,
+                MAX(high) AS high,
+                MIN(low) AS low,
+                (ARRAY_AGG(close ORDER BY trade_date DESC))[1] AS close,
+                SUM(volume) AS volume
+            FROM silver_prices_1d
+            WHERE asset_id = $1 AND trade_date BETWEEN $2 AND $3
+            GROUP BY date_trunc('month', trade_date)
+            ORDER BY 1
+        """
+    else:
+        sql = """
+            SELECT trade_date, open, high, low, close, volume
+            FROM silver_prices_1d
+            WHERE asset_id = $1 AND trade_date BETWEEN $2 AND $3
+            ORDER BY trade_date
+        """
+    df = catalog.query(sql, [asset_id, start, end])
     prices = df.to_dicts()
 
     # Compute summary stats
