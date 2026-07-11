@@ -6,9 +6,10 @@ interface SensitivityHeatmapProps {
   paramY: string
   metricKey: string
   height?: number
+  onCellClick?: (x: string, y: string, metrics: Record<string, number>) => void
 }
 
-export function SensitivityHeatmap({ data, paramX, paramY, metricKey }: SensitivityHeatmapProps) {
+export function SensitivityHeatmap({ data, paramX, paramY, metricKey, onCellClick }: SensitivityHeatmapProps) {
   // Build grid from data
   const { xValues, yValues, grid, minVal, maxVal } = useMemo(() => {
     if (!data || data.length === 0) return { xValues: [], yValues: [], grid: {}, minVal: 0, maxVal: 1 }
@@ -74,11 +75,24 @@ export function SensitivityHeatmap({ data, paramX, paramY, metricKey }: Sensitiv
                 <td className="px-2 py-1 text-gray-600 font-medium">{String(y)}</td>
                 {xValues.map(x => {
                   const val = grid[y]?.[x]
+                  const handleClick = onCellClick && val !== undefined
+                    ? () => {
+                        const row = data.find(d => d[paramX] === x && d[paramY] === y)
+                        if (row) {
+                          const metrics: Record<string, number> = {}
+                          for (const [k, v] of Object.entries(row)) {
+                            if (typeof v === 'number') metrics[k] = v
+                          }
+                          onCellClick(String(x), String(y), metrics)
+                        }
+                      }
+                    : undefined
                   return (
                     <td
                       key={String(x)}
-                      className={`px-3 py-2 text-center ${val !== undefined ? getColor(val) : 'bg-gray-50'}`}
+                      className={`px-3 py-2 text-center ${val !== undefined ? getColor(val) : 'bg-gray-50'} ${onCellClick && val !== undefined ? 'cursor-pointer hover:ring-2 hover:ring-blue-400' : ''}`}
                       title={`${paramX}=${x}, ${paramY}=${y}: ${val?.toFixed(4) ?? '-'}`}
+                      onClick={handleClick}
                     >
                       {val !== undefined ? val.toFixed(3) : '-'}
                     </td>

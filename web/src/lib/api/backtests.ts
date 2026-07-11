@@ -199,6 +199,12 @@ export const backtestsApi = {
       `/backtests/${runId}/sensitivity/${jobId}`,
       config,
     ),
+
+  getSensitivityHistory: (runId: string, config?: RequestConfig) =>
+    api.get<{ history: Array<{ job_id: string; status: string; created_at: string; completed_at?: string; error?: string }> }>(
+      `/backtests/${runId}/sensitivity/history`,
+      config,
+    ),
 }
 
 // ── Backward-compatible alias ───────────────────────────────────────────────

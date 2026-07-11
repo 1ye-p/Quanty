@@ -9,6 +9,7 @@ import logging
 import math
 import pathlib
 import re
+import time
 import uuid
 from datetime import date, datetime, timezone
 
@@ -2564,6 +2565,8 @@ async def run_sensitivity_analysis(
     _save_job(catalog, job_id, job_type="sensitivity", status="running", run_id=run_id)
 
     def _run_sensitivity():
+        start_time = time.time()
+        timeout_seconds = 1800  # 30 minutes
         try:
             # Load original backtest run info
             run_row = catalog.query(
@@ -2631,6 +2634,12 @@ async def run_sensitivity_analysis(
                 primary_metric=body.primary_metric,
             )
 
+            # Timeout check before running
+            if time.time() - start_time > timeout_seconds:
+                _save_job(catalog, job_id, "sensitivity", "failed",
+                          run_id=run_id, error="Timeout: exceeded 30 minutes")
+                return
+
             result = analyzer.run(catalog)
 
             # Save results
@@ -2696,6 +2705,31 @@ async def get_sensitivity_result(
         "result": result,
         "error": job.get("error"),
     }
+
+
+@router.get("/{run_id}/sensitivity/history")
+async def get_sensitivity_history(run_id: str, catalog: CatalogDep) -> dict:
+    """Get sensitivity scan history for a backtest run."""
+    _ensure_job_table(catalog)
+    try:
+        df = catalog.query(
+            "SELECT job_id, status, created_at, updated_at, error "
+            "FROM _api_jobs WHERE job_type = 'sensitivity' AND run_id = ? "
+            "ORDER BY created_at DESC LIMIT 10",
+            [run_id],
+        )
+        rows = []
+        for row in df.to_dicts():
+            rows.append({
+                "job_id": row["job_id"],
+                "status": row["status"],
+                "created_at": row["created_at"],
+                "completed_at": row["updated_at"] if row["status"] in ("completed", "failed") else None,
+                "error": row.get("error"),
+            })
+        return {"history": rows}
+    except Exception:
+        return {"history": []}
 
 
 # ── Calendar Analysis ───────────────────────────────────────────────────────

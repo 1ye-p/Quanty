@@ -1,10 +1,26 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { backtestsApi } from '@/lib/api'
+import { SensitivityHeatmap } from './SensitivityHeatmap'
+import { SensitivityDetail } from './SensitivityDetail'
 
 interface SensitivityPanelProps {
   runId: string
   onComplete?: (result: any) => void
+}
+
+function exportToCSV(data: Record<string, any>[], filename: string) {
+  if (!data || data.length === 0) return
+  const headers = Object.keys(data[0])
+  const rows = data.map(row => headers.map(h => JSON.stringify(row[h] ?? '')).join(','))
+  const csv = [headers.join(','), ...rows].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
@@ -12,6 +28,11 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
   const [paramValues, setParamValues] = useState('5, 10, 15, 20')
   const [primaryMetric, setPrimaryMetric] = useState('sharpe_ratio')
   const [jobId, setJobId] = useState<string | null>(null)
+  const [selectedCell, setSelectedCell] = useState<{
+    x: string
+    y: string
+    metrics: Record<string, number>
+  } | null>(null)
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -39,6 +60,13 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
       if (data?.status === 'completed' || data?.status === 'failed') return false
       return 2000
     },
+  })
+
+  // History query
+  const { data: history } = useQuery({
+    queryKey: ['sensitivity-history', runId],
+    queryFn: () => backtestsApi.getSensitivityHistory(runId),
+    enabled: !!runId,
   })
 
   const isRunning = mutation.isPending || (result?.status === 'running')
@@ -95,13 +123,23 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
       </div>
 
       {/* Action */}
-      <button
-        onClick={() => mutation.mutate()}
-        disabled={isRunning || !paramValues.trim()}
-        className="btn-primary disabled:opacity-50"
-      >
-        {isRunning ? '运行中...' : '运行扫描'}
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={() => mutation.mutate()}
+          disabled={isRunning || !paramValues.trim()}
+          className="btn-primary disabled:opacity-50"
+        >
+          {isRunning ? '运行中...' : '运行扫描'}
+        </button>
+        {isComplete && result?.result?.summary && (
+          <button
+            onClick={() => exportToCSV(result.result.summary, `sensitivity_${runId}_${paramName}.csv`)}
+            className="btn-secondary text-sm"
+          >
+            导出 CSV
+          </button>
+        )}
+      </div>
 
       {/* Status */}
       {isRunning && (
@@ -112,6 +150,67 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
       )}
       {isComplete && result?.result && onComplete && (
         <div className="text-sm text-green-600">扫描完成</div>
+      )}
+
+      {/* Heatmap */}
+      {isComplete && result?.result?.summary && result.result.summary.length >= 2 && (
+        <SensitivityHeatmap
+          data={result.result.summary}
+          paramX={paramName}
+          paramY={Object.keys(result.result.param_grid || {}).find(k => k !== paramName) || paramName}
+          metricKey={result.result.primary_metric || primaryMetric}
+          onCellClick={(x, y, metrics) => setSelectedCell({ x, y, metrics })}
+        />
+      )}
+
+      {/* Detail panel */}
+      {selectedCell && (
+        <SensitivityDetail
+          paramX={paramName}
+          paramXValue={selectedCell.x}
+          paramY={Object.keys(result?.result?.param_grid || {}).find(k => k !== paramName) || paramName}
+          paramYValue={selectedCell.y}
+          metrics={selectedCell.metrics}
+          onClose={() => setSelectedCell(null)}
+        />
+      )}
+
+      {/* History list */}
+      {history?.history && history.history.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium text-gray-700">扫描历史</h4>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {history.history.map((h) => (
+              <div
+                key={h.job_id}
+                className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-gray-50 hover:bg-gray-100"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${
+                      h.status === 'completed'
+                        ? 'bg-green-500'
+                        : h.status === 'failed'
+                        ? 'bg-red-500'
+                        : 'bg-blue-500 animate-pulse'
+                    }`}
+                  />
+                  <span className="font-mono text-gray-600">
+                    {h.job_id.slice(0, 8)}...
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-500">
+                  <span>{new Date(h.created_at).toLocaleString()}</span>
+                  {h.status === 'failed' && h.error && (
+                    <span className="text-red-500 truncate max-w-32" title={h.error}>
+                      {h.error}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )
