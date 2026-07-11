@@ -72,3 +72,19 @@ async def get_prices(
             "avg_volume": sum(volumes) / len(volumes) if volumes else 0,
         }
     return {"asset_id": asset_id, "prices": prices, "stats": stats}
+
+
+@router.get("/assets")
+async def search_assets(
+    q: str = Query(..., description="Search keyword"),
+    limit: int = Query(20, ge=1, le=100),
+    catalog: CatalogDep = None,
+):
+    """Search assets by ID or name."""
+    df = catalog.query(
+        "SELECT asset_id, name, exchange FROM silver_assets "
+        "WHERE asset_id ILIKE ? OR name ILIKE ? "
+        "ORDER BY asset_id LIMIT ?",
+        [f"%{q}%", f"%{q}%", limit],
+    )
+    return {"assets": df.to_dicts()}

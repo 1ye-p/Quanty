@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { datasetsApi } from '@/lib/api'
+import { marketApi } from '@/lib/api/market'
 
 interface AssetSearchProps {
   value: string
@@ -11,18 +11,14 @@ export function AssetSearch({ value, onChange }: AssetSearchProps) {
   const [search, setSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
 
-  useQuery({
-    queryKey: ['assets-list'],
-    queryFn: () => datasetsApi.list(200),
-    staleTime: 300_000,
+  const { data: assetsData } = useQuery({
+    queryKey: ['assets-search', search],
+    queryFn: () => marketApi.searchAssets(search),
+    enabled: search.length >= 2,
+    staleTime: 60_000,
   })
 
-  const filteredAssets = useMemo(() => {
-    if (!search.trim()) return []
-    // For now, just allow free-text input
-    // In a real implementation, we'd query silver_assets
-    return []
-  }, [search])
+  const filteredAssets = assetsData?.assets ?? []
 
   return (
     <div className="relative">
@@ -31,17 +27,16 @@ export function AssetSearch({ value, onChange }: AssetSearchProps) {
         value={search || value}
         onChange={e => {
           setSearch(e.target.value)
-          onChange(e.target.value)
           setShowDropdown(true)
         }}
         onFocus={() => setShowDropdown(true)}
         onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-        placeholder="输入股票代码，如 SSE:600036"
+        placeholder="输入股票代码或名称，如 SSE:600036 或 招商"
         className="input-field w-full"
       />
       {showDropdown && filteredAssets.length > 0 && (
         <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {filteredAssets.map((asset: { asset_id: string }) => (
+          {filteredAssets.map(asset => (
             <div
               key={asset.asset_id}
               className="px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm"
@@ -51,9 +46,15 @@ export function AssetSearch({ value, onChange }: AssetSearchProps) {
                 setShowDropdown(false)
               }}
             >
-              {asset.asset_id}
+              <span className="font-mono">{asset.asset_id}</span>
+              <span className="text-gray-500 ml-2">{asset.name}</span>
             </div>
           ))}
+        </div>
+      )}
+      {showDropdown && search.length >= 2 && filteredAssets.length === 0 && (
+        <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg p-3 text-sm text-gray-400">
+          无匹配结果
         </div>
       )}
     </div>

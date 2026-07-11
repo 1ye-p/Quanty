@@ -23,6 +23,12 @@ export interface PriceStats {
   avg_volume: number
 }
 
+export interface Asset {
+  asset_id: string
+  name: string
+  exchange: string
+}
+
 export interface PricesResponse {
   asset_id: string
   prices: OHLCV[]
@@ -35,6 +41,11 @@ export const marketApi = {
   getPrices: (assetId: string, start: string, end: string, period: string = 'daily', config?: RequestConfig) =>
     api.get<PricesResponse>(
       `/market/prices?asset_id=${encodeURIComponent(assetId)}&start=${start}&end=${end}&period=${period}`,
+      config,
+    ),
+  searchAssets: (q: string, limit = 20, config?: RequestConfig) =>
+    api.get<{ assets: Asset[] }>(
+      `/market/assets?q=${encodeURIComponent(q)}&limit=${limit}`,
       config,
     ),
 }
