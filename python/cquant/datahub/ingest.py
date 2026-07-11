@@ -119,8 +119,8 @@ class MarketIngestionOrchestrator:
 
             if not batches:
                 logger.info("All data already exists — nothing to ingest")
-                version_id = self._register_dataset_version(pl.DataFrame(), spec, connector.source_name)
-                return version_id
+                # Return a sentinel indicating no new data was ingested
+                return f"dedup:{spec.dataset_name}:{spec.start_date}"
 
         # Write raw batches to Bronze layer (data provenance)
         for batch in batches:

@@ -16,7 +16,7 @@ async def get_prices(
     asset_id: str = Query(..., description="Asset ID, e.g. SSE:600036"),
     start: str = Query(..., description="Start date YYYY-MM-DD", pattern=r"^\d{4}-\d{2}-\d{2}$"),
     end: str = Query(..., description="End date YYYY-MM-DD", pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    period: str = Query("daily", description="K-line period: daily, weekly, monthly"),
+    period: str = Query("daily", description="K-line period: daily, weekly, monthly", pattern=r"^(daily|weekly|monthly)$"),
     catalog: CatalogDep = None,
 ):
     """Get OHLCV price data with summary statistics."""
