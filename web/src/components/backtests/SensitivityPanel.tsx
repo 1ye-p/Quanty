@@ -12,7 +12,11 @@ interface SensitivityPanelProps {
 function exportToCSV(data: Record<string, any>[], filename: string) {
   if (!data || data.length === 0) return
   const headers = Object.keys(data[0])
-  const rows = data.map(row => headers.map(h => JSON.stringify(row[h] ?? '')).join(','))
+  const escCSV = (v: unknown) => {
+    const s = String(v ?? '')
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const rows = data.map(row => headers.map(h => escCSV(row[h])).join(','))
   const csv = [headers.join(','), ...rows].join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)

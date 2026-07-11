@@ -2710,6 +2710,8 @@ async def get_sensitivity_result(
 @router.get("/{run_id}/sensitivity/history")
 async def get_sensitivity_history(run_id: str, catalog: CatalogDep) -> dict:
     """Get sensitivity scan history for a backtest run."""
+    if not _UUID_RE.match(run_id):
+        raise HTTPException(status_code=400, detail="Invalid run_id format")
     _ensure_job_table(catalog)
     try:
         df = catalog.query(
@@ -2728,7 +2730,8 @@ async def get_sensitivity_history(run_id: str, catalog: CatalogDep) -> dict:
                 "error": row.get("error"),
             })
         return {"history": rows}
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to fetch sensitivity history for run %s: %s", run_id, exc)
         return {"history": []}
 
 
