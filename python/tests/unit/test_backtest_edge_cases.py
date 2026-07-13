@@ -241,6 +241,7 @@ class TestAllSuspended:
         # All stocks are suspended -> strategy sees no tradable assets -> no signals
         # Engine raises "Strategy produced no signals" which is caught and returned as error
         assert result.error is not None
+        assert "no signals" in result.error.lower() or "No price data" in result.error
 
 
 # ── TC3: Single-stock universe ────────────────────────────────────────────────
@@ -452,10 +453,17 @@ class TestNegativeInitialCash:
         engine = VectorBacktestEngine()
         result = engine.run(spec)
 
-        # Should return a BacktestResult (possibly with error), not crash
+        # Should return a BacktestResult, not crash.
+        # The engine accepts negative cash gracefully (no error raised);
+        # target weights are generated but no real trades execute.
         assert isinstance(result, BacktestResult)
-        # With negative cash, fill simulator will fail to produce valid fills
-        # The engine catches exceptions and returns them as error results
+        assert result.error is None, f"Unexpected error: {result.error}"
+        # With negative cash, the engine produces zero total return
+        # (target weights exist but no actual fills occur)
+        assert result.metrics is not None, "Metrics should be present"
+        assert result.metrics.total_return == 0.0, (
+            "Negative cash should produce zero return"
+        )
 
 
 # ── TC8: Consecutive multi-day suspension spanning rebalance ──────────────────
@@ -506,22 +514,21 @@ class TestConsecutiveSuspensionAcrossRebalance:
         # Should not crash.  During suspension days, engine filters suspended
         # stocks from ctx.prices, so strategy sees no tradable assets and
         # returns empty signals.
+        assert result.error is None, f"Unexpected error: {result.error}"
 
-        if result.error is None:
-            # If backtest succeeded (some non-suspended days later),
-            # verify no positions were opened during suspension period
-            positions = result.positions
-            if not positions.is_empty():
-                # Check that no weight was assigned on the first 5 days
-                suspension_dates = set(dates[:5])
-                early_positions = positions.filter(
-                    pl.col("trade_date").is_in(list(suspension_dates))
-                )
-                # Positions with target_weight > 0 should not exist for suspension dates
-                if not early_positions.is_empty():
-                    assert early_positions["target_weight"].max() <= 0.001, (
-                        "No positions should be opened during suspension period"
-                    )
+        # Backtest succeeded (non-suspended days later produce signals).
+        # Verify no positions were opened during the suspension period.
+        positions = result.positions
+        assert not positions.is_empty(), "Positions should exist for tradable days"
+
+        # Check that no weight was assigned on the first 5 days (suspension period)
+        suspension_dates = set(dates[:5])
+        early_positions = positions.filter(
+            pl.col("trade_date").is_in(list(suspension_dates))
+        )
+        assert early_positions.is_empty(), (
+            "No positions should be opened during suspension period"
+        )
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
