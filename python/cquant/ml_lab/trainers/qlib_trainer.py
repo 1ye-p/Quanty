@@ -151,7 +151,7 @@ class QlibModelTrainer(Trainer):
         except TypeError:
             # Some qlib models have different fit() signatures; try
             # fitting with just train data as fallback
-            logger.warning("Model %s does not accept validation data, fitting without it", model_name)
+            logger.warning("Model %s does not accept validation data, fitting without it", self.model_name)
             model.fit(X_train, y_train)
 
         # Generate validation predictions for metrics
