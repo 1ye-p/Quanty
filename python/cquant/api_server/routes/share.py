@@ -27,19 +27,9 @@ CREATE TABLE IF NOT EXISTS shares (
 )
 """
 
-_schema_ensured = False
-
-
 def _ensure_share_table(catalog) -> None:
-    """Create the shares table if it doesn't exist (idempotent, runs once per process)."""
-    global _schema_ensured
-    if _schema_ensured:
-        return
-    try:
-        catalog.execute(_SHARE_DDL)
-    except Exception as exc:
-        logger.debug("_ensure_share_table: %s (likely already exists)", exc)
-    _schema_ensured = True
+    """Create the shares table if it doesn't exist (idempotent via IF NOT EXISTS)."""
+    catalog.execute(_SHARE_DDL)
 
 
 class ShareRequest(BaseModel):
@@ -75,7 +65,7 @@ async def create_share(body: ShareRequest, catalog: CatalogDep) -> dict:
     """
     _ensure_share_table(catalog)
 
-    share_id = uuid4().hex[:8]
+    share_id = uuid4().hex[:12]
     now = datetime.now(tz=timezone.utc).isoformat()
 
     try:
@@ -125,8 +115,8 @@ async def get_share(share_id: str, catalog: CatalogDep) -> dict:
                 raise HTTPException(status_code=404, detail="Share link has expired")
         except HTTPException:
             raise
-        except Exception:
-            pass  # If we can't parse the date, don't block access
+        except Exception as exc:
+            logger.warning("Failed to parse expires_at=%s for share %s: %s", row.get("expires_at"), share_id, exc)
 
     # Convert datetime objects to strings for JSON serialization
     result = {}
