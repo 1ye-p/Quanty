@@ -172,20 +172,23 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
 
   const indicators = indicatorsData?.indicators ?? []
 
-  // Fetch real OHLCV data for the asset
-  const endDate = new Date().toISOString().split('T')[0]
-  const startDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // Fetch real OHLCV data for the asset (dates are stable across renders)
+  const dateRange = useMemo(() => {
+    const end = new Date().toISOString().split('T')[0]
+    const start = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    return { start, end }
+  }, [])
 
   const { data: pricesData } = useQuery({
-    queryKey: ['prices-for-condition', assetId, startDate, endDate],
-    queryFn: () => marketApi.getPrices(assetId!, startDate, endDate),
+    queryKey: ['prices-for-condition', assetId, dateRange.start, dateRange.end],
+    queryFn: () => marketApi.getPrices(assetId!, dateRange.start, dateRange.end),
     enabled: !!assetId,
     staleTime: 60_000,
   })
 
   // Fetch condition stats using real data
   const { data: stats } = useQuery({
-    queryKey: ['condition-stats', value, assetId, pricesData],
+    queryKey: ['condition-stats', value, assetId, dateRange.start, dateRange.end],
     queryFn: async () => {
       if (!assetId || !value.trim() || !pricesData?.prices?.length) return null
       // Convert OHLCV format to the format expected by evaluateCondition
