@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { indicatorsApi, type IndicatorInfo } from '@/lib/api'
+import { marketApi } from '@/lib/api/market'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -171,23 +172,34 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
 
   const indicators = indicatorsData?.indicators ?? []
 
-  // Fetch condition stats when assetId is provided
+  // Fetch real OHLCV data for the asset
+  const endDate = new Date().toISOString().split('T')[0]
+  const startDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  const { data: pricesData } = useQuery({
+    queryKey: ['prices-for-condition', assetId, startDate, endDate],
+    queryFn: () => marketApi.getPrices(assetId!, startDate, endDate),
+    enabled: !!assetId,
+    staleTime: 60_000,
+  })
+
+  // Fetch condition stats using real data
   const { data: stats } = useQuery({
-    queryKey: ['condition-stats', value, assetId],
+    queryKey: ['condition-stats', value, assetId, pricesData],
     queryFn: async () => {
-      if (!assetId || !value.trim()) return null
-      // TODO: Fetch actual OHLCV data for the asset
-      const mockData = Array.from({ length: 100 }, (_, i) => ({
-        date: `2024-01-${String(i + 1).padStart(2, '0')}`,
-        open: 100 + Math.random() * 20,
-        high: 105 + Math.random() * 20,
-        low: 95 + Math.random() * 20,
-        close: 100 + Math.random() * 20,
-        volume: 1000000 + Math.random() * 5000000,
+      if (!assetId || !value.trim() || !pricesData?.prices?.length) return null
+      // Convert OHLCV format to the format expected by evaluateCondition
+      const data = pricesData.prices.map(p => ({
+        date: p.trade_date,
+        open: p.open,
+        high: p.high,
+        low: p.low,
+        close: p.close,
+        volume: p.volume,
       }))
-      return indicatorsApi.evaluateCondition({ condition_dsl: value, data: mockData })
+      return indicatorsApi.evaluateCondition({ condition_dsl: value, data })
     },
-    enabled: !!assetId && !!value.trim(),
+    enabled: !!assetId && !!value.trim() && !!pricesData?.prices?.length,
     staleTime: 30_000,
   })
 
