@@ -241,7 +241,7 @@ class TestAllSuspended:
         # All stocks are suspended -> strategy sees no tradable assets -> no signals
         # Engine raises "Strategy produced no signals" which is caught and returned as error
         assert result.error is not None
-        assert "no signals" in result.error.lower() or "No price data" in result.error
+        assert "no signals" in result.error.lower() or "no price data" in result.error.lower()
 
 
 # ── TC3: Single-stock universe ────────────────────────────────────────────────
