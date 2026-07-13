@@ -1,6 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { marketApi } from '@/lib/api/market'
+
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
+  return debounced
+}
 
 interface AssetSearchProps {
   value: string
@@ -10,11 +19,12 @@ interface AssetSearchProps {
 export function AssetSearch({ value, onChange }: AssetSearchProps) {
   const [search, setSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
+  const debouncedSearch = useDebouncedValue(search, 300)
 
   const { data: assetsData } = useQuery({
-    queryKey: ['assets-search', search],
-    queryFn: () => marketApi.searchAssets(search),
-    enabled: search.length >= 2,
+    queryKey: ['assets-search', debouncedSearch],
+    queryFn: () => marketApi.searchAssets(debouncedSearch),
+    enabled: debouncedSearch.length >= 2,
     staleTime: 60_000,
   })
 
@@ -30,7 +40,13 @@ export function AssetSearch({ value, onChange }: AssetSearchProps) {
           setShowDropdown(true)
         }}
         onFocus={() => setShowDropdown(true)}
-        onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+        onBlur={() => {
+          setTimeout(() => {
+            setShowDropdown(false)
+            // If user typed but didn't select, clear search to show committed value
+            if (search && search !== value) setSearch('')
+          }, 200)
+        }}
         placeholder="输入股票代码或名称，如 SSE:600036 或 招商"
         className="input-field w-full"
       />

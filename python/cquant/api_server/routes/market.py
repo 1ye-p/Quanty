@@ -76,7 +76,7 @@ async def get_prices(
 
 @router.get("/assets")
 async def search_assets(
-    q: str = Query(..., description="Search keyword"),
+    q: str = Query(..., min_length=2, description="Search keyword (min 2 chars)"),
     limit: int = Query(20, ge=1, le=100),
     catalog: CatalogDep = None,
 ):
