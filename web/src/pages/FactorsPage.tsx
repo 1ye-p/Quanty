@@ -56,7 +56,7 @@ export function FactorsPage() {
   })
 
   const activeJobId = searchParams.get('ic_job')
-  const { data: jobResult } = useQuery({
+  const { data: jobResult, error: jobError, status: jobStatus } = useQuery({
     queryKey: extendedQueryKeys.factorAnalytics.icJob(activeJobId ?? ''),
     queryFn: () => factorAnalyticsApi.icJob(activeJobId!),
     enabled: !!activeJobId,
@@ -66,7 +66,7 @@ export function FactorsPage() {
     },
   })
 
-  const { data: quintileData, isLoading: quintileLoading } = useQuery({
+  const { data: quintileData, isLoading: quintileLoading, error: quintileError, status: quintileStatus } = useQuery({
     queryKey: extendedQueryKeys.factorAnalytics.quintiles(selectedFactor!, featureSetVersion, horizonDays),
     queryFn: () => factorAnalyticsApi.computeQuintiles({
       factor_name: selectedFactor!,
@@ -256,14 +256,16 @@ export function FactorsPage() {
           ? <div className="card text-center py-8 text-gray-400">请先在"因子选择"标签页中选择一个因子</div>
           : !featureSetVersion
             ? <div className="card text-center py-8 text-gray-400">请先选择 Feature Set 版本</div>
-            : quintileLoading
-              ? <div className="card text-center py-8 text-gray-400">加载中...</div>
-              : quintileData?.groups
-                ? <QuintileTab
-                    quantileReturns={quintileData.groups.map(g => ({ quantile: parseInt(String(g.quintile), 10) || 0, mean_return: g.mean_return }))}
-                    cumulativeReturns={quintileData.cumulative_returns}
-                  />
-                : <div className="card text-center py-8 text-gray-400">暂无分位收益数据</div>
+            : quintileStatus === 'error'
+              ? <div className="card text-center py-8 text-red-500">五分位计算失败: {quintileError?.message}</div>
+              : quintileLoading
+                ? <div className="card text-center py-8 text-gray-400">加载中...</div>
+                : quintileData?.groups
+                  ? <QuintileTab
+                      quantileReturns={quintileData.groups.map(g => ({ quantile: parseInt(String(g.quintile), 10) || 0, mean_return: g.mean_return }))}
+                      cumulativeReturns={quintileData.cumulative_returns}
+                    />
+                  : <div className="card text-center py-8 text-gray-400">暂无分位收益数据</div>
       )}
 
       {/* Tab: Correlation */}
@@ -273,9 +275,11 @@ export function FactorsPage() {
 
       {/* Tab: IC Decay */}
       {activeTab === 'decay' && (
-        icSummary?.rank_ic_decay
-          ? <ICDecayTab rankIcDecay={icSummary.rank_ic_decay} />
-          : <div className="card text-center py-8 text-gray-400">请先在"IC 分析"标签页中计算IC，衰减数据将自动生成</div>
+        activeJobId && jobStatus === 'error'
+          ? <div className="card text-center py-8 text-red-500">IC 计算失败: {jobError?.message}</div>
+          : icSummary?.rank_ic_decay
+            ? <ICDecayTab rankIcDecay={icSummary.rank_ic_decay} />
+            : <div className="card text-center py-8 text-gray-400">请先在"IC 分析"标签页中计算IC，衰减数据将自动生成</div>
       )}
 
       {/* Modals */}
