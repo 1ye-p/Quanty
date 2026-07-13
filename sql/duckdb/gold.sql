@@ -151,3 +151,13 @@ CREATE TABLE IF NOT EXISTS gold_portfolio_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_gold_portfolio_snapshots_run_date
     ON gold_portfolio_snapshots (run_id, trade_date);
+
+-- ── Share links ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS shares (
+    share_id      VARCHAR PRIMARY KEY,
+    content_type  VARCHAR NOT NULL,        -- 'backtest', 'strategy', 'factor', 'report'
+    content_id    VARCHAR NOT NULL,
+    created_by    VARCHAR,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at    TIMESTAMP
+);

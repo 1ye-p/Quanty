@@ -33,6 +33,7 @@ from cquant.api_server.routes import (
     pipeline,
     risk,
     scoring,
+    share,
     strategies,
     health,
     knowledge,
@@ -200,6 +201,7 @@ def create_app(
     app.include_router(pipeline.router, prefix=prefix, dependencies=_auth)
     app.include_router(indicators.router, prefix=prefix, dependencies=_auth)
     app.include_router(market.router, prefix=prefix, dependencies=_auth)
+    app.include_router(share.router, prefix=prefix, dependencies=_auth)
 
     logger.info("cQuant API v%s ready — docs at /api/docs", _VERSION)
     return app

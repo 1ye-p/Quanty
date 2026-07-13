@@ -102,6 +102,9 @@ export type {
 export { realtimeApi } from './realtime'
 export type { RealtimeQuote } from './realtime'
 
+export { shareApi } from './share'
+export type { ShareCreateBody, ShareCreateResponse, ShareContent } from './share'
+
 export { scoringApi } from './scoring'
 export type { ScoringRun, ScoringResult, ScoringConfigBody } from './scoring'
 

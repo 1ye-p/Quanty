@@ -16,6 +16,7 @@ from cquant.api_server.app import app
 def _mock_catalog() -> MagicMock:
     cat = MagicMock()
     cat.query.return_value = pl.DataFrame()
+    cat.execute.return_value = None
     return cat
 
 
@@ -164,3 +165,77 @@ class TestOpenAPI:
     def test_docs_endpoint_available(self, client: TestClient) -> None:
         resp = client.get("/api/docs")
         assert resp.status_code == 200
+
+
+# ── Share ─────────────────────────────────────────────────────────────────────
+
+def _catalog_with_share() -> MagicMock:
+    """Mock catalog that returns share data for get_share queries."""
+    cat = MagicMock()
+
+    def mock_query(sql, params=None):
+        if "SELECT" in sql and "shares" in sql:
+            return pl.DataFrame({
+                "share_id": ["a1b2c3d4"],
+                "content_type": ["backtest"],
+                "content_id": ["run-123"],
+                "created_by": ["test-user"],
+                "created_at": ["2026-07-12T00:00:00+00:00"],
+                "expires_at": [None],
+            })
+        return pl.DataFrame()
+
+    cat.query.side_effect = mock_query
+    cat.execute.return_value = None
+    return cat
+
+
+class TestShare:
+    def test_create_share_returns_id(self, client: TestClient) -> None:
+        resp = client.post("/api/v1/share", json={
+            "content_type": "backtest",
+            "content_id": "run-123",
+            "created_by": "test-user",
+        })
+        assert resp.status_code == 201
+        body = resp.json()
+        assert "share_id" in body
+        assert len(body["share_id"]) == 8
+        assert body["url"].startswith("/share/")
+
+    def test_create_share_with_defaults(self, client: TestClient) -> None:
+        resp = client.post("/api/v1/share", json={
+            "content_type": "strategy",
+            "content_id": "strat-456",
+        })
+        assert resp.status_code == 201
+        body = resp.json()
+        assert "share_id" in body
+
+    def test_create_share_invalid_content_type(self, client: TestClient) -> None:
+        resp = client.post("/api/v1/share", json={
+            "content_type": "invalid_type",
+            "content_id": "run-123",
+        })
+        assert resp.status_code == 422
+
+    def test_create_share_empty_content_id(self, client: TestClient) -> None:
+        resp = client.post("/api/v1/share", json={
+            "content_type": "backtest",
+            "content_id": "",
+        })
+        assert resp.status_code == 422
+
+    def test_get_share_returns_content(self, client: TestClient) -> None:
+        app.dependency_overrides[deps.get_catalog] = _catalog_with_share
+        resp = client.get("/api/v1/share/a1b2c3d4")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["share_id"] == "a1b2c3d4"
+        assert body["content_type"] == "backtest"
+        assert body["content_id"] == "run-123"
+        app.dependency_overrides[deps.get_catalog] = _mock_catalog
+
+    def test_get_share_not_found(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/share/nonexistent")
+        assert resp.status_code == 404
