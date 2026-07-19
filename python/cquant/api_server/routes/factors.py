@@ -826,6 +826,9 @@ async def factor_ic_status(
         logger.warning("factor_ic_status failed: %s", exc)
         return {"items": [], "threshold": threshold, "window_days": window_days, "error": str(exc)}
 
+# Cached factor descriptions (static data, loaded once)
+_factors_cache: dict | None = None
+
 
 @router.get("/available")
 async def list_available_factors() -> dict:
@@ -840,6 +843,10 @@ async def list_available_factors() -> dict:
         ``factors``: 因子列表（按 category 排序）
         ``categories``: 去重后的分类列表
     """
+    global _factors_cache
+    if _factors_cache is not None:
+        return _factors_cache
+
     from cquant.factorlab.factor_descriptions import FactorDescriptionManager
 
     mgr = FactorDescriptionManager(db_path=":memory:")
@@ -855,18 +862,19 @@ async def list_available_factors() -> dict:
     factors: list[dict] = []
     for row in df.to_dicts():
         factors.append({
-            "name": row["factor_name"],
-            "label_zh": row["display_name"],
-            "label_en": row["factor_name"],  # 英文标签使用因子名称本身
-            "category": row["category"],
-            "description": row["description"],
+            "name": row.get("factor_name", ""),
+            "label_zh": row.get("display_name", ""),
+            "label_en": row.get("factor_name", ""),
+            "category": row.get("category", "未分类"),
+            "description": row.get("description", ""),
             "formula": row.get("formula", ""),
             "economic_meaning": row.get("economic_meaning", ""),
             "use_case": row.get("use_case", ""),
         })
 
     categories = sorted({f["category"] for f in factors})
-    return {"factors": factors, "categories": categories}
+    _factors_cache = {"factors": factors, "categories": categories}
+    return _factors_cache
 
 
 @router.get("/dsl/functions")
