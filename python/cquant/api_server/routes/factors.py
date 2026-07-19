@@ -827,6 +827,48 @@ async def factor_ic_status(
         return {"items": [], "threshold": threshold, "window_days": window_days, "error": str(exc)}
 
 
+@router.get("/available")
+async def list_available_factors() -> dict:
+    """返回所有可用因子（含中文标签），按分类分组。
+
+    数据来源于 Alpha158 + Alpha360 内置因子描述（500+ 因子）。
+    每个因子包含 name, label_zh, label_en, category, description 等字段。
+
+    Returns
+    -------
+    dict
+        ``factors``: 因子列表（按 category 排序）
+        ``categories``: 去重后的分类列表
+    """
+    from cquant.factorlab.factor_descriptions import FactorDescriptionManager
+
+    mgr = FactorDescriptionManager(db_path=":memory:")
+    try:
+        mgr.load_default_descriptions()
+        df = mgr.read_all()
+    finally:
+        mgr.close()
+
+    if df.is_empty():
+        return {"factors": [], "categories": []}
+
+    factors: list[dict] = []
+    for row in df.to_dicts():
+        factors.append({
+            "name": row["factor_name"],
+            "label_zh": row["display_name"],
+            "label_en": row["factor_name"],  # 英文标签使用因子名称本身
+            "category": row["category"],
+            "description": row["description"],
+            "formula": row.get("formula", ""),
+            "economic_meaning": row.get("economic_meaning", ""),
+            "use_case": row.get("use_case", ""),
+        })
+
+    categories = sorted({f["category"] for f in factors})
+    return {"factors": factors, "categories": categories}
+
+
 @router.get("/dsl/functions")
 async def dsl_functions() -> dict:
     """Return available DSL functions for frontend autocomplete."""
