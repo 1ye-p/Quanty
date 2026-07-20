@@ -16,28 +16,35 @@ interface GlobalRiskConfigProps {
  *
  * These thresholds apply to *all* positions and trigger after
  * strategy-level risk controls have already been evaluated.
+ *
+ * Sign convention:
+ * - global_stop_loss_pct: negative value (e.g. -0.05 means stop at -5%)
+ * - global_take_profit_pct: positive value (e.g. 0.20 means take profit at +20%)
  */
 export function GlobalRiskConfig({ value, onChange }: GlobalRiskConfigProps) {
   const [stopLoss, setStopLoss] = useState(
-    value.global_stop_loss_pct != null ? String(value.global_stop_loss_pct * 100) : ''
+    value.global_stop_loss_pct != null ? String(Math.abs(value.global_stop_loss_pct) * 100) : ''
   )
   const [takeProfit, setTakeProfit] = useState(
     value.global_take_profit_pct != null ? String(value.global_take_profit_pct * 100) : ''
   )
 
+  const toNum = (s: string): number | null => (s === '' ? null : -Number(s) / 100)
+  const toNumPos = (s: string): number | null => (s === '' ? null : Number(s) / 100)
+
   const handleStopLossChange = (value: string) => {
     setStopLoss(value)
     onChange({
-      global_stop_loss_pct: value ? -Number(value) / 100 : null,
-      global_take_profit_pct: takeProfit ? Number(takeProfit) / 100 : null,
+      global_stop_loss_pct: toNum(value),
+      global_take_profit_pct: toNumPos(takeProfit),
     })
   }
 
   const handleTakeProfitChange = (value: string) => {
     setTakeProfit(value)
     onChange({
-      global_stop_loss_pct: stopLoss ? -Number(stopLoss) / 100 : null,
-      global_take_profit_pct: value ? Number(value) / 100 : null,
+      global_stop_loss_pct: toNum(stopLoss),
+      global_take_profit_pct: toNumPos(value),
     })
   }
 
@@ -58,6 +65,7 @@ export function GlobalRiskConfig({ value, onChange }: GlobalRiskConfigProps) {
             <span
               className="ml-1 text-gray-400 cursor-help"
               title="当任意持仓亏损超过此比例时强制平仓。例如输入 5 表示 -5% 止损。"
+              aria-label="止损说明"
             >
               ⓘ
             </span>
@@ -81,6 +89,7 @@ export function GlobalRiskConfig({ value, onChange }: GlobalRiskConfigProps) {
             <span
               className="ml-1 text-gray-400 cursor-help"
               title="当任意持仓盈利超过此比例时强制平仓。例如输入 20 表示 +20% 止盈。"
+              aria-label="止盈说明"
             >
               ⓘ
             </span>
