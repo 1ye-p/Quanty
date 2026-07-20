@@ -860,19 +860,26 @@ async def list_available_factors() -> dict:
         return {"factors": [], "categories": []}
 
     factors: list[dict] = []
+    category_map: dict[str, list[str]] = {}
     for row in df.to_dicts():
+        name = row.get("factor_name", "")
+        category = row.get("category", "未分类")
         factors.append({
-            "name": row.get("factor_name", ""),
+            "name": name,
             "label_zh": row.get("display_name", ""),
-            "label_en": row.get("factor_name", ""),
-            "category": row.get("category", "未分类"),
+            "label_en": name,
+            "category": category,
             "description": row.get("description", ""),
             "formula": row.get("formula", ""),
             "economic_meaning": row.get("economic_meaning", ""),
             "use_case": row.get("use_case", ""),
         })
+        category_map.setdefault(category, []).append(name)
 
-    categories = sorted({f["category"] for f in factors})
+    categories = [
+        {"name": cat, "label_zh": cat, "label_en": cat, "factors": names}
+        for cat, names in sorted(category_map.items())
+    ]
     _factors_cache = {"factors": factors, "categories": categories}
     return _factors_cache
 

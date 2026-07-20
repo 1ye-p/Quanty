@@ -24,6 +24,12 @@ export function FactorSelector({ selected, onChange }: FactorSelectorProps) {
     staleTime: 300_000, // 5 minutes
   })
 
+  // Must be called before any early returns (Rules of Hooks)
+  const factorMap = useMemo(
+    () => new Map((data?.factors ?? []).map(f => [f.name, f])),
+    [data?.factors],
+  )
+
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => {
       const next = new Set(prev)
@@ -76,8 +82,6 @@ export function FactorSelector({ selected, onChange }: FactorSelectorProps) {
   }
 
   if (!data) return null
-
-  const factorMap = useMemo(() => new Map(data.factors.map(f => [f.name, f])), [data])
 
   return (
     <div className="space-y-3">
