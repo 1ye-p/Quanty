@@ -1,0 +1,174 @@
+/**
+ * FactorSelector — Multi-select factor picker with category grouping.
+ *
+ * Fetches factors from GET /factors/available, groups by category,
+ * and shows checkboxes with Chinese/English names.
+ */
+import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { factorsApi, type AvailableFactor } from '@/lib/api/factors'
+import { FactorHelpPanel } from './FactorHelpPanel'
+
+interface FactorSelectorProps {
+  selected: string[]
+  onChange: (factors: string[]) => void
+}
+
+export function FactorSelector({ selected, onChange }: FactorSelectorProps) {
+  const [helpFactor, setHelpFactor] = useState<AvailableFactor | null>(null)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['factors', 'available'],
+    queryFn: () => factorsApi.getAvailable(),
+    staleTime: 300_000, // 5 minutes
+  })
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(category)) {
+        next.delete(category)
+      } else {
+        next.add(category)
+      }
+      return next
+    })
+  }
+
+  const toggleFactor = (factorName: string) => {
+    onChange(
+      selected.includes(factorName)
+        ? selected.filter(f => f !== factorName)
+        : [...selected, factorName]
+    )
+  }
+
+  const toggleAllInCategory = (factorNames: string[]) => {
+    const allSelected = factorNames.every(f => selected.includes(f))
+    if (allSelected) {
+      onChange(selected.filter(f => !factorNames.includes(f)))
+    } else {
+      const newSelected = [...selected]
+      factorNames.forEach(f => {
+        if (!newSelected.includes(f)) {
+          newSelected.push(f)
+        }
+      })
+      onChange(newSelected)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="border rounded-lg p-4 bg-gray-50">
+        <div className="text-sm text-gray-500">加载因子列表...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="border rounded-lg p-4 bg-red-50">
+        <div className="text-sm text-red-600">加载因子失败: {error.message}</div>
+      </div>
+    )
+  }
+
+  if (!data) return null
+
+  const factorMap = useMemo(() => new Map(data.factors.map(f => [f.name, f])), [data])
+
+  return (
+    <div className="space-y-3">
+      <div className="border rounded-lg divide-y">
+        {data.categories.map(category => {
+          const isExpanded = expandedCategories.has(category.name)
+          const categoryFactors = category.factors
+            .map(name => factorMap.get(name))
+            .filter((f): f is AvailableFactor => f != null)
+          const selectedInCategory = categoryFactors.filter(f => selected.includes(f.name))
+
+          return (
+            <div key={category.name}>
+              {/* Category header */}
+              <div className="flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleCategory(category.name)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCategory(category.name) } }}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">
+                    {isExpanded ? '▼' : '▶'}
+                  </span>
+                  <span className="text-sm font-medium text-gray-700">
+                    {category.label_zh}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {category.label_en}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    ({selectedInCategory.length}/{categoryFactors.length})
+                  </span>
+                </div>
+                <button
+                  className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleAllInCategory(category.factors)
+                  }}
+                >
+                  {selectedInCategory.length === categoryFactors.length ? '取消全选' : '全选'}
+                </button>
+              </div>
+
+              {/* Factor list */}
+              {isExpanded && (
+                <div className="divide-y">
+                  {categoryFactors.map(factor => (
+                    <div key={factor.name} className="flex items-center px-4 py-2 hover:bg-blue-50">
+                      <label className="flex items-center gap-3 flex-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(factor.name)}
+                          onChange={() => toggleFactor(factor.name)}
+                          className="rounded"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-700">
+                              {factor.label_zh}
+                            </span>
+                            <span className="text-xs text-gray-400 font-mono">
+                              {factor.name}
+                            </span>
+                          </div>
+                        </div>
+                      </label>
+                      <button
+                        className="text-xs text-gray-400 hover:text-blue-600 ml-2"
+                        onClick={() => setHelpFactor(factor)}
+                        title="查看详情"
+                        aria-label="查看因子详情"
+                      >
+                        ⓘ
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Help panel */}
+      {helpFactor && (
+        <FactorHelpPanel
+          factor={helpFactor}
+          onClose={() => setHelpFactor(null)}
+        />
+      )}
+    </div>
+  )
+}
