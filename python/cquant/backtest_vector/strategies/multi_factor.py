@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 import polars as pl
+
+logger = logging.getLogger(__name__)
 
 from cquant.backtest_vector.strategy import Strategy, StrategyContext
 from cquant.core.types import SignalFrame
@@ -44,15 +48,15 @@ class MultiFactorStrategy(Strategy):
         return self._strategy_id
 
     # ------------------------------------------------------------------
-    def _handle_missing_factors(self, day_features: pl.DataFrame, available: dict) -> pl.DataFrame:
+    def _handle_missing_factors(self, day_features: pl.DataFrame, factor_weights: dict) -> pl.DataFrame:
         """Handle missing factor values based on configured strategy.
 
         Parameters
         ----------
         day_features : pl.DataFrame
             DataFrame containing factor values for a single day.
-        available : dict
-            Dictionary of available factor names and their weights.
+        factor_weights : dict
+            Dictionary of factor names and their configured weights.
 
         Returns
         -------
@@ -60,23 +64,29 @@ class MultiFactorStrategy(Strategy):
             DataFrame with missing values handled according to strategy.
         """
         if self._missing_factor_strategy == "exclude":
-            return day_features.drop_nulls(list(available.keys()))
+            # Only drop on columns that exist; missing ones are filtered later
+            cols = [c for c in factor_weights if c in day_features.columns]
+            return day_features.drop_nulls(cols) if cols else day_features
 
         elif self._missing_factor_strategy == "fill_median":
-            for col in available:
+            for col in factor_weights:
                 if col in day_features.columns:
                     median_val = day_features[col].median()
+                    fill_val = median_val if median_val is not None else 0.0
                     day_features = day_features.with_columns(
                         pl.when(pl.col(col).is_null())
-                        .then(median_val)
+                        .then(fill_val)
                         .otherwise(pl.col(col))
                         .alias(col)
                     )
             return day_features
 
         else:  # fill_0
-            for col in available:
+            if self._missing_factor_strategy != "fill_0":
+                logger.warning("Unrecognized missing_factor_strategy=%r, defaulting to fill_0", self._missing_factor_strategy)
+            for col in factor_weights:
                 if col not in day_features.columns:
+                    logger.warning("Factor %r not in features, filling with 0.0", col)
                     day_features = day_features.with_columns(pl.lit(0.0).alias(col))
                 else:
                     day_features = day_features.with_columns(
