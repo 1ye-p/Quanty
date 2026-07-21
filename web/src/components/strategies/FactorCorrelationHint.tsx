@@ -2,7 +2,8 @@
  * FactorCorrelationHint — Shows factor correlation warnings in StrategyBuilder.
  *
  * Auto-computes correlation when 2+ factors are selected.
- * Displays high-correlation warnings (|r| > 0.7) and suggests removing redundant factors.
+ * Displays high positive correlation warnings (r > 0.7) suggesting redundant factors.
+ * Negative correlation (r < -0.7) is noted as diversification benefit, not a warning.
  * Expandable to show the full correlation matrix.
  */
 import { useState } from 'react'
@@ -30,13 +31,13 @@ export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrela
   const matrix = data?.correlation_matrix ?? {}
   const factorNames = Object.keys(matrix)
 
-  // Extract high-correlation pairs for suggestion
+  // Extract high-correlation pairs — only positive correlation is redundancy
   const highCorrPairs: { a: string; b: string; r: number }[] = []
   for (const f1 of factorNames) {
     for (const f2 of factorNames) {
       if (f1 < f2) {
         const r = matrix[f1]?.[f2]
-        if (r != null && Math.abs(r) > 0.7) {
+        if (r != null && r > 0.7) {
           highCorrPairs.push({ a: f1, b: f2, r })
         }
       }
@@ -93,11 +94,24 @@ export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrela
       )}
 
       {/* No warnings */}
-      {!isLoading && warnings.length === 0 && factorNames.length > 0 && (
+      {!isLoading && warnings.length === 0 && highCorrPairs.length === 0 && factorNames.length > 0 && (
         <div className="text-xs text-green-700 mt-1">
-          所选因子间无高度相关 (|r| &le; 0.7)，组合良好。
+          所选因子间无高度正相关 (r &le; 0.7)，组合良好。
         </div>
       )}
+
+      {/* Negative correlation note */}
+      {!isLoading && (() => {
+        const negPairs = factorNames.flatMap((f1, i) =>
+          factorNames.slice(i + 1).map(f2 => ({ f1, f2, r: matrix[f1]?.[f2] }))
+            .filter(p => p.r != null && p.r < -0.7)
+        )
+        return negPairs.length > 0 ? (
+          <div className="text-xs text-blue-700 mt-1">
+            {negPairs.length} 对因子呈高度负相关，有助于分散风险。
+          </div>
+        ) : null
+      })()}
 
       {/* Expanded matrix */}
       {expanded && factorNames.length > 0 && (
@@ -134,7 +148,7 @@ export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrela
                       const abs = Math.abs(r)
                       if (abs > 0.7) {
                         bg = r > 0 ? 'bg-red-200' : 'bg-blue-200'
-                        text = 'text-red-800 font-medium'
+                        text = r > 0 ? 'text-red-800 font-medium' : 'text-blue-800 font-medium'
                       } else if (abs > 0.4) {
                         bg = r > 0 ? 'bg-red-100' : 'bg-blue-100'
                         text = 'text-gray-700'
