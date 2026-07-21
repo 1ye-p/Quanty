@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { keepPreviousData } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { scoringApi, factorAnalyticsApi } from '@/lib/api'
 import { DataTable } from '@/components/ui/DataTable'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -105,6 +106,8 @@ export function ScoringPage() {
         ...(marketCapNeutralize ? ['market_cap'] : []),
         ...(industryNeutralize ? ['industry'] : []),
       ],
+    }, {
+      onError: (error) => toast.error('评分失败: ' + (error as Error).message),
     })
   }
 

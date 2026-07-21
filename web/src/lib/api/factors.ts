@@ -11,9 +11,53 @@ import type {
   ICStatusItem,
 } from '../types'
 
+// ── Types for /factors/available ────────────────────────────────────────────
+
+export interface AvailableFactor {
+  name: string
+  label_zh: string
+  label_en: string
+  category: string
+  description: string
+  formula: string
+  economic_meaning: string
+  use_case: string
+}
+
+export interface FactorCategory {
+  name: string
+  label_zh: string
+  label_en: string
+  factors: string[]
+}
+
+export interface AvailableFactorsResponse {
+  factors: AvailableFactor[]
+  categories: FactorCategory[]
+}
+
+// ── Factor template types ───────────────────────────────────────────────────
+
+export interface FactorTemplate {
+  template_id: string
+  name: string
+  description: string
+  factor_weights: Record<string, number>
+  top_n: number
+  tags: string[]
+}
+
+export interface FactorTemplatesResponse {
+  items: FactorTemplate[]
+  total: number
+}
+
 // ── API ──────────────────────────────────────────────────────────────────────
 
 export const factorsApi = {
+  getAvailable: (config?: RequestConfig) =>
+    api.get<AvailableFactorsResponse>('/factors/available', config),
+
   definitions: (config?: RequestConfig) =>
     api.get<{ items: FactorDefinition[]; total: number }>('/factors/definitions', config),
 
@@ -46,6 +90,16 @@ export const factorsApi = {
       body,
       config,
     ),
+
+  /** Quick correlation check for strategy builder hints (synchronous). */
+  quickCorrelation: (
+    body: { factors: string[]; feature_set_version?: string },
+    config?: RequestConfig,
+  ) =>
+    api.post<{
+      correlation_matrix: Record<string, Record<string, number | null>>
+      warnings: string[]
+    }>('/factors/correlation', body, config),
 
   icJob: (jobId: string, config?: RequestConfig) =>
     api.get<ICResult>(`/factors/analytics/${jobId}`, config),
@@ -130,6 +184,15 @@ export const factorsApi = {
         error: string | null
         preview: { asset_id: string; trade_date: string; value: number | null }[]
       }>('/factors/custom/preview', body, config),
+  },
+
+  // Factor templates
+  templates: {
+    list: (config?: RequestConfig) =>
+      api.get<FactorTemplatesResponse>('/factors/templates', config),
+
+    get: (templateId: string, config?: RequestConfig) =>
+      api.get<FactorTemplate>(`/factors/templates/${templateId}`, config),
   },
 
   // DSL (also available as nested `dsl`)

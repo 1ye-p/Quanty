@@ -6,6 +6,13 @@ import { extendedQueryKeys } from '@/lib/queryKeys'
 import { ConditionEditor } from '@/components/strategies/ConditionEditor'
 import { RuleConditionEditor } from '@/components/strategies/RuleConditionEditor'
 import { StrategyTemplates, type StrategyTemplate } from '@/components/strategies/StrategyTemplates'
+import { FactorSelector } from '@/components/strategies/FactorSelector'
+import { FactorWeightTable } from '@/components/strategies/FactorWeightTable'
+import { StrategyTemplateManager } from '@/components/strategies/StrategyTemplateManager'
+import { MissingFactorConfig } from '@/components/strategies/MissingFactorConfig'
+import { GlobalRiskConfig } from '@/components/strategies/GlobalRiskConfig'
+import { FactorCorrelationHint } from '@/components/strategies/FactorCorrelationHint'
+import { IndicatorParamConfig } from '@/components/strategies/IndicatorParamConfig'
 
 interface StrategyBuilderProps {
   initialConfig: string
@@ -19,7 +26,9 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
   }, [initialConfig])
 
   const [strategyType, setStrategyType] = useState(parsed.strategy_type ?? 'StaticTopN')
-  const [factorsText, setFactorsText] = useState<string>((parsed.factors ?? ['ret_20d', 'vol_20d']).join(', '))
+  const [selectedFactors, setSelectedFactors] = useState<string[]>(parsed.factors ?? ['ret_20d', 'vol_20d'])
+  const [factorWeights, setFactorWeights] = useState<Record<string, number>>(parsed.factor_weights ?? {})
+  const [missingFactorHandling, setMissingFactorHandling] = useState(parsed.missing_factor_handling ?? 'fill_0')
   const [topN, setTopN] = useState(String(parsed.top_n ?? 10))
   const [rebalance, setRebalance] = useState(parsed.rebalance_frequency ?? '1d')
   const [sizer, setSizer] = useState(parsed.sizer ?? 'equal_weight')
@@ -51,6 +60,10 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       ? String(parsed.risk_policy_params.drawdown_breaker.max_drawdown_pct * 100)
       : ''
   )
+  const [globalRisk, setGlobalRisk] = useState({
+    global_stop_loss_pct: parsed.risk_policy_params?.global_stop?.stop_loss_pct ?? null,
+    global_take_profit_pct: parsed.risk_policy_params?.global_stop?.take_profit_pct ?? null,
+  })
   const [market, setMarket] = useState(parsed.market_rule?.market ?? 'CN')
   const [adjType, setAdjType] = useState(parsed.market_rule?.adj_type ?? 'forward')
   // IndicatorSignal state
@@ -66,6 +79,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
   const [filterLimitUpDown, setFilterLimitUpDown] = useState(parsed.filters?.exclude_limit_up_down ?? true)
   const [editorMode, setEditorMode] = useState<'ui' | 'code'>('ui')
   const [showTemplates, setShowTemplates] = useState(false)
+  const [indicatorParamOverrides, setIndicatorParamOverrides] = useState<Record<string, Record<string, number>>>({})
 
   const { data: policies } = useQuery({
     queryKey: extendedQueryKeys.risk.policies(),
@@ -84,14 +98,15 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
   })
 
   useEffect(() => {
-    const factors = factorsText.split(',').map(f => f.trim()).filter(Boolean)
     const config: Record<string, unknown> = {
       strategy_id: parsed.strategy_id ?? 'my_strategy',
       strategy_type: strategyType,
       universe_id: universeId === 'custom' ? 'all' : universeId,
       rebalance_frequency: rebalance,
       top_n: Number(topN) || 10,
-      factors,
+      factors: selectedFactors,
+      factor_weights: factorWeights,
+      missing_factor_handling: missingFactorHandling,
       sizer,
     }
     if (strategyType === 'MarketNeutral') {
@@ -133,7 +148,10 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           }
         }
       }
-      specMap.forEach((params, name) => indicatorSpecs.push({ name, params }))
+      specMap.forEach((params, name) => {
+        const overrides = indicatorParamOverrides[name.toUpperCase()]
+        indicatorSpecs.push({ name, params: overrides ? { ...params, ...overrides } : params })
+      })
       if (indicatorSpecs.length > 0) {
         config.indicator_specs = indicatorSpecs
       }
@@ -161,9 +179,18 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
         drawdown_breaker: { max_drawdown_pct: Number(quickDrawdownBreaker) / 100 },
       }
     }
+    if (globalRisk.global_stop_loss_pct != null || globalRisk.global_take_profit_pct != null) {
+      config.risk_policy_params = {
+        ...(config.risk_policy_params as Record<string, unknown> ?? {}),
+        global_stop: {
+          ...(globalRisk.global_stop_loss_pct != null ? { stop_loss_pct: globalRisk.global_stop_loss_pct } : {}),
+          ...(globalRisk.global_take_profit_pct != null ? { take_profit_pct: globalRisk.global_take_profit_pct } : {}),
+        },
+      }
+    }
     config.market_rule = { market, adj_type: adjType }
     onChange(JSON.stringify(config, null, 2))
-  }, [strategyType, factorsText, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker, market, adjType, entryConditions, exitConditions, maxPositions, filterST, filterSuspended, filterLimitUpDown])
+  }, [strategyType, selectedFactors, factorWeights, missingFactorHandling, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker, globalRisk, market, adjType, entryConditions, exitConditions, maxPositions, filterST, filterSuspended, filterLimitUpDown, indicatorParamOverrides])
 
   // Handle template selection — populate entry/exit conditions
   const handleTemplateSelect = (tpl: StrategyTemplate) => {
@@ -220,15 +247,66 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       )}
 
       {/* Factors & Top N */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="col-span-2">
-          <label className="text-xs text-gray-500 mb-1 block">因子列表（逗号分隔）</label>
-          <input className="input w-full" value={factorsText} onChange={e => setFactorsText(e.target.value)}
-            placeholder="ret_20d, vol_20d, momentum_20d" />
-        </div>
+      <div className="space-y-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">Top N</label>
-          <input type="number" className="input w-full" value={topN} onChange={e => setTopN(e.target.value)} min={1} />
+          <label className="text-xs text-gray-500 mb-1 block">因子选择</label>
+          <FactorSelector
+            selected={selectedFactors}
+            onChange={setSelectedFactors}
+          />
+        </div>
+
+        {selectedFactors.length > 0 && (
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">因子权重</label>
+            <FactorWeightTable
+              factors={selectedFactors}
+              weights={factorWeights}
+              onChange={setFactorWeights}
+            />
+          </div>
+        )}
+
+        {selectedFactors.length >= 2 && (
+          <FactorCorrelationHint
+            factors={selectedFactors}
+            onRemoveFactor={(factor) => {
+              setSelectedFactors(prev => prev.filter(f => f !== factor))
+              setFactorWeights(prev => {
+                const next = { ...prev }
+                delete next[factor]
+                return next
+              })
+            }}
+          />
+        )}
+
+        <StrategyTemplateManager
+          currentFactorWeights={factorWeights}
+          currentTopN={Number(topN) || 10}
+          currentSelectedFactors={selectedFactors}
+          onLoad={(weights, newTopN) => {
+            // Update selected factors from template keys
+            const tplFactors = Object.keys(weights)
+            if (tplFactors.length > 0) {
+              setSelectedFactors(tplFactors)
+            }
+            setFactorWeights(weights)
+            setTopN(String(newTopN))
+          }}
+        />
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Top N</label>
+            <input type="number" className="input w-full" value={topN} onChange={e => setTopN(e.target.value)} min={1} />
+          </div>
+          <div>
+            <MissingFactorConfig
+              value={missingFactorHandling}
+              onChange={setMissingFactorHandling}
+            />
+          </div>
         </div>
       </div>
 
@@ -410,6 +488,52 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
             ))}
           </div>
 
+          {/* Indicator Param Config */}
+          <IndicatorParamConfig
+            activeIndicators={(() => {
+              const allDsl = [...entryConditions, ...exitConditions].filter(c => c.trim()).join(' ')
+              const specs: { name: string; params: Record<string, number> }[] = []
+              const specMap = new Map<string, Record<string, number>>()
+              const pattern = /(\w+)\(([^)]*)\)/g
+              let m: RegExpExecArray | null
+              while ((m = pattern.exec(allDsl)) !== null) {
+                const name = m[1].toUpperCase()
+                const paramStr = m[2]
+                if (!specMap.has(name) && paramStr) {
+                  const nums = paramStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n))
+                  if (nums.length > 0) {
+                    const keys = ['period', 'fast', 'slow', 'signal', 'std_dev', 'k_period', 'd_period']
+                    const params: Record<string, number> = {}
+                    nums.forEach((n, i) => { if (keys[i]) params[keys[i]] = n })
+                    specMap.set(name, params)
+                  }
+                }
+              }
+              // Apply user overrides
+              specMap.forEach((params, name) => {
+                const overrides = indicatorParamOverrides[name]
+                specs.push({ name, params: overrides ? { ...params, ...overrides } : params })
+              })
+              return specs
+            })()}
+            onParamChange={(name, key, value) => {
+              setIndicatorParamOverrides(prev => ({
+                ...prev,
+                [name]: { ...(prev[name] ?? {}), [key]: value },
+              }))
+            }}
+            onInsertDSL={(dsl) => {
+              setEntryConditions(prev => {
+                // Find first empty slot or append
+                const idx = prev.findIndex(c => !c.trim())
+                if (idx >= 0) {
+                  return prev.map((c, i) => i === idx ? dsl : c)
+                }
+                return [...prev, dsl]
+              })
+            }}
+          />
+
           {/* Position sizing */}
           <div>
             <label className="text-xs text-gray-500">最大持仓数</label>
@@ -516,6 +640,9 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           </div>
         </div>
       </div>
+
+      {/* Global stop / take-profit */}
+      <GlobalRiskConfig value={globalRisk} onChange={setGlobalRisk} />
 
       {/* Quick risk config */}
       <div className="border rounded-lg p-3 bg-amber-50 space-y-3">

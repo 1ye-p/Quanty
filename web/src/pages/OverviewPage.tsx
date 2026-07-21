@@ -5,6 +5,15 @@ import { queryKeys, extendedQueryKeys } from '@/lib/queryKeys'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { SparkLine } from '@/components/ui/SparkLine'
 
+function ErrorCard({ title, error }: { title: string; error: Error }) {
+  return (
+    <div className="card border-l-4 border-red-400">
+      <h3 className="text-sm font-semibold text-gray-700 mb-1">{title}</h3>
+      <p className="text-xs text-red-500">{error.message}</p>
+    </div>
+  )
+}
+
 interface QuickLinkProps { to: string; icon: string; label: string; desc: string }
 function QuickLink({ to, icon, label, desc }: QuickLinkProps) {
   return (
@@ -48,60 +57,60 @@ const SEVERITY_COLORS: Record<string, string> = {
 }
 
 export function OverviewPage() {
-  const { data: datasets } = useQuery({
+  const { data: datasets, error: datasetsError, status: datasetsStatus } = useQuery({
     queryKey: queryKeys.datasets.list(5),
     queryFn: () => datasetsApi.list(5),
   })
-  const { data: backtests } = useQuery({
+  const { data: backtests, error: backtestsError, status: backtestsStatus } = useQuery({
     queryKey: queryKeys.backtests.list({ limit: 5 }),
     queryFn: () => backtestsApi.list({ limit: 5 }),
   })
-  const { data: knowledgeDocs } = useQuery({
+  const { data: knowledgeDocs, error: knowledgeError, status: knowledgeStatus } = useQuery({
     queryKey: queryKeys.knowledge.list(),
     queryFn: () => knowledgeApi.list(),
   })
-  const { data: liveStrategies } = useQuery({
+  const { data: liveStrategies, error: liveError, status: liveStatus } = useQuery({
     queryKey: extendedQueryKeys.live.strategies(),
     queryFn: liveApi.strategies,
   })
 
-  const { data: freshness } = useQuery({
+  const { data: freshness, error: freshnessError, status: freshnessStatus } = useQuery({
     queryKey: ['dashboard', 'freshness'],
     queryFn: datasetsApi.freshness,
     staleTime: 300_000,
   })
 
-  const { data: bestBt } = useQuery({
+  const { data: bestBt, error: bestBtError, status: bestBtStatus } = useQuery({
     queryKey: ['dashboard', 'best-recent'],
     queryFn: () => dashboardApi.bestRecent(7),
     staleTime: 60_000,
   })
 
-  const { data: icBoard } = useQuery({
+  const { data: icBoard, error: icBoardError, status: icBoardStatus } = useQuery({
     queryKey: ['dashboard', 'ic-leaderboard'],
     queryFn: () => dashboardApi.icLeaderboard(5),
     staleTime: 120_000,
   })
 
-  const { data: backtestTrend } = useQuery({
+  const { data: backtestTrend, error: backtestTrendError, status: backtestTrendStatus } = useQuery({
     queryKey: extendedQueryKeys.dashboard.backtestTrend(30),
     queryFn: () => dashboardApi.backtestTrend(30),
     staleTime: 300_000,
   })
 
-  const { data: icTrend } = useQuery({
+  const { data: icTrend, error: icTrendError, status: icTrendStatus } = useQuery({
     queryKey: extendedQueryKeys.dashboard.icTrend(30),
     queryFn: () => dashboardApi.icTrend(30),
     staleTime: 300_000,
   })
 
-  const { data: recentAlerts } = useQuery({
+  const { data: recentAlerts, error: alertsError, status: alertsStatus } = useQuery({
     queryKey: ['alerts', 'recent'],
     queryFn: () => alertsApi.history(false, 5),
     staleTime: 60_000,
   })
 
-  const { data: marketQuotes } = useQuery({
+  const { data: marketQuotes, error: marketError, status: marketStatus } = useQuery({
     queryKey: extendedQueryKeys.realtime.quotes(['sh000001', 'sz399001', 'sz399006']),
     queryFn: () => realtimeApi.quotes(['sh000001', 'sz399001', 'sz399006']),
     staleTime: 30_000,
@@ -126,13 +135,29 @@ export function OverviewPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="数据集版本" value={datasets?.total ?? '—'} icon="🗄️" />
-        <StatCard label="回测记录" value={backtests?.total ?? '—'} icon="📊"
-          delta={completedRuns > 0 ? `${completedRuns} 已完成` : undefined}
-          sparkData={btSparkData} />
-        <StatCard label="知识库文档" value={knowledgeDocs?.total ?? '—'} icon="📚" />
-        <StatCard label="活跃策略" value={runningStrategies} icon="⚡"
-          warn={runningStrategies === 0} />
+        {datasetsStatus === 'error' ? (
+          <ErrorCard title="数据集版本" error={datasetsError as Error} />
+        ) : (
+          <StatCard label="数据集版本" value={datasets?.total ?? '—'} icon="🗄️" />
+        )}
+        {backtestsStatus === 'error' ? (
+          <ErrorCard title="回测记录" error={backtestsError as Error} />
+        ) : (
+          <StatCard label="回测记录" value={backtests?.total ?? '—'} icon="📊"
+            delta={completedRuns > 0 ? `${completedRuns} 已完成` : undefined}
+            sparkData={btSparkData} />
+        )}
+        {knowledgeStatus === 'error' ? (
+          <ErrorCard title="知识库文档" error={knowledgeError as Error} />
+        ) : (
+          <StatCard label="知识库文档" value={knowledgeDocs?.total ?? '—'} icon="📚" />
+        )}
+        {liveStatus === 'error' ? (
+          <ErrorCard title="活跃策略" error={liveError as Error} />
+        ) : (
+          <StatCard label="活跃策略" value={runningStrategies} icon="⚡"
+            warn={runningStrategies === 0} />
+        )}
       </div>
 
       {/* 增强行：数据新鲜度 + 最优回测 + IC 排行 */}
@@ -141,7 +166,9 @@ export function OverviewPage() {
         {/* 数据新鲜度 */}
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">📅 数据新鲜度</h3>
-          {freshness ? (
+          {freshnessStatus === 'error' ? (
+            <p className="text-xs text-red-500">{(freshnessError as Error).message}</p>
+          ) : freshness ? (
             <>
               <p className="text-2xl font-bold text-gray-800">
                 {freshness.last_updated ?? '—'}
@@ -160,7 +187,9 @@ export function OverviewPage() {
         {/* 近7天最优回测 */}
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">🏆 近7天最优回测</h3>
-          {bestBt?.run_id ? (
+          {bestBtStatus === 'error' ? (
+            <p className="text-xs text-red-500">{(bestBtError as Error).message}</p>
+          ) : bestBt?.run_id ? (
             <>
               <p className="font-semibold text-gray-800 truncate" title={bestBt.strategy_id ?? ''}>
                 {bestBt.strategy_id}
@@ -182,7 +211,9 @@ export function OverviewPage() {
         {/* Top5 因子 IC */}
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">🔬 因子 IC 排行（Top 5）</h3>
-          {icBoard?.items.length ? (
+          {icBoardStatus === 'error' ? (
+            <p className="text-xs text-red-500">{(icBoardError as Error).message}</p>
+          ) : icBoard?.items.length ? (
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-gray-500">
@@ -223,7 +254,9 @@ export function OverviewPage() {
         {/* IC 趋势 */}
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">📈 IC 趋势（近30天）</h3>
-          {icSparkData.length > 0 ? (
+          {icTrendStatus === 'error' ? (
+            <p className="text-xs text-red-500">{(icTrendError as Error).message}</p>
+          ) : icSparkData.length > 0 ? (
             <SparkLine data={icSparkData} color="#10b981" height={48} />
           ) : (
             <p className="text-gray-400 text-sm">暂无趋势数据</p>
@@ -233,7 +266,9 @@ export function OverviewPage() {
         {/* 回测趋势 */}
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">📊 回测趋势（近30天）</h3>
-          {btSparkData.length > 0 ? (
+          {backtestTrendStatus === 'error' ? (
+            <p className="text-xs text-red-500">{(backtestTrendError as Error).message}</p>
+          ) : btSparkData.length > 0 ? (
             <SparkLine data={btSparkData} color="#6366f1" height={48} />
           ) : (
             <p className="text-gray-400 text-sm">暂无趋势数据</p>
@@ -243,7 +278,9 @@ export function OverviewPage() {
         {/* 市场行情 */}
         <div className="card">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">💹 市场行情</h3>
-          {Object.keys(marketItems).length > 0 ? (
+          {marketStatus === 'error' ? (
+            <p className="text-xs text-red-500">{(marketError as Error).message}</p>
+          ) : Object.keys(marketItems).length > 0 ? (
             <div className="space-y-2">
               {[
                 { symbol: 'sh000001', name: '上证指数' },
@@ -278,7 +315,9 @@ export function OverviewPage() {
       </div>
 
       {/* 最近告警 */}
-      {(recentAlerts?.items.length ?? 0) > 0 && (
+      {alertsStatus === 'error' ? (
+        <ErrorCard title="最近告警" error={alertsError as Error} />
+      ) : (recentAlerts?.items.length ?? 0) > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-700">🔔 最近告警</h3>

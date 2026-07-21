@@ -5,6 +5,7 @@ from cquant.riskguard.policies.base import RiskPolicy
 from cquant.riskguard.policies.drawdown_breaker import DrawdownBreakerPolicy
 from cquant.riskguard.policies.factor_exposure_limit import FactorExposureLimitPolicy
 from cquant.riskguard.policies.forced_exit import ForcedExit, ForcedExitPolicy
+from cquant.riskguard.policies.global_stop import GlobalStopPolicy
 from cquant.riskguard.policies.leverage_limit import LeverageLimitPolicy
 from cquant.riskguard.policies.max_holding_days import MaxHoldingDaysPolicy
 from cquant.riskguard.policies.position_limits import PositionLimitPolicy
@@ -18,6 +19,7 @@ __all__ = [
     "FixedStopLossPolicy",
     "ForcedExit",
     "ForcedExitPolicy",
+    "GlobalStopPolicy",
     "LeverageLimitPolicy",
     "MaxHoldingDaysPolicy",
     "PositionLimitPolicy",

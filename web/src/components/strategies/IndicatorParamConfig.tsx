@@ -1,0 +1,187 @@
+/**
+ * IndicatorParamConfig — Configuration panel for technical indicator parameters.
+ *
+ * Default presets: RSI(14), MACD(12,26,9), MA(20).
+ * Per-strategy parameter isolation.
+ * Shows parameter inputs when an indicator is selected.
+ */
+import { useState, useCallback } from 'react'
+
+interface IndicatorDef {
+  name: string
+  label: string
+  params: { key: string; label: string; default: number; min?: number; max?: number }[]
+}
+
+const INDICATOR_PRESETS: IndicatorDef[] = [
+  {
+    name: 'RSI',
+    label: 'RSI (相对强弱指数)',
+    params: [{ key: 'period', label: '周期', default: 14, min: 2, max: 100 }],
+  },
+  {
+    name: 'MACD',
+    label: 'MACD (指数平滑异同移动平均)',
+    params: [
+      { key: 'fast', label: '快线', default: 12, min: 2, max: 100 },
+      { key: 'slow', label: '慢线', default: 26, min: 2, max: 200 },
+      { key: 'signal', label: '信号线', default: 9, min: 2, max: 50 },
+    ],
+  },
+  {
+    name: 'MA',
+    label: 'MA (移动平均)',
+    params: [{ key: 'period', label: '周期', default: 20, min: 2, max: 500 }],
+  },
+  {
+    name: 'EMA',
+    label: 'EMA (指数移动平均)',
+    params: [{ key: 'period', label: '周期', default: 20, min: 2, max: 500 }],
+  },
+  {
+    name: 'BOLL',
+    label: 'BOLL (布林带)',
+    params: [
+      { key: 'period', label: '周期', default: 20, min: 2, max: 200 },
+      { key: 'std_dev', label: '标准差倍数', default: 2, min: 0.5, max: 5 },
+    ],
+  },
+  {
+    name: 'KDJ',
+    label: 'KDJ (随机指标)',
+    params: [
+      { key: 'k_period', label: 'K 周期', default: 9, min: 2, max: 100 },
+      { key: 'd_period', label: 'D 周期', default: 3, min: 2, max: 50 },
+    ],
+  },
+]
+
+interface IndicatorParamConfigProps {
+  /** Current indicator specs extracted from DSL conditions */
+  activeIndicators?: { name: string; params: Record<string, number> }[]
+  /** Called when user changes a parameter value */
+  onParamChange?: (indicatorName: string, key: string, value: number) => void
+  /** Called to insert DSL snippet into the condition editor */
+  onInsertDSL?: (dsl: string) => void
+}
+
+export function IndicatorParamConfig({
+  activeIndicators = [],
+  onParamChange,
+  onInsertDSL,
+}: IndicatorParamConfigProps) {
+  const [selectedPreset, setSelectedPreset] = useState<string>('')
+
+  // Build a lookup of active indicator params
+  const activeMap = new Map<string, Record<string, number>>()
+  for (const spec of activeIndicators) {
+    activeMap.set(spec.name.toUpperCase(), spec.params)
+  }
+
+  const handleInsertPreset = useCallback(
+    (preset: IndicatorDef) => {
+      const paramStr = preset.params.map(p => String(p.default)).join(',')
+      const dsl = `${preset.name}(${paramStr})`
+      onInsertDSL?.(dsl)
+      setSelectedPreset('')
+    },
+    [onInsertDSL],
+  )
+
+  // Find which presets are currently active in DSL conditions
+  const activePresetNames = new Set(
+    INDICATOR_PRESETS
+      .filter(p => activeMap.has(p.name))
+      .map(p => p.name),
+  )
+
+  return (
+    <div className="border rounded-lg p-3 bg-gray-50">
+      <div className="text-xs font-medium text-gray-600 mb-2">指标参数配置</div>
+
+      {/* Quick-insert presets */}
+      <div className="flex flex-wrap gap-1 mb-3">
+        {INDICATOR_PRESETS.map(preset => {
+          const isActive = activePresetNames.has(preset.name)
+          return (
+            <button
+              key={preset.name}
+              className={`text-xs px-2 py-1 rounded border transition-colors ${
+                isActive
+                  ? 'bg-blue-100 border-blue-300 text-blue-700'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200'
+              }`}
+              onClick={() => {
+                if (isActive) {
+                  setSelectedPreset(selectedPreset === preset.name ? '' : preset.name)
+                } else {
+                  handleInsertPreset(preset)
+                }
+              }}
+              title={preset.label}
+            >
+              {preset.name}
+              {isActive && <span className="ml-1 text-blue-400">&#10003;</span>}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Active indicator parameter editors */}
+      {activePresetNames.size > 0 && (
+        <div className="space-y-2">
+          {INDICATOR_PRESETS.filter(p => activePresetNames.has(p.name)).map(preset => {
+            const currentParams = activeMap.get(preset.name) ?? {}
+            const isExpanded = selectedPreset === preset.name || activePresetNames.size === 1
+
+            return (
+              <div key={preset.name} className="bg-white border rounded p-2">
+                <button
+                  className="flex items-center justify-between w-full text-xs text-left"
+                  onClick={() => setSelectedPreset(isExpanded ? '' : preset.name)}
+                >
+                  <span className="font-medium text-gray-700">{preset.label}</span>
+                  <span className="text-gray-400">{isExpanded ? '▲' : '▼'}</span>
+                </button>
+
+                {isExpanded && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {preset.params.map(p => {
+                      const val = currentParams[p.key] ?? p.default
+                      return (
+                        <div key={p.key}>
+                          <label className="text-[10px] text-gray-500 block">{p.label}</label>
+                          <input
+                            type="number"
+                            className="input w-full text-xs"
+                            value={val}
+                            min={p.min}
+                            max={p.max}
+                            step={1}
+                            onChange={e => {
+                              const num = parseFloat(e.target.value)
+                              if (!isNaN(num)) {
+                                onParamChange?.(preset.name, p.key, num)
+                              }
+                            }}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {activePresetNames.size === 0 && (
+        <div className="text-xs text-gray-400 mt-1">
+          在入场/出场条件中使用指标函数后，可在此调整参数。点击上方标签可快速插入。
+        </div>
+      )}
+    </div>
+  )
+}

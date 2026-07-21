@@ -745,6 +745,95 @@ async def compute_factor_correlation(body: FactorCorrelationRequest, catalog: Ca
     return {"factors": factor_cols, "matrix": matrix}
 
 
+# ── Quick Factor Correlation (for StrategyBuilder hints) ─────────────────────
+
+class QuickCorrelationBody(BaseModel):
+    factors: list[str] = Field(..., min_length=2, max_length=50)
+    feature_set_version: str = ""
+
+
+@router.post("/correlation")
+async def compute_quick_correlation(body: QuickCorrelationBody, catalog: CatalogDep) -> dict:
+    """计算所选因子之间的 Pearson 相关矩阵，用于前端因子相关性提示。
+
+    如果未指定 feature_set_version，自动取最新版本。
+    标记 |r| > 0.7 为高相关。
+    """
+    import polars as pl
+
+    # Auto-detect latest version if not provided
+    version = body.feature_set_version
+    if not version:
+        try:
+            ver_df = catalog.query(
+                "SELECT DISTINCT feature_set_version FROM gold_factor_values "
+                "ORDER BY feature_set_version DESC LIMIT 1"
+            )
+            if not ver_df.is_empty():
+                version = ver_df["feature_set_version"][0]
+        except Exception:
+            pass
+
+    if not version:
+        return {
+            "correlation_matrix": {},
+            "warnings": ["无因子数据版本，请先物化因子"],
+        }
+
+    # Fetch factor values
+    in_placeholders = ",".join(["?" for _ in body.factors])
+    params = [version] + list(body.factors)
+    df = catalog.query(
+        f"SELECT asset_id, trade_date, factor_name, value FROM gold_factor_values "
+        f"WHERE feature_set_version = ? AND factor_name IN ({in_placeholders})",
+        params,
+    )
+
+    if df.is_empty():
+        return {
+            "correlation_matrix": {},
+            "warnings": ["未找到因子数据，请先物化所选因子"],
+        }
+
+    # Pivot to wide format and compute pairwise correlation
+    wide = df.pivot(index=["asset_id", "trade_date"], columns="factor_name", values="value")
+    factor_cols = [c for c in body.factors if c in wide.columns]
+
+    if len(factor_cols) < 2:
+        return {
+            "correlation_matrix": {},
+            "warnings": ["至少需要 2 个已物化的因子才能计算相关性"],
+        }
+
+    # Build correlation matrix
+    matrix: dict[str, dict[str, float | None]] = {}
+    warnings: list[str] = []
+
+    for f1 in factor_cols:
+        matrix[f1] = {}
+        for f2 in factor_cols:
+            if f1 == f2:
+                matrix[f1][f2] = 1.0
+            elif f2 in matrix and f1 in matrix[f2]:
+                # Mirror value
+                matrix[f1][f2] = matrix[f2][f1]
+            else:
+                pair = wide.select([f1, f2]).drop_nulls()
+                corr = float(pair[f1].corr(pair[f2])) if len(pair) >= 10 else None
+                matrix[f1][f2] = round(corr, 4) if corr is not None else None
+
+                # High-correlation warning (only emit once per pair)
+                if corr is not None and abs(corr) > 0.7 and f1 < f2:
+                    warnings.append(
+                        f"因子 {f1} 与 {f2} 高度相关 (r={corr:.2f})，建议移除其中一个以避免多重共线性"
+                    )
+
+    return {
+        "correlation_matrix": matrix,
+        "warnings": warnings,
+    }
+
+
 @router.get("/ic-leaderboard")
 async def ic_leaderboard(catalog: CatalogDep, limit: int = 5) -> dict:
     """返回 IC 绝对值最高的 Top N 因子（用于 Dashboard 排行榜）。"""
@@ -882,6 +971,26 @@ async def list_available_factors() -> dict:
     ]
     _factors_cache = {"factors": factors, "categories": categories}
     return _factors_cache
+
+
+# ── Factor Templates ─────────────────────────────────────────────────────────
+
+@router.get("/templates")
+async def list_factor_templates() -> dict:
+    """List all preset factor templates."""
+    from cquant.factorlab.factor_templates import list_templates
+    items = list_templates()
+    return {"items": items, "total": len(items)}
+
+
+@router.get("/templates/{template_id}")
+async def get_factor_template(template_id: str) -> dict:
+    """Get a single preset factor template by id."""
+    from cquant.factorlab.factor_templates import get_template
+    tpl = get_template(template_id)
+    if tpl is None:
+        raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
+    return tpl
 
 
 @router.get("/dsl/functions")
