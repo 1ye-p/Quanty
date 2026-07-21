@@ -27,6 +27,18 @@ class GlobalStopPolicy(ForcedExitPolicy):
         stop_loss_pct: float | None = None,
         take_profit_pct: float | None = None,
     ) -> None:
+        # Input validation
+        if stop_loss_pct is not None and stop_loss_pct > 0:
+            raise ValueError(f"stop_loss_pct must be negative or None, got {stop_loss_pct}")
+        if take_profit_pct is not None and take_profit_pct < 0:
+            raise ValueError(f"take_profit_pct must be positive or None, got {take_profit_pct}")
+        if stop_loss_pct is not None and take_profit_pct is not None:
+            if stop_loss_pct >= take_profit_pct:
+                raise ValueError(
+                    f"stop_loss_pct ({stop_loss_pct}) must be less than "
+                    f"take_profit_pct ({take_profit_pct})"
+                )
+
         self._stop_loss_pct = stop_loss_pct
         self._take_profit_pct = take_profit_pct
 

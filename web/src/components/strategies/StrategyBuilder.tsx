@@ -136,7 +136,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       const indicatorPattern = /(\w+)\(([^)]*)\)/g
       let m: RegExpExecArray | null
       while ((m = indicatorPattern.exec(allDsl)) !== null) {
-        const name = m[1]
+        const name = m[1].toUpperCase()  // Normalize to uppercase for consistency
         const paramStr = m[2]
         if (!specMap.has(name) && paramStr) {
           const nums = paramStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n))
@@ -149,7 +149,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
         }
       }
       specMap.forEach((params, name) => {
-        const overrides = indicatorParamOverrides[name.toUpperCase()]
+        const overrides = indicatorParamOverrides[name]
         indicatorSpecs.push({ name, params: overrides ? { ...params, ...overrides } : params })
       })
       if (indicatorSpecs.length > 0) {
@@ -200,6 +200,34 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
   }
 
   const selectedSizerInfo = sizers?.find(s => s.name === sizer)
+
+  // Memoize active indicators extraction to avoid re-parsing DSL on every render
+  const activeIndicators = useMemo(() => {
+    const allDsl = [...entryConditions, ...exitConditions].filter(c => c.trim()).join(' ')
+    const specs: { name: string; params: Record<string, number> }[] = []
+    const specMap = new Map<string, Record<string, number>>()
+    const pattern = /(\w+)\(([^)]*)\)/g
+    let m: RegExpExecArray | null
+    while ((m = pattern.exec(allDsl)) !== null) {
+      const name = m[1].toUpperCase()
+      const paramStr = m[2]
+      if (!specMap.has(name) && paramStr) {
+        const nums = paramStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n))
+        if (nums.length > 0) {
+          const keys = ['period', 'fast', 'slow', 'signal', 'std_dev', 'k_period', 'd_period']
+          const params: Record<string, number> = {}
+          nums.forEach((n, i) => { if (keys[i]) params[keys[i]] = n })
+          specMap.set(name, params)
+        }
+      }
+    }
+    // Apply user overrides
+    specMap.forEach((params, name) => {
+      const overrides = indicatorParamOverrides[name]
+      specs.push({ name, params: overrides ? { ...params, ...overrides } : params })
+    })
+    return specs
+  }, [entryConditions, exitConditions, indicatorParamOverrides])
 
   return (
     <div className="space-y-4 p-4">
@@ -490,32 +518,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
           {/* Indicator Param Config */}
           <IndicatorParamConfig
-            activeIndicators={(() => {
-              const allDsl = [...entryConditions, ...exitConditions].filter(c => c.trim()).join(' ')
-              const specs: { name: string; params: Record<string, number> }[] = []
-              const specMap = new Map<string, Record<string, number>>()
-              const pattern = /(\w+)\(([^)]*)\)/g
-              let m: RegExpExecArray | null
-              while ((m = pattern.exec(allDsl)) !== null) {
-                const name = m[1].toUpperCase()
-                const paramStr = m[2]
-                if (!specMap.has(name) && paramStr) {
-                  const nums = paramStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n))
-                  if (nums.length > 0) {
-                    const keys = ['period', 'fast', 'slow', 'signal', 'std_dev', 'k_period', 'd_period']
-                    const params: Record<string, number> = {}
-                    nums.forEach((n, i) => { if (keys[i]) params[keys[i]] = n })
-                    specMap.set(name, params)
-                  }
-                }
-              }
-              // Apply user overrides
-              specMap.forEach((params, name) => {
-                const overrides = indicatorParamOverrides[name]
-                specs.push({ name, params: overrides ? { ...params, ...overrides } : params })
-              })
-              return specs
-            })()}
+            activeIndicators={activeIndicators}
             onParamChange={(name, key, value) => {
               setIndicatorParamOverrides(prev => ({
                 ...prev,

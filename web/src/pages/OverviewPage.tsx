@@ -5,11 +5,11 @@ import { queryKeys, extendedQueryKeys } from '@/lib/queryKeys'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { SparkLine } from '@/components/ui/SparkLine'
 
-function ErrorCard({ title, error }: { title: string; error: Error }) {
+function ErrorCard({ title, error }: { title: string; error: Error | null }) {
   return (
     <div className="card border-l-4 border-red-400">
       <h3 className="text-sm font-semibold text-gray-700 mb-1">{title}</h3>
-      <p className="text-xs text-red-500">{error.message}</p>
+      <p className="text-xs text-red-500">{error?.message ?? '未知错误'}</p>
     </div>
   )
 }
@@ -136,24 +136,24 @@ export function OverviewPage() {
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {datasetsStatus === 'error' ? (
-          <ErrorCard title="数据集版本" error={datasetsError as Error} />
+          <ErrorCard title="数据集版本" error={datasetsError} />
         ) : (
           <StatCard label="数据集版本" value={datasets?.total ?? '—'} icon="🗄️" />
         )}
         {backtestsStatus === 'error' ? (
-          <ErrorCard title="回测记录" error={backtestsError as Error} />
+          <ErrorCard title="回测记录" error={backtestsError} />
         ) : (
           <StatCard label="回测记录" value={backtests?.total ?? '—'} icon="📊"
             delta={completedRuns > 0 ? `${completedRuns} 已完成` : undefined}
             sparkData={btSparkData} />
         )}
         {knowledgeStatus === 'error' ? (
-          <ErrorCard title="知识库文档" error={knowledgeError as Error} />
+          <ErrorCard title="知识库文档" error={knowledgeError} />
         ) : (
           <StatCard label="知识库文档" value={knowledgeDocs?.total ?? '—'} icon="📚" />
         )}
         {liveStatus === 'error' ? (
-          <ErrorCard title="活跃策略" error={liveError as Error} />
+          <ErrorCard title="活跃策略" error={liveError} />
         ) : (
           <StatCard label="活跃策略" value={runningStrategies} icon="⚡"
             warn={runningStrategies === 0} />
@@ -316,7 +316,7 @@ export function OverviewPage() {
 
       {/* 最近告警 */}
       {alertsStatus === 'error' ? (
-        <ErrorCard title="最近告警" error={alertsError as Error} />
+        <ErrorCard title="最近告警" error={alertsError} />
       ) : (recentAlerts?.items.length ?? 0) > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-3">

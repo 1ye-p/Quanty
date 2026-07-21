@@ -758,7 +758,15 @@ async def compute_quick_correlation(body: QuickCorrelationBody, catalog: Catalog
 
     如果未指定 feature_set_version，自动取最新版本。
     标记 |r| > 0.7 为高相关。
+    CPU-heavy computation runs in thread pool to avoid blocking the event loop.
     """
+    import asyncio
+
+    return await asyncio.to_thread(_compute_correlation_sync, body, catalog)
+
+
+def _compute_correlation_sync(body: QuickCorrelationBody, catalog) -> dict:
+    """Synchronous correlation computation (runs in thread pool)."""
     import polars as pl
 
     # Auto-detect latest version if not provided
