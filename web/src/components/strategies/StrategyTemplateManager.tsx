@@ -28,7 +28,8 @@ interface CustomTemplate {
 function loadCustomTemplates(): CustomTemplate[] {
   try {
     return JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? '[]')
-  } catch {
+  } catch (e) {
+    console.warn('Failed to parse custom templates from localStorage:', e)
     return []
   }
 }
@@ -68,7 +69,7 @@ export function StrategyTemplateManager({
 
   const presets = presetData?.items ?? []
 
-  // Sync custom templates to localStorage
+  // Sync custom templates to localStorage (only fires when customTemplates changes)
   useEffect(() => {
     saveCustomTemplates(customTemplates)
   }, [customTemplates])
@@ -90,7 +91,7 @@ export function StrategyTemplateManager({
   const handleSave = useCallback(() => {
     if (!saveName.trim()) return
     const newTpl: CustomTemplate = {
-      id: `custom_${Date.now()}`,
+      id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       name: saveName.trim(),
       description: saveDesc.trim(),
       factor_weights: { ...currentFactorWeights },
