@@ -242,6 +242,9 @@ class BacktestCreateBody(BaseModel):
     benchmark_asset_id: str = ""
     # Cross-sectional scoring integration
     scoring_run_id: str = ""  # if set, use pre-computed scores as ranking signal
+    # MultiFactor missing-factor handling
+    missing_factor_strategy: str = "fill_0"
+    penalty_per_missing: float = 0.5
 
 
 def _run_backtest(catalog, spec):
@@ -367,6 +370,8 @@ async def create_backtest(
     exit_conditions = body.exit_conditions or parsed.get("exit_conditions", [])
     indicator_specs = body.indicator_specs or parsed.get("indicator_specs", [])
     universe_id = body.universe_id if body.universe_id != "all" else parsed.get("universe_id", "all")
+    missing_factor_strategy = body.missing_factor_strategy if body.missing_factor_strategy != "fill_0" else parsed.get("missing_factor_handling", "fill_0")
+    penalty_per_missing = body.penalty_per_missing if body.penalty_per_missing != 0.5 else parsed.get("penalty_per_missing", 0.5)
 
     from cquant.backtest_vector.run import BacktestRunSpec
 
@@ -471,6 +476,8 @@ async def create_backtest(
         universe_id=universe_id,
         benchmark_asset_id=body.benchmark_asset_id,
         scoring_run_id=body.scoring_run_id,
+        missing_factor_strategy=missing_factor_strategy,
+        penalty_per_missing=penalty_per_missing,
     )
 
     _ensure_schema_extensions(catalog)

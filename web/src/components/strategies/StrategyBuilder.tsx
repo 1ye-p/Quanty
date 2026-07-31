@@ -29,6 +29,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
   const [selectedFactors, setSelectedFactors] = useState<string[]>(parsed.factors ?? ['ret_20d', 'vol_20d'])
   const [factorWeights, setFactorWeights] = useState<Record<string, number>>(parsed.factor_weights ?? {})
   const [missingFactorHandling, setMissingFactorHandling] = useState(parsed.missing_factor_handling ?? 'fill_0')
+  const [penaltyPerMissing, setPenaltyPerMissing] = useState(String(parsed.penalty_per_missing ?? 0.5))
   const [topN, setTopN] = useState(String(parsed.top_n ?? 10))
   const [rebalance, setRebalance] = useState(parsed.rebalance_frequency ?? '1d')
   const [sizer, setSizer] = useState(parsed.sizer ?? 'equal_weight')
@@ -108,6 +109,9 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       factor_weights: factorWeights,
       missing_factor_handling: missingFactorHandling,
       sizer,
+    }
+    if (missingFactorHandling === 'risk_penalty') {
+      config.penalty_per_missing = Number(penaltyPerMissing) || 0.5
     }
     if (strategyType === 'MarketNeutral') {
       config.short_n = Number(shortN) || 10
@@ -190,7 +194,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
     }
     config.market_rule = { market, adj_type: adjType }
     onChange(JSON.stringify(config, null, 2))
-  }, [strategyType, selectedFactors, factorWeights, missingFactorHandling, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker, globalRisk, market, adjType, entryConditions, exitConditions, maxPositions, filterST, filterSuspended, filterLimitUpDown, indicatorParamOverrides])
+  }, [strategyType, selectedFactors, factorWeights, missingFactorHandling, penaltyPerMissing, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker, globalRisk, market, adjType, entryConditions, exitConditions, maxPositions, filterST, filterSuspended, filterLimitUpDown, indicatorParamOverrides])
 
   // Handle template selection — populate entry/exit conditions
   const handleTemplateSelect = (tpl: StrategyTemplate) => {
@@ -336,6 +340,19 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
             />
           </div>
         </div>
+        {missingFactorHandling === 'risk_penalty' && (
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">每缺失因子扣分 (penalty_per_missing)</label>
+            <input
+              type="number"
+              className="input w-full"
+              value={penaltyPerMissing}
+              onChange={e => setPenaltyPerMissing(e.target.value)}
+              min={0}
+              step={0.1}
+            />
+          </div>
+        )}
       </div>
 
       {/* MarketNeutral: short_n */}

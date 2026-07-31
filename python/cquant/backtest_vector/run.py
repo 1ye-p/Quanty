@@ -103,6 +103,9 @@ class BacktestRunSpec:
     entry_conditions: list[str] = field(default_factory=list)
     exit_conditions: list[str] = field(default_factory=list)
     indicator_specs: list[dict] = field(default_factory=list)
+    # MultiFactor missing-factor handling
+    missing_factor_strategy: str = "fill_0"
+    penalty_per_missing: float = 0.5
 
 
 class StaticTopNStrategy(Strategy):
@@ -902,6 +905,8 @@ class BacktestRunner:
                 strategy_id=spec.strategy_id,
                 factor_weights={spec.sort_factor: 1.0},
                 top_n=spec.top_n,
+                missing_factor_strategy=spec.missing_factor_strategy,
+                penalty_per_missing=spec.penalty_per_missing,
             )
         if spec.strategy_type == "MarketNeutral":
             from cquant.backtest_vector.strategies.market_neutral import MarketNeutralStrategy
