@@ -111,7 +111,8 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       sizer,
     }
     if (missingFactorHandling === 'risk_penalty') {
-      config.penalty_per_missing = penaltyPerMissing === '' ? 0.5 : Number(penaltyPerMissing)
+      const parsed = penaltyPerMissing === '' ? NaN : Number(penaltyPerMissing)
+      config.penalty_per_missing = Number.isFinite(parsed) ? parsed : 0.5
     }
     if (strategyType === 'MarketNeutral') {
       config.short_n = Number(shortN) || 10
