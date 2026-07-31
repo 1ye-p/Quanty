@@ -538,6 +538,14 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                 if (parsed.strategy_type === 'CustomWeightStrategy') {
                   body.custom_weights = (parsed as Record<string, unknown>).custom_weights ?? {}
                 }
+                // Forward missing factor handling config
+                const mfh = (parsed as Record<string, unknown>).missing_factor_handling
+                if (mfh && mfh !== 'fill_0') {
+                  body.missing_factor_strategy = mfh
+                  if (mfh === 'risk_penalty') {
+                    body.penalty_per_missing = (parsed as Record<string, unknown>).penalty_per_missing ?? 0.5
+                  }
+                }
                 if (splitMode === 'oos') {
                   body.train_end_date = trainEndDate
                   body.eval_mode = evalMode

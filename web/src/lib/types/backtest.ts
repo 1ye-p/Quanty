@@ -121,6 +121,8 @@ export const BacktestCreateParamsSchema = z.object({
   scoring_run_id: z.string().optional(),
   custom_weights: z.record(z.number()).optional(),
   benchmark_asset_id: z.string().optional(),
+  missing_factor_strategy: z.enum(['fill_0', 'fill_median', 'exclude', 'risk_penalty']).optional(),
+  penalty_per_missing: z.number().optional(),
 })
 
 export type BacktestCreateParams = z.infer<typeof BacktestCreateParamsSchema>
