@@ -19,13 +19,13 @@ export function BacktestOverviewTab() {
   const { t } = useTranslation()
 
   function marketLabel(m?: string) {
-    return { CN: t('market.cn'), US: t('market.us'), HK: t('market.hk') }[m ?? 'CN'] ?? t('market.cn')
+    return { CN: t('page.market.cn'), US: t('page.market.us'), HK: t('page.market.hk') }[m ?? 'CN'] ?? t('page.market.cn')
   }
   function adjLabel(a?: string) {
-    return { forward: t('market.adj_forward'), backward: t('market.adj_backward'), none: t('market.adj_none') }[a ?? 'forward'] ?? t('market.adj_forward')
+    return { forward: t('page.market.adj_forward'), backward: t('page.market.adj_backward'), none: t('page.market.adj_none') }[a ?? 'forward'] ?? t('page.market.adj_forward')
   }
   function rebalanceLabel(r?: string) {
-    return { '1d': t('market.daily'), '1w': t('market.weekly'), '1mo': t('market.monthly'), '5d': t('market.weekly'), '20d': t('market.monthly') }[r ?? '1d'] ?? r ?? t('market.daily')
+    return { '1d': t('page.market.daily'), '1w': t('page.market.weekly'), '1mo': t('page.market.monthly'), '5d': t('page.market.weekly'), '20d': t('page.market.monthly') }[r ?? '1d'] ?? r ?? t('page.market.daily')
   }
   const { id: selectedId } = useParams<{ id: string }>()
   const navigate = useNavigate()

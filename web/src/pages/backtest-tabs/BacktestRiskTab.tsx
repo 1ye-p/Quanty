@@ -361,7 +361,7 @@ export function BacktestRiskTab() {
           {/* Historical Scenarios */}
           {historicalScenarios && historicalScenarios.length > 0 && (
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-3">{t('risk.historical_scenarios')}</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">{t('component.risk.historical_scenarios')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {historicalScenarios.map((scenario, i) => {
                   const strategyReturn = scenario.strategy_return as number | undefined
@@ -380,12 +380,12 @@ export function BacktestRiskTab() {
                       )}
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-500">{t('risk.benchmark_impact')}</span>
+                          <span className="text-gray-500">{t('component.risk.benchmark_impact')}</span>
                           <span className="font-medium text-red-600">{(benchmarkImpact * 100).toFixed(2)}%</span>
                         </div>
                         {strategyReturn !== undefined && (
                           <div className="flex justify-between">
-                            <span className="text-gray-500">{t('risk.strategy_return')}</span>
+                            <span className="text-gray-500">{t('component.risk.strategy_return')}</span>
                             <span className={`font-medium ${strategyReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {(strategyReturn * 100).toFixed(2)}%
                             </span>
@@ -393,7 +393,7 @@ export function BacktestRiskTab() {
                         )}
                         {excessReturn !== undefined && (
                           <div className="flex justify-between">
-                            <span className="text-gray-500">{t('risk.excess_return')}</span>
+                            <span className="text-gray-500">{t('component.risk.excess_return')}</span>
                             <span className={`font-medium ${isOutperform ? 'text-green-600' : 'text-red-600'}`}>
                               {isOutperform ? '+' : ''}{(excessReturn * 100).toFixed(2)}%
                             </span>
@@ -401,7 +401,7 @@ export function BacktestRiskTab() {
                         )}
                         {scenario.max_drawdown !== undefined && (
                           <div className="flex justify-between">
-                            <span className="text-gray-500">{t('metrics.max_drawdown')}</span>
+                            <span className="text-gray-500">{t('common.metric.max_drawdown')}</span>
                             <span className="font-medium text-red-600">
                               {((scenario.max_drawdown as number) * 100).toFixed(2)}%
                             </span>
@@ -410,7 +410,7 @@ export function BacktestRiskTab() {
                       </div>
                       {isOutperform !== undefined && (
                         <div className={`mt-3 text-xs font-medium px-2 py-1 rounded ${isOutperform ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                          {isOutperform ? t('risk.outperform_benchmark') : t('risk.underperform_benchmark')}
+                          {isOutperform ? t('component.risk.outperform_benchmark') : t('component.risk.underperform_benchmark')}
                         </div>
                       )}
                     </div>
@@ -422,7 +422,7 @@ export function BacktestRiskTab() {
 
           {/* Custom Date Range Stress Test */}
           <div className="card">
-            <h3 className="font-semibold text-gray-800 mb-3">{t('risk.custom_stress_test')}</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">{t('component.risk.custom_stress_test')}</h3>
             <div className="flex flex-wrap items-end gap-4 mb-4">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">{t('common.start_date')}</label>
@@ -447,7 +447,7 @@ export function BacktestRiskTab() {
                 disabled={!customStartDate || !customEndDate || customStressMutation.isPending}
                 className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {customStressMutation.isPending ? t('common.running') : t('risk.run_stress_test')}
+                {customStressMutation.isPending ? t('common.running') : t('component.risk.run_stress_test')}
               </button>
             </div>
 
@@ -457,11 +457,11 @@ export function BacktestRiskTab() {
 
             {customStressResult && (
               <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm font-medium text-gray-700 mb-3">{t('risk.custom_range_results')}</div>
+                <div className="text-sm font-medium text-gray-700 mb-3">{t('component.risk.custom_range_results')}</div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {customStressResult.benchmark_impact !== undefined && (
                     <div>
-                      <div className="text-xs text-gray-500">{t('risk.benchmark_impact')}</div>
+                      <div className="text-xs text-gray-500">{t('component.risk.benchmark_impact')}</div>
                       <div className="font-medium text-red-600">
                         {((customStressResult.benchmark_impact as number) * 100).toFixed(2)}%
                       </div>
@@ -469,7 +469,7 @@ export function BacktestRiskTab() {
                   )}
                   {customStressResult.strategy_return !== undefined && (
                     <div>
-                      <div className="text-xs text-gray-500">{t('risk.strategy_return')}</div>
+                      <div className="text-xs text-gray-500">{t('component.risk.strategy_return')}</div>
                       <div className={`font-medium ${(customStressResult.strategy_return as number) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {((customStressResult.strategy_return as number) * 100).toFixed(2)}%
                       </div>
@@ -477,7 +477,7 @@ export function BacktestRiskTab() {
                   )}
                   {customStressResult.excess_return !== undefined && (
                     <div>
-                      <div className="text-xs text-gray-500">{t('risk.excess_return')}</div>
+                      <div className="text-xs text-gray-500">{t('component.risk.excess_return')}</div>
                       <div className={`font-medium ${(customStressResult.excess_return as number) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {(customStressResult.excess_return as number) >= 0 ? '+' : ''}{((customStressResult.excess_return as number) * 100).toFixed(2)}%
                       </div>
@@ -485,7 +485,7 @@ export function BacktestRiskTab() {
                   )}
                   {customStressResult.max_drawdown !== undefined && (
                     <div>
-                      <div className="text-xs text-gray-500">{t('metrics.max_drawdown')}</div>
+                      <div className="text-xs text-gray-500">{t('common.metric.max_drawdown')}</div>
                       <div className="font-medium text-red-600">
                         {((customStressResult.max_drawdown as number) * 100).toFixed(2)}%
                       </div>
@@ -499,17 +499,17 @@ export function BacktestRiskTab() {
           {/* Scenarios Comparison Table */}
           {allScenarios.length > 0 && (
             <div className="card p-0 overflow-hidden">
-              <div className="px-4 pt-3 pb-2 font-semibold text-gray-800 text-sm">{t('risk.scenario_comparison')}</div>
+              <div className="px-4 pt-3 pb-2 font-semibold text-gray-800 text-sm">{t('component.risk.scenario_comparison')}</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="table-th">{t('risk.scenario')}</th>
+                      <th className="table-th">{t('component.risk.scenario')}</th>
                       <th className="table-th">{t('common.date_range')}</th>
-                      <th className="table-th">{t('risk.benchmark_return')}</th>
-                      <th className="table-th">{t('risk.strategy_return')}</th>
-                      <th className="table-th">{t('risk.excess_return')}</th>
-                      <th className="table-th">{t('metrics.max_drawdown')}</th>
+                      <th className="table-th">{t('component.risk.benchmark_return')}</th>
+                      <th className="table-th">{t('component.risk.strategy_return')}</th>
+                      <th className="table-th">{t('component.risk.excess_return')}</th>
+                      <th className="table-th">{t('common.metric.max_drawdown')}</th>
                     </tr>
                   </thead>
                   <tbody>

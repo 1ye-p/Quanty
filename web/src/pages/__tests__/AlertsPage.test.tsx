@@ -72,9 +72,9 @@ describe('AlertsPage', () => {
 
   it('renders page title and unread count', async () => {
     renderWithProviders(<AlertsPage />)
-    expect(screen.getByText('alerts.center')).toBeInTheDocument()
+    expect(screen.getByText('page.alerts.center')).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByText(/1 alerts.unread_count/)).toBeInTheDocument()
+      expect(screen.getByText(/1 page.alerts.unread_count/)).toBeInTheDocument()
     })
   })
 
@@ -91,19 +91,19 @@ describe('AlertsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
     // Click on history tab
-    await user.click(screen.getByText('alerts.tabs.history'))
+    await user.click(screen.getByText('page.alerts.tabs.history'))
     await waitFor(() => {
       expect(screen.getByText('数据已过期 3 天')).toBeInTheDocument()
     })
     expect(screen.getByText('数据已过期 5 天')).toBeInTheDocument()
   })
 
-  it('shows create form when + alerts.new_rule is clicked', async () => {
+  it('shows create form when + page.alerts.new_rule is clicked', async () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ alerts.new_rule'))
-    expect(screen.getByText('alerts.new_alert_rule')).toBeInTheDocument()
+    await user.click(screen.getByText('+ page.alerts.new_rule'))
+    expect(screen.getByText('page.alerts.new_alert_rule')).toBeInTheDocument()
     expect(screen.getByText('common.save')).toBeInTheDocument()
   })
 
@@ -111,11 +111,11 @@ describe('AlertsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ alerts.new_rule'))
-    expect(screen.getByText('alerts.new_alert_rule')).toBeInTheDocument()
+    await user.click(screen.getByText('+ page.alerts.new_rule'))
+    expect(screen.getByText('page.alerts.new_alert_rule')).toBeInTheDocument()
 
     await user.click(screen.getByText('common.cancel'))
-    expect(screen.queryByText('alerts.new_alert_rule')).not.toBeInTheDocument()
+    expect(screen.queryByText('page.alerts.new_alert_rule')).not.toBeInTheDocument()
   })
 
   it('submits create rule mutation', async () => {
@@ -123,7 +123,7 @@ describe('AlertsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ alerts.new_rule'))
+    await user.click(screen.getByText('+ page.alerts.new_rule'))
 
     // The default rule type is data_stale with max_days=2
     const submitButton = screen.getByText('common.save')
@@ -139,7 +139,7 @@ describe('AlertsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('alerts.check_now'))
+    await user.click(screen.getByText('page.alerts.check_now'))
 
     await waitFor(() => {
       expect(alertsApi.check).toHaveBeenCalled()
@@ -152,10 +152,10 @@ describe('AlertsPage', () => {
     renderWithProviders(<AlertsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('alerts.mark_all_read')).toBeInTheDocument()
+      expect(screen.getByText('page.alerts.mark_all_read')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('alerts.mark_all_read'))
+    await user.click(screen.getByText('page.alerts.mark_all_read'))
 
     await waitFor(() => {
       expect(alertsApi.markAllRead).toHaveBeenCalled()
@@ -171,8 +171,8 @@ describe('AlertsPage', () => {
     })
 
     await user.click(screen.getByText('common.delete'))
-    expect(screen.getByText('alerts.confirm_delete_rule')).toBeInTheDocument()
-    expect(screen.getByText('alerts.confirm_delete_message')).toBeInTheDocument()
+    expect(screen.getByText('page.alerts.confirm_delete_rule')).toBeInTheDocument()
+    expect(screen.getByText('page.alerts.confirm_delete_message')).toBeInTheDocument()
   })
 
   it('deletes rule on confirm', async () => {
@@ -202,7 +202,7 @@ describe('AlertsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ alerts.new_rule'))
+    await user.click(screen.getByText('+ page.alerts.new_rule'))
     await user.click(screen.getByText('common.save'))
 
     await waitFor(() => {
@@ -214,7 +214,7 @@ describe('AlertsPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<AlertsPage />)
 
-    await user.click(screen.getByText('+ alerts.new_rule'))
+    await user.click(screen.getByText('+ page.alerts.new_rule'))
 
     const select = screen.getByRole('combobox')
     await user.selectOptions(select, 'factor_ic_low')
@@ -239,13 +239,13 @@ describe('AlertsPage', () => {
     renderWithProviders(<AlertsPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('alerts.no_rules_hint')).toBeInTheDocument()
+      expect(screen.getByText('page.alerts.no_rules_hint')).toBeInTheDocument()
     })
 
     // Click on history tab to see history empty state
-    await user.click(screen.getByText('alerts.tabs.history'))
+    await user.click(screen.getByText('page.alerts.tabs.history'))
     await waitFor(() => {
-      expect(screen.getByText('alerts.no_history')).toBeInTheDocument()
+      expect(screen.getByText('page.alerts.no_history')).toBeInTheDocument()
     })
   })
 })
