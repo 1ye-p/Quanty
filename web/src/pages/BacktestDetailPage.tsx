@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { backtestsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -14,7 +15,6 @@ const TABS: TabDef[] = [
   { id: 'fills', label: 'Fills', path: 'fills' },
   { id: 'walkforward', label: 'Walk-Forward', path: 'walkforward' },
   { id: 'tca', label: 'TCA', path: 'tca' },
-  { id: 'attribution', label: 'Attribution', path: 'attribution' },
   { id: 'risk', label: 'Risk', path: 'risk' },
   { id: 'calendar', label: 'Calendar', path: 'calendar' },
   { id: 'advanced', label: 'Advanced', path: 'advanced' },
@@ -25,6 +25,7 @@ const TABS: TabDef[] = [
 ]
 
 export function BacktestDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
@@ -35,7 +36,7 @@ export function BacktestDetailPage() {
   })
 
   const isWalkForward = detail?.engine === 'walk_forward'
-  const visibleTabs = isWalkForward ? TABS : TABS.filter(t => t.id !== 'walkforward')
+  const visibleTabs = isWalkForward ? TABS : TABS.filter(tab => tab.id !== 'walkforward')
 
   // Workflow integration: update context when backtest detail loads
   const { currentWorkflow, updateContext } = useWorkflowStore()
@@ -82,7 +83,7 @@ export function BacktestDetailPage() {
               }`
             }
           >
-            {label}
+            {t('page.backtest.tabs.' + tabId)}
           </NavLink>
         ))}
       </div>
