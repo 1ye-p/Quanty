@@ -257,6 +257,40 @@
           "crosses_above": "crosses above",
           "crosses_below": "crosses below"
         }
+      },
+      "factor_template": {
+        "title": "Factor Templates",
+        "mode_preset": "Preset Templates",
+        "mode_custom": "Custom Templates",
+        "load_failed": "Load failed: {{message}}",
+        "save_current": "Save current config as template",
+        "name_placeholder": "Template name",
+        "desc_placeholder": "Description (optional)",
+        "select_factors_first": "Select factors and set weights first",
+        "no_custom": "No custom templates",
+        "saved_toast": "Template saved",
+        "deleted_toast": "Template deleted"
+      },
+      "factor_correlation": {
+        "title": "Factor correlation check",
+        "computing": "Computing...",
+        "collapse_matrix": "Collapse matrix",
+        "expand_matrix": "Expand matrix",
+        "suggestion_label": "Suggested to remove:",
+        "remove_button": "Remove {{factor}}",
+        "remove_tooltip": "Remove {{b}} (correlated with {{a}} r={{r}})",
+        "all_good": "No high positive correlation between selected factors (r ≤ 0.7), good combination.",
+        "negative_note": "{{count}} factor pairs are highly negatively correlated, helping diversify risk."
+      },
+      "factor_weight_table": {
+        "empty": "Select factors first",
+        "col_factor": "Factor",
+        "col_weight": "Weight",
+        "col_proportion": "Proportion",
+        "col_direction": "Direction",
+        "direction_positive": "Long",
+        "direction_negative": "Short",
+        "range_hint": "Weight range: -10 to 10 · Positive = higher factor value scores higher · Negative = lower factor value scores higher"
       }
     },
     "risk": {

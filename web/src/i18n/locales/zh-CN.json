@@ -257,6 +257,40 @@
           "crosses_above": "上穿",
           "crosses_below": "下穿"
         }
+      },
+      "factor_template": {
+        "title": "因子模板",
+        "mode_preset": "预设模板",
+        "mode_custom": "自定义模板",
+        "load_failed": "加载失败：{{message}}",
+        "save_current": "保存当前配置为模板",
+        "name_placeholder": "模板名称",
+        "desc_placeholder": "描述（可选）",
+        "select_factors_first": "请先选择因子并设置权重",
+        "no_custom": "暂无自定义模板",
+        "saved_toast": "模板已保存",
+        "deleted_toast": "模板已删除"
+      },
+      "factor_correlation": {
+        "title": "因子相关性检查",
+        "computing": "计算中...",
+        "collapse_matrix": "收起矩阵",
+        "expand_matrix": "展开矩阵",
+        "suggestion_label": "建议移除：",
+        "remove_button": "移除 {{factor}}",
+        "remove_tooltip": "移除 {{b}} (与 {{a}} 相关 r={{r}})",
+        "all_good": "所选因子间无高度正相关 (r ≤ 0.7)，组合良好。",
+        "negative_note": "{{count}} 对因子呈高度负相关，有助于分散风险。"
+      },
+      "factor_weight_table": {
+        "empty": "请先选择因子",
+        "col_factor": "因子",
+        "col_weight": "权重",
+        "col_proportion": "占比",
+        "col_direction": "方向",
+        "direction_positive": "正向",
+        "direction_negative": "反向",
+        "range_hint": "权重范围: -10 到 10 · 正值 = 因子值越高得分越高 · 负值 = 因子值越低得分越高"
       }
     },
     "risk": {

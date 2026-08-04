@@ -9,6 +9,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { factorsApi, type FactorTemplate } from '@/lib/api/factors'
 
@@ -57,6 +58,7 @@ export function StrategyTemplateManager({
   currentTopN,
   currentSelectedFactors,
 }: Props) {
+  const { t } = useTranslation()
   const [mode, setMode] = useState<'preset' | 'custom'>('preset')
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>(loadCustomTemplates)
   const [saveName, setSaveName] = useState('')
@@ -103,20 +105,20 @@ export function StrategyTemplateManager({
     setCustomTemplates(prev => [newTpl, ...prev])
     setSaveName('')
     setSaveDesc('')
-    toast.success('模板已保存')
-  }, [saveName, saveDesc, currentFactorWeights, currentTopN])
+    toast.success(t('component.strategies.factor_template.saved_toast'))
+  }, [saveName, saveDesc, currentFactorWeights, currentTopN, t])
 
   const handleDelete = useCallback((id: string) => {
     setCustomTemplates(prev => prev.filter(t => t.id !== id))
-    toast.success('模板已删除')
-  }, [])
+    toast.success(t('component.strategies.factor_template.deleted_toast'))
+  }, [t])
 
   const hasFactors = currentSelectedFactors.length > 0 && Object.keys(currentFactorWeights).length > 0
 
   return (
     <div className="border rounded-lg p-3 bg-white space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-600">因子模板</span>
+        <span className="text-xs font-medium text-gray-600">{t('component.strategies.factor_template.title')}</span>
         <div className="flex gap-1">
           <button
             className={`text-[11px] px-2 py-1 rounded transition-colors ${
@@ -124,7 +126,7 @@ export function StrategyTemplateManager({
             }`}
             onClick={() => setMode('preset')}
           >
-            预设模板
+            {t('component.strategies.factor_template.mode_preset')}
           </button>
           <button
             className={`text-[11px] px-2 py-1 rounded transition-colors ${
@@ -132,17 +134,17 @@ export function StrategyTemplateManager({
             }`}
             onClick={() => setMode('custom')}
           >
-            自定义模板
+            {t('component.strategies.factor_template.mode_custom')}
           </button>
         </div>
       </div>
 
       {mode === 'preset' && (
         <div className="space-y-2">
-          {isLoading && <div className="text-xs text-gray-400">加载中...</div>}
+          {isLoading && <div className="text-xs text-gray-400">{t('common.loading')}</div>}
           {error && (
             <div className="text-xs text-red-500 py-2">
-              加载失败: {(error as Error).message}
+              {t('component.strategies.factor_template.load_failed', { message: (error as Error).message })}
             </div>
           )}
           {presets.map(tpl => (
@@ -176,17 +178,17 @@ export function StrategyTemplateManager({
         <div className="space-y-3">
           {/* Save current config as template */}
           <div className="border-t pt-3">
-            <div className="text-[11px] text-gray-500 mb-2">保存当前配置为模板</div>
+            <div className="text-[11px] text-gray-500 mb-2">{t('component.strategies.factor_template.save_current')}</div>
             <div className="flex gap-2 mb-2">
               <input
                 className="input flex-1 text-xs"
-                placeholder="模板名称"
+                placeholder={t('component.strategies.factor_template.name_placeholder')}
                 value={saveName}
                 onChange={e => setSaveName(e.target.value)}
               />
               <input
                 className="input flex-1 text-xs"
-                placeholder="描述（可选）"
+                placeholder={t('component.strategies.factor_template.desc_placeholder')}
                 value={saveDesc}
                 onChange={e => setSaveDesc(e.target.value)}
               />
@@ -195,17 +197,17 @@ export function StrategyTemplateManager({
                 disabled={!saveName.trim() || !hasFactors}
                 onClick={handleSave}
               >
-                保存
+                {t('common.save')}
               </button>
             </div>
             {!hasFactors && (
-              <div className="text-[11px] text-amber-500">请先选择因子并设置权重</div>
+              <div className="text-[11px] text-amber-500">{t('component.strategies.factor_template.select_factors_first')}</div>
             )}
           </div>
 
           {/* Custom template list */}
           {customTemplates.length === 0 ? (
-            <div className="text-xs text-gray-400 text-center py-2">暂无自定义模板</div>
+            <div className="text-xs text-gray-400 text-center py-2">{t('component.strategies.factor_template.no_custom')}</div>
           ) : (
             <div className="space-y-2">
               {customTemplates.map(tpl => (
@@ -232,7 +234,7 @@ export function StrategyTemplateManager({
                       handleDelete(tpl.id)
                     }}
                   >
-                    删除
+                    {t('common.delete')}
                   </button>
                 </div>
               ))}

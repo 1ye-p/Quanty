@@ -8,6 +8,7 @@
  */
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { factorsApi } from '@/lib/api/factors'
 
 interface FactorCorrelationHintProps {
@@ -16,6 +17,7 @@ interface FactorCorrelationHintProps {
 }
 
 export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrelationHintProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   const { data, isLoading } = useQuery({
@@ -48,15 +50,15 @@ export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrela
     <div className="border rounded-lg bg-amber-50 p-3">
       <div className="flex items-center justify-between mb-1">
         <div className="text-xs font-medium text-amber-800">
-          因子相关性检查
-          {isLoading && <span className="ml-2 text-amber-500">计算中...</span>}
+          {t('component.strategies.factor_correlation.title')}
+          {isLoading && <span className="ml-2 text-amber-500">{t('component.strategies.factor_correlation.computing')}</span>}
         </div>
         {factorNames.length > 0 && (
           <button
             className="text-xs text-amber-600 hover:text-amber-800"
             onClick={() => setExpanded(prev => !prev)}
           >
-            {expanded ? '收起矩阵' : '展开矩阵'}
+            {expanded ? t('component.strategies.factor_correlation.collapse_matrix') : t('component.strategies.factor_correlation.expand_matrix')}
           </button>
         )}
       </div>
@@ -76,16 +78,16 @@ export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrela
       {/* Remove suggestions */}
       {highCorrPairs.length > 0 && onRemoveFactor && (
         <div className="mt-2 space-y-1">
-          <div className="text-xs text-amber-600 font-medium">建议移除：</div>
+          <div className="text-xs text-amber-600 font-medium">{t('component.strategies.factor_correlation.suggestion_label')}</div>
           <div className="flex flex-wrap gap-1">
             {highCorrPairs.map((p, i) => (
               <div key={i} className="flex items-center gap-1">
                 <button
                   className="text-xs px-2 py-0.5 rounded bg-amber-200 text-amber-800 hover:bg-amber-300 transition-colors"
                   onClick={() => onRemoveFactor(p.b)}
-                  title={`移除 ${p.b} (与 ${p.a} 相关 r=${p.r.toFixed(2)})`}
+                  title={t('component.strategies.factor_correlation.remove_tooltip', { b: p.b, a: p.a, r: p.r.toFixed(2) })}
                 >
-                  移除 {p.b}
+                  {t('component.strategies.factor_correlation.remove_button', { factor: p.b })}
                 </button>
               </div>
             ))}
@@ -96,7 +98,7 @@ export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrela
       {/* No warnings */}
       {!isLoading && warnings.length === 0 && highCorrPairs.length === 0 && factorNames.length > 0 && (
         <div className="text-xs text-green-700 mt-1">
-          所选因子间无高度正相关 (r &le; 0.7)，组合良好。
+          {t('component.strategies.factor_correlation.all_good')}
         </div>
       )}
 
@@ -108,7 +110,7 @@ export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrela
         )
         return negPairs.length > 0 ? (
           <div className="text-xs text-blue-700 mt-1">
-            {negPairs.length} 对因子呈高度负相关，有助于分散风险。
+            {t('component.strategies.factor_correlation.negative_note', { count: negPairs.length })}
           </div>
         ) : null
       })()}

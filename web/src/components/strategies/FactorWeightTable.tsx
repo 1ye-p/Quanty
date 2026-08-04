@@ -4,6 +4,7 @@
  * Allows users to set weights for each factor with normalized percentage display.
  */
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface FactorWeightTableProps {
   factors: string[]
@@ -12,6 +13,7 @@ interface FactorWeightTableProps {
 }
 
 export function FactorWeightTable({ factors, weights, onChange }: FactorWeightTableProps) {
+  const { t } = useTranslation()
   const normalizedWeights = useMemo(() => {
     const total = factors.reduce((sum, f) => sum + Math.abs(weights[f] ?? 1), 0)
     if (total === 0) return {}
@@ -31,7 +33,7 @@ export function FactorWeightTable({ factors, weights, onChange }: FactorWeightTa
   if (factors.length === 0) {
     return (
       <div className="border rounded-lg p-4 bg-gray-50">
-        <div className="text-sm text-gray-500">请先选择因子</div>
+        <div className="text-sm text-gray-500">{t('component.strategies.factor_weight_table.empty')}</div>
       </div>
     )
   }
@@ -41,10 +43,10 @@ export function FactorWeightTable({ factors, weights, onChange }: FactorWeightTa
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-gray-50 text-left">
-            <th className="px-3 py-2 font-medium text-gray-600">因子</th>
-            <th className="px-3 py-2 font-medium text-gray-600 w-24">权重</th>
-            <th className="px-3 py-2 font-medium text-gray-600 w-20">占比</th>
-            <th className="px-3 py-2 font-medium text-gray-600 w-16">方向</th>
+            <th className="px-3 py-2 font-medium text-gray-600">{t('component.strategies.factor_weight_table.col_factor')}</th>
+            <th className="px-3 py-2 font-medium text-gray-600 w-24">{t('component.strategies.factor_weight_table.col_weight')}</th>
+            <th className="px-3 py-2 font-medium text-gray-600 w-20">{t('component.strategies.factor_weight_table.col_proportion')}</th>
+            <th className="px-3 py-2 font-medium text-gray-600 w-16">{t('component.strategies.factor_weight_table.col_direction')}</th>
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -74,7 +76,7 @@ export function FactorWeightTable({ factors, weights, onChange }: FactorWeightTa
                 </td>
                 <td className="px-3 py-2">
                   <span className={`text-xs px-2 py-0.5 rounded ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {isPositive ? '正向' : '反向'}
+                    {isPositive ? t('component.strategies.factor_weight_table.direction_positive') : t('component.strategies.factor_weight_table.direction_negative')}
                   </span>
                 </td>
               </tr>
@@ -83,7 +85,7 @@ export function FactorWeightTable({ factors, weights, onChange }: FactorWeightTa
         </tbody>
       </table>
       <div className="px-3 py-2 bg-gray-50 text-xs text-gray-500">
-        权重范围: -10 到 10 · 正值 = 因子值越高得分越高 · 负值 = 因子值越低得分越高
+        {t('component.strategies.factor_weight_table.range_hint')}
       </div>
     </div>
   )
