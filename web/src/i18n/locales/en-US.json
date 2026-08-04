@@ -396,6 +396,35 @@
         "no_effect_data": "No calendar effect data found",
         "requires_completed": "This analysis requires completed trade data"
       }
+    },
+    "fills": {
+      "tab": {
+        "table": "Table",
+        "scatter": "Scatter",
+        "kline": "K-line"
+      },
+      "column": {
+        "date": "Date",
+        "asset": "Asset",
+        "side": "Side",
+        "qty": "Qty",
+        "price": "Price",
+        "amount": "Amount",
+        "cost": "Cost",
+        "reason": "Reason"
+      },
+      "side": {
+        "buy": "Buy",
+        "sell": "Sell"
+      },
+      "reason": {
+        "forced_liquidation": "Forced Liquidation"
+      },
+      "btn": {
+        "export_csv": "Export CSV"
+      },
+      "scatter_title": "Trade Timing",
+      "empty": "No trade records"
     }
   },
   "page": {

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
@@ -13,6 +14,7 @@ export function BacktestFillsTab() {
   const [view, setView] = useState<'table' | 'scatter' | 'kline'>('table')
   const [fillsPage, setFillsPage] = useState(0)
   const fillsPageSize = 50
+  const { t } = useTranslation()
 
   const { data: fillsData } = useQuery({
     queryKey: queryKeys.backtests.fills(selectedId!, fillsPage * fillsPageSize, fillsPageSize),
@@ -93,25 +95,25 @@ export function BacktestFillsTab() {
           className={view === 'table' ? 'btn-primary text-sm' : 'btn-secondary text-sm'}
           onClick={() => setView('table')}
         >
-          Table
+          {t('component.fills.tab.table')}
         </button>
         <button
           className={view === 'scatter' ? 'btn-primary text-sm' : 'btn-secondary text-sm'}
           onClick={() => setView('scatter')}
         >
-          Scatter
+          {t('component.fills.tab.scatter')}
         </button>
         <button
           className={view === 'kline' ? 'btn-primary text-sm' : 'btn-secondary text-sm'}
           onClick={() => setView('kline')}
         >
-          K 线图
+          {t('component.fills.tab.kline')}
         </button>
       </div>
 
       {/* Trade Scatter Chart */}
       {view === 'scatter' && tradePoints.length > 0 && (
-        <TradeScatter data={tradePoints} title="Trade Timing" />
+        <TradeScatter data={tradePoints} title={t('component.fills.scatter_title')} />
       )}
 
       {/* K-line Chart */}
@@ -129,7 +131,7 @@ export function BacktestFillsTab() {
               `fills_${selectedId?.slice(0, 8) ?? 'backtest'}.csv`,
             )}
           >
-            Export CSV
+            {t('component.fills.btn.export_csv')}
           </button>
         </div>
       )}
@@ -139,7 +141,7 @@ export function BacktestFillsTab() {
           data={(fillsData?.items ?? []) as unknown as Record<string, unknown>[]}
           rowKey={(r) => `${r.trade_date}_${r.asset_id}_${r.order_idx ?? ''}`}
           pageSize={fillsPageSize}
-          emptyText="No trade records"
+          emptyText={t('component.fills.empty')}
           rowClassName={(row: Record<string, unknown>) =>
             row.reason === 'delist_forced_liquidation' ? 'bg-orange-50' : ''
           }
@@ -149,27 +151,27 @@ export function BacktestFillsTab() {
             onPageChange: setFillsPage,
           } : undefined}
           columns={[
-            { key: 'trade_date', label: 'Date', sortable: true, width: '100px',
+            { key: 'trade_date', label: t('component.fills.column.date'), sortable: true, width: '100px',
               render: (v) => <span className="text-xs">{String(v ?? '').slice(0, 10)}</span> },
-            { key: 'asset_id', label: 'Asset', sortable: true, searchable: true,
+            { key: 'asset_id', label: t('component.fills.column.asset'), sortable: true, searchable: true,
               render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
-            { key: 'side', label: 'Side', sortable: true, filterable: true, filters: ['buy', 'sell'],
+            { key: 'side', label: t('component.fills.column.side'), sortable: true, filterable: true, filters: ['buy', 'sell'],
               render: (v) => (
                 <span className={`badge ${v === 'buy' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                  {v === 'buy' ? 'Buy' : 'Sell'}
+                  {v === 'buy' ? t('component.fills.side.buy') : t('component.fills.side.sell')}
                 </span>
               ) },
-            { key: 'qty', label: 'Qty', sortable: true, width: '80px',
+            { key: 'qty', label: t('component.fills.column.qty'), sortable: true, width: '80px',
               render: (v) => <span className="text-right block">{Number(v).toLocaleString()}</span> },
-            { key: 'price', label: 'Price', sortable: true, width: '80px',
+            { key: 'price', label: t('component.fills.column.price'), sortable: true, width: '80px',
               render: (v) => <span className="text-right block">{Number(v).toFixed(2)}</span> },
-            { key: 'notional', label: 'Amount', sortable: true, width: '120px',
+            { key: 'notional', label: t('component.fills.column.amount'), sortable: true, width: '120px',
               render: (v) => <span className="text-right block">{Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span> },
-            { key: 'total_cost', label: 'Cost', sortable: true, width: '80px',
+            { key: 'total_cost', label: t('component.fills.column.cost'), sortable: true, width: '80px',
               render: (v) => <span className="text-right block text-gray-500">{Number(v).toFixed(2)}</span> },
-            { key: 'reason', label: 'Reason', width: '120px',
+            { key: 'reason', label: t('component.fills.column.reason'), width: '120px',
               render: (v: unknown) => {
-                if (v === 'delist_forced_liquidation') return <span className="text-orange-600 font-medium">Forced Liquidation</span>
+                if (v === 'delist_forced_liquidation') return <span className="text-orange-600 font-medium">{t('component.fills.reason.forced_liquidation')}</span>
                 return <span className="text-gray-400">-</span>
               } },
           ]}

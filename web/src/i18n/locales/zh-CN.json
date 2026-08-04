@@ -396,6 +396,35 @@
         "no_effect_data": "未找到日历效应数据",
         "requires_completed": "此分析需要已完成的交易数据"
       }
+    },
+    "fills": {
+      "tab": {
+        "table": "表格",
+        "scatter": "散点图",
+        "kline": "K 线图"
+      },
+      "column": {
+        "date": "日期",
+        "asset": "标的",
+        "side": "方向",
+        "qty": "数量",
+        "price": "价格",
+        "amount": "金额",
+        "cost": "成本",
+        "reason": "原因"
+      },
+      "side": {
+        "buy": "买入",
+        "sell": "卖出"
+      },
+      "reason": {
+        "forced_liquidation": "强制平仓"
+      },
+      "btn": {
+        "export_csv": "导出 CSV"
+      },
+      "scatter_title": "交易时点",
+      "empty": "暂无成交记录"
     }
   },
   "page": {
