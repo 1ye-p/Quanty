@@ -6,52 +6,46 @@
  * Shows parameter inputs when an indicator is selected.
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface IndicatorDef {
   name: string
-  label: string
-  params: { key: string; label: string; default: number; min?: number; max?: number }[]
+  params: { key: string; default: number; min?: number; max?: number }[]
 }
 
 const INDICATOR_PRESETS: IndicatorDef[] = [
   {
     name: 'RSI',
-    label: 'RSI (相对强弱指数)',
-    params: [{ key: 'period', label: '周期', default: 14, min: 2, max: 100 }],
+    params: [{ key: 'period', default: 14, min: 2, max: 100 }],
   },
   {
     name: 'MACD',
-    label: 'MACD (指数平滑异同移动平均)',
     params: [
-      { key: 'fast', label: '快线', default: 12, min: 2, max: 100 },
-      { key: 'slow', label: '慢线', default: 26, min: 2, max: 200 },
-      { key: 'signal', label: '信号线', default: 9, min: 2, max: 50 },
+      { key: 'fast', default: 12, min: 2, max: 100 },
+      { key: 'slow', default: 26, min: 2, max: 200 },
+      { key: 'signal', default: 9, min: 2, max: 50 },
     ],
   },
   {
     name: 'MA',
-    label: 'MA (移动平均)',
-    params: [{ key: 'period', label: '周期', default: 20, min: 2, max: 500 }],
+    params: [{ key: 'period', default: 20, min: 2, max: 500 }],
   },
   {
     name: 'EMA',
-    label: 'EMA (指数移动平均)',
-    params: [{ key: 'period', label: '周期', default: 20, min: 2, max: 500 }],
+    params: [{ key: 'period', default: 20, min: 2, max: 500 }],
   },
   {
     name: 'BOLL',
-    label: 'BOLL (布林带)',
     params: [
-      { key: 'period', label: '周期', default: 20, min: 2, max: 200 },
-      { key: 'std_dev', label: '标准差倍数', default: 2, min: 0.5, max: 5 },
+      { key: 'period', default: 20, min: 2, max: 200 },
+      { key: 'std_dev', default: 2, min: 0.5, max: 5 },
     ],
   },
   {
     name: 'KDJ',
-    label: 'KDJ (随机指标)',
     params: [
-      { key: 'k_period', label: 'K 周期', default: 9, min: 2, max: 100 },
-      { key: 'd_period', label: 'D 周期', default: 3, min: 2, max: 50 },
+      { key: 'k_period', default: 9, min: 2, max: 100 },
+      { key: 'd_period', default: 3, min: 2, max: 50 },
     ],
   },
 ]
@@ -70,7 +64,13 @@ export function IndicatorParamConfig({
   onParamChange,
   onInsertDSL,
 }: IndicatorParamConfigProps) {
+  const { t } = useTranslation()
   const [selectedPreset, setSelectedPreset] = useState<string>('')
+
+  const indicatorLabel = (name: string) =>
+    t(`component.strategies.indicator_param.indicators.${name}`, { defaultValue: name })
+  const paramLabel = (key: string) =>
+    t(`component.strategies.indicator_param.params.${key}`, { defaultValue: key })
 
   // Build a lookup of active indicator params
   const activeMap = new Map<string, Record<string, number>>()
@@ -97,7 +97,7 @@ export function IndicatorParamConfig({
 
   return (
     <div className="border rounded-lg p-3 bg-gray-50">
-      <div className="text-xs font-medium text-gray-600 mb-2">指标参数配置</div>
+      <div className="text-xs font-medium text-gray-600 mb-2">{t('component.strategies.indicator_param.title')}</div>
 
       {/* Quick-insert presets */}
       <div className="flex flex-wrap gap-1 mb-3">
@@ -118,7 +118,7 @@ export function IndicatorParamConfig({
                   handleInsertPreset(preset)
                 }
               }}
-              title={preset.label}
+              title={indicatorLabel(preset.name)}
             >
               {preset.name}
               {isActive && <span className="ml-1 text-blue-400">&#10003;</span>}
@@ -140,7 +140,7 @@ export function IndicatorParamConfig({
                   className="flex items-center justify-between w-full text-xs text-left"
                   onClick={() => setSelectedPreset(isExpanded ? '' : preset.name)}
                 >
-                  <span className="font-medium text-gray-700">{preset.label}</span>
+                  <span className="font-medium text-gray-700">{indicatorLabel(preset.name)}</span>
                   <span className="text-gray-400">{isExpanded ? '▲' : '▼'}</span>
                 </button>
 
@@ -150,7 +150,7 @@ export function IndicatorParamConfig({
                       const val = currentParams[p.key] ?? p.default
                       return (
                         <div key={p.key}>
-                          <label className="text-[10px] text-gray-500 block">{p.label}</label>
+                          <label className="text-[10px] text-gray-500 block">{paramLabel(p.key)}</label>
                           <input
                             type="number"
                             className="input w-full text-xs"
@@ -179,7 +179,7 @@ export function IndicatorParamConfig({
       {/* Empty state */}
       {activePresetNames.size === 0 && (
         <div className="text-xs text-gray-400 mt-1">
-          在入场/出场条件中使用指标函数后，可在此调整参数。点击上方标签可快速插入。
+          {t('component.strategies.indicator_param.empty_hint')}
         </div>
       )}
     </div>

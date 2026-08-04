@@ -214,6 +214,49 @@
         "rollback": "Rollback",
         "rollback_confirm_title": "Confirm Rollback",
         "rollback_confirm_body": "Roll back to this version? Current configuration will be overwritten."
+      },
+      "indicator_param": {
+        "title": "Indicator Parameters",
+        "empty_hint": "After using indicator functions in entry/exit conditions, you can adjust parameters here. Click the tags above to insert quickly.",
+        "indicators": {
+          "RSI": "RSI (Relative Strength Index)",
+          "MACD": "MACD (Moving Average Convergence Divergence)",
+          "MA": "MA (Moving Average)",
+          "EMA": "EMA (Exponential Moving Average)",
+          "BOLL": "BOLL (Bollinger Bands)",
+          "KDJ": "KDJ (Stochastic Oscillator)"
+        },
+        "params": {
+          "period": "Period",
+          "fast": "Fast",
+          "slow": "Slow",
+          "signal": "Signal",
+          "std_dev": "Std Dev Mult.",
+          "k_period": "K Period",
+          "d_period": "D Period"
+        }
+      },
+      "condition_editor": {
+        "hit_badge": "Triggered {{hit}}/{{total}} ({{rate}}%)",
+        "trigger_count": "Trigger Count",
+        "total_bars": "Total Bars",
+        "trigger_rate": "Trigger Rate",
+        "mode_visual": "Visual",
+        "mode_dsl": "DSL",
+        "dsl_empty": "<no condition set>",
+        "delete_group": "Delete Group",
+        "optgroup_price": "Price",
+        "optgroup_indicator": "Technical Indicators",
+        "params_tooltip": "Params: {{params}}",
+        "params_placeholder": "params",
+        "value_placeholder": "value or indicator",
+        "add_condition": "Add Condition",
+        "add_condition_group": "Add Condition Group (AND/OR)",
+        "dsl_example": "Example: SMA(close, 20) crosses_above SMA(close, 50) AND RSI(14) < 70",
+        "operators": {
+          "crosses_above": "crosses above",
+          "crosses_below": "crosses below"
+        }
       }
     },
     "risk": {

@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { indicatorsApi, type IndicatorInfo } from '@/lib/api'
 import { marketApi } from '@/lib/api/market'
 
@@ -44,16 +45,17 @@ export interface ConditionEditorProps {
 let nextId = 0
 const genId = () => `id_${nextId++}`
 
-const OPERATORS: { value: Operator; label: string }[] = [
-  { value: '>', label: '>' },
-  { value: '<', label: '<' },
-  { value: '>=', label: '>=' },
-  { value: '<=', label: '<=' },
-  { value: '==', label: '==' },
-  { value: '!=', label: '!=' },
-  { value: 'crosses_above', label: '上穿' },
-  { value: 'crosses_below', label: '下穿' },
+const OPERATORS: Operator[] = [
+  '>', '<', '>=', '<=', '==', '!=', 'crosses_above', 'crosses_below',
 ]
+
+/** Returns the localized display label for an operator. */
+function operatorLabel(op: Operator, t: (k: string) => string): string {
+  if (op === 'crosses_above' || op === 'crosses_below') {
+    return t(`component.strategies.condition_editor.operators.${op}`)
+  }
+  return op
+}
 
 const DEFAULT_PARAMS: Record<string, Record<string, number>> = {
   SMA: { period: 20 },
@@ -159,6 +161,7 @@ function generateDsl(groups: ConditionGroup[]): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function ConditionEditor({ label, value, onChange, assetId }: ConditionEditorProps) {
+  const { t } = useTranslation()
   const [groups, setGroups] = useState<ConditionGroup[]>(() => parseDsl(value))
   const [isEditingDsl, setIsEditingDsl] = useState(false)
   const [dslText, setDslText] = useState(value)
@@ -298,21 +301,21 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
         <div className="flex items-center gap-2">
           {stats && (
             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-              触发 {stats.hit_count}/{stats.total_bars} ({(stats.hit_rate * 100).toFixed(1)}%)
+              {t('component.strategies.condition_editor.hit_badge', { hit: stats.hit_count, total: stats.total_bars, rate: (stats.hit_rate * 100).toFixed(1) })}
             </span>
           )}
           <button
             className={`text-xs px-2 py-1 rounded ${isEditingDsl ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             onClick={() => setIsEditingDsl(!isEditingDsl)}
           >
-            {isEditingDsl ? '可视化' : 'DSL'}
+            {isEditingDsl ? t('component.strategies.condition_editor.mode_visual') : t('component.strategies.condition_editor.mode_dsl')}
           </button>
         </div>
       </div>
 
       {/* DSL Preview */}
       <div className="bg-gray-50 rounded-lg p-3 font-mono text-sm text-gray-700 break-all">
-        {value || '<未设置条件>'}
+        {value || t('component.strategies.condition_editor.dsl_empty')}
       </div>
 
       {/* Visual Editor */}
@@ -349,7 +352,7 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
                       className="text-xs text-red-500 hover:text-red-700"
                       onClick={() => updateGroups(groups.filter(g => g.id !== group.id))}
                     >
-                      删除组
+                      {t('component.strategies.condition_editor.delete_group')}
                     </button>
                   )}
                 </div>
@@ -373,12 +376,12 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
                           })
                         }}
                       >
-                        <optgroup label="价格">
+                        <optgroup label={t('component.strategies.condition_editor.optgroup_price')}>
                           {priceFields.map(f => (
                             <option key={f} value={f}>{f}</option>
                           ))}
                         </optgroup>
-                        <optgroup label="技术指标">
+                        <optgroup label={t('component.strategies.condition_editor.optgroup_indicator')}>
                           {indicators.map(ind => (
                             <option key={ind.name} value={ind.name}>
                               {ind.name} — {ind.description}
@@ -398,7 +401,7 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
                             <div className="text-gray-300 mb-1">{indicatorInfo.description}</div>
                             {indicatorInfo.params.length > 0 && (
                               <div className="text-gray-400">
-                                参数: {indicatorInfo.params.map(p => `${p.name}=${p.default}`).join(', ')}
+                                {t('component.strategies.condition_editor.params_tooltip', { params: indicatorInfo.params.map(p => `${p.name}=${p.default}`).join(', ') })}
                               </div>
                             )}
                           </div>
@@ -418,7 +421,7 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
                             keys.forEach((k, i) => { if (vals[i] !== undefined) newParams[k] = vals[i] })
                             updateRow(group.id, row.id, { params: newParams })
                           }}
-                          placeholder="参数"
+                          placeholder={t('component.strategies.condition_editor.params_placeholder')}
                           title={Object.keys(row.params).join(', ')}
                         />
                       )}
@@ -430,7 +433,7 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
                         onChange={(e) => updateRow(group.id, row.id, { operator: e.target.value as Operator })}
                       >
                         {OPERATORS.map(op => (
-                          <option key={op.value} value={op.value}>{op.label}</option>
+                          <option key={op} value={op}>{operatorLabel(op, t)}</option>
                         ))}
                       </select>
 
@@ -440,7 +443,7 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
                         className="flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                         value={row.value}
                         onChange={(e) => updateRow(group.id, row.id, { value: e.target.value })}
-                        placeholder="数值或指标"
+                        placeholder={t('component.strategies.condition_editor.value_placeholder')}
                       />
 
                       {/* Delete button */}
@@ -465,7 +468,7 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  添加条件
+                  {t('component.strategies.condition_editor.add_condition')}
                 </button>
               </div>
             </div>
@@ -479,7 +482,7 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            添加条件组 (AND/OR)
+            {t('component.strategies.condition_editor.add_condition_group')}
           </button>
         </div>
       )}
@@ -495,7 +498,7 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
             placeholder='SMA(close, 20) > SMA(close, 50) AND RSI(14) < 70'
           />
           <div className="text-xs text-gray-500">
-            示例: SMA(close, 20) crosses_above SMA(close, 50) AND RSI(14) &lt; 70
+            {t('component.strategies.condition_editor.dsl_example')}
           </div>
         </div>
       )}
@@ -505,15 +508,15 @@ export function ConditionEditor({ label, value, onChange, assetId }: ConditionEd
         <div className="grid grid-cols-3 gap-2 pt-2 border-t">
           <div className="text-center">
             <div className="text-lg font-semibold text-blue-600">{stats.hit_count}</div>
-            <div className="text-xs text-gray-500">触发次数</div>
+            <div className="text-xs text-gray-500">{t('component.strategies.condition_editor.trigger_count')}</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-gray-700">{stats.total_bars}</div>
-            <div className="text-xs text-gray-500">总K线数</div>
+            <div className="text-xs text-gray-500">{t('component.strategies.condition_editor.total_bars')}</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-green-600">{(stats.hit_rate * 100).toFixed(1)}%</div>
-            <div className="text-xs text-gray-500">触发率</div>
+            <div className="text-xs text-gray-500">{t('component.strategies.condition_editor.trigger_rate')}</div>
           </div>
         </div>
       )}

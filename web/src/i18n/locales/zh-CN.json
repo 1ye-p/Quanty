@@ -214,6 +214,49 @@
         "rollback": "回滚",
         "rollback_confirm_title": "确认回滚版本",
         "rollback_confirm_body": "确定回滚到此版本？当前配置将被覆盖。"
+      },
+      "indicator_param": {
+        "title": "指标参数配置",
+        "empty_hint": "在入场/出场条件中使用指标函数后，可在此调整参数。点击上方标签可快速插入。",
+        "indicators": {
+          "RSI": "RSI (相对强弱指数)",
+          "MACD": "MACD (指数平滑异同移动平均)",
+          "MA": "MA (移动平均)",
+          "EMA": "EMA (指数移动平均)",
+          "BOLL": "BOLL (布林带)",
+          "KDJ": "KDJ (随机指标)"
+        },
+        "params": {
+          "period": "周期",
+          "fast": "快线",
+          "slow": "慢线",
+          "signal": "信号线",
+          "std_dev": "标准差倍数",
+          "k_period": "K 周期",
+          "d_period": "D 周期"
+        }
+      },
+      "condition_editor": {
+        "hit_badge": "触发 {{hit}}/{{total}} ({{rate}}%)",
+        "trigger_count": "触发次数",
+        "total_bars": "总K线数",
+        "trigger_rate": "触发率",
+        "mode_visual": "可视化",
+        "mode_dsl": "DSL",
+        "dsl_empty": "<未设置条件>",
+        "delete_group": "删除组",
+        "optgroup_price": "价格",
+        "optgroup_indicator": "技术指标",
+        "params_tooltip": "参数: {{params}}",
+        "params_placeholder": "参数",
+        "value_placeholder": "数值或指标",
+        "add_condition": "添加条件",
+        "add_condition_group": "添加条件组 (AND/OR)",
+        "dsl_example": "示例: SMA(close, 20) crosses_above SMA(close, 50) AND RSI(14) < 70",
+        "operators": {
+          "crosses_above": "上穿",
+          "crosses_below": "下穿"
+        }
       }
     },
     "risk": {
