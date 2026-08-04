@@ -543,6 +543,81 @@
         "deploying": "部署中...",
         "confirm_deployment": "确认部署"
       }
+    },
+    "backtest_run_modal": {
+      "title": "执行回测",
+      "label": {
+        "strategy": "策略",
+        "sort_factor": "排序因子",
+        "dataset": "数据集",
+        "custom_assets": "自定义股票代码（逗号分隔）",
+        "benchmark": "基准对比（可选）",
+        "ml_config": "ML 模型配置",
+        "train_mode": "训练模式",
+        "select_trained_model": "选择已训练模型",
+        "model_type": "模型类型",
+        "purge_gap": "间隔天数（Purge Gap）",
+        "prediction_label": "预测标签",
+        "data_split": "数据分割",
+        "train_end_date": "Train 截止日",
+        "eval_mode": "评估模式",
+        "split_count": "分割数",
+        "gap_days": "间隔天数",
+        "window_type": "窗口类型"
+      },
+      "param": {
+        "top_n": "Top N",
+        "wf_folds": "Walk-Forward Folds",
+        "train_pct": "Train %",
+        "valid_pct": "Valid %",
+        "test_pct": "Test %"
+      },
+      "option": {
+        "custom_pool": "自定义股票代码",
+        "no_benchmark": "— 不设基准 —",
+        "benchmark_csi300": "沪深300",
+        "benchmark_csi500": "中证500",
+        "benchmark_csi1000": "中证1000",
+        "benchmark_sse": "上证指数",
+        "benchmark_szse": "深证成指",
+        "use_existing_model": "使用已有模型",
+        "new_train_and_backtest": "新建训练 + 回测",
+        "select_completed_experiment": "— 选择已完成的实验 —",
+        "split_none": "不分割（用全部数据回测）",
+        "split_oos": "OOS 分割（训练/测试分离）",
+        "split_walkforward": "Walk-Forward（滚动评估）",
+        "eval_test": "Test（仅在测试集回测）",
+        "eval_valid": "Valid（仅在验证集回测）",
+        "eval_all": "All（用全部数据回测）",
+        "window_expanding": "Expanding（扩展窗口）",
+        "window_sliding": "Sliding（滑动窗口）"
+      },
+      "label_option": {
+        "ret_1d": "ret_1d（1日收益）",
+        "ret_5d": "ret_5d（5日收益）",
+        "ret_10d": "ret_10d（10日收益）",
+        "ret_20d": "ret_20d（20日收益）"
+      },
+      "hint": {
+        "auto_train_walkforward": "将自动训练模型并运行回测，Walk-Forward {{folds}} 折滚动评估",
+        "scoring_locked_range": "日期范围已限定为打分数据覆盖区间",
+        "scoring_using": "📊 使用截面打分结果：",
+        "no_completed_experiments": "暂无已完成实验，请先在\"机器学习\"页面训练模型"
+      },
+      "btn": {
+        "run": "执行回测",
+        "running": "执行中...",
+        "close": "关闭"
+      },
+      "status": {
+        "backtest_running": "回测运行中...",
+        "failed_prefix": "失败：",
+        "unknown_error": "未知错误",
+        "submit_failed_prefix": "回测提交失败: "
+      },
+      "unit": {
+        "stocks_suffix": " 股"
+      }
     }
   },
   "page": {

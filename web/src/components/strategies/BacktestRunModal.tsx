@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { backtestsApi, datasetsApi, mlApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 interface BacktestRunModalProps {
   strategyId: string
@@ -12,6 +13,7 @@ interface BacktestRunModalProps {
 }
 
 export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRunModalProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -142,7 +144,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
       }
     },
     onError: (error: Error) => {
-      toast.error(`回测提交失败: ${error.message}`)
+      toast.error(t('component.backtest_run_modal.status.submit_failed_prefix') + error.message)
     },
   })
 
@@ -154,7 +156,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
         navigate(`/backtests?run_id=${jobStatus.run_id}`)
       })
     } else if (jobStatus?.status === 'failed') {
-      toast.error(`回测失败: ${jobStatus.error ?? '未知错误'}`)
+      toast.error(t('component.backtest_run_modal.status.failed_prefix') + (jobStatus.error ?? t('component.backtest_run_modal.status.unknown_error')))
       queryClient.invalidateQueries({ queryKey: queryKeys.backtests.all })
     }
   }, [jobStatus, queryClient, onClose, navigate])
@@ -163,49 +165,49 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-[500px] max-w-full max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
-          <h2 className="font-semibold text-gray-900">执行回测</h2>
+          <h2 className="font-semibold text-gray-900">{t('component.backtest_run_modal.title')}</h2>
           <button className="text-gray-400 hover:text-gray-600" onClick={onClose}>✕</button>
         </div>
         <div className="p-4 space-y-4 overflow-y-auto flex-1">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">策略</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.strategy')}</label>
             <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm">{strategyId}</div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">开始日期</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('common.start_date')}</label>
               <input type="date" className="input w-full" value={startDate} onChange={e => setStartDate(e.target.value)} />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">结束日期</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('common.end_date')}</label>
               <input type="date" className="input w-full" value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Top N</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.param.top_n')}</label>
               <input type="number" className="input w-full" value={topN} onChange={e => setTopN(e.target.value)} min={1} />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">排序因子</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.sort_factor')}</label>
               <select className="input w-full" value={sortFactor} onChange={e => setSortFactor(e.target.value)}>
                 {factors.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">数据集</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.dataset')}</label>
             <select className="input w-full" value={datasetVersion} onChange={e => setDatasetVersion(e.target.value)}>
               {datasets?.items.map(d => (
                 <option key={d.version_id} value={d.version_id}>
-                  {d.dataset_name} ({d.start_date} ~ {d.end_date}) — {d.asset_count ?? '?'} 股
+                  {d.dataset_name} ({d.start_date} ~ {d.end_date}) — {d.asset_count ?? '?'}{t('component.backtest_run_modal.unit.stocks_suffix')}
                   {d.is_current ? ' ✓' : ''}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">股票池</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('component.strategies.params.stock_pool')}</label>
             <select
               className="input w-full"
               value={universeId}
@@ -217,12 +219,12 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
               {universes?.predefined.map(u => (
                 <option key={u.id} value={u.id}>{u.name} — {u.description}</option>
               ))}
-              <option value="custom">自定义股票代码</option>
+              <option value="custom">{t('component.backtest_run_modal.option.custom_pool')}</option>
             </select>
           </div>
           {universeId === 'custom' && (
             <div>
-              <label className="block text-sm text-gray-600 mb-1">自定义股票代码（逗号分隔）</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.custom_assets')}</label>
               <input
                 type="text"
                 className="input w-full"
@@ -233,23 +235,23 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
             </div>
           )}
           <div>
-            <label className="block text-sm text-gray-600 mb-1">基准对比（可选）</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.benchmark')}</label>
             <select value={benchmarkId} onChange={e => setBenchmarkId(e.target.value)} className="input w-full">
-              <option value="">— 不设基准 —</option>
-              <option value="SSE:000300">沪深300</option>
-              <option value="SSE:000905">中证500</option>
-              <option value="SSE:000852">中证1000</option>
-              <option value="SSE:000001">上证指数</option>
-              <option value="SZSE:399001">深证成指</option>
+              <option value="">{t('component.backtest_run_modal.option.no_benchmark')}</option>
+              <option value="SSE:000300">{t('component.backtest_run_modal.option.benchmark_csi300')}</option>
+              <option value="SSE:000905">{t('component.backtest_run_modal.option.benchmark_csi500')}</option>
+              <option value="SSE:000852">{t('component.backtest_run_modal.option.benchmark_csi1000')}</option>
+              <option value="SSE:000001">{t('component.backtest_run_modal.option.benchmark_sse')}</option>
+              <option value="SZSE:399001">{t('component.backtest_run_modal.option.benchmark_szse')}</option>
             </select>
           </div>
 
           {/* ML Model Config */}
           {parsed.strategy_type === 'MLModelStrategy' && (
             <div className="border rounded-lg p-3 bg-blue-50 space-y-3">
-              <h4 className="text-sm font-medium text-blue-800">ML 模型配置</h4>
+              <h4 className="text-sm font-medium text-blue-800">{t('component.backtest_run_modal.label.ml_config')}</h4>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">训练模式</label>
+                <label className="block text-xs text-gray-600 mb-1">{t('component.backtest_run_modal.label.train_mode')}</label>
                 <div className="flex gap-4 text-sm">
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -259,7 +261,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                       onChange={() => setMlTrainMode('existing')}
                       className="accent-blue-600"
                     />
-                    <span>使用已有模型</span>
+                    <span>{t('component.backtest_run_modal.option.use_existing_model')}</span>
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -269,14 +271,14 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                       onChange={() => setMlTrainMode('new')}
                       className="accent-blue-600"
                     />
-                    <span>新建训练 + 回测</span>
+                    <span>{t('component.backtest_run_modal.option.new_train_and_backtest')}</span>
                   </label>
                 </div>
               </div>
 
               {mlTrainMode === 'existing' && (
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">选择已训练模型</label>
+                  <label className="block text-xs text-gray-600 mb-1">{t('component.backtest_run_modal.label.select_trained_model')}</label>
                   <select
                     value={mlModelVersion}
                     onChange={e => {
@@ -289,7 +291,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                     }}
                     className="input w-full text-sm"
                   >
-                    <option value="">— 选择已完成的实验 —</option>
+                    <option value="">{t('component.backtest_run_modal.option.select_completed_experiment')}</option>
                     {mlExperiments?.map((exp: {
                       run_id: string
                       model_id?: string
@@ -306,7 +308,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                   </select>
                   {mlExperiments !== undefined && mlExperiments.length === 0 && (
                     <p className="text-xs text-gray-400 mt-1">
-                      暂无已完成实验，请先在"机器学习"页面训练模型
+                      {t('component.backtest_run_modal.hint.no_completed_experiments')}
                     </p>
                   )}
                 </div>
@@ -315,7 +317,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
               {mlTrainMode === 'new' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">模型类型</label>
+                    <label className="block text-xs text-gray-600 mb-1">{t('component.backtest_run_modal.label.model_type')}</label>
                     <select
                       value={mlModelType}
                       onChange={e => setMlModelType(e.target.value)}
@@ -341,7 +343,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">Walk-Forward Folds</label>
+                      <label className="block text-xs text-gray-600 mb-1">{t('component.backtest_run_modal.param.wf_folds')}</label>
                       <input
                         type="number"
                         className="input w-full text-sm"
@@ -352,7 +354,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">间隔天数（Purge Gap）</label>
+                      <label className="block text-xs text-gray-600 mb-1">{t('component.backtest_run_modal.label.purge_gap')}</label>
                       <input
                         type="number"
                         className="input w-full text-sm"
@@ -364,22 +366,22 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                     </div>
                   </div>
                   <p className="text-xs text-blue-600 bg-blue-100 rounded px-2 py-1">
-                    将自动训练模型并运行回测，Walk-Forward {mlNfolds} 折滚动评估
+                    {t('component.backtest_run_modal.hint.auto_train_walkforward', { folds: mlNfolds })}
                   </p>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs text-gray-600 mb-1">预测标签</label>
+                <label className="block text-xs text-gray-600 mb-1">{t('component.backtest_run_modal.label.prediction_label')}</label>
                 <select
                   value={mlLabelName}
                   onChange={e => setMlLabelName(e.target.value)}
                   className="input w-full text-sm"
                 >
-                  <option value="ret_1d">ret_1d（1日收益）</option>
-                  <option value="ret_5d">ret_5d（5日收益）</option>
-                  <option value="ret_10d">ret_10d（10日收益）</option>
-                  <option value="ret_20d">ret_20d（20日收益）</option>
+                  <option value="ret_1d">{t('component.backtest_run_modal.label_option.ret_1d')}</option>
+                  <option value="ret_5d">{t('component.backtest_run_modal.label_option.ret_5d')}</option>
+                  <option value="ret_10d">{t('component.backtest_run_modal.label_option.ret_10d')}</option>
+                  <option value="ret_20d">{t('component.backtest_run_modal.label_option.ret_20d')}</option>
                 </select>
               </div>
             </div>
@@ -387,39 +389,39 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
 
           {scoringRunId && (
             <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-700">
-              📊 使用截面打分结果：<span className="font-mono">{scoringRunId.slice(0, 12)}...</span>
-              <br />日期范围已限定为打分数据覆盖区间
+              {t('component.backtest_run_modal.hint.scoring_using')}<span className="font-mono">{scoringRunId.slice(0, 12)}...</span>
+              <br />{t('component.backtest_run_modal.hint.scoring_locked_range')}
             </div>
           )}
 
           {/* Data Split Section */}
           <div className="border-t pt-4">
-            <label className="block text-sm text-gray-600 mb-2">数据分割</label>
+            <label className="block text-sm text-gray-600 mb-2">{t('component.backtest_run_modal.label.data_split')}</label>
             <select
               className="input w-full"
               value={splitMode}
               onChange={e => setSplitMode(e.target.value as typeof splitMode)}
             >
-              <option value="none">不分割（用全部数据回测）</option>
-              <option value="oos">OOS 分割（训练/测试分离）</option>
-              <option value="walkforward">Walk-Forward（滚动评估）</option>
+              <option value="none">{t('component.backtest_run_modal.option.split_none')}</option>
+              <option value="oos">{t('component.backtest_run_modal.option.split_oos')}</option>
+              <option value="walkforward">{t('component.backtest_run_modal.option.split_walkforward')}</option>
             </select>
           </div>
 
           {splitMode === 'oos' && (
             <div className="grid grid-cols-2 gap-4 pl-4 border-l-2 border-blue-200">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Train 截止日</label>
+                <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.train_end_date')}</label>
                 <input type="date" className="input w-full" value={trainEndDate}
                   onChange={e => setTrainEndDate(e.target.value)} />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">评估模式</label>
+                <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.eval_mode')}</label>
                 <select className="input w-full" value={evalMode}
                   onChange={e => setEvalMode(e.target.value as typeof evalMode)}>
-                  <option value="test">Test（仅在测试集回测）</option>
-                  <option value="valid">Valid（仅在验证集回测）</option>
-                  <option value="all">All（用全部数据回测）</option>
+                  <option value="test">{t('component.backtest_run_modal.option.eval_test')}</option>
+                  <option value="valid">{t('component.backtest_run_modal.option.eval_valid')}</option>
+                  <option value="all">{t('component.backtest_run_modal.option.eval_all')}</option>
                 </select>
               </div>
             </div>
@@ -429,37 +431,37 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
             <div className="pl-4 border-l-2 border-green-200 space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">分割数</label>
+                  <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.split_count')}</label>
                   <input type="number" className="input w-full" value={wfSplits}
                     onChange={e => setWfSplits(Number(e.target.value))} min={2} max={10} />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">间隔天数</label>
+                  <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.gap_days')}</label>
                   <input type="number" className="input w-full" value={wfGapDays}
                     onChange={e => setWfGapDays(Number(e.target.value))} min={0} />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">窗口类型</label>
+                  <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.label.window_type')}</label>
                   <select className="input w-full" value={wfWindowType}
                     onChange={e => setWfWindowType(e.target.value as typeof wfWindowType)}>
-                    <option value="expanding">Expanding（扩展窗口）</option>
-                    <option value="sliding">Sliding（滑动窗口）</option>
+                    <option value="expanding">{t('component.backtest_run_modal.option.window_expanding')}</option>
+                    <option value="sliding">{t('component.backtest_run_modal.option.window_sliding')}</option>
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">Train %</label>
+                  <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.param.train_pct')}</label>
                   <input type="number" className="input w-full" value={wfTrainRatio}
                     onChange={e => setWfTrainRatio(Number(e.target.value))} min={10} max={90} />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">Valid %</label>
+                  <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.param.valid_pct')}</label>
                   <input type="number" className="input w-full" value={wfValidRatio}
                     onChange={e => setWfValidRatio(Number(e.target.value))} min={5} max={30} />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">Test %</label>
+                  <label className="block text-sm text-gray-600 mb-1">{t('component.backtest_run_modal.param.test_pct')}</label>
                   <input type="number" className="input w-full" disabled
                     value={100 - wfTrainRatio - wfValidRatio} />
                 </div>
@@ -476,16 +478,16 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
           {jobId && jobStatus?.status === 'running' && (
             <div className="flex items-center gap-2 text-sm text-blue-600">
               <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full" />
-              回测运行中...
+              {t('common.running')}
             </div>
           )}
           {jobId && jobStatus?.status === 'failed' && (
             <div className="text-sm text-red-600">
-              失败：{jobStatus.error ?? '未知错误'}
+              {t('component.backtest_run_modal.status.failed_prefix')}{jobStatus.error ?? t('component.backtest_run_modal.status.unknown_error')}
             </div>
           )}
           <button className="btn-secondary" onClick={onClose}>
-            {jobId ? '关闭' : '取消'}
+            {jobId ? t('component.backtest_run_modal.btn.close') : t('common.cancel')}
           </button>
           {!jobId && (
             <button
@@ -561,7 +563,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                 runMutation.mutate(body as any)
               }}
             >
-              {runMutation.isPending ? '执行中...' : '执行回测'}
+              {runMutation.isPending ? t('component.backtest_run_modal.btn.running') : t('component.backtest_run_modal.btn.run')}
             </button>
           )}
         </div>

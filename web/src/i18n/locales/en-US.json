@@ -543,6 +543,81 @@
         "deploying": "Deploying...",
         "confirm_deployment": "Confirm Deployment"
       }
+    },
+    "backtest_run_modal": {
+      "title": "Run Backtest",
+      "label": {
+        "strategy": "Strategy",
+        "sort_factor": "Sort Factor",
+        "dataset": "Dataset",
+        "custom_assets": "Custom stock codes (comma-separated)",
+        "benchmark": "Benchmark (optional)",
+        "ml_config": "ML Model Config",
+        "train_mode": "Train Mode",
+        "select_trained_model": "Select Trained Model",
+        "model_type": "Model Type",
+        "purge_gap": "Gap Days (Purge Gap)",
+        "prediction_label": "Prediction Label",
+        "data_split": "Data Split",
+        "train_end_date": "Train End Date",
+        "eval_mode": "Eval Mode",
+        "split_count": "Splits",
+        "gap_days": "Gap Days",
+        "window_type": "Window Type"
+      },
+      "param": {
+        "top_n": "Top N",
+        "wf_folds": "Walk-Forward Folds",
+        "train_pct": "Train %",
+        "valid_pct": "Valid %",
+        "test_pct": "Test %"
+      },
+      "option": {
+        "custom_pool": "Custom stock codes",
+        "no_benchmark": "— No benchmark —",
+        "benchmark_csi300": "CSI 300",
+        "benchmark_csi500": "CSI 500",
+        "benchmark_csi1000": "CSI 1000",
+        "benchmark_sse": "SSE Composite",
+        "benchmark_szse": "SZSE Component",
+        "use_existing_model": "Use existing model",
+        "new_train_and_backtest": "Train new + backtest",
+        "select_completed_experiment": "— Select a completed experiment —",
+        "split_none": "No split (use all data)",
+        "split_oos": "OOS split (train/test)",
+        "split_walkforward": "Walk-Forward (rolling)",
+        "eval_test": "Test (test set only)",
+        "eval_valid": "Valid (validation set only)",
+        "eval_all": "All (use all data)",
+        "window_expanding": "Expanding",
+        "window_sliding": "Sliding"
+      },
+      "label_option": {
+        "ret_1d": "ret_1d (1-day return)",
+        "ret_5d": "ret_5d (5-day return)",
+        "ret_10d": "ret_10d (10-day return)",
+        "ret_20d": "ret_20d (20-day return)"
+      },
+      "hint": {
+        "auto_train_walkforward": "Will auto-train the model and run the backtest; Walk-Forward {{folds}}-fold rolling evaluation",
+        "scoring_locked_range": "Date range is locked to the scoring data coverage interval",
+        "scoring_using": "📊 Using cross-sectional scoring result: ",
+        "no_completed_experiments": "No completed experiments yet. Please train a model on the \"Machine Learning\" page first."
+      },
+      "btn": {
+        "run": "Run Backtest",
+        "running": "Running...",
+        "close": "Close"
+      },
+      "status": {
+        "backtest_running": "Backtest running...",
+        "failed_prefix": "Failed: ",
+        "unknown_error": "unknown error",
+        "submit_failed_prefix": "Backtest submission failed: "
+      },
+      "unit": {
+        "stocks_suffix": " stocks"
+      }
     }
   },
   "page": {
