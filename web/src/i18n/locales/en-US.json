@@ -446,6 +446,78 @@
       "detail": {
         "select_prompt": "Please select a dataset version on the left"
       }
+    },
+    "backtests_list": {
+      "title": "Backtests",
+      "filter": {
+        "all": "All",
+        "status": "Status",
+        "engine": "Engine",
+        "strategy": "Strategy",
+        "start_from": "Start From",
+        "end_before": "End Before"
+      },
+      "status": {
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "search": {
+        "placeholder": "Search strategy or run_id...",
+        "label": "Search"
+      },
+      "column": {
+        "select": "Select",
+        "run_id": "Run ID",
+        "strategy": "Strategy",
+        "engine": "Engine",
+        "status": "Status",
+        "started": "Start",
+        "ended": "End",
+        "sharpe": "Sharpe",
+        "return": "Return",
+        "maxdd": "MaxDD",
+        "actions": "Actions"
+      },
+      "badge": {
+        "wf_summary": "WF Summary"
+      },
+      "btn": {
+        "stop": "Stop",
+        "previous": "Previous",
+        "next": "Next",
+        "clear": "Clear",
+        "clear_filters": "Clear filters",
+        "compare_count": "Compare {{count}} backtests"
+      },
+      "row": {
+        "submitting": "Submitting..."
+      },
+      "empty": {
+        "no_records": "No backtest records",
+        "no_match": "No matching backtests found"
+      },
+      "subtitle": {
+        "found": "Found {{found}} / {{pageTotal}} (current page) - {{total}} total",
+        "total": "{{count}} records - Click a row to view details"
+      },
+      "pagination": {
+        "total": "{{count}} total",
+        "page": "Page {{current}} / {{total}}"
+      },
+      "compare": {
+        "modal_title": "Backtest Comparison ({{count}})",
+        "key_metrics_title": "Key Metrics Comparison",
+        "metric_header": "Metric",
+        "nav_overlay": "NAV Overlay"
+      },
+      "confirm": {
+        "stop_title": "Confirm Stop Backtest",
+        "delete_title": "Confirm Delete Backtest",
+        "stop_body": "Stop this backtest?",
+        "delete_body": "Delete this backtest record? This cannot be undone."
+      }
     }
   }
 }

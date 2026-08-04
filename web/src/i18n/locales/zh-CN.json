@@ -446,6 +446,78 @@
       "detail": {
         "select_prompt": "请在左侧选择一个数据集版本"
       }
+    },
+    "backtests_list": {
+      "title": "回测评估",
+      "filter": {
+        "all": "全部",
+        "status": "状态",
+        "engine": "引擎",
+        "strategy": "策略",
+        "start_from": "开始日期",
+        "end_before": "结束日期"
+      },
+      "status": {
+        "running": "运行中",
+        "completed": "已完成",
+        "failed": "失败",
+        "cancelled": "已取消"
+      },
+      "search": {
+        "placeholder": "搜索策略或 run_id...",
+        "label": "搜索"
+      },
+      "column": {
+        "select": "选择",
+        "run_id": "运行 ID",
+        "strategy": "策略",
+        "engine": "引擎",
+        "status": "状态",
+        "started": "开始时间",
+        "ended": "结束时间",
+        "sharpe": "夏普",
+        "return": "收益",
+        "maxdd": "最大回撤",
+        "actions": "操作"
+      },
+      "badge": {
+        "wf_summary": "WF 摘要"
+      },
+      "btn": {
+        "stop": "停止",
+        "previous": "上一页",
+        "next": "下一页",
+        "clear": "清除",
+        "clear_filters": "清除筛选",
+        "compare_count": "对比 {{count}} 个回测"
+      },
+      "row": {
+        "submitting": "提交中..."
+      },
+      "empty": {
+        "no_records": "暂无回测记录",
+        "no_match": "未找到匹配的回测"
+      },
+      "subtitle": {
+        "found": "找到 {{found}} / {{pageTotal}}（当前页）- 共 {{total}} 条",
+        "total": "共 {{count}} 条记录 - 点击行查看详情"
+      },
+      "pagination": {
+        "total": "共 {{count}} 条",
+        "page": "第 {{current}} / {{total}} 页"
+      },
+      "compare": {
+        "modal_title": "回测对比（{{count}}）",
+        "key_metrics_title": "关键指标对比",
+        "metric_header": "指标",
+        "nav_overlay": "净值叠加"
+      },
+      "confirm": {
+        "stop_title": "确认停止回测",
+        "delete_title": "确认删除回测",
+        "stop_body": "确定要停止此回测吗？",
+        "delete_body": "确定要删除此回测记录吗？此操作不可撤销。"
+      }
     }
   }
 }
