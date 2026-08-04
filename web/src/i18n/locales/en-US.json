@@ -993,6 +993,26 @@
       "drawdown_chart": {
         "title": "Drawdown Comparison"
       }
+    },
+    "ui": {
+      "breadcrumb": {
+        "home": "Home"
+      },
+      "confirm_dialog": {
+        "confirm": "Confirm",
+        "cancel": "Cancel"
+      },
+      "data_table": {
+        "empty_text": "No data",
+        "search_placeholder": "Search...",
+        "total_count": "{{count}} records",
+        "prev_page": "Previous",
+        "next_page": "Next"
+      },
+      "data_state": {
+        "empty_text": "No data",
+        "load_failed_title": "Load failed"
+      }
     }
   },
   "page": {

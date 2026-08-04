@@ -993,6 +993,26 @@
       "drawdown_chart": {
         "title": "回撤对比"
       }
+    },
+    "ui": {
+      "breadcrumb": {
+        "home": "首页"
+      },
+      "confirm_dialog": {
+        "confirm": "确认",
+        "cancel": "取消"
+      },
+      "data_table": {
+        "empty_text": "暂无数据",
+        "search_placeholder": "搜索...",
+        "total_count": "共 {{count}} 条",
+        "prev_page": "上一页",
+        "next_page": "下一页"
+      },
+      "data_state": {
+        "empty_text": "暂无数据",
+        "load_failed_title": "加载失败"
+      }
     }
   },
   "page": {

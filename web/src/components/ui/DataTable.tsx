@@ -1,4 +1,5 @@
 import { useState, useMemo, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface Column<T> {
   key: string
@@ -35,13 +36,16 @@ export function DataTable<T extends Record<string, unknown>>({
   columns,
   pageSize = 20,
   loading = false,
-  emptyText = '暂无数据',
+  emptyText,
   onRowClick,
   rowKey,
-  searchPlaceholder = '搜索...',
+  searchPlaceholder,
   backendPagination,
   rowClassName,
 }: DataTableProps<T>) {
+  const { t } = useTranslation()
+  const resolvedEmptyText = emptyText ?? t('component.ui.data_table.empty_text')
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t('component.ui.data_table.search_placeholder')
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -131,7 +135,7 @@ export function DataTable<T extends Record<string, unknown>>({
           {searchableKeys.length > 0 && (
             <input
               className="input max-w-xs"
-              placeholder={searchPlaceholder}
+              placeholder={resolvedSearchPlaceholder}
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(0) }}
             />
@@ -181,7 +185,7 @@ export function DataTable<T extends Record<string, unknown>>({
             {paged.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="table-td text-center text-gray-400 py-8">
-                  {emptyText}
+                  {resolvedEmptyText}
                 </td>
               </tr>
             ) : (
@@ -208,7 +212,7 @@ export function DataTable<T extends Record<string, unknown>>({
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-gray-600">
           <span>
-            共 {isBackend ? backendPagination!.total : filtered.length} 条
+            {t('component.ui.data_table.total_count', { count: isBackend ? backendPagination!.total : filtered.length })}
           </span>
           <div className="flex gap-2 items-center">
             <button
@@ -219,7 +223,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 else setPage(p => p - 1)
               }}
             >
-              上一页
+              {t('component.ui.data_table.prev_page')}
             </button>
             <span>
               {(isBackend ? backendPagination!.page : page) + 1} / {totalPages}
@@ -232,7 +236,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 else setPage(p => p + 1)
               }}
             >
-              下一页
+              {t('component.ui.data_table.next_page')}
             </button>
           </div>
         </div>

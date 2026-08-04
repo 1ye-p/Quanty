@@ -3,6 +3,7 @@
  * 使用 Tailwind CSS 实现，不依赖 Radix UI / shadcn。
  */
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface ConfirmDialogProps {
   isOpen: boolean
@@ -19,12 +20,15 @@ export function ConfirmDialog({
   isOpen,
   title,
   message,
-  confirmLabel = '确认',
-  cancelLabel = '取消',
+  confirmLabel,
+  cancelLabel,
   variant = 'default',
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation()
+  const resolvedConfirmLabel = confirmLabel ?? t('component.ui.confirm_dialog.confirm')
+  const resolvedCancelLabel = cancelLabel ?? t('component.ui.confirm_dialog.cancel')
   // 按 Escape 键关闭
   useEffect(() => {
     if (!isOpen) return
@@ -51,13 +55,13 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="btn-secondary text-sm"
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             onClick={onConfirm}
             className={variant === 'danger' ? 'btn-danger text-sm' : 'btn-primary text-sm'}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface DataStateProps {
   isLoading?: boolean
@@ -32,10 +33,11 @@ function DefaultEmpty({ text }: { text: string }) {
 }
 
 function DefaultError({ error }: { error: unknown }) {
+  const { t } = useTranslation()
   const message = error instanceof Error ? error.message : String(error)
   return (
     <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700 text-sm">
-      <div className="font-medium mb-1">加载失败</div>
+      <div className="font-medium mb-1">{t('component.ui.data_state.load_failed_title')}</div>
       <div className="text-red-600">{message}</div>
     </div>
   )
@@ -45,13 +47,15 @@ export function DataState({
   isLoading,
   error,
   isEmpty,
-  emptyText = '暂无数据',
+  emptyText,
   children,
   loadingFallback,
   errorFallback,
 }: DataStateProps) {
+  const { t } = useTranslation()
+  const resolvedEmptyText = emptyText ?? t('component.ui.data_state.empty_text')
   if (isLoading) return <>{loadingFallback ?? <DefaultSkeleton />}</>
   if (error) return <>{errorFallback ? errorFallback(error) : <DefaultError error={error} />}</>
-  if (isEmpty) return <DefaultEmpty text={emptyText} />
+  if (isEmpty) return <DefaultEmpty text={resolvedEmptyText} />
   return <>{children}</>
 }
