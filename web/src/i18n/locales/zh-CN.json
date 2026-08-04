@@ -341,6 +341,46 @@
         "backend_api": "后端 API",
         "research_only": "🔒 仅限研究用途 · 不执行真实交易"
       }
+    },
+    "factors": {
+      "title": "Alpha 因子研究",
+      "subtitle": "浏览内置因子、计算 IC/IR 时间序列",
+      "tab": {
+        "selection": "因子选择",
+        "ic": "IC 分析",
+        "quintile": "五分位",
+        "correlation": "相关性",
+        "decay": "IC 衰减"
+      },
+      "select_feature_set": "选择 Feature Set 版本",
+      "placeholder": {
+        "search_factor": "搜索因子名称或描述..."
+      },
+      "btn": {
+        "new_factor": "+ 新建因子",
+        "select_all": "全选",
+        "select_all_count": "全选 ({{count}})"
+      },
+      "found_count": "找到 {{found}} / {{total}} 个因子",
+      "section": {
+        "multi_factor": "多因子选择（用于相关性/IC矩阵）"
+      },
+      "alert": {
+        "low_ic_count": "{{count}} 个因子 IC 低于阈值",
+        "threshold": "阈值："
+      },
+      "empty": {
+        "no_factor_data": "暂无因子数据",
+        "no_search_result": "未找到含\"{{keyword}}\"的因子",
+        "select_factor_first": "请先在\"因子选择\"标签页中选择一个因子",
+        "select_feature_set_first": "请先选择 Feature Set 版本",
+        "no_quantile_data": "暂无分位收益数据",
+        "compute_ic_for_decay": "请先在\"IC 分析\"标签页中计算IC，衰减数据将自动生成"
+      },
+      "error": {
+        "quintile_failed": "五分位计算失败: {{message}}",
+        "ic_failed": "IC 计算失败: {{message}}"
+      }
     }
   }
 }

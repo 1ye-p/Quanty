@@ -341,6 +341,46 @@
         "backend_api": "Backend API",
         "research_only": "🔒 Research use only · No live trading"
       }
+    },
+    "factors": {
+      "title": "Alpha Factor Research",
+      "subtitle": "Browse built-in factors, compute IC/IR time series",
+      "tab": {
+        "selection": "Factor Selection",
+        "ic": "IC Analysis",
+        "quintile": "Quintile",
+        "correlation": "Correlation",
+        "decay": "IC Decay"
+      },
+      "select_feature_set": "Select Feature Set version",
+      "placeholder": {
+        "search_factor": "Search factor name or description..."
+      },
+      "btn": {
+        "new_factor": "+ New Factor",
+        "select_all": "Select All",
+        "select_all_count": "Select All ({{count}})"
+      },
+      "found_count": "{{found}} / {{total}} factors found",
+      "section": {
+        "multi_factor": "Multi-factor Selection (for correlation / IC matrix)"
+      },
+      "alert": {
+        "low_ic_count": "{{count}} factors with IC below threshold",
+        "threshold": "Threshold:"
+      },
+      "empty": {
+        "no_factor_data": "No factor data",
+        "no_search_result": "No factors found containing \"{{keyword}}\"",
+        "select_factor_first": "Please select a factor in the \"Factor Selection\" tab first",
+        "select_feature_set_first": "Please select a Feature Set version first",
+        "no_quantile_data": "No quantile return data",
+        "compute_ic_for_decay": "Please compute IC in the \"IC Analysis\" tab first; decay data will be generated automatically"
+      },
+      "error": {
+        "quintile_failed": "Quintile computation failed: {{message}}",
+        "ic_failed": "IC computation failed: {{message}}"
+      }
     }
   }
 }

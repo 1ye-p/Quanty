@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { factorAnalyticsApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
@@ -15,15 +16,16 @@ import { useWorkflowStore } from '@/stores/workflowStore'
 
 type TabKey = 'selection' | 'ic' | 'quintile' | 'correlation' | 'decay'
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'selection', label: '因子选择' },
-  { key: 'ic', label: 'IC 分析' },
-  { key: 'quintile', label: '五分位' },
-  { key: 'correlation', label: '相关性' },
-  { key: 'decay', label: 'IC 衰减' },
+const TABS: { key: TabKey; labelKey: string }[] = [
+  { key: 'selection', labelKey: 'page.factors.tab.selection' },
+  { key: 'ic', labelKey: 'page.factors.tab.ic' },
+  { key: 'quintile', labelKey: 'page.factors.tab.quintile' },
+  { key: 'correlation', labelKey: 'page.factors.tab.correlation' },
+  { key: 'decay', labelKey: 'page.factors.tab.decay' },
 ]
 
 export function FactorsPage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<TabKey>('selection')
   const [selectedFactor, setSelectedFactor] = useState<string | null>(null)
@@ -126,13 +128,13 @@ export function FactorsPage() {
 
   return (
     <div>
-      <h1 className="page-title">Alpha 因子研究</h1>
-      <p className="page-subtitle">浏览内置因子、计算 IC/IR 时间序列</p>
+      <h1 className="page-title">{t('page.factors.title')}</h1>
+      <p className="page-subtitle">{t('page.factors.subtitle')}</p>
 
       {/* Feature Set selector */}
       <div className="flex gap-3 mb-4">
         <select className="input max-w-xs" value={featureSetVersion} onChange={e => setFeatureSetVersion(e.target.value)}>
-          <option value="">选择 Feature Set 版本</option>
+          <option value="">{t('page.factors.select_feature_set')}</option>
           {versions?.items?.map((v: { feature_set_version: string }) => (
             <option key={v.feature_set_version} value={v.feature_set_version}>
               {v.feature_set_version.slice(0, 16)}...
@@ -149,7 +151,7 @@ export function FactorsPage() {
               activeTab === tab.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
             onClick={() => setActiveTab(tab.key)}>
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -160,7 +162,7 @@ export function FactorsPage() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-3">
               <div className="relative flex-1">
-                <input type="text" placeholder="搜索因子名称或描述..."
+                <input type="text" placeholder={t('page.factors.placeholder.search_factor')}
                   value={factorSearch} onChange={e => setFactorSearch(e.target.value)}
                   className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500" />
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
@@ -170,25 +172,25 @@ export function FactorsPage() {
                 )}
               </div>
               <button onClick={() => setShowCreateFactor(true)} className="btn-primary text-xs px-3 py-1.5 flex-shrink-0">
-                + 新建因子
+                {t('page.factors.btn.new_factor')}
               </button>
             </div>
             {factorSearch && (
-              <p className="text-xs text-gray-400 mb-2">找到 {filteredFactorDefs.length} / {defs?.items.length ?? 0} 个因子</p>
+              <p className="text-xs text-gray-400 mb-2">{t('page.factors.found_count', { found: filteredFactorDefs.length, total: defs?.items.length ?? 0 })}</p>
             )}
 
             {/* IC Alert Summary */}
             {icStatus && icStatus.items.some(i => i.is_alert) && (
               <div className="flex items-center gap-2 mb-2 px-2 py-1.5 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-                <span>{icStatus.items.filter(i => i.is_alert).length} 个因子 IC 低于阈值</span>
+                <span>{t('page.factors.alert.low_ic_count', { count: icStatus.items.filter(i => i.is_alert).length })}</span>
                 <span className="text-red-400">|</span>
-                <span>阈值：</span>
+                <span>{t('page.factors.alert.threshold')}</span>
                 <input type="number" value={icThreshold} onChange={e => setIcThreshold(Number(e.target.value))}
                   className="w-16 px-1 py-0.5 border border-red-300 rounded text-xs" min={0.001} max={0.1} step={0.005} />
               </div>
             )}
 
-            {isLoading && <p className="text-gray-400">Loading...</p>}
+            {isLoading && <p className="text-gray-400">{t('common.loading')}</p>}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredFactorDefs.map(f => (
                 <FactorCard key={f.name} factor={f} selected={selectedFactor === f.name}
@@ -203,7 +205,7 @@ export function FactorsPage() {
               ))}
               {filteredFactorDefs.length === 0 && !isLoading && (
                 <div className="col-span-full text-center py-8 text-gray-400 text-sm">
-                  {factorSearch ? `未找到含"${factorSearch}"的因子` : '暂无因子数据'}
+                  {factorSearch ? t('page.factors.empty.no_search_result', { keyword: factorSearch }) : t('page.factors.empty.no_factor_data')}
                 </div>
               )}
             </div>
@@ -212,10 +214,10 @@ export function FactorsPage() {
             {defs?.items && defs.items.length > 0 && (
               <div className="mt-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-gray-700">多因子选择（用于相关性/IC矩阵）</h3>
+                  <h3 className="text-sm font-medium text-gray-700">{t('page.factors.section.multi_factor')}</h3>
                   <button className="text-xs text-blue-600 hover:underline"
                     onClick={() => setSelectedFactors(filteredFactorDefs.map(f => f.name))}>
-                    {factorSearch ? `全选 (${filteredFactorDefs.length})` : '全选'}
+                    {factorSearch ? t('page.factors.btn.select_all_count', { count: filteredFactorDefs.length }) : t('page.factors.btn.select_all')}
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -247,25 +249,25 @@ export function FactorsPage() {
       {activeTab === 'ic' && (
         selectedFactor
           ? <ICAnalysisTab selectedFactor={selectedFactor} featureSetVersion={featureSetVersion} />
-          : <div className="card text-center py-8 text-gray-400">请先在"因子选择"标签页中选择一个因子</div>
+          : <div className="card text-center py-8 text-gray-400">{t('page.factors.empty.select_factor_first')}</div>
       )}
 
       {/* Tab: Quintile */}
       {activeTab === 'quintile' && (
         !selectedFactor
-          ? <div className="card text-center py-8 text-gray-400">请先在"因子选择"标签页中选择一个因子</div>
+          ? <div className="card text-center py-8 text-gray-400">{t('page.factors.empty.select_factor_first')}</div>
           : !featureSetVersion
-            ? <div className="card text-center py-8 text-gray-400">请先选择 Feature Set 版本</div>
+            ? <div className="card text-center py-8 text-gray-400">{t('page.factors.empty.select_feature_set_first')}</div>
             : quintileStatus === 'error'
-              ? <div className="card text-center py-8 text-red-500">五分位计算失败: {quintileError?.message}</div>
+              ? <div className="card text-center py-8 text-red-500">{t('page.factors.error.quintile_failed', { message: quintileError?.message })}</div>
               : quintileLoading
-                ? <div className="card text-center py-8 text-gray-400">加载中...</div>
+                ? <div className="card text-center py-8 text-gray-400">{t('common.loading')}</div>
                 : quintileData?.groups
                   ? <QuintileTab
                       quantileReturns={quintileData.groups.map(g => ({ quantile: parseInt(String(g.quintile), 10) || 0, mean_return: g.mean_return }))}
                       cumulativeReturns={quintileData.cumulative_returns}
                     />
-                  : <div className="card text-center py-8 text-gray-400">暂无分位收益数据</div>
+                  : <div className="card text-center py-8 text-gray-400">{t('page.factors.empty.no_quantile_data')}</div>
       )}
 
       {/* Tab: Correlation */}
@@ -276,10 +278,10 @@ export function FactorsPage() {
       {/* Tab: IC Decay */}
       {activeTab === 'decay' && (
         activeJobId && jobStatus === 'error'
-          ? <div className="card text-center py-8 text-red-500">IC 计算失败: {jobError?.message}</div>
+          ? <div className="card text-center py-8 text-red-500">{t('page.factors.error.ic_failed', { message: jobError?.message })}</div>
           : icSummary?.rank_ic_decay
             ? <ICDecayTab rankIcDecay={icSummary.rank_ic_decay} />
-            : <div className="card text-center py-8 text-gray-400">请先在"IC 分析"标签页中计算IC，衰减数据将自动生成</div>
+            : <div className="card text-center py-8 text-gray-400">{t('page.factors.empty.compute_ic_for_decay')}</div>
       )}
 
       {/* Modals */}
