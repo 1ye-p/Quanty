@@ -450,6 +450,99 @@
         "train": "Train",
         "oos": "OOS"
       }
+    },
+    "backtest_overview": {
+      "btn": {
+        "sensitivity_open": "Parameter Sweep",
+        "sensitivity_close": "Close Sweep",
+        "deploy_paper": "Deploy as Paper Strategy",
+        "optimize_weights": "Optimize Factor Weights",
+        "export_metrics_json": "Export Metrics JSON"
+      },
+      "param": {
+        "market": "Market",
+        "adj": "Adjustment",
+        "rebalance": "Rebalance",
+        "sizer": "Sizer"
+      },
+      "metric": {
+        "total_trades": "Total Trades",
+        "ir_needs_benchmark": "IR (needs benchmark)",
+        "te_annualized": "TE (annualized)",
+        "jensen_alpha": "Jensen's α",
+        "omega_ratio": "Omega Ratio",
+        "tail_ratio": "Tail Ratio",
+        "turnover": "Turnover",
+        "avg_single_side": "Avg single-side",
+        "drawdown": "Drawdown",
+        "leverage": "Leverage",
+        "var_95": "VaR 95%",
+        "psr": "PSR",
+        "probabilistic_sharpe": "Probabilistic Sharpe",
+        "dsr": "DSR",
+        "deflated_sharpe": "Deflated Sharpe",
+        "summary": "Summary",
+        "overfit_risk": "Overfit Risk"
+      },
+      "section": {
+        "latest_risk_snapshot": "Latest Risk Snapshot",
+        "analysis_summary": "Analysis Summary",
+        "drawdown_curve": "Drawdown Curve",
+        "rolling_metrics": "Rolling Metrics"
+      },
+      "series": {
+        "drawdown": "Drawdown",
+        "rolling_sharpe": "Rolling Sharpe",
+        "rolling_volatility": "Rolling Volatility"
+      },
+      "label": {
+        "rolling_window": "Rolling Window:",
+        "date": "Date",
+        "zero": "Zero"
+      },
+      "empty": {
+        "chart_icon": "Chart",
+        "select_completed": "Select a completed backtest to view details",
+        "no_analysis": "No analysis summary available"
+      },
+      "export": {
+        "report": "Export Report",
+        "exporting": "Exporting {{format}}...",
+        "html": "Export HTML",
+        "pdf": "Export PDF",
+        "failed": "Export failed",
+        "pdf_failed": "PDF export failed"
+      },
+      "deploy": {
+        "modal_title": "Deploy as Paper Strategy",
+        "success_toast": "Strategy deployed as paper trading. View it in \"Live Monitor\".",
+        "failed_toast": "Deploy failed: {{message}}",
+        "step1_title": "Step 1: Confirm Backtest",
+        "step2_title": "Step 2: Configure Capital & Risk",
+        "step3_title": "Step 3: Confirm Deployment",
+        "strategy": "Strategy:",
+        "run_id": "Run ID:",
+        "dataset": "Dataset:",
+        "sharpe": "Sharpe:",
+        "initial_capital": "Initial Capital",
+        "risk_mode": "Risk Mode",
+        "mode_conservative": "Conservative (stop-loss 5%, max DD 10%)",
+        "mode_moderate": "Moderate (stop-loss 8%, max DD 15%)",
+        "mode_aggressive": "Aggressive (stop-loss 15%, max DD 25%)",
+        "risk_preview": "Risk Parameters Preview",
+        "per_trade_stop_loss": "Per-trade stop-loss",
+        "max_drawdown_label": "Max drawdown",
+        "pauses_strategy": "pauses strategy",
+        "single_stock_limit": "Single stock limit",
+        "confirm_backtest": "I confirm backtest results are satisfactory (Sharpe: {{sharpe}}, Max DD: {{maxDD}}%)",
+        "confirm_paper": "I understand this is a Paper Trading simulation, not real execution",
+        "confirm_risk": "I understand the risk rules; strategy will auto-pause on stop-loss/drawdown triggers",
+        "after_hint": "After deployment, view strategy status and execution records in the \"Live Monitor\" page.",
+        "back": "Back",
+        "next": "Next",
+        "deploying": "Deploying...",
+        "confirm_deployment": "Confirm Deployment"
+      }
     }
   },
   "page": {

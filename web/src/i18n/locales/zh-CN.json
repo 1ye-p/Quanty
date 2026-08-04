@@ -450,6 +450,99 @@
         "train": "训练",
         "oos": "样本外"
       }
+    },
+    "backtest_overview": {
+      "btn": {
+        "sensitivity_open": "参数扫描",
+        "sensitivity_close": "关闭扫描",
+        "deploy_paper": "部署为模拟策略",
+        "optimize_weights": "优化因子权重",
+        "export_metrics_json": "导出指标 JSON"
+      },
+      "param": {
+        "market": "市场",
+        "adj": "复权",
+        "rebalance": "调仓",
+        "sizer": "仓位分配"
+      },
+      "metric": {
+        "total_trades": "总交易数",
+        "ir_needs_benchmark": "IR（需基准）",
+        "te_annualized": "TE（年化）",
+        "jensen_alpha": "Jensen α",
+        "omega_ratio": "Omega 比率",
+        "tail_ratio": "尾部比率",
+        "turnover": "换手率",
+        "avg_single_side": "单边均值",
+        "drawdown": "回撤",
+        "leverage": "杠杆",
+        "var_95": "VaR 95%",
+        "psr": "PSR",
+        "probabilistic_sharpe": "概率夏普",
+        "dsr": "DSR",
+        "deflated_sharpe": "缩减夏普",
+        "summary": "摘要",
+        "overfit_risk": "过拟合风险"
+      },
+      "section": {
+        "latest_risk_snapshot": "最新风险快照",
+        "analysis_summary": "分析摘要",
+        "drawdown_curve": "回撤曲线",
+        "rolling_metrics": "滚动指标"
+      },
+      "series": {
+        "drawdown": "回撤",
+        "rolling_sharpe": "滚动夏普",
+        "rolling_volatility": "滚动波动率"
+      },
+      "label": {
+        "rolling_window": "滚动窗口：",
+        "date": "日期",
+        "zero": "零轴"
+      },
+      "empty": {
+        "chart_icon": "图表",
+        "select_completed": "选择一个已完成的回测以查看详情",
+        "no_analysis": "暂无分析摘要"
+      },
+      "export": {
+        "report": "导出报告",
+        "exporting": "正在导出 {{format}}...",
+        "html": "导出 HTML",
+        "pdf": "导出 PDF",
+        "failed": "导出失败",
+        "pdf_failed": "PDF 导出失败"
+      },
+      "deploy": {
+        "modal_title": "部署为模拟策略",
+        "success_toast": "策略已部署为模拟实盘，前往\"实盘监控\"查看",
+        "failed_toast": "部署失败: {{message}}",
+        "step1_title": "第 1 步：确认回测",
+        "step2_title": "第 2 步：配置资金与风控",
+        "step3_title": "第 3 步：确认部署",
+        "strategy": "策略：",
+        "run_id": "运行 ID：",
+        "dataset": "数据集：",
+        "sharpe": "夏普：",
+        "initial_capital": "初始资金",
+        "risk_mode": "风控模式",
+        "mode_conservative": "保守（止损 5%，最大回撤 10%）",
+        "mode_moderate": "稳健（止损 8%，最大回撤 15%）",
+        "mode_aggressive": "激进（止损 15%，最大回撤 25%）",
+        "risk_preview": "风控参数预览",
+        "per_trade_stop_loss": "单笔止损",
+        "max_drawdown_label": "最大回撤",
+        "pauses_strategy": "暂停策略",
+        "single_stock_limit": "单股上限",
+        "confirm_backtest": "我确认回测结果令人满意（夏普：{{sharpe}}，最大回撤：{{maxDD}}%）",
+        "confirm_paper": "我理解这是模拟交易，不涉及真实执行",
+        "confirm_risk": "我理解风控规则；策略将在触发止损/回撤时自动暂停",
+        "after_hint": "部署后，可在\"实盘监控\"页面查看策略状态与执行记录。",
+        "back": "上一步",
+        "next": "下一步",
+        "deploying": "部署中...",
+        "confirm_deployment": "确认部署"
+      }
     }
   },
   "page": {

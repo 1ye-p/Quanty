@@ -51,9 +51,9 @@ export function BacktestOverviewTab() {
       setShowDeployWizard(false)
       setDeployStep(1)
       setDeployChecklist({ confirmBacktest: false, understandPaper: false, reviewRisk: false })
-      toast.success('策略已部署为模拟实盘，前往"实盘监控"查看')
+      toast.success(t('component.backtest_overview.deploy.success_toast'))
     },
-    onError: (e: Error) => toast.error(`部署失败: ${e.message}`),
+    onError: (e: Error) => toast.error(t('component.backtest_overview.deploy.failed_toast', { message: e.message })),
   })
 
   const { data: detail } = useQuery({
@@ -162,7 +162,7 @@ export function BacktestOverviewTab() {
             onClick={() => setShowSensitivity(!showSensitivity)}
             className="btn-secondary text-xs flex items-center gap-1"
           >
-            {showSensitivity ? '关闭扫描' : '参数扫描'}
+            {showSensitivity ? t('component.backtest_overview.btn.sensitivity_close') : t('component.backtest_overview.btn.sensitivity_open')}
           </button>
         )}
         {/* Export dropdown */}
@@ -177,11 +177,11 @@ export function BacktestOverviewTab() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Exporting {exportLoading.toUpperCase()}...
+                {t('component.backtest_overview.export.exporting', { format: exportLoading.toUpperCase() })}
               </>
             ) : (
               <>
-                Export Report
+                {t('component.backtest_overview.export.report')}
                 <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -197,7 +197,7 @@ export function BacktestOverviewTab() {
                 className="block px-3 py-2 text-xs hover:bg-gray-50"
                 onClick={() => setExportOpen(false)}
               >
-                Export HTML
+                {t('component.backtest_overview.export.html')}
               </a>
               <button
                 className="block w-full text-left px-3 py-2 text-xs hover:bg-gray-50"
@@ -207,8 +207,8 @@ export function BacktestOverviewTab() {
                   try {
                     const res = await fetch(`/api/v1/backtests/${selectedId}/export?format=pdf`)
                     if (!res.ok) {
-                      const err = await res.json().catch(() => ({ detail: 'Export failed' }))
-                      toast.error(err.detail || 'PDF export failed')
+                      const err = await res.json().catch(() => ({ detail: t('component.backtest_overview.export.failed') }))
+                      toast.error(err.detail || t('component.backtest_overview.export.pdf_failed'))
                       return
                     }
                     const blob = await res.blob()
@@ -221,13 +221,13 @@ export function BacktestOverviewTab() {
                     a.remove()
                     URL.revokeObjectURL(url)
                   } catch {
-                    toast.error('PDF export failed')
+                    toast.error(t('component.backtest_overview.export.pdf_failed'))
                   } finally {
                     setExportLoading(null)
                   }
                 }}
               >
-                Export PDF
+                {t('component.backtest_overview.export.pdf')}
               </button>
             </div>
           )}
@@ -237,7 +237,7 @@ export function BacktestOverviewTab() {
             onClick={() => setShowDeployWizard(true)}
             className="btn-primary text-xs flex items-center gap-1"
           >
-            Deploy as Paper Strategy
+            {t('component.backtest_overview.btn.deploy_paper')}
           </button>
         )}
         {detail?.status === 'completed' && (
@@ -253,7 +253,7 @@ export function BacktestOverviewTab() {
             })}
             className="btn-secondary text-xs flex items-center gap-1"
           >
-            Optimize Factor Weights
+            {t('component.backtest_overview.btn.optimize_weights')}
           </button>
         )}
       </div>
@@ -283,10 +283,10 @@ export function BacktestOverviewTab() {
         const mr = sc.market_rule as Record<string, unknown> | undefined
         return (
           <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
-            <span>Market: {marketLabel(mr?.market as string)}</span>
-            <span>Adj: {adjLabel(mr?.adj_type as string)}</span>
-            <span>Rebalance: {rebalanceLabel(sc.rebalance_frequency as string)}</span>
-            <span>Sizer: {String(sc.sizer ?? 'equal_weight')}</span>
+            <span>{t('component.backtest_overview.param.market')}: {marketLabel(mr?.market as string)}</span>
+            <span>{t('component.backtest_overview.param.adj')}: {adjLabel(mr?.adj_type as string)}</span>
+            <span>{t('component.backtest_overview.param.rebalance')}: {rebalanceLabel(sc.rebalance_frequency as string)}</span>
+            <span>{t('component.backtest_overview.param.sizer')}: {String(sc.sizer ?? 'equal_weight')}</span>
           </div>
         )
       })()}
@@ -296,31 +296,31 @@ export function BacktestOverviewTab() {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             <MetricCard
-              label="Total Return"
+              label={t("common.metric.total_return")}
               value={`${(detail.metrics.total_return * 100).toFixed(1)}%`}
               warn={detail.metrics.total_return < 0}
             />
             <MetricCard
-              label="Annualized Return"
+              label={t("common.metric.annualized_return")}
               value={`${(detail.metrics.annualized_return * 100).toFixed(1)}%`}
               warn={detail.metrics.annualized_return < 0}
             />
             <MetricCard
-              label="Sharpe"
+              label={t("common.metric.sharpe_ratio")}
               value={Number(detail.metrics.sharpe_ratio ?? 0).toFixed(3)}
               warn={detail.metrics.sharpe_ratio < 0}
             />
             <MetricCard
-              label="Max Drawdown"
+              label={t("common.metric.max_drawdown")}
               value={`${(detail.metrics.max_drawdown * 100).toFixed(1)}%`}
               warn={detail.metrics.max_drawdown < -0.2}
             />
             <MetricCard
-              label="Win Rate"
+              label={t("common.metric.win_rate")}
               value={`${(detail.metrics.win_rate * 100).toFixed(1)}%`}
             />
             <MetricCard
-              label="Total Trades"
+              label={t("component.backtest_overview.metric.total_trades")}
               value={String(detail.metrics.total_trades)}
             />
           </div>
@@ -333,47 +333,47 @@ export function BacktestOverviewTab() {
           ) && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               <MetricCard
-                label="Information Ratio"
+                label={t("common.metric.information_ratio")}
                 value={detail.metrics.information_ratio != null
                   ? detail.metrics.information_ratio.toFixed(3)
                   : '—'}
-                sub="IR (needs benchmark)"
+                sub={t("component.backtest_overview.metric.ir_needs_benchmark")}
                 warn={detail.metrics.information_ratio != null && detail.metrics.information_ratio < 0}
               />
               <MetricCard
-                label="Tracking Error"
+                label={t("common.metric.tracking_error")}
                 value={detail.metrics.tracking_error != null
                   ? `${(detail.metrics.tracking_error * 100).toFixed(2)}%`
                   : '—'}
-                sub="TE (annualized)"
+                sub={t("component.backtest_overview.metric.te_annualized")}
               />
               <MetricCard
-                label="Alpha"
+                label={t("common.metric.alpha")}
                 value={detail.metrics.alpha != null
                   ? `${(detail.metrics.alpha * 100).toFixed(2)}%`
                   : '—'}
-                sub="Jensen's α"
+                sub={t('component.backtest_overview.metric.jensen_alpha')}
                 warn={detail.metrics.alpha != null && detail.metrics.alpha < 0}
               />
               <MetricCard
-                label="Omega Ratio"
+                label={t("component.backtest_overview.metric.omega_ratio")}
                 value={detail.metrics.omega_ratio != null
                   ? detail.metrics.omega_ratio.toFixed(3)
                   : '—'}
                 warn={detail.metrics.omega_ratio != null && detail.metrics.omega_ratio < 1}
               />
               <MetricCard
-                label="Tail Ratio"
+                label={t("component.backtest_overview.metric.tail_ratio")}
                 value={detail.metrics.tail_ratio != null
                   ? detail.metrics.tail_ratio.toFixed(3)
                   : '—'}
               />
               <MetricCard
-                label="Turnover"
+                label={t("component.backtest_overview.metric.turnover")}
                 value={detail.metrics.turnover_pct != null
                   ? `${(detail.metrics.turnover_pct * 100).toFixed(1)}%`
                   : '—'}
-                sub="Avg single-side"
+                sub={t("component.backtest_overview.metric.avg_single_side")}
               />
             </div>
           )}
@@ -387,7 +387,7 @@ export function BacktestOverviewTab() {
                 `metrics_${selectedId?.slice(0, 8) ?? 'backtest'}.json`,
               )}
             >
-              Export Metrics JSON
+              {t('component.backtest_overview.btn.export_metrics_json')}
             </button>
           </div>
         </>
@@ -396,12 +396,12 @@ export function BacktestOverviewTab() {
       {/* Risk snapshot */}
       {riskData?.items?.[0] && (
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Latest Risk Snapshot</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('component.backtest_overview.section.latest_risk_snapshot')}</h3>
           <div className="grid grid-cols-4 gap-4">
-            <MetricCard label="Drawdown" value={`${((riskData.items[0].drawdown as number ?? 0) * 100).toFixed(2)}%`} warn />
-            <MetricCard label="Leverage" value={(riskData.items[0].gross_leverage as number ?? 0).toFixed(2)} />
-            <MetricCard label="VaR 95%" value={`${((riskData.items[0].var_95 as number ?? 0) * 100).toFixed(2)}%`} />
-            <MetricCard label="Beta" value={(riskData.items[0].beta as number ?? 0).toFixed(2)} />
+            <MetricCard label={t('component.backtest_overview.metric.drawdown')} value={`${((riskData.items[0].drawdown as number ?? 0) * 100).toFixed(2)}%`} warn />
+            <MetricCard label={t('component.backtest_overview.metric.leverage')} value={(riskData.items[0].gross_leverage as number ?? 0).toFixed(2)} />
+            <MetricCard label={t('component.backtest_overview.metric.var_95')} value={`${((riskData.items[0].var_95 as number ?? 0) * 100).toFixed(2)}%`} />
+            <MetricCard label={t("common.metric.beta")} value={(riskData.items[0].beta as number ?? 0).toFixed(2)} />
           </div>
         </div>
       )}
@@ -410,14 +410,14 @@ export function BacktestOverviewTab() {
       {analysis && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <MetricCard label="PSR" value={psr.toFixed(3)} sub="Probabilistic Sharpe" warn={psr < 0.5} />
-            <MetricCard label="DSR" value={dsr.toFixed(3)} sub="Deflated Sharpe" warn={dsr < 0.5} />
-            <MetricCard label="Summary" value={String(analysis.summary ?? '').slice(0, 60) || '—'} sub="" />
-            <MetricCard label="Overfit Risk" value={`${Math.round(overfitScore * 100)}%`} warn={overfitScore > 0.5} />
+            <MetricCard label={t('component.backtest_overview.metric.psr')} value={psr.toFixed(3)} sub={t("component.backtest_overview.metric.probabilistic_sharpe")} warn={psr < 0.5} />
+            <MetricCard label={t('component.backtest_overview.metric.dsr')} value={dsr.toFixed(3)} sub={t("component.backtest_overview.metric.deflated_sharpe")} warn={dsr < 0.5} />
+            <MetricCard label={t('component.backtest_overview.metric.summary')} value={String(analysis.summary ?? '').slice(0, 60) || '—'} sub="" />
+            <MetricCard label={t('component.backtest_overview.metric.overfit_risk')} value={`${Math.round(overfitScore * 100)}%`} warn={overfitScore > 0.5} />
           </div>
           <div className="card text-sm text-gray-700">
-            <div className="font-medium mb-1">Analysis Summary</div>
-            <p className="text-gray-600">{String(analysis.summary ?? 'No analysis summary available')}</p>
+            <div className="font-medium mb-1">{t('component.backtest_overview.section.analysis_summary')}</div>
+            <p className="text-gray-600">{String(analysis.summary ?? t('component.backtest_overview.empty.no_analysis'))}</p>
           </div>
         </div>
       )}
@@ -425,7 +425,7 @@ export function BacktestOverviewTab() {
       {/* Drawdown timeseries chart */}
       {drawdownChart.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Drawdown Curve</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('component.backtest_overview.section.drawdown_curve')}</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={drawdownChart} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
@@ -443,8 +443,8 @@ export function BacktestOverviewTab() {
                 />
                 <Tooltip
                   contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                  formatter={(value: number) => [`${value.toFixed(2)}%`, 'Drawdown']}
-                  labelFormatter={(label: string) => `Date: ${label}`}
+                  formatter={(value: number) => [`${value.toFixed(2)}%`, t('component.backtest_overview.series.drawdown')]}
+                  labelFormatter={(label: string) => `${t('component.backtest_overview.label.date')}: ${label}`}
                 />
                 <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1} />
                 <Area
@@ -465,7 +465,7 @@ export function BacktestOverviewTab() {
       {rollingOverviewData.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-end">
-            <label className="text-xs text-gray-500 mr-2">Rolling Window:</label>
+            <label className="text-xs text-gray-500 mr-2">{t('component.backtest_overview.label.rolling_window')}</label>
             <select
               value={rollingWindow}
               onChange={e => setRollingWindow(Number(e.target.value))}
@@ -477,13 +477,13 @@ export function BacktestOverviewTab() {
           <RollingMetricsChart
             data={rollingOverviewData}
             metrics={[
-              { key: 'sharpe', label: 'Rolling Sharpe', color: '#3b82f6' },
-              { key: 'volatility', label: 'Rolling Volatility', color: '#f59e0b' },
+              { key: 'sharpe', label: t('component.backtest_overview.series.rolling_sharpe'), color: '#3b82f6' },
+              { key: 'volatility', label: t('component.backtest_overview.series.rolling_volatility'), color: '#f59e0b' },
             ]}
             window={rollingWindow}
-            title="Rolling Metrics"
+            title={t('component.backtest_overview.section.rolling_metrics')}
             referenceLines={[
-              { value: 0, label: 'Zero', color: '#e5e7eb' },
+              { value: 0, label: t('component.backtest_overview.label.zero'), color: '#e5e7eb' },
             ]}
           />
         </div>
@@ -501,8 +501,8 @@ export function BacktestOverviewTab() {
 
       {!detail?.metrics && !analysis && (
         <div className="card text-center text-gray-400 py-12">
-          <div className="text-4xl mb-3">Chart</div>
-          <div>Select a completed backtest to view details</div>
+          <div className="text-4xl mb-3">{t('component.backtest_overview.empty.chart_icon')}</div>
+          <div>{t('component.backtest_overview.empty.select_completed')}</div>
         </div>
       )}
 
@@ -511,7 +511,7 @@ export function BacktestOverviewTab() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="font-semibold text-gray-900">Deploy as Paper Strategy</h2>
+              <h2 className="font-semibold text-gray-900">{t('component.backtest_overview.deploy.modal_title')}</h2>
               <div className="flex gap-1">
                 {[1, 2, 3].map(s => (
                   <span key={s} className={`w-6 h-6 rounded-full text-xs flex items-center justify-center ${
@@ -525,13 +525,13 @@ export function BacktestOverviewTab() {
             <div className="p-4">
               {deployStep === 1 && (
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-800">Step 1: Confirm Backtest</h3>
+                  <h3 className="font-medium text-gray-800">{t('component.backtest_overview.deploy.step1_title')}</h3>
                   <div className="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
-                    <div><span className="text-gray-500">Strategy: </span><strong>{detail.strategy_id}</strong></div>
-                    <div><span className="text-gray-500">Run ID: </span><span className="font-mono text-xs">{selectedId.slice(0, 16)}...</span></div>
-                    <div><span className="text-gray-500">Dataset: </span>{detail.dataset_version}</div>
+                    <div><span className="text-gray-500">{t('component.backtest_overview.deploy.strategy')} </span><strong>{detail.strategy_id}</strong></div>
+                    <div><span className="text-gray-500">{t('component.backtest_overview.deploy.run_id')} </span><span className="font-mono text-xs">{selectedId.slice(0, 16)}...</span></div>
+                    <div><span className="text-gray-500">{t('component.backtest_overview.deploy.dataset')} </span>{detail.dataset_version}</div>
                     {detail.metrics?.sharpe_ratio != null && (
-                      <div><span className="text-gray-500">Sharpe: </span><strong className="text-brand-600">{Number(detail.metrics.sharpe_ratio).toFixed(3)}</strong></div>
+                      <div><span className="text-gray-500">{t('component.backtest_overview.deploy.sharpe')} </span><strong className="text-brand-600">{Number(detail.metrics.sharpe_ratio).toFixed(3)}</strong></div>
                     )}
                   </div>
                 </div>
@@ -539,42 +539,42 @@ export function BacktestOverviewTab() {
 
               {deployStep === 2 && (
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-800">Step 2: Configure Capital & Risk</h3>
+                  <h3 className="font-medium text-gray-800">{t('component.backtest_overview.deploy.step2_title')}</h3>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Initial Capital</label>
+                    <label className="block text-xs text-gray-600 mb-1">{t('component.backtest_overview.deploy.initial_capital')}</label>
                     <input type="number" value={deployCash} onChange={e => setDeployCash(e.target.value)}
                       className="input w-full" min={10000} step={10000} />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">Risk Mode</label>
+                    <label className="block text-xs text-gray-600 mb-1">{t('component.backtest_overview.deploy.risk_mode')}</label>
                     <select value={deployRiskMode} onChange={e => setDeployRiskMode(e.target.value as typeof deployRiskMode)}
                       className="input w-full">
-                      <option value="conservative">Conservative (stop-loss 5%, max DD 10%)</option>
-                      <option value="moderate">Moderate (stop-loss 8%, max DD 15%)</option>
-                      <option value="aggressive">Aggressive (stop-loss 15%, max DD 25%)</option>
+                      <option value="conservative">{t('component.backtest_overview.deploy.mode_conservative')}</option>
+                      <option value="moderate">{t('component.backtest_overview.deploy.mode_moderate')}</option>
+                      <option value="aggressive">{t('component.backtest_overview.deploy.mode_aggressive')}</option>
                     </select>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg text-xs space-y-1 text-gray-600">
-                    <div className="font-medium text-gray-700 mb-1">Risk Parameters Preview</div>
+                    <div className="font-medium text-gray-700 mb-1">{t('component.backtest_overview.deploy.risk_preview')}</div>
                     {deployRiskMode === 'conservative' && (
                       <>
-                        <div>- Per-trade stop-loss: 5%</div>
-                        <div>- Max drawdown: 10% (pauses strategy)</div>
-                        <div>- Single stock limit: 10% NAV</div>
+                        <div>- {t('component.backtest_overview.deploy.per_trade_stop_loss')}: 5%</div>
+                        <div>- {t('component.backtest_overview.deploy.max_drawdown_label')}: 10% ({t('component.backtest_overview.deploy.pauses_strategy')})</div>
+                        <div>- {t('component.backtest_overview.deploy.single_stock_limit')}: 10% NAV</div>
                       </>
                     )}
                     {deployRiskMode === 'moderate' && (
                       <>
-                        <div>- Per-trade stop-loss: 8%</div>
-                        <div>- Max drawdown: 15% (pauses strategy)</div>
-                        <div>- Single stock limit: 15% NAV</div>
+                        <div>- {t('component.backtest_overview.deploy.per_trade_stop_loss')}: 8%</div>
+                        <div>- {t('component.backtest_overview.deploy.max_drawdown_label')}: 15% ({t('component.backtest_overview.deploy.pauses_strategy')})</div>
+                        <div>- {t('component.backtest_overview.deploy.single_stock_limit')}: 15% NAV</div>
                       </>
                     )}
                     {deployRiskMode === 'aggressive' && (
                       <>
-                        <div>- Per-trade stop-loss: 15%</div>
-                        <div>- Max drawdown: 25% (pauses strategy)</div>
-                        <div>- Single stock limit: 20% NAV</div>
+                        <div>- {t('component.backtest_overview.deploy.per_trade_stop_loss')}: 15%</div>
+                        <div>- {t('component.backtest_overview.deploy.max_drawdown_label')}: 25% ({t('component.backtest_overview.deploy.pauses_strategy')})</div>
+                        <div>- {t('component.backtest_overview.deploy.single_stock_limit')}: 20% NAV</div>
                       </>
                     )}
                   </div>
@@ -583,11 +583,11 @@ export function BacktestOverviewTab() {
 
               {deployStep === 3 && (
                 <div className="space-y-3">
-                  <h3 className="font-medium text-gray-800">Step 3: Confirm Deployment</h3>
+                  <h3 className="font-medium text-gray-800">{t('component.backtest_overview.deploy.step3_title')}</h3>
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm space-y-1">
-                    <div>Strategy: <strong>{detail.strategy_id}</strong></div>
-                    <div>Initial Capital: <strong>{Number(deployCash).toLocaleString()}</strong></div>
-                    <div>Risk Mode: <strong>{deployRiskMode}</strong></div>
+                    <div>{t('component.backtest_overview.deploy.strategy')}: <strong>{detail.strategy_id}</strong></div>
+                    <div>{t('component.backtest_overview.deploy.initial_capital')}: <strong>{Number(deployCash).toLocaleString()}</strong></div>
+                    <div>{t('component.backtest_overview.deploy.risk_mode')}: <strong>{deployRiskMode}</strong></div>
                   </div>
 
                   <div className="space-y-2">
@@ -595,24 +595,24 @@ export function BacktestOverviewTab() {
                       <input type="checkbox" checked={deployChecklist.confirmBacktest}
                         onChange={e => setDeployChecklist(c => ({ ...c, confirmBacktest: e.target.checked }))}
                         className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-brand-600" />
-                      <span>I confirm backtest results are satisfactory (Sharpe: {Number(detail.metrics?.sharpe_ratio ?? 0).toFixed(3)}, Max DD: {((detail.metrics?.max_drawdown ?? 0) * 100).toFixed(1)}%)</span>
+                      <span>{t('component.backtest_overview.deploy.confirm_backtest', { sharpe: Number(detail.metrics?.sharpe_ratio ?? 0).toFixed(3), maxDD: ((detail.metrics?.max_drawdown ?? 0) * 100).toFixed(1) })}</span>
                     </label>
                     <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
                       <input type="checkbox" checked={deployChecklist.understandPaper}
                         onChange={e => setDeployChecklist(c => ({ ...c, understandPaper: e.target.checked }))}
                         className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-brand-600" />
-                      <span>I understand this is a Paper Trading simulation, not real execution</span>
+                      <span>{t('component.backtest_overview.deploy.confirm_paper')}</span>
                     </label>
                     <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
                       <input type="checkbox" checked={deployChecklist.reviewRisk}
                         onChange={e => setDeployChecklist(c => ({ ...c, reviewRisk: e.target.checked }))}
                         className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-brand-600" />
-                      <span>I understand the risk rules; strategy will auto-pause on stop-loss/drawdown triggers</span>
+                      <span>{t('component.backtest_overview.deploy.confirm_risk')}</span>
                     </label>
                   </div>
 
                   <p className="text-xs text-gray-500">
-                    After deployment, view strategy status and execution records in the "Live Monitor" page.
+                    {t('component.backtest_overview.deploy.after_hint')}
                   </p>
                 </div>
               )}
@@ -633,11 +633,11 @@ export function BacktestOverviewTab() {
                 }}
                 className="btn-secondary text-sm"
               >
-                {deployStep === 1 ? 'Cancel' : 'Back'}
+                {deployStep === 1 ? t('common.cancel') : t('component.backtest_overview.deploy.back')}
               </button>
               {deployStep < 3 ? (
                 <button onClick={() => setDeployStep(s => s + 1)} className="btn-primary text-sm">
-                  Next
+                  {t('component.backtest_overview.deploy.next')}
                 </button>
               ) : (
                 <button
@@ -649,7 +649,7 @@ export function BacktestOverviewTab() {
                   disabled={deployMutation.isPending || !deployChecklist.confirmBacktest || !deployChecklist.understandPaper || !deployChecklist.reviewRisk}
                   className="btn-primary text-sm disabled:opacity-40"
                 >
-                  {deployMutation.isPending ? 'Deploying...' : 'Confirm Deployment'}
+                  {deployMutation.isPending ? t('component.backtest_overview.deploy.deploying') : t('component.backtest_overview.deploy.confirm_deployment')}
                 </button>
               )}
             </div>
