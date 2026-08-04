@@ -166,6 +166,16 @@
         "trade-analysis": "交易分析"
       }
     },
+    "knowledge": {
+      "title": "知识库",
+      "qa_subtitle": "向知识库提问，获取基于文档的智能回答",
+      "qa_hint": "支持语义检索 + LLM 生成",
+      "qa_placeholder": "输入问题，例如：如何构建多因子策略？",
+      "docs_subtitle": "研报、策略文档、笔记管理与语义检索",
+      "search_placeholder": "搜索文档…（语义 + 关键词混合检索）",
+      "sources": "参考来源（{{count}} 条）",
+      "source_meta": "文档 {{id}}... 相关度 {{score}}"
+    },
     "alerts": {
       "center": "告警中心",
       "unread_count": "条未读告警",

@@ -166,6 +166,16 @@
         "trade-analysis": "Trade Analysis"
       }
     },
+    "knowledge": {
+      "title": "Knowledge Base",
+      "qa_subtitle": "Ask the knowledge base for document-grounded answers",
+      "qa_hint": "Supports semantic retrieval + LLM generation",
+      "qa_placeholder": "Enter a question, e.g.: How to build a multi-factor strategy?",
+      "docs_subtitle": "Research reports, strategy docs, notes management & semantic search",
+      "search_placeholder": "Search docs… (semantic + keyword hybrid)",
+      "sources": "Sources ({{count}})",
+      "source_meta": "Doc {{id}}... relevance {{score}}"
+    },
     "alerts": {
       "center": "Alert Center",
       "unread_count": "unread alerts",

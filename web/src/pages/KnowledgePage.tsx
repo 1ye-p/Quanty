@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { knowledgeApi, type KnowledgeDoc, type SearchHit, type QAResponse } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -23,6 +24,7 @@ interface QAEntry {
 
 // ── Q&A Tab Component ────────────────────────────────────────────────────────
 function QATab() {
+  const { t } = useTranslation()
   const [question, setQuestion] = useState('')
   const [history, setHistory] = useState<QAEntry[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -87,8 +89,8 @@ function QATab() {
                 d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
               />
             </svg>
-            <p className="text-sm">向知识库提问，获取基于文档的智能回答</p>
-            <p className="text-xs mt-1 text-gray-300">支持语义检索 + LLM 生成</p>
+            <p className="text-sm">{t('page.knowledge.qa_subtitle')}</p>
+            <p className="text-xs mt-1 text-gray-300">{t('page.knowledge.qa_hint')}</p>
           </div>
         )}
 
@@ -112,7 +114,7 @@ function QATab() {
                 {entry.sources.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-gray-100">
                     <p className="text-xs font-medium text-gray-500 mb-2">
-                      参考来源（{entry.sources.length} 条）
+                      {t('page.knowledge.sources', { count: entry.sources.length })}
                     </p>
                     <div className="space-y-1.5">
                       {entry.sources.map((src: QAResponse['sources'][number], i: number) => (
@@ -125,7 +127,7 @@ function QATab() {
                               {src.snippet}
                             </p>
                             <p className="text-[10px] text-gray-400 mt-0.5">
-                              文档 {src.doc_id.slice(0, 8)}... 相关度 {src.score.toFixed(3)}
+                              {t('page.knowledge.source_meta', { id: src.doc_id.slice(0, 8), score: src.score.toFixed(3) })}
                             </p>
                           </div>
                         </div>
@@ -179,7 +181,7 @@ function QATab() {
             type="text"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="输入问题，例如：如何构建多因子策略？"
+            placeholder={t('page.knowledge.qa_placeholder')}
             className="input flex-1"
             disabled={qaMutation.isPending}
           />
@@ -204,6 +206,7 @@ function SearchTab({
   selectedDoc: KnowledgeDoc | null
   setSelectedDoc: (doc: KnowledgeDoc | null) => void
 }) {
+  const { t } = useTranslation()
   const [showUpload, setShowUpload] = useState(false)
   const [searchText, setSearchText] = useState('')
   const [submitted, setSubmitted] = useState('')
@@ -237,7 +240,7 @@ function SearchTab({
       <div className="flex-shrink-0 mb-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-sm text-gray-500">研报、策略文档、笔记管理与语义检索</p>
+            <p className="text-sm text-gray-500">{t('page.knowledge.docs_subtitle')}</p>
           </div>
           <button
             className="btn-primary"
@@ -253,10 +256,10 @@ function SearchTab({
             type="text"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            placeholder="搜索文档…（语义 + 关键词混合检索）"
+            placeholder={t('page.knowledge.search_placeholder')}
             className="input flex-1"
           />
-          <button type="submit" className="btn-primary">搜索</button>
+          <button type="submit" className="btn-primary">{t('common.search')}</button>
         </form>
 
         {/* Upload (conditional) */}
@@ -354,6 +357,7 @@ function SearchTab({
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 export function KnowledgePage() {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabKey>('search')
   const [selectedDoc, setSelectedDoc] = useState<KnowledgeDoc | null>(null)
 
@@ -366,7 +370,7 @@ export function KnowledgePage() {
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between mb-4">
-        <h1 className="page-title">知识库</h1>
+        <h1 className="page-title">{t('page.knowledge.title')}</h1>
         {/* Tab navigation */}
         <div className="flex items-center bg-gray-100 rounded-lg p-1">
           {tabs.map((tab) => (
