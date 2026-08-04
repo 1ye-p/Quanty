@@ -27,6 +27,7 @@ interface CustomTemplate {
 
 function loadCustomTemplates(): CustomTemplate[] {
   try {
+    if (typeof localStorage === 'undefined') return []
     return JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? '[]')
   } catch (e) {
     console.warn('Failed to parse custom templates from localStorage:', e)
@@ -35,6 +36,7 @@ function loadCustomTemplates(): CustomTemplate[] {
 }
 
 function saveCustomTemplates(templates: CustomTemplate[]) {
+  if (typeof localStorage === 'undefined') return
   localStorage.setItem(CUSTOM_KEY, JSON.stringify(templates))
 }
 
