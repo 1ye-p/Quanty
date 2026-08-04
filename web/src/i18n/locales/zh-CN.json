@@ -139,6 +139,51 @@
       "scenario_comparison": "情景对比汇总",
       "scenario": "情景",
       "benchmark_return": "基准收益"
+    },
+    "tearsheet": {
+      "section": {
+        "nav_drawdown": "NAV 与回撤曲线",
+        "benchmark_comparison": "基准对比",
+        "cumulative_excess": "累计超额收益",
+        "rolling_te": "滚动跟踪误差 (20日)",
+        "rolling_ir": "滚动信息比率 (20日)",
+        "capture_ratio": "涨跌捕获比率",
+        "raw_data": "原始数据 (JSON)"
+      },
+      "label": {
+        "monthly_win_rate": "月度胜率",
+        "best_month": "最佳月份",
+        "worst_month": "最差月份",
+        "positive_months": "上涨月数",
+        "up_capture": "上涨捕获",
+        "down_capture": "下跌捕获",
+        "up_participation": "上涨参与",
+        "down_participation": "下跌参与"
+      },
+      "sub": {
+        "months_count": "{{count}} 个月",
+        "of_total": "共 {{count}}",
+        "up_days": "{{count}} 个上涨日",
+        "down_days": "{{count}} 个下跌日",
+        "up_when_up": "基准上涨时策略上涨",
+        "down_when_down": "基准下跌时策略下跌"
+      },
+      "series": {
+        "strategy": "策略",
+        "benchmark": "基准",
+        "excess_return": "超额收益",
+        "te": "TE",
+        "ir": "IR"
+      },
+      "phrase": {
+        "excess_return_label": "超额收益：",
+        "vs_benchmark": "对比 {{assetId}}"
+      },
+      "empty": {
+        "chart_icon": "图表",
+        "loading": "策略报告数据加载中...",
+        "hint": "需要完整的 portfolio_returns 存储才能显示 NAV 曲线"
+      }
     }
   },
   "page": {

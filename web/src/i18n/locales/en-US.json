@@ -139,6 +139,51 @@
       "scenario_comparison": "Scenario Comparison Summary",
       "scenario": "Scenario",
       "benchmark_return": "Benchmark Return"
+    },
+    "tearsheet": {
+      "section": {
+        "nav_drawdown": "NAV & Drawdown Curve",
+        "benchmark_comparison": "Benchmark Comparison",
+        "cumulative_excess": "Cumulative Excess Return",
+        "rolling_te": "Rolling Tracking Error (20d)",
+        "rolling_ir": "Rolling Information Ratio (20d)",
+        "capture_ratio": "Up/Down Capture Ratio",
+        "raw_data": "Raw Data (JSON)"
+      },
+      "label": {
+        "monthly_win_rate": "Monthly Win Rate",
+        "best_month": "Best Month",
+        "worst_month": "Worst Month",
+        "positive_months": "Positive Months",
+        "up_capture": "Up Capture",
+        "down_capture": "Down Capture",
+        "up_participation": "Up Participation",
+        "down_participation": "Down Participation"
+      },
+      "sub": {
+        "months_count": "{{count}} months",
+        "of_total": "of {{count}}",
+        "up_days": "{{count}} up days",
+        "down_days": "{{count}} down days",
+        "up_when_up": "Strategy up when benchmark up",
+        "down_when_down": "Strategy down when benchmark down"
+      },
+      "series": {
+        "strategy": "Strategy",
+        "benchmark": "Benchmark",
+        "excess_return": "Excess Return",
+        "te": "TE",
+        "ir": "IR"
+      },
+      "phrase": {
+        "excess_return_label": "Excess Return:",
+        "vs_benchmark": "vs {{assetId}}"
+      },
+      "empty": {
+        "chart_icon": "Chart",
+        "loading": "Tearsheet data loading...",
+        "hint": "Requires complete portfolio_returns storage for NAV curve display"
+      }
     }
   },
   "page": {

@@ -1,5 +1,6 @@
 import { MetricCard } from '../../components/ui/MetricCard'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestExtApi } from '@/lib/api'
@@ -14,6 +15,7 @@ import {
 
 
 export function BacktestTearsheetTab() {
+  const { t } = useTranslation()
   const { id: selectedId } = useParams<{ id: string }>()
 
   const { data: tearsheet } = useQuery({
@@ -147,14 +149,14 @@ export function BacktestTearsheetTab() {
     <div className="space-y-4">
       {pnlData.length > 0 ? (
         <div className="card">
-          <h3 className="font-semibold text-gray-800 mb-3">NAV & Drawdown Curve</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">{t('component.tearsheet.section.nav_drawdown')}</h3>
           <PnLChart data={pnlData} height={280} showDrawdown />
         </div>
       ) : (
         <div className="card text-center text-gray-400 py-12">
-          <div className="text-4xl mb-3">Chart</div>
-          <div>Tearsheet data loading...</div>
-          <div className="text-xs mt-1">Requires complete portfolio_returns storage for NAV curve display</div>
+          <div className="text-4xl mb-3">{t('component.tearsheet.empty.chart_icon')}</div>
+          <div>{t('component.tearsheet.empty.loading')}</div>
+          <div className="text-xs mt-1">{t('component.tearsheet.empty.hint')}</div>
         </div>
       )}
 
@@ -165,25 +167,25 @@ export function BacktestTearsheetTab() {
           {monthlyStats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <MetricCard
-                label="Monthly Win Rate"
+                label={t('component.tearsheet.label.monthly_win_rate')}
                 value={`${monthlyStats.winRate.toFixed(1)}%`}
-                sub={`${monthlyStats.totalMonths} months`}
+                sub={t('component.tearsheet.sub.months_count', { count: monthlyStats.totalMonths })}
               />
               <MetricCard
-                label="Best Month"
+                label={t('component.tearsheet.label.best_month')}
                 value={`${(monthlyStats.bestReturn * 100).toFixed(2)}%`}
                 sub={monthlyStats.bestMonth}
               />
               <MetricCard
-                label="Worst Month"
+                label={t('component.tearsheet.label.worst_month')}
                 value={`${(monthlyStats.worstReturn * 100).toFixed(2)}%`}
                 sub={monthlyStats.worstMonth}
                 warn={monthlyStats.worstReturn < 0}
               />
               <MetricCard
-                label="Positive Months"
+                label={t('component.tearsheet.label.positive_months')}
                 value={String(Math.round(monthlyStats.totalMonths * monthlyStats.winRate / 100))}
-                sub={`of ${monthlyStats.totalMonths}`}
+                sub={t('component.tearsheet.sub.of_total', { count: monthlyStats.totalMonths })}
               />
             </div>
           )}
@@ -195,18 +197,18 @@ export function BacktestTearsheetTab() {
       {combinedNav.length > 0 && benchmarkNav.length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-800">Benchmark Comparison</h3>
+            <h3 className="font-semibold text-gray-800">{t('component.tearsheet.section.benchmark_comparison')}</h3>
             {(() => {
               const lastPortfolio = combinedNav[combinedNav.length - 1]?.portfolio ?? 1
               const lastBm = benchmarkNav[benchmarkNav.length - 1]?.nav ?? 1
               const excess = (lastPortfolio / lastBm - 1) * 100
               return (
                 <div className="text-sm text-gray-600">
-                  Excess Return:
+                  {t('component.tearsheet.phrase.excess_return_label')}
                   <span className={`font-mono font-semibold ml-1 ${excess >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                     {excess >= 0 ? '+' : ''}{excess.toFixed(2)}%
                   </span>
-                  <span className="text-xs text-gray-400 ml-1">vs {benchmarkAssetId}</span>
+                  <span className="text-xs text-gray-400 ml-1">{t('component.tearsheet.phrase.vs_benchmark', { assetId: benchmarkAssetId })}</span>
                 </div>
               )
             })()}
@@ -218,8 +220,8 @@ export function BacktestTearsheetTab() {
               <YAxis tick={{ fontSize: 10 }} tickFormatter={v => v.toFixed(2)} />
               <Tooltip formatter={(v: number) => v.toFixed(4)} />
               <Legend />
-              <Line dataKey="portfolio" name="Strategy" stroke="#3b82f6" dot={false} strokeWidth={2} />
-              <Line dataKey="benchmark" name={benchmarkAssetId || 'Benchmark'} stroke="#94a3b8"
+              <Line dataKey="portfolio" name={t('component.tearsheet.series.strategy')} stroke="#3b82f6" dot={false} strokeWidth={2} />
+              <Line dataKey="benchmark" name={benchmarkAssetId || t('component.tearsheet.series.benchmark')} stroke="#94a3b8"
                 strokeDasharray="5 3" dot={false} strokeWidth={1.5} connectNulls />
             </LineChart>
           </ResponsiveContainer>
@@ -237,7 +239,7 @@ export function BacktestTearsheetTab() {
         if (excessData.length === 0) return null
         return (
           <div className="card">
-            <h3 className="font-semibold text-gray-800 mb-3">Cumulative Excess Return</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">{t('component.tearsheet.section.cumulative_excess')}</h3>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={excessData} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -246,7 +248,7 @@ export function BacktestTearsheetTab() {
                 <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(1)}%`} />
                 <Tooltip formatter={(v: number) => `${v.toFixed(2)}%`} />
                 <ReferenceLine y={0} stroke="#e5e7eb" />
-                <Area type="monotone" dataKey="excess" name="Excess Return" stroke="#10b981" fill="#d1fae5" fillOpacity={0.6} dot={false} />
+                <Area type="monotone" dataKey="excess" name={t('component.tearsheet.series.excess_return')} stroke="#10b981" fill="#d1fae5" fillOpacity={0.6} dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -276,7 +278,7 @@ export function BacktestTearsheetTab() {
         return (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-3">Rolling Tracking Error (20d)</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">{t('component.tearsheet.section.rolling_te')}</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={rollingData} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -284,12 +286,12 @@ export function BacktestTearsheetTab() {
                     tickFormatter={v => String(v).slice(5)} />
                   <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(1)}%`} />
                   <Tooltip formatter={(v: number) => `${v.toFixed(2)}%`} />
-                  <Line type="monotone" dataKey="te" name="TE" stroke="#f59e0b" dot={false} strokeWidth={1.5} />
+                  <Line type="monotone" dataKey="te" name={t('component.tearsheet.series.te')} stroke="#f59e0b" dot={false} strokeWidth={1.5} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-3">Rolling Information Ratio (20d)</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">{t('component.tearsheet.section.rolling_ir')}</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={rollingData} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -298,7 +300,7 @@ export function BacktestTearsheetTab() {
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip formatter={(v: number) => v.toFixed(3)} />
                   <ReferenceLine y={0} stroke="#e5e7eb" />
-                  <Line type="monotone" dataKey="ir" name="IR" stroke="#8b5cf6" dot={false} strokeWidth={1.5} />
+                  <Line type="monotone" dataKey="ir" name={t('component.tearsheet.series.ir')} stroke="#8b5cf6" dot={false} strokeWidth={1.5} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -332,12 +334,12 @@ export function BacktestTearsheetTab() {
 
         return (
           <div className="card">
-            <h3 className="font-semibold text-gray-800 mb-3">Up/Down Capture Ratio</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">{t('component.tearsheet.section.capture_ratio')}</h3>
             <div className="grid grid-cols-4 gap-4">
-              <MetricCard label="Up Capture" value={`${upCapture.toFixed(1)}%`} sub={`${upCount} up days`} />
-              <MetricCard label="Down Capture" value={`${downCapture.toFixed(1)}%`} sub={`${downCount} down days`} warn={downCapture > 100} />
-              <MetricCard label="Up Participation" value={String(upCount)} sub="Strategy up when benchmark up" />
-              <MetricCard label="Down Participation" value={String(downCount)} sub="Strategy down when benchmark down" />
+              <MetricCard label={t('component.tearsheet.label.up_capture')} value={`${upCapture.toFixed(1)}%`} sub={t('component.tearsheet.sub.up_days', { count: upCount })} />
+              <MetricCard label={t('component.tearsheet.label.down_capture')} value={`${downCapture.toFixed(1)}%`} sub={t('component.tearsheet.sub.down_days', { count: downCount })} warn={downCapture > 100} />
+              <MetricCard label={t('component.tearsheet.label.up_participation')} value={String(upCount)} sub={t('component.tearsheet.sub.up_when_up')} />
+              <MetricCard label={t('component.tearsheet.label.down_participation')} value={String(downCount)} sub={t('component.tearsheet.sub.down_when_down')} />
             </div>
           </div>
         )
@@ -345,7 +347,7 @@ export function BacktestTearsheetTab() {
 
       {tearsheet && (
         <div className="card">
-          <h3 className="font-semibold text-gray-800 mb-3">Raw Data (JSON)</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">{t('component.tearsheet.section.raw_data')}</h3>
           <pre className="text-xs text-gray-500 overflow-x-auto bg-gray-50 rounded-lg p-3">
             {JSON.stringify(tearsheet, null, 2).slice(0, 1000)}...
           </pre>
