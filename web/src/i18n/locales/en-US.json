@@ -1464,6 +1464,85 @@
         "abnormal_warning": "{{count}} holding(s) have abnormal negative sentiment, please monitor",
         "count_summary": "{{count}} portfolio-related news (holding assets: {{assets}})"
       }
+    },
+    "live": {
+      "title": "Live Monitoring",
+      "subtitle": "Real-time quotes · Positions · Orders",
+      "tab": {
+        "overview": "Overview",
+        "positions": "Positions",
+        "executions": "Execution Log",
+        "risk": "Risk Monitor"
+      },
+      "stat": {
+        "initial_cash": "Initial Capital",
+        "risk_mode": "Risk Mode",
+        "sharpe": "Sharpe",
+        "return_rate": "Return",
+        "nav": "NAV",
+        "cash": "Cash",
+        "total_pnl": "Total PnL",
+        "market_value": "Market Value",
+        "gross_exposure": "Gross Exposure",
+        "net_exposure": "Net Exposure",
+        "realized_pnl": "Realized PnL",
+        "unrealized_pnl": "Unrealized PnL"
+      },
+      "section": {
+        "deployed_title": "Paper Strategies ({{active}} active)",
+        "realtime_quotes": "Real-time Quotes",
+        "quote_detail": "{{symbol}} Quote Details",
+        "account_detail": "Account Details",
+        "position_concentration": "Position Concentration"
+      },
+      "btn": {
+        "resume": "▶ Resume",
+        "kill_switch": "⚠ Kill-Switch"
+      },
+      "conn": {
+        "connected": "Connected",
+        "disconnected": "Disconnected"
+      },
+      "kill_switch": {
+        "active_banner": "Kill-Switch activated — all strategies stopped",
+        "dialog_title": "⚠ Emergency Kill-Switch Confirmation",
+        "dialog_desc": "This action will immediately stop all active strategies",
+        "cancel_orders": "Cancel all pending orders",
+        "close_positions": "Close all positions immediately",
+        "confirm_label": "Type <b>STOP</b> to confirm",
+        "confirm_button": "Confirm Kill-Switch",
+        "executing": "Executing...",
+        "stop_success": "Strategy stopped",
+        "stop_failed": "Stop failed: {{message}}",
+        "activated_toast": "Kill-Switch activated — stopped {{strategies}} strategies, cancelled {{orders}} orders, closed {{positions}} positions",
+        "activate_failed": "Kill-Switch activation failed: {{message}}"
+      },
+      "resume": {
+        "dialog_title": "Resume strategies?",
+        "dialog_desc": "This will resume all strategies stopped by Kill-Switch.",
+        "confirm_button": "Confirm Resume",
+        "executing": "Resuming...",
+        "success_toast": "Resumed {{count}} strategies",
+        "failed": "Resume failed: {{message}}"
+      },
+      "quote": {
+        "symbol": "Symbol",
+        "price": "Last",
+        "change": "Change",
+        "change_pct": "Change %",
+        "volume": "Volume",
+        "bid_ask": "Bid/Ask",
+        "open": "Open",
+        "high": "High",
+        "low": "Low",
+        "prev_close": "Prev Close",
+        "amount": "Turnover",
+        "bid1": "Bid 1",
+        "ask1": "Ask 1",
+        "volume_unit": "0k",
+        "volume_unit_lot": "0k lots",
+        "amount_unit": "0B"
+      }
     }
   }
 }
