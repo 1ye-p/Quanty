@@ -324,6 +324,49 @@
       "error": {
         "trigger_failed": "触发分析失败：{{message}}"
       }
+    },
+    "advanced": {
+      "section": {
+        "month_effect": "月份效应",
+        "weekday_effect": "星期效应",
+        "month_end_effect": "月末效应",
+        "trade_analysis_overview": "交易分析概览",
+        "win_loss_statistics": "盈亏统计"
+      },
+      "label": {
+        "month_end_avg_return": "月末平均收益",
+        "non_month_end_avg": "非月末平均",
+        "t_statistic": "t 统计量",
+        "p_value": "p 值",
+        "profit_factor": "盈亏比",
+        "payoff_ratio": "赔率",
+        "expectancy": "期望值",
+        "largest_win": "最大单笔盈利",
+        "mean": "均值",
+        "median": "中位数",
+        "min": "最小",
+        "max": "最大"
+      },
+      "sub": {
+        "total_profit_over_loss": "总盈利 / 总亏损",
+        "avg_win_over_loss": "平均盈利 / 平均亏损",
+        "per_trade_expected_value": "单笔期望值",
+        "trading_days": "{{count}} 个交易日",
+        "days": "{{count}} 天",
+        "trades": "{{count}} 笔",
+        "statistically_significant": "统计显著",
+        "not_significant": "不显著"
+      },
+      "series": {
+        "avg_return": "平均收益",
+        "trades": "交易数"
+      },
+      "empty": {
+        "calendar_icon": "日历",
+        "no_calendar_data": "暂无日历效应分析数据",
+        "chart_icon": "图表",
+        "no_trade_data": "暂无交易分析数据"
+      }
     }
   },
   "page": {

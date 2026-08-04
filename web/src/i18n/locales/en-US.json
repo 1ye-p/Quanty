@@ -324,6 +324,49 @@
       "error": {
         "trigger_failed": "Failed to trigger analysis: {{message}}"
       }
+    },
+    "advanced": {
+      "section": {
+        "month_effect": "Month Effect",
+        "weekday_effect": "Weekday Effect",
+        "month_end_effect": "Month-End Effect",
+        "trade_analysis_overview": "Trade Analysis Overview",
+        "win_loss_statistics": "Win/Loss Statistics"
+      },
+      "label": {
+        "month_end_avg_return": "Month-End Avg Return",
+        "non_month_end_avg": "Non-Month-End Avg",
+        "t_statistic": "t-Statistic",
+        "p_value": "p-Value",
+        "profit_factor": "Profit Factor",
+        "payoff_ratio": "Payoff Ratio",
+        "expectancy": "Expectancy",
+        "largest_win": "Largest Win",
+        "mean": "Mean",
+        "median": "Median",
+        "min": "Min",
+        "max": "Max"
+      },
+      "sub": {
+        "total_profit_over_loss": "Total profit / Total loss",
+        "avg_win_over_loss": "Avg win / Avg loss",
+        "per_trade_expected_value": "Per-trade expected value",
+        "trading_days": "{{count}} trading days",
+        "days": "{{count}} days",
+        "trades": "{{count}} trades",
+        "statistically_significant": "Statistically significant",
+        "not_significant": "Not significant"
+      },
+      "series": {
+        "avg_return": "Avg Return",
+        "trades": "Trades"
+      },
+      "empty": {
+        "calendar_icon": "Calendar",
+        "no_calendar_data": "No calendar analysis data",
+        "chart_icon": "Chart",
+        "no_trade_data": "No trade analysis data"
+      }
     }
   },
   "page": {

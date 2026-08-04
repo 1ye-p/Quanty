@@ -1,4 +1,5 @@
 import { MetricCard } from '../../components/ui/MetricCard'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
@@ -11,6 +12,7 @@ import {
 
 
 export function BacktestAdvancedTab() {
+  const { t } = useTranslation()
   const { id: selectedId } = useParams<{ id: string }>()
 
   const { data: calendarAnalysisData } = useQuery({
@@ -37,7 +39,7 @@ export function BacktestAdvancedTab() {
           {/* Month Effect Heatmap */}
           {calendarAnalysisData.month_effects && (calendarAnalysisData.month_effects as unknown[]).length > 0 && (
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-3">Month Effect</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">{t('component.advanced.section.month_effect')}</h3>
               <div className="grid grid-cols-6 gap-2">
                 {(calendarAnalysisData.month_effects as { month: number; label: string; mean_return: number; win_rate: number; count: number }[]).map(m => {
                   const color = m.mean_return > 0
@@ -49,8 +51,8 @@ export function BacktestAdvancedTab() {
                     <div key={m.month} className="text-center p-3 rounded-lg" style={{ backgroundColor: color }}>
                       <div className="text-sm font-medium">{m.label}</div>
                       <div className="text-lg font-bold mt-1">{(m.mean_return * 100).toFixed(2)}%</div>
-                      <div className="text-xs text-gray-600 mt-0.5">Win {(m.win_rate * 100).toFixed(0)}%</div>
-                      <div className="text-xs text-gray-400">{m.count} days</div>
+                      <div className="text-xs text-gray-600 mt-0.5">{t('common.metric.win_rate')} {(m.win_rate * 100).toFixed(0)}%</div>
+                      <div className="text-xs text-gray-400">{t('component.advanced.sub.days', { count: m.count })}</div>
                     </div>
                   )
                 })}
@@ -61,7 +63,7 @@ export function BacktestAdvancedTab() {
           {/* Weekday Effect */}
           {calendarAnalysisData.weekday_effects && (calendarAnalysisData.weekday_effects as unknown[]).length > 0 && (
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-3">Weekday Effect</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">{t('component.advanced.section.weekday_effect')}</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart
                   data={(calendarAnalysisData.weekday_effects as { weekday: number; label: string; mean_return: number }[]).map(w => ({
@@ -75,7 +77,7 @@ export function BacktestAdvancedTab() {
                   <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v.toFixed(2)}%`} />
                   <Tooltip formatter={(v: number) => `${v.toFixed(3)}%`} />
                   <ReferenceLine y={0} stroke="#e5e7eb" />
-                  <Bar dataKey="mean_return_pct" name="Avg Return" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="mean_return_pct" name={t('component.advanced.series.avg_return')} radius={[4, 4, 0, 0]}>
                     {(calendarAnalysisData.weekday_effects as { mean_return: number }[]).map((w, i) => (
                       <Cell key={i} fill={w.mean_return >= 0 ? '#22c55e' : '#ef4444'} />
                     ))}
@@ -88,27 +90,27 @@ export function BacktestAdvancedTab() {
           {/* Month-end effect */}
           {calendarAnalysisData.month_end_effect && (
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-3">Month-End Effect</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">{t('component.advanced.section.month_end_effect')}</h3>
               <div className="grid grid-cols-4 gap-4">
                 <MetricCard
-                  label="Month-End Avg Return"
+                  label={t('component.advanced.label.month_end_avg_return')}
                   value={`${((calendarAnalysisData.month_end_effect as { month_end_mean: number }).month_end_mean * 100).toFixed(3)}%`}
-                  sub={`${(calendarAnalysisData.month_end_effect as { month_end_count: number }).month_end_count} trading days`}
+                  sub={t('component.advanced.sub.trading_days', { count: (calendarAnalysisData.month_end_effect as { month_end_count: number }).month_end_count })}
                 />
                 <MetricCard
-                  label="Non-Month-End Avg"
+                  label={t('component.advanced.label.non_month_end_avg')}
                   value={`${((calendarAnalysisData.month_end_effect as { non_month_end_mean: number }).non_month_end_mean * 100).toFixed(3)}%`}
-                  sub={`${(calendarAnalysisData.month_end_effect as { non_month_end_count: number }).non_month_end_count} trading days`}
+                  sub={t('component.advanced.sub.trading_days', { count: (calendarAnalysisData.month_end_effect as { non_month_end_count: number }).non_month_end_count })}
                 />
                 <MetricCard
-                  label="t-Statistic"
+                  label={t('component.advanced.label.t_statistic')}
                   value={(calendarAnalysisData.month_end_effect as { t_statistic: number }).t_statistic.toFixed(3)}
                 />
                 <MetricCard
-                  label="p-Value"
+                  label={t('component.advanced.label.p_value')}
                   value={(calendarAnalysisData.month_end_effect as { p_value: number }).p_value.toFixed(4)}
                   warn={(calendarAnalysisData.month_end_effect as { p_value: number }).p_value < 0.05}
-                  sub={(calendarAnalysisData.month_end_effect as { p_value: number }).p_value < 0.05 ? 'Statistically significant' : 'Not significant'}
+                  sub={(calendarAnalysisData.month_end_effect as { p_value: number }).p_value < 0.05 ? t('component.advanced.sub.statistically_significant') : t('component.advanced.sub.not_significant')}
                 />
               </div>
             </div>
@@ -116,8 +118,8 @@ export function BacktestAdvancedTab() {
         </>
       ) : (
         <div className="card text-center text-gray-400 py-8">
-          <div className="text-2xl mb-2">Calendar</div>
-          <div>No calendar analysis data</div>
+          <div className="text-2xl mb-2">{t('component.advanced.empty.calendar_icon')}</div>
+          <div>{t('component.advanced.empty.no_calendar_data')}</div>
         </div>
       )}
 
@@ -125,25 +127,25 @@ export function BacktestAdvancedTab() {
       {tradeAnalysisData ? (
         <>
           <div className="card">
-            <h3 className="font-semibold text-gray-800 mb-3">Trade Analysis Overview</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">{t('component.advanced.section.trade_analysis_overview')}</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <MetricCard
-                label="Profit Factor"
+                label={t('component.trade_analysis.label.profit_factor')}
                 value={Number(tradeAnalysisData.profit_factor ?? 0).toFixed(2)}
-                sub="Total profit / Total loss"
+                sub={t('component.advanced.sub.total_profit_over_loss')}
               />
               <MetricCard
-                label="Payoff Ratio"
+                label={t('component.advanced.label.payoff_ratio')}
                 value={Number(tradeAnalysisData.payoff_ratio ?? 0).toFixed(2)}
-                sub="Avg win / Avg loss"
+                sub={t('component.advanced.sub.avg_win_over_loss')}
               />
               <MetricCard
-                label="Expectancy"
+                label={t('component.trade_analysis.label.expectancy')}
                 value={Number(tradeAnalysisData.expectancy ?? 0).toFixed(4)}
-                sub="Per-trade expected value"
+                sub={t('component.advanced.sub.per_trade_expected_value')}
               />
               <MetricCard
-                label="Total Trades"
+                label={t('component.trade_analysis.label.total_trades')}
                 value={String(tradeAnalysisData.total_trades ?? 0)}
               />
             </div>
@@ -151,34 +153,34 @@ export function BacktestAdvancedTab() {
 
           {tradeAnalysisData.win_loss_stats && (
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-3">Win/Loss Statistics</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">{t('component.advanced.section.win_loss_statistics')}</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                 <MetricCard
-                  label="Win Rate"
+                  label={t('common.metric.win_rate')}
                   value={`${((tradeAnalysisData.win_loss_stats as { win_rate: number }).win_rate * 100).toFixed(1)}%`}
                 />
                 <MetricCard
-                  label="Avg Win"
+                  label={t('component.trade_analysis.label.avg_win')}
                   value={`${Number((tradeAnalysisData.win_loss_stats as { avg_win: number }).avg_win).toLocaleString()}`}
                 />
                 <MetricCard
-                  label="Avg Loss"
+                  label={t('component.trade_analysis.label.avg_loss')}
                   value={`${Number((tradeAnalysisData.win_loss_stats as { avg_loss: number }).avg_loss).toLocaleString()}`}
                   warn
                 />
                 <MetricCard
-                  label="Largest Win"
+                  label={t('component.advanced.label.largest_win')}
                   value={`${Number((tradeAnalysisData.win_loss_stats as { largest_win: number }).largest_win).toLocaleString()}`}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-green-50 rounded-lg">
-                  <div className="text-sm font-medium text-green-800">Max Win Streak</div>
-                  <div className="text-2xl font-bold text-green-700">{(tradeAnalysisData.win_loss_stats as { max_win_streak: number }).max_win_streak} trades</div>
+                  <div className="text-sm font-medium text-green-800">{t('component.trade_analysis.label.max_win_streak')}</div>
+                  <div className="text-2xl font-bold text-green-700">{t('component.advanced.sub.trades', { count: (tradeAnalysisData.win_loss_stats as { max_win_streak: number }).max_win_streak })}</div>
                 </div>
                 <div className="p-3 bg-red-50 rounded-lg">
-                  <div className="text-sm font-medium text-red-800">Max Loss Streak</div>
-                  <div className="text-2xl font-bold text-red-700">{(tradeAnalysisData.win_loss_stats as { max_loss_streak: number }).max_loss_streak} trades</div>
+                  <div className="text-sm font-medium text-red-800">{t('component.trade_analysis.label.max_loss_streak')}</div>
+                  <div className="text-2xl font-bold text-red-700">{t('component.advanced.sub.trades', { count: (tradeAnalysisData.win_loss_stats as { max_loss_streak: number }).max_loss_streak })}</div>
                 </div>
               </div>
             </div>
@@ -186,12 +188,12 @@ export function BacktestAdvancedTab() {
 
           {tradeAnalysisData.holding_period_stats && (tradeAnalysisData.holding_period_stats as { distribution: unknown[] }).distribution.length > 0 && (
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-3">Holding Period Distribution</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">{t('component.trade_analysis.section.holding_distribution')}</h3>
               <div className="grid grid-cols-4 gap-4 mb-4">
-                <MetricCard label="Mean" value={`${(tradeAnalysisData.holding_period_stats as { mean_days: number }).mean_days} days`} />
-                <MetricCard label="Median" value={`${(tradeAnalysisData.holding_period_stats as { median_days: number }).median_days} days`} />
-                <MetricCard label="Min" value={`${(tradeAnalysisData.holding_period_stats as { min_days: number }).min_days} days`} />
-                <MetricCard label="Max" value={`${(tradeAnalysisData.holding_period_stats as { max_days: number }).max_days} days`} />
+                <MetricCard label={t('component.advanced.label.mean')} value={t('component.advanced.sub.days', { count: (tradeAnalysisData.holding_period_stats as { mean_days: number }).mean_days })} />
+                <MetricCard label={t('component.advanced.label.median')} value={t('component.advanced.sub.days', { count: (tradeAnalysisData.holding_period_stats as { median_days: number }).median_days })} />
+                <MetricCard label={t('component.advanced.label.min')} value={t('component.advanced.sub.days', { count: (tradeAnalysisData.holding_period_stats as { min_days: number }).min_days })} />
+                <MetricCard label={t('component.advanced.label.max')} value={t('component.advanced.sub.days', { count: (tradeAnalysisData.holding_period_stats as { max_days: number }).max_days })} />
               </div>
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart
@@ -200,8 +202,8 @@ export function BacktestAdvancedTab() {
                 >
                   <XAxis dataKey="bucket" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v: number) => `${v} trades`} />
-                  <Bar dataKey="count" name="Trades" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+                  <Tooltip formatter={(v: number) => t('component.advanced.sub.trades', { count: v })} />
+                  <Bar dataKey="count" name={t('component.advanced.series.trades')} fill="#3b82f6" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -209,8 +211,8 @@ export function BacktestAdvancedTab() {
         </>
       ) : (
         <div className="card text-center text-gray-400 py-8">
-          <div className="text-2xl mb-2">Chart</div>
-          <div>No trade analysis data</div>
+          <div className="text-2xl mb-2">{t('component.advanced.empty.chart_icon')}</div>
+          <div>{t('component.advanced.empty.no_trade_data')}</div>
         </div>
       )}
     </div>
