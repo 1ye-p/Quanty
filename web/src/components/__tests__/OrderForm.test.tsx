@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import '../../test-utils'  // Initialize i18n singleton
 import { OrderForm } from '../trading/OrderForm'
 
 function renderWithProviders(ui: React.ReactElement) {

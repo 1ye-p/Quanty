@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import '../../test-utils'  // Initialize i18n singleton
 import { FactorDSLEditor } from './FactorDSLEditor'
 
 vi.mock('@monaco-editor/react', () => {
