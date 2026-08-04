@@ -13,6 +13,6 @@ vi.mock('@/lib/api', () => ({
 describe('KnowledgePage', () => {
   it('renders page title', () => {
     renderWithProviders(<KnowledgePage />)
-    expect(screen.getByText(/Knowledge Base|知识库/)).toBeInTheDocument()
+    expect(screen.getByText('知识库')).toBeInTheDocument()
   })
 })

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from cquant.api_server.routes.backtests import (
+    _attribution_bar_svg,
     _drawdown_to_svg,
     _return_dist_to_svg,
     _tca_pie_svg,
@@ -151,3 +152,52 @@ class TestTcaPieSvg:
         tca = {"total_commission": 50, "total_slippage": 30, "total_stamp_duty": 20}
         result = _tca_pie_svg(tca, width=300, height=250)
         assert 'viewBox="0 0 300 250"' in result
+
+
+# ── _attribution_bar_svg ─────────────────────────────────────────────────────
+
+
+class TestAttributionBarSvg:
+    def test_empty_data(self):
+        result = _attribution_bar_svg({})
+        assert "<svg" in result
+        assert "</svg>" in result
+        assert "rect" in result
+
+    def test_normal_data(self):
+        attr = {
+            "allocation_effect": 0.02,
+            "selection_effect": 0.015,
+            "interaction_effect": -0.005,
+        }
+        result = _attribution_bar_svg(attr)
+        assert "<svg" in result
+        assert "</svg>" in result
+        assert "配置效应" in result
+        assert "选择效应" in result
+        assert "交互效应" in result
+
+    def test_all_positive(self):
+        attr = {
+            "allocation_effect": 0.01,
+            "selection_effect": 0.02,
+            "interaction_effect": 0.005,
+        }
+        result = _attribution_bar_svg(attr)
+        assert "<svg" in result
+
+    def test_all_negative(self):
+        attr = {
+            "allocation_effect": -0.01,
+            "selection_effect": -0.02,
+            "interaction_effect": -0.005,
+        }
+        result = _attribution_bar_svg(attr)
+        assert "<svg" in result
+
+    def test_custom_dimensions(self):
+        result = _attribution_bar_svg(
+            {"allocation_effect": 0.01, "selection_effect": 0.02, "interaction_effect": 0.0},
+            width=500, height=180,
+        )
+        assert 'viewBox="0 0 500 180"' in result
