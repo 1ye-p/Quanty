@@ -1,4 +1,5 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { useTranslation } from 'react-i18next'
 
 interface SensitivityChartProps {
   data: Record<string, any>[]
@@ -8,19 +9,20 @@ interface SensitivityChartProps {
 }
 
 export function SensitivityChart({ data, paramKey, metricKeys, height = 300 }: SensitivityChartProps) {
+  const { t } = useTranslation()
   const colors = ['#4f63d2', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6']
 
   if (!data || data.length === 0) {
     return (
       <div className="card flex items-center justify-center h-48 text-gray-400 text-sm">
-        无数据
+        {t('common.no_data')}
       </div>
     )
   }
 
   return (
     <div className="card p-4">
-      <h4 className="text-sm font-medium text-gray-700 mb-3">参数敏感性曲线</h4>
+      <h4 className="text-sm font-medium text-gray-700 mb-3">{t('component.backtests.sensitivity.chart.title')}</h4>
       <ResponsiveContainer width="100%" height={height}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />

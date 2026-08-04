@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface SensitivityHeatmapProps {
   data: Record<string, any>[]
@@ -10,6 +11,7 @@ interface SensitivityHeatmapProps {
 }
 
 export function SensitivityHeatmap({ data, paramX, paramY, metricKey, onCellClick }: SensitivityHeatmapProps) {
+  const { t } = useTranslation()
   // Build grid from data
   const { xValues, yValues, grid, minVal, maxVal } = useMemo(() => {
     if (!data || data.length === 0) return { xValues: [], yValues: [], grid: {}, minVal: 0, maxVal: 1 }
@@ -51,19 +53,19 @@ export function SensitivityHeatmap({ data, paramX, paramY, metricKey, onCellClic
   if (xValues.length === 0 || yValues.length === 0) {
     return (
       <div className="card flex items-center justify-center h-48 text-gray-400 text-sm">
-        需要 2D 参数网格数据
+        {t('component.backtests.sensitivity.heatmap.empty')}
       </div>
     )
   }
 
   return (
     <div className="card p-4">
-      <h4 className="text-sm font-medium text-gray-700 mb-3">参数热力图 ({metricKey})</h4>
+      <h4 className="text-sm font-medium text-gray-700 mb-3">{t('component.backtests.sensitivity.heatmap.title', { metric: metricKey })}</h4>
       <div className="overflow-x-auto">
         <table className="text-xs">
           <thead>
             <tr>
-              <th className="px-2 py-1 text-gray-500">{paramY} ↓ / {paramX} →</th>
+              <th className="px-2 py-1 text-gray-500">{t('component.backtests.sensitivity.heatmap.axis_hint', { paramX, paramY })}</th>
               {xValues.map(x => (
                 <th key={String(x)} className="px-3 py-1 text-gray-600 font-medium">{String(x)}</th>
               ))}
@@ -104,13 +106,13 @@ export function SensitivityHeatmap({ data, paramX, paramY, metricKey, onCellClic
         </table>
       </div>
       <div className="flex items-center gap-2 mt-2 text-[10px] text-gray-400">
-        <span>低</span>
+        <span>{t('component.backtests.sensitivity.heatmap.low')}</span>
         <div className="flex gap-0.5">
           {['bg-red-100', 'bg-orange-100', 'bg-yellow-100', 'bg-green-100', 'bg-blue-100'].map(c => (
             <div key={c} className={`w-4 h-2 ${c}`} />
           ))}
         </div>
-        <span>高</span>
+        <span>{t('component.backtests.sensitivity.heatmap.high')}</span>
       </div>
     </div>
   )

@@ -6,6 +6,7 @@
  *   - getAssetsFromFills: extracts unique asset IDs from fills
  */
 
+import i18n from 'i18next'
 import type { BacktestFill } from '@/lib/api/backtests'
 import type { TradeAnnotation } from '@/components/charts/KlineChart'
 
@@ -46,8 +47,8 @@ export function fillsToAnnotations(fills: BacktestFill[]): TradeAnnotation[] {
     positions.set(fill.asset_id, pos)
 
     // Build tooltip text
-    const pnlText = pnl !== undefined ? ` P&L: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}` : ''
-    const text = `${isBuy ? '买' : '卖'} ${fill.qty}股 @${fill.price.toFixed(2)}${pnlText}`
+    const pnlText = pnl !== undefined ? ` ${i18n.t('component.backtests.trade_annotation.pnl_label')}: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}` : ''
+    const text = `${isBuy ? i18n.t('component.backtests.trade_annotation.buy') : i18n.t('component.backtests.trade_annotation.sell')} ${fill.qty}${i18n.t('component.backtests.trade_annotation.shares_unit')} @${fill.price.toFixed(2)}${pnlText}`
 
     return {
       time: fill.trade_date,

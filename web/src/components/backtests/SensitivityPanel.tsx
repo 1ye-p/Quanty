@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { backtestsApi } from '@/lib/api'
 import { SensitivityHeatmap } from './SensitivityHeatmap'
@@ -28,6 +29,7 @@ function exportToCSV(data: Record<string, any>[], filename: string) {
 }
 
 export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
+  const { t } = useTranslation()
   const [paramName, setParamName] = useState('top_n')
   const [paramValues, setParamValues] = useState('5, 10, 15, 20')
   const [primaryMetric, setPrimaryMetric] = useState('sharpe_ratio')
@@ -86,12 +88,12 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
 
   return (
     <div className="card space-y-4">
-      <h3 className="font-semibold text-gray-900">参数敏感性分析</h3>
+      <h3 className="font-semibold text-gray-900">{t('component.backtests.sensitivity.title')}</h3>
 
       {/* Configuration */}
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">参数名</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('component.backtests.sensitivity.label.param_name')}</label>
           <select
             value={paramName}
             onChange={e => setParamName(e.target.value)}
@@ -103,7 +105,7 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">参数值（逗号分隔）</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('component.backtests.sensitivity.label.param_values')}</label>
           <input
             type="text"
             value={paramValues}
@@ -113,15 +115,15 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">优化指标</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('component.backtests.sensitivity.label.metric')}</label>
           <select
             value={primaryMetric}
             onChange={e => setPrimaryMetric(e.target.value)}
             className="input-field text-sm w-full"
           >
-            <option value="sharpe_ratio">夏普比率</option>
-            <option value="total_return">总收益</option>
-            <option value="max_drawdown">最大回撤</option>
+            <option value="sharpe_ratio">{t('component.backtests.sensitivity.metric_option.sharpe_ratio')}</option>
+            <option value="total_return">{t('component.backtests.sensitivity.metric_option.total_return')}</option>
+            <option value="max_drawdown">{t('component.backtests.sensitivity.metric_option.max_drawdown')}</option>
           </select>
         </div>
       </div>
@@ -133,27 +135,27 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
           disabled={isRunning || !paramValues.trim()}
           className="btn-primary disabled:opacity-50"
         >
-          {isRunning ? '运行中...' : '运行扫描'}
+          {isRunning ? t('common.running') : t('component.backtests.sensitivity.btn.run_scan')}
         </button>
         {isComplete && result?.result?.summary && (
           <button
             onClick={() => exportToCSV(result.result.summary, `sensitivity_${runId}_${paramName}.csv`)}
             className="btn-secondary text-sm"
           >
-            导出 CSV
+            {t('component.backtests.sensitivity.btn.export_csv')}
           </button>
         )}
       </div>
 
       {/* Status */}
       {isRunning && (
-        <div className="text-sm text-blue-600">参数扫描运行中，请稍候...</div>
+        <div className="text-sm text-blue-600">{t('component.backtests.sensitivity.status.running')}</div>
       )}
       {isFailed && (
-        <div className="text-sm text-red-600">扫描失败: {result?.error}</div>
+        <div className="text-sm text-red-600">{t('component.backtests.sensitivity.status.failed', { error: result?.error })}</div>
       )}
       {isComplete && result?.result && onComplete && (
-        <div className="text-sm text-green-600">扫描完成</div>
+        <div className="text-sm text-green-600">{t('component.backtests.sensitivity.status.complete')}</div>
       )}
 
       {/* Heatmap */}
@@ -182,7 +184,7 @@ export function SensitivityPanel({ runId, onComplete }: SensitivityPanelProps) {
       {/* History list */}
       {history?.history && history.history.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700">扫描历史</h4>
+          <h4 className="text-sm font-medium text-gray-700">{t('component.backtests.sensitivity.history.title')}</h4>
           <div className="space-y-1 max-h-48 overflow-y-auto">
             {history.history.map((h) => (
               <div

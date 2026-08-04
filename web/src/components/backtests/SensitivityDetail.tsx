@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 interface SensitivityDetailProps {
   paramX: string
   paramXValue: string
@@ -9,10 +11,11 @@ interface SensitivityDetailProps {
 }
 
 export function SensitivityDetail({ paramX, paramXValue, paramY, paramYValue, metrics, onRunBacktest, onClose }: SensitivityDetailProps) {
+  const { t } = useTranslation()
   return (
     <div className="card p-4 space-y-3">
       <div className="flex justify-between items-center">
-        <h4 className="font-semibold text-sm">参数组合详情</h4>
+        <h4 className="font-semibold text-sm">{t('component.backtests.sensitivity.detail.title')}</h4>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm">
@@ -32,7 +35,7 @@ export function SensitivityDetail({ paramX, paramXValue, paramY, paramYValue, me
           onClick={() => onRunBacktest({ [paramX]: paramXValue, [paramY]: paramYValue })}
           className="btn-primary text-sm w-full"
         >
-          用此参数运行回测
+          {t('component.backtests.sensitivity.detail.btn_run')}
         </button>
       )}
     </div>

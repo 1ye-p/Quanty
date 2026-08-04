@@ -2,8 +2,22 @@
  * Monthly returns heatmap component.
  * Displays a grid of monthly returns with color-coded cells.
  */
+import { useTranslation } from 'react-i18next'
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTH_KEYS = [
+  'component.backtests.monthly_heatmap.month_jan',
+  'component.backtests.monthly_heatmap.month_feb',
+  'component.backtests.monthly_heatmap.month_mar',
+  'component.backtests.monthly_heatmap.month_apr',
+  'component.backtests.monthly_heatmap.month_may',
+  'component.backtests.monthly_heatmap.month_jun',
+  'component.backtests.monthly_heatmap.month_jul',
+  'component.backtests.monthly_heatmap.month_aug',
+  'component.backtests.monthly_heatmap.month_sep',
+  'component.backtests.monthly_heatmap.month_oct',
+  'component.backtests.monthly_heatmap.month_nov',
+  'component.backtests.monthly_heatmap.month_dec',
+]
 
 interface MonthlyReturn {
   year: number
@@ -24,6 +38,7 @@ function heatmapColor(val: number): string {
 }
 
 export function MonthlyHeatmap({ data }: { data: MonthlyReturn[] }) {
+  const { t } = useTranslation()
   if (!data || data.length === 0) return null
 
   const years = [...new Set(data.map(d => d.year))].sort()
@@ -31,16 +46,16 @@ export function MonthlyHeatmap({ data }: { data: MonthlyReturn[] }) {
 
   return (
     <div className="card">
-      <h3 className="font-semibold text-gray-800 mb-3">Monthly Returns</h3>
+      <h3 className="font-semibold text-gray-800 mb-3">{t('component.backtests.monthly_heatmap.title')}</h3>
       <div className="overflow-x-auto">
         <table className="text-xs w-full">
           <thead>
             <tr>
-              <th className="px-2 py-1 text-left text-gray-500">Year</th>
-              {MONTHS.map(m => (
-                <th key={m} className="px-2 py-1 text-center text-gray-500">{m}</th>
+              <th className="px-2 py-1 text-left text-gray-500">{t('component.backtests.monthly_heatmap.year')}</th>
+              {MONTH_KEYS.map(mk => (
+                <th key={mk} className="px-2 py-1 text-center text-gray-500">{t(mk)}</th>
               ))}
-              <th className="px-2 py-1 text-center text-gray-500 font-medium">Annual</th>
+              <th className="px-2 py-1 text-center text-gray-500 font-medium">{t('component.backtests.monthly_heatmap.annual')}</th>
             </tr>
           </thead>
           <tbody>
