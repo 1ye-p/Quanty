@@ -237,6 +237,110 @@
       "delete_failed": "Delete failed: {{message}}",
       "confirm_delete_title": "Confirm Delete Strategy",
       "confirm_delete_message": "Are you sure you want to delete strategy \"{{name}}\"? This action cannot be undone."
+    },
+    "overview": {
+      "title": "cQuant Quant Research Platform",
+      "subtitle": "Offline research dashboard · No live trading · End-to-end quant workflow",
+      "unknown_error": "Unknown error",
+      "metric": {
+        "datasets": "Dataset Versions",
+        "backtests": "Backtests",
+        "knowledge_docs": "Knowledge Docs",
+        "active_strategies": "Active Strategies",
+        "completed_delta": "{{count}} completed"
+      },
+      "section": {
+        "data_freshness": "📅 Data Freshness",
+        "best_recent": "🏆 Best Backtest (7d)",
+        "ic_leaderboard": "🔬 Factor IC Leaderboard (Top 5)",
+        "ic_trend": "📈 IC Trend (Last 30d)",
+        "backtest_trend": "📊 Backtest Trend (Last 30d)",
+        "market": "💹 Market Quotes",
+        "recent_alerts": "🔔 Recent Alerts",
+        "quick_links": "Quick Links",
+        "recent_backtests": "Recent Backtests",
+        "recent_docs": "Recently Added Docs"
+      },
+      "freshness": {
+        "today_updated": "✓ Updated today",
+        "stale": "⚠ {{days}} days stale"
+      },
+      "best_recent": {
+        "sharpe": "Sharpe",
+        "maxdd": "MaxDD",
+        "cagr": "CAGR",
+        "view_detail": "View detail →",
+        "empty": "No completed backtests in the last 7 days"
+      },
+      "ic": {
+        "column": {
+          "rank": "#",
+          "factor": "Factor",
+          "ic": "IC",
+          "ir": "IR"
+        },
+        "empty": "No IC records"
+      },
+      "trend": {
+        "empty": "No trend data"
+      },
+      "market": {
+        "sh_index": "SSE Composite",
+        "sz_index": "SZSE Component",
+        "gem_index": "ChiNext",
+        "loading": "Loading market data..."
+      },
+      "view_all": "View all →",
+      "quick_link": {
+        "factors": {
+          "label": "Factor Research",
+          "desc": "IC/IR analysis & comparison"
+        },
+        "strategies": {
+          "label": "Strategy Config",
+          "desc": "JSON editor for strategies"
+        },
+        "backtests": {
+          "label": "Backtest Evaluation",
+          "desc": "Tearsheets & overfitting checks"
+        },
+        "advisor": {
+          "label": "AI Advisor",
+          "desc": "Multi-agent research analysis"
+        },
+        "ml": {
+          "label": "Machine Learning",
+          "desc": "XGBoost / LightGBM experiments"
+        },
+        "knowledge": {
+          "label": "Knowledge Base",
+          "desc": "Semantic search over reports"
+        },
+        "news": {
+          "label": "News",
+          "desc": "News sentiment monitoring"
+        },
+        "live": {
+          "label": "Live Monitor",
+          "desc": "Simulated positions & risk"
+        }
+      },
+      "column": {
+        "run_id": "Run ID",
+        "strategy": "Strategy",
+        "engine": "Engine",
+        "status": "Status",
+        "started_at": "Started"
+      },
+      "empty_backtest": "No backtest records",
+      "create_strategy": "Create a strategy first",
+      "untitled": "Untitled",
+      "unknown_source": "Unknown source",
+      "system_info": {
+        "title": "cQuant",
+        "backend_api": "Backend API",
+        "research_only": "🔒 Research use only · No live trading"
+      }
     }
   }
 }

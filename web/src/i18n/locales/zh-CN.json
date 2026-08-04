@@ -237,6 +237,110 @@
       "delete_failed": "删除失败：{{message}}",
       "confirm_delete_title": "确认删除策略",
       "confirm_delete_message": "确定删除策略 \"{{name}}\"？此操作不可撤销。"
+    },
+    "overview": {
+      "title": "cQuant 量化研究平台",
+      "subtitle": "离线研究仪表盘 · 无真实交易 · 全量化流程一站式管理",
+      "unknown_error": "未知错误",
+      "metric": {
+        "datasets": "数据集版本",
+        "backtests": "回测记录",
+        "knowledge_docs": "知识库文档",
+        "active_strategies": "活跃策略",
+        "completed_delta": "{{count}} 已完成"
+      },
+      "section": {
+        "data_freshness": "📅 数据新鲜度",
+        "best_recent": "🏆 近7天最优回测",
+        "ic_leaderboard": "🔬 因子 IC 排行（Top 5）",
+        "ic_trend": "📈 IC 趋势（近30天）",
+        "backtest_trend": "📊 回测趋势（近30天）",
+        "market": "💹 市场行情",
+        "recent_alerts": "🔔 最近告警",
+        "quick_links": "快捷入口",
+        "recent_backtests": "最近回测",
+        "recent_docs": "最近入库文档"
+      },
+      "freshness": {
+        "today_updated": "✓ 今日已更新",
+        "stale": "⚠ 已 {{days}} 天未更新"
+      },
+      "best_recent": {
+        "sharpe": "Sharpe",
+        "maxdd": "MaxDD",
+        "cagr": "CAGR",
+        "view_detail": "查看详情 →",
+        "empty": "近7天暂无已完成回测"
+      },
+      "ic": {
+        "column": {
+          "rank": "#",
+          "factor": "因子",
+          "ic": "IC",
+          "ir": "IR"
+        },
+        "empty": "暂无 IC 记录"
+      },
+      "trend": {
+        "empty": "暂无趋势数据"
+      },
+      "market": {
+        "sh_index": "上证指数",
+        "sz_index": "深证成指",
+        "gem_index": "创业板指",
+        "loading": "行情数据加载中..."
+      },
+      "view_all": "查看全部 →",
+      "quick_link": {
+        "factors": {
+          "label": "因子研究",
+          "desc": "IC/IR 分析与对比"
+        },
+        "strategies": {
+          "label": "策略配置",
+          "desc": "JSON 编辑器管理策略"
+        },
+        "backtests": {
+          "label": "回测评估",
+          "desc": "Tearsheet 与过拟合检测"
+        },
+        "advisor": {
+          "label": "AI 助手",
+          "desc": "多智能体研究分析"
+        },
+        "ml": {
+          "label": "机器学习",
+          "desc": "XGBoost/LightGBM 实验"
+        },
+        "knowledge": {
+          "label": "知识库",
+          "desc": "研报语义检索"
+        },
+        "news": {
+          "label": "消息面",
+          "desc": "新闻情绪监控"
+        },
+        "live": {
+          "label": "实盘监控",
+          "desc": "模拟持仓与风险"
+        }
+      },
+      "column": {
+        "run_id": "Run ID",
+        "strategy": "策略",
+        "engine": "引擎",
+        "status": "状态",
+        "started_at": "开始时间"
+      },
+      "empty_backtest": "暂无回测记录",
+      "create_strategy": "先创建策略",
+      "untitled": "无标题",
+      "unknown_source": "未知来源",
+      "system_info": {
+        "title": "cQuant",
+        "backend_api": "后端 API",
+        "research_only": "🔒 仅限研究用途 · 不执行真实交易"
+      }
     }
   }
 }

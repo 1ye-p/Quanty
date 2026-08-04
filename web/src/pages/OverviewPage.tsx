@@ -1,15 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { datasetsApi, backtestsApi, knowledgeApi, liveApi, dashboardApi, realtimeApi, alertsApi } from '@/lib/api'
 import { queryKeys, extendedQueryKeys } from '@/lib/queryKeys'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { SparkLine } from '@/components/ui/SparkLine'
 
-function ErrorCard({ title, error }: { title: string; error: Error | null }) {
+function ErrorCard({ titleKey, error }: { titleKey: string; error: Error | null }) {
+  const { t } = useTranslation()
   return (
     <div className="card border-l-4 border-red-400">
-      <h3 className="text-sm font-semibold text-gray-700 mb-1">{title}</h3>
-      <p className="text-xs text-red-500">{error?.message ?? '未知错误'}</p>
+      <h3 className="text-sm font-semibold text-gray-700 mb-1">{t(titleKey)}</h3>
+      <p className="text-xs text-red-500">{error?.message ?? t('page.overview.unknown_error')}</p>
     </div>
   )
 }
@@ -57,6 +59,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 }
 
 export function OverviewPage() {
+  const { t } = useTranslation()
   const { data: datasets, error: datasetsError, status: datasetsStatus } = useQuery({
     queryKey: queryKeys.datasets.list(5),
     queryFn: () => datasetsApi.list(5),
@@ -129,33 +132,33 @@ export function OverviewPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">cQuant 量化研究平台</h1>
-        <p className="text-sm text-gray-500 mt-1">离线研究仪表盘 · 无真实交易 · 全量化流程一站式管理</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('page.overview.title')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('page.overview.subtitle')}</p>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {datasetsStatus === 'error' ? (
-          <ErrorCard title="数据集版本" error={datasetsError} />
+          <ErrorCard titleKey="page.overview.metric.datasets" error={datasetsError} />
         ) : (
-          <StatCard label="数据集版本" value={datasets?.total ?? '—'} icon="🗄️" />
+          <StatCard label={t('page.overview.metric.datasets')} value={datasets?.total ?? '—'} icon="🗄️" />
         )}
         {backtestsStatus === 'error' ? (
-          <ErrorCard title="回测记录" error={backtestsError} />
+          <ErrorCard titleKey="page.overview.metric.backtests" error={backtestsError} />
         ) : (
-          <StatCard label="回测记录" value={backtests?.total ?? '—'} icon="📊"
-            delta={completedRuns > 0 ? `${completedRuns} 已完成` : undefined}
+          <StatCard label={t('page.overview.metric.backtests')} value={backtests?.total ?? '—'} icon="📊"
+            delta={completedRuns > 0 ? t('page.overview.metric.completed_delta', { count: completedRuns }) : undefined}
             sparkData={btSparkData} />
         )}
         {knowledgeStatus === 'error' ? (
-          <ErrorCard title="知识库文档" error={knowledgeError} />
+          <ErrorCard titleKey="page.overview.metric.knowledge_docs" error={knowledgeError} />
         ) : (
-          <StatCard label="知识库文档" value={knowledgeDocs?.total ?? '—'} icon="📚" />
+          <StatCard label={t('page.overview.metric.knowledge_docs')} value={knowledgeDocs?.total ?? '—'} icon="📚" />
         )}
         {liveStatus === 'error' ? (
-          <ErrorCard title="活跃策略" error={liveError} />
+          <ErrorCard titleKey="page.overview.metric.active_strategies" error={liveError} />
         ) : (
-          <StatCard label="活跃策略" value={runningStrategies} icon="⚡"
+          <StatCard label={t('page.overview.metric.active_strategies')} value={runningStrategies} icon="⚡"
             warn={runningStrategies === 0} />
         )}
       </div>
@@ -165,7 +168,7 @@ export function OverviewPage() {
 
         {/* 数据新鲜度 */}
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">📅 数据新鲜度</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('page.overview.section.data_freshness')}</h3>
           {freshnessStatus === 'error' ? (
             <p className="text-xs text-red-500">{(freshnessError as Error).message}</p>
           ) : freshness ? (
@@ -175,18 +178,18 @@ export function OverviewPage() {
               </p>
               {freshness.days_stale >= 0 && (
                 <p className={`text-xs mt-1 ${freshness.days_stale > 3 ? 'text-amber-600' : 'text-green-600'}`}>
-                  {freshness.days_stale === 0 ? '✓ 今日已更新' : `⚠ 已 ${freshness.days_stale} 天未更新`}
+                  {freshness.days_stale === 0 ? t('page.overview.freshness.today_updated') : t('page.overview.freshness.stale', { days: freshness.days_stale })}
                 </p>
               )}
             </>
           ) : (
-            <p className="text-gray-400 text-sm">加载中…</p>
+            <p className="text-gray-400 text-sm">{t('common.loading')}</p>
           )}
         </div>
 
         {/* 近7天最优回测 */}
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">🏆 近7天最优回测</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('page.overview.section.best_recent')}</h3>
           {bestBtStatus === 'error' ? (
             <p className="text-xs text-red-500">{(bestBtError as Error).message}</p>
           ) : bestBt?.run_id ? (
@@ -195,33 +198,33 @@ export function OverviewPage() {
                 {bestBt.strategy_id}
               </p>
               <div className="flex gap-3 mt-1 text-xs">
-                <span>Sharpe <strong className="text-brand-600">{bestBt.sharpe}</strong></span>
-                <span>MaxDD <strong className="text-red-500">{bestBt.max_drawdown}%</strong></span>
-                {bestBt.cagr != null && <span>CAGR <strong className="text-green-600">{bestBt.cagr}%</strong></span>}
+                <span>{t('page.overview.best_recent.sharpe')} <strong className="text-brand-600">{bestBt.sharpe}</strong></span>
+                <span>{t('page.overview.best_recent.maxdd')} <strong className="text-red-500">{bestBt.max_drawdown}%</strong></span>
+                {bestBt.cagr != null && <span>{t('page.overview.best_recent.cagr')} <strong className="text-green-600">{bestBt.cagr}%</strong></span>}
               </div>
               <Link to={`/backtests?run_id=${bestBt.run_id}`} className="text-xs text-brand-600 hover:underline mt-2 block">
-                查看详情 →
+                {t('page.overview.best_recent.view_detail')}
               </Link>
             </>
           ) : (
-            <p className="text-gray-400 text-sm">近7天暂无已完成回测</p>
+            <p className="text-gray-400 text-sm">{t('page.overview.best_recent.empty')}</p>
           )}
         </div>
 
         {/* Top5 因子 IC */}
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">🔬 因子 IC 排行（Top 5）</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('page.overview.section.ic_leaderboard')}</h3>
           {icBoardStatus === 'error' ? (
             <p className="text-xs text-red-500">{(icBoardError as Error).message}</p>
           ) : icBoard?.items.length ? (
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-gray-500">
-                  <th className="text-left py-0.5">#</th>
-                  <th className="text-left py-0.5">因子</th>
-                  <th className="text-right py-0.5">IC</th>
-                  <th className="text-right py-0.5">IR</th>
-                  <th className="text-right py-0.5">胜率</th>
+                  <th className="text-left py-0.5">{t('page.overview.ic.column.rank')}</th>
+                  <th className="text-left py-0.5">{t('page.overview.ic.column.factor')}</th>
+                  <th className="text-right py-0.5">{t('page.overview.ic.column.ic')}</th>
+                  <th className="text-right py-0.5">{t('page.overview.ic.column.ir')}</th>
+                  <th className="text-right py-0.5">{t('common.metric.win_rate')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -243,7 +246,7 @@ export function OverviewPage() {
               </tbody>
             </table>
           ) : (
-            <p className="text-gray-400 text-sm">暂无 IC 记录</p>
+            <p className="text-gray-400 text-sm">{t('page.overview.ic.empty')}</p>
           )}
         </div>
       </div>
@@ -253,39 +256,39 @@ export function OverviewPage() {
 
         {/* IC 趋势 */}
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">📈 IC 趋势（近30天）</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('page.overview.section.ic_trend')}</h3>
           {icTrendStatus === 'error' ? (
             <p className="text-xs text-red-500">{(icTrendError as Error).message}</p>
           ) : icSparkData.length > 0 ? (
             <SparkLine data={icSparkData} color="#10b981" height={48} />
           ) : (
-            <p className="text-gray-400 text-sm">暂无趋势数据</p>
+            <p className="text-gray-400 text-sm">{t('page.overview.trend.empty')}</p>
           )}
         </div>
 
         {/* 回测趋势 */}
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">📊 回测趋势（近30天）</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('page.overview.section.backtest_trend')}</h3>
           {backtestTrendStatus === 'error' ? (
             <p className="text-xs text-red-500">{(backtestTrendError as Error).message}</p>
           ) : btSparkData.length > 0 ? (
             <SparkLine data={btSparkData} color="#6366f1" height={48} />
           ) : (
-            <p className="text-gray-400 text-sm">暂无趋势数据</p>
+            <p className="text-gray-400 text-sm">{t('page.overview.trend.empty')}</p>
           )}
         </div>
 
         {/* 市场行情 */}
         <div className="card">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">💹 市场行情</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('page.overview.section.market')}</h3>
           {marketStatus === 'error' ? (
             <p className="text-xs text-red-500">{(marketError as Error).message}</p>
           ) : Object.keys(marketItems).length > 0 ? (
             <div className="space-y-2">
               {[
-                { symbol: 'sh000001', name: '上证指数' },
-                { symbol: 'sz399001', name: '深证成指' },
-                { symbol: 'sz399006', name: '创业板指' },
+                { symbol: 'sh000001', name: t('page.overview.market.sh_index') },
+                { symbol: 'sz399001', name: t('page.overview.market.sz_index') },
+                { symbol: 'sz399006', name: t('page.overview.market.gem_index') },
               ].map(({ symbol, name }) => {
                 const q = marketItems[symbol]
                 if (!q) return (
@@ -309,19 +312,19 @@ export function OverviewPage() {
               })}
             </div>
           ) : (
-            <p className="text-gray-400 text-sm">行情数据加载中...</p>
+            <p className="text-gray-400 text-sm">{t('page.overview.market.loading')}</p>
           )}
         </div>
       </div>
 
       {/* 最近告警 */}
       {alertsStatus === 'error' ? (
-        <ErrorCard title="最近告警" error={alertsError} />
+        <ErrorCard titleKey="page.overview.section.recent_alerts" error={alertsError} />
       ) : (recentAlerts?.items.length ?? 0) > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">🔔 最近告警</h3>
-            <Link to="/alerts" className="text-xs text-brand-600 hover:underline">查看全部 →</Link>
+            <h3 className="text-sm font-semibold text-gray-700">{t('page.overview.section.recent_alerts')}</h3>
+            <Link to="/alerts" className="text-xs text-brand-600 hover:underline">{t('page.overview.view_all')}</Link>
           </div>
           <ul className="divide-y divide-gray-100">
             {recentAlerts?.items.slice(0, 5).map(alert => (
@@ -341,30 +344,36 @@ export function OverviewPage() {
 
       {/* Quick links */}
       <div>
-        <h2 className="text-base font-semibold text-gray-700 mb-3">快捷入口</h2>
+        <h2 className="text-base font-semibold text-gray-700 mb-3">{t('page.overview.section.quick_links')}</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <QuickLink to="/factors"    icon="🔬" label="因子研究"  desc="IC/IR 分析与对比" />
-          <QuickLink to="/strategies" icon="⚙️" label="策略配置"  desc="JSON 编辑器管理策略" />
-          <QuickLink to="/backtests"  icon="📈" label="回测评估"  desc="Tearsheet 与过拟合检测" />
-          <QuickLink to="/advisor"    icon="🤖" label="AI 助手"   desc="多智能体研究分析" />
-          <QuickLink to="/ml"         icon="🧠" label="机器学习"  desc="XGBoost/LightGBM 实验" />
-          <QuickLink to="/knowledge"  icon="📄" label="知识库"    desc="研报语义检索" />
-          <QuickLink to="/news"       icon="📰" label="消息面"    desc="新闻情绪监控" />
-          <QuickLink to="/live"       icon="📡" label="实盘监控"  desc="模拟持仓与风险" />
+          <QuickLink to="/factors"    icon="🔬" label={t('page.overview.quick_link.factors.label')}    desc={t('page.overview.quick_link.factors.desc')} />
+          <QuickLink to="/strategies" icon="⚙️" label={t('page.overview.quick_link.strategies.label')} desc={t('page.overview.quick_link.strategies.desc')} />
+          <QuickLink to="/backtests"  icon="📈" label={t('page.overview.quick_link.backtests.label')}  desc={t('page.overview.quick_link.backtests.desc')} />
+          <QuickLink to="/advisor"    icon="🤖" label={t('page.overview.quick_link.advisor.label')}    desc={t('page.overview.quick_link.advisor.desc')} />
+          <QuickLink to="/ml"         icon="🧠" label={t('page.overview.quick_link.ml.label')}         desc={t('page.overview.quick_link.ml.desc')} />
+          <QuickLink to="/knowledge"  icon="📄" label={t('page.overview.quick_link.knowledge.label')}  desc={t('page.overview.quick_link.knowledge.desc')} />
+          <QuickLink to="/news"       icon="📰" label={t('page.overview.quick_link.news.label')}       desc={t('page.overview.quick_link.news.desc')} />
+          <QuickLink to="/live"       icon="📡" label={t('page.overview.quick_link.live.label')}       desc={t('page.overview.quick_link.live.desc')} />
         </div>
       </div>
 
       {/* Recent backtests */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-gray-700">最近回测</h2>
-          <Link to="/backtests" className="text-xs text-brand-600 hover:underline">查看全部 →</Link>
+          <h2 className="text-base font-semibold text-gray-700">{t('page.overview.section.recent_backtests')}</h2>
+          <Link to="/backtests" className="text-xs text-brand-600 hover:underline">{t('page.overview.view_all')}</Link>
         </div>
         <div className="card p-0 overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                {['Run ID', '策略', '引擎', '状态', '开始时间'].map(h => (
+                {[
+                  t('page.overview.column.run_id'),
+                  t('page.overview.column.strategy'),
+                  t('page.overview.column.engine'),
+                  t('page.overview.column.status'),
+                  t('page.overview.column.started_at'),
+                ].map(h => (
                   <th key={h} className="table-th">{h}</th>
                 ))}
               </tr>
@@ -373,7 +382,7 @@ export function OverviewPage() {
               {!backtests?.items.length && (
                 <tr>
                   <td colSpan={5} className="table-td text-center text-gray-400 py-8">
-                    暂无回测记录 · <Link to="/strategies" className="text-brand-600 hover:underline">先创建策略</Link>
+                    {t('page.overview.empty_backtest')} · <Link to="/strategies" className="text-brand-600 hover:underline">{t('page.overview.create_strategy')}</Link>
                   </td>
                 </tr>
               )}
@@ -395,17 +404,17 @@ export function OverviewPage() {
       {(knowledgeDocs?.items.length ?? 0) > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-700">最近入库文档</h2>
-            <Link to="/knowledge" className="text-xs text-brand-600 hover:underline">查看全部 →</Link>
+            <h2 className="text-base font-semibold text-gray-700">{t('page.overview.section.recent_docs')}</h2>
+            <Link to="/knowledge" className="text-xs text-brand-600 hover:underline">{t('page.overview.view_all')}</Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {knowledgeDocs?.items.slice(0, 6).map(d => (
               <div key={d.doc_id} className="card py-3">
                 <div className="font-medium text-sm text-gray-900 truncate">
-                  {d.title || <em className="text-gray-400">无标题</em>}
+                  {d.title || <em className="text-gray-400">{t('page.overview.untitled')}</em>}
                 </div>
                 <div className="flex gap-2 mt-1 text-xs text-gray-400">
-                  <span>{d.source_name || '未知来源'}</span>
+                  <span>{d.source_name || t('page.overview.unknown_source')}</span>
                   <span>·</span>
                   <span className="capitalize">{d.logical_type}</span>
                 </div>
@@ -419,13 +428,13 @@ export function OverviewPage() {
       <div className="card bg-gradient-to-r from-brand-600 to-indigo-700 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-semibold text-lg">cQuant</div>
+            <div className="font-semibold text-lg">{t('page.overview.system_info.title')}</div>
             <div className="text-blue-100 text-sm mt-1">
-              后端 API · <span className="font-mono text-xs">localhost:8000/api/docs</span>
+              {t('page.overview.system_info.backend_api')} · <span className="font-mono text-xs">localhost:8000/api/docs</span>
             </div>
           </div>
           <div className="text-right text-sm text-blue-100 space-y-0.5">
-            <div>🔒 仅限研究用途 · 不执行真实交易</div>
+            <div>{t('page.overview.system_info.research_only')}</div>
           </div>
         </div>
       </div>
