@@ -228,6 +228,15 @@
       "last_90_days": "Last 90 Days",
       "last_180_days": "Last 180 Days",
       "last_1_year": "Last 1 Year"
+    },
+    "strategies": {
+      "title": "Strategies",
+      "subtitle": "Create and manage quantitative strategy configurations (JSON)",
+      "create_btn": "New Strategy",
+      "deleted_toast": "Strategy deleted",
+      "delete_failed": "Delete failed: {{message}}",
+      "confirm_delete_title": "Confirm Delete Strategy",
+      "confirm_delete_message": "Are you sure you want to delete strategy \"{{name}}\"? This action cannot be undone."
     }
   }
 }

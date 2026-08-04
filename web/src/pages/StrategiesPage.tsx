@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { strategiesApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
@@ -20,6 +21,7 @@ const DEFAULT_CONFIG = JSON.stringify({
 }, null, 2)
 
 export function StrategiesPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const location = useLocation()
   const [searchParams] = useSearchParams()
@@ -87,11 +89,11 @@ export function StrategiesPage() {
     mutationFn: (id: string) => strategiesApi.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: extendedQueryKeys.strategies.list() })
-      toast.success('策略已删除')
+      toast.success(t('page.strategies.deleted_toast'))
       setDeleteTarget(null)
     },
     onError: (err: Error) => {
-      toast.error(`删除失败：${err.message}`)
+      toast.error(t('page.strategies.delete_failed', { message: err.message }))
       setDeleteTarget(null)
     },
   })
@@ -105,8 +107,8 @@ export function StrategiesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="page-title">策略配置</h1>
-          <p className="page-subtitle">创建和管理量化策略配置（JSON）</p>
+          <h1 className="page-title">{t('page.strategies.title')}</h1>
+          <p className="page-subtitle">{t('page.strategies.subtitle')}</p>
         </div>
         <button
           className="btn-primary"
@@ -115,7 +117,7 @@ export function StrategiesPage() {
             setConfigText(DEFAULT_CONFIG)
           }}
         >
-          + 新建策略
+          {t('page.strategies.create_btn')}
         </button>
       </div>
 
@@ -148,9 +150,9 @@ export function StrategiesPage() {
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title="确认删除策略"
-        message={`确定删除策略 "${deleteTarget}"？此操作不可撤销。`}
-        confirmLabel="删除"
+        title={t('page.strategies.confirm_delete_title')}
+        message={t('page.strategies.confirm_delete_message', { name: deleteTarget })}
+        confirmLabel={t('common.delete')}
         variant="danger"
         onConfirm={() => {
           if (deleteTarget) deleteMutation.mutate(deleteTarget)
