@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
+import '../../test-utils'  // initializes global i18n singleton (zh-CN) for useTranslation()
 import { StrategiesPage } from '../StrategiesPage'
 
 // Mock API module

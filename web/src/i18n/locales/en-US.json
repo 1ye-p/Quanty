@@ -232,7 +232,7 @@
     "strategies": {
       "title": "Strategies",
       "subtitle": "Create and manage quantitative strategy configurations (JSON)",
-      "create_btn": "New Strategy",
+      "create_btn": "+ New Strategy",
       "deleted_toast": "Strategy deleted",
       "delete_failed": "Delete failed: {{message}}",
       "confirm_delete_title": "Confirm Delete Strategy",

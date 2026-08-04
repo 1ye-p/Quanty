@@ -232,7 +232,7 @@
     "strategies": {
       "title": "策略配置",
       "subtitle": "创建和管理量化策略配置（JSON）",
-      "create_btn": "新建策略",
+      "create_btn": "+ 新建策略",
       "deleted_toast": "策略已删除",
       "delete_failed": "删除失败：{{message}}",
       "confirm_delete_title": "确认删除策略",
