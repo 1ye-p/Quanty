@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AreaChart,
   Area,
@@ -30,6 +31,7 @@ const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
 export const CompareDrawdownChart: React.FC<CompareDrawdownChartProps> = ({
   drawdowns,
 }) => {
+  const { t } = useTranslation();
   if (drawdowns.length === 0) return null;
 
   // Merge all drawdown data onto same timeline
@@ -48,7 +50,7 @@ export const CompareDrawdownChart: React.FC<CompareDrawdownChartProps> = ({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">
-      <h3 className="font-medium mb-4">回撤对比</h3>
+      <h3 className="font-medium mb-4">{t('component.compare.drawdown_chart.title')}</h3>
       <ResponsiveContainer width="100%" height={350}>
         <AreaChart data={mergedData}>
           <CartesianGrid strokeDasharray="3 3" />

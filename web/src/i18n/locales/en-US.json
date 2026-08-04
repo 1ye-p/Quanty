@@ -925,6 +925,74 @@
         "mode_moderate": "Moderate",
         "mode_aggressive": "Aggressive"
       }
+    },
+    "compare": {
+      "stat_test": {
+        "title": "Statistical Test",
+        "label": {
+          "test_type": "Test Type",
+          "confidence": "Confidence Level",
+          "block_size": "Block Size"
+        },
+        "option": {
+          "psr_diff": "PSR Difference Test",
+          "mcs": "MCS Test"
+        },
+        "placeholder": {
+          "block_size": "Auto"
+        },
+        "btn": {
+          "run": "Run Test"
+        },
+        "error": {
+          "failed": "Test failed: {{error}}",
+          "unknown_type": "Unknown test type: {{type}}"
+        },
+        "hint": {
+          "empty": "Select a test type and click \"Run Test\""
+        },
+        "psr": {
+          "col": {
+            "metric": "Metric",
+            "strategy_a": "Strategy A",
+            "strategy_b": "Strategy B",
+            "diff": "Difference",
+            "p_value": "p-value",
+            "significance": "Significance"
+          },
+          "significant": "Significant",
+          "not_significant": "Not Significant",
+          "row": {
+            "sharpe": "Sharpe"
+          }
+        },
+        "bootstrap": {
+          "diff_mean_label": "Mean Difference (95% CI)",
+          "mean": "Mean",
+          "ci": "95% CI",
+          "block_size": "Block Size"
+        },
+        "mcs": {
+          "col": {
+            "strategy": "Strategy",
+            "sharpe": "Sharpe",
+            "confidence_set": "Confidence Set"
+          },
+          "in_set": "In Set",
+          "out_set": "Out of Set"
+        }
+      },
+      "metrics_table": {
+        "col": {
+          "metric": "Metric"
+        }
+      },
+      "nav_chart": {
+        "title": "NAV Curve Comparison"
+      },
+      "drawdown_chart": {
+        "title": "Drawdown Comparison"
+      }
     }
   },
   "page": {

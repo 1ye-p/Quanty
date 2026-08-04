@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 interface CompareMetrics {
@@ -18,16 +19,17 @@ interface CompareMetricsTableProps {
 }
 
 export const CompareMetricsTable: React.FC<CompareMetricsTableProps> = ({ metrics }) => {
+  const { t } = useTranslation();
   if (metrics.length === 0) return null;
 
   const rows = [
-    { key: 'total_return', label: '总收益', format: (v: number) => `${(v * 100).toFixed(1)}%`, higher: true },
-    { key: 'annualized_return', label: '年化收益', format: (v: number) => `${(v * 100).toFixed(1)}%`, higher: true },
-    { key: 'sharpe_ratio', label: 'Sharpe', format: (v: number) => v.toFixed(2), higher: true },
-    { key: 'max_drawdown', label: '最大回撤', format: (v: number) => `${(v * 100).toFixed(1)}%`, higher: false },
-    { key: 'win_rate', label: '胜率', format: (v: number) => `${(v * 100).toFixed(0)}%`, higher: true },
-    { key: 'calmar_ratio', label: 'Calmar', format: (v: number) => v.toFixed(2), higher: true },
-    { key: 'sortino_ratio', label: 'Sortino', format: (v: number) => v.toFixed(2), higher: true },
+    { key: 'total_return', label: t('common.metric.total_return'), format: (v: number) => `${(v * 100).toFixed(1)}%`, higher: true },
+    { key: 'annualized_return', label: t('common.metric.annualized_return'), format: (v: number) => `${(v * 100).toFixed(1)}%`, higher: true },
+    { key: 'sharpe_ratio', label: t('common.metric.sharpe_ratio'), format: (v: number) => v.toFixed(2), higher: true },
+    { key: 'max_drawdown', label: t('common.metric.max_drawdown'), format: (v: number) => `${(v * 100).toFixed(1)}%`, higher: false },
+    { key: 'win_rate', label: t('common.metric.win_rate'), format: (v: number) => `${(v * 100).toFixed(0)}%`, higher: true },
+    { key: 'calmar_ratio', label: t('common.metric.calmar_ratio'), format: (v: number) => v.toFixed(2), higher: true },
+    { key: 'sortino_ratio', label: t('common.metric.sortino_ratio'), format: (v: number) => v.toFixed(2), higher: true },
   ];
 
   const getBestIndex = (key: string, higher: boolean) => {
@@ -41,7 +43,7 @@ export const CompareMetricsTable: React.FC<CompareMetricsTableProps> = ({ metric
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50">
-            <th className="p-3 text-left font-medium">指标</th>
+            <th className="p-3 text-left font-medium">{t('component.compare.metrics_table.col.metric')}</th>
             {metrics.map(m => (
               <th key={m.backtest_id} className="p-3 text-right font-medium">{m.strategy_name}</th>
             ))}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { backtestsApi } from '@/lib/api/backtests';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
   backtestIds,
   backtestNames,
 }) => {
+  const { t } = useTranslation();
   const isTwoStrategies = backtestIds.length === 2;
   const defaultTestType = isTwoStrategies ? 'psr' : 'mcs';
   const [testType, setTestType] = useState<string>(defaultTestType);
@@ -64,17 +66,17 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-gray-50">
-            <th className="p-2 text-left">指标</th>
-            <th className="p-2 text-right">策略 A</th>
-            <th className="p-2 text-right">策略 B</th>
-            <th className="p-2 text-right">差值</th>
-            <th className="p-2 text-right">p-value</th>
-            <th className="p-2 text-center">显著性</th>
+            <th className="p-2 text-left">{t('component.compare.stat_test.psr.col.metric')}</th>
+            <th className="p-2 text-right">{t('component.compare.stat_test.psr.col.strategy_a')}</th>
+            <th className="p-2 text-right">{t('component.compare.stat_test.psr.col.strategy_b')}</th>
+            <th className="p-2 text-right">{t('component.compare.stat_test.psr.col.diff')}</th>
+            <th className="p-2 text-right">{t('component.compare.stat_test.psr.col.p_value')}</th>
+            <th className="p-2 text-center">{t('component.compare.stat_test.psr.col.significance')}</th>
           </tr>
         </thead>
         <tbody>
           <tr className="border-t">
-            <td className="p-2 text-gray-500">Sharpe</td>
+            <td className="p-2 text-gray-500">{t('component.compare.stat_test.psr.row.sharpe')}</td>
             <td className="p-2 text-right font-medium">{r.sharpe_a?.toFixed(3)}</td>
             <td className="p-2 text-right font-medium">{r.sharpe_b?.toFixed(3)}</td>
             <td className="p-2 text-right font-medium">{r.diff?.toFixed(3)}</td>
@@ -88,7 +90,9 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
                     : 'bg-gray-100 text-gray-500',
                 )}
               >
-                {significant ? '显著' : '不显著'}
+                {significant
+                  ? t('component.compare.stat_test.psr.significant')
+                  : t('component.compare.stat_test.psr.not_significant')}
               </span>
             </td>
           </tr>
@@ -109,7 +113,7 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
         <div className="flex items-end gap-4 h-40 justify-center">
           {/* CI error bar */}
           <div className="flex flex-col items-center">
-            <div className="text-xs text-gray-500 mb-1">差值均值 (95% CI)</div>
+            <div className="text-xs text-gray-500 mb-1">{t('component.compare.stat_test.bootstrap.diff_mean_label')}</div>
             <div className="relative flex items-end h-32">
               {/* CI line */}
               <div
@@ -146,14 +150,14 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
         </div>
         <div className="flex justify-center gap-6 text-sm">
           <span>
-            均值: <span className="font-medium">{r.diff_mean?.toFixed(4)}</span>
+            {t('component.compare.stat_test.bootstrap.mean')}: <span className="font-medium">{r.diff_mean?.toFixed(4)}</span>
           </span>
           <span>
-            95% CI: <span className="font-medium">[{r.ci_lower?.toFixed(4)}, {r.ci_upper?.toFixed(4)}]</span>
+            {t('component.compare.stat_test.bootstrap.ci')}: <span className="font-medium">[{r.ci_lower?.toFixed(4)}, {r.ci_upper?.toFixed(4)}]</span>
           </span>
           {r.block_size && (
             <span>
-              块大小: <span className="font-medium">{r.block_size}</span>
+              {t('component.compare.stat_test.bootstrap.block_size')}: <span className="font-medium">{r.block_size}</span>
             </span>
           )}
         </div>
@@ -169,9 +173,9 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-gray-50">
-            <th className="p-2 text-left">策略</th>
-            <th className="p-2 text-right">Sharpe</th>
-            <th className="p-2 text-center">置信集</th>
+            <th className="p-2 text-left">{t('component.compare.stat_test.mcs.col.strategy')}</th>
+            <th className="p-2 text-right">{t('component.compare.stat_test.mcs.col.sharpe')}</th>
+            <th className="p-2 text-center">{t('component.compare.stat_test.mcs.col.confidence_set')}</th>
           </tr>
         </thead>
         <tbody>
@@ -190,7 +194,9 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
                       : 'bg-gray-100 text-gray-500',
                   )}
                 >
-                  {row.in_confidence_set ? '在集中' : '集外'}
+                  {row.in_confidence_set
+                    ? t('component.compare.stat_test.mcs.in_set')
+                    : t('component.compare.stat_test.mcs.out_set')}
                 </span>
               </td>
             </tr>
@@ -210,32 +216,32 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
       case 'mcs':
         return renderMcsResult();
       default:
-        return <div className="p-4 text-gray-400">未知测试类型: {data.test_type}</div>;
+        return <div className="p-4 text-gray-400">{t('component.compare.stat_test.error.unknown_type', { type: data.test_type })}</div>;
     }
   };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">
-      <h3 className="font-medium mb-4">统计检验</h3>
+      <h3 className="font-medium mb-4">{t('component.compare.stat_test.title')}</h3>
 
       <div className="flex flex-wrap items-end gap-3 mb-4">
         {/* Test type selector */}
         <div>
-          <label className="block text-xs text-gray-500 mb-1">检验类型</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('component.compare.stat_test.label.test_type')}</label>
           <select
             value={testType}
             onChange={(e) => setTestType(e.target.value)}
             className="border rounded px-2 py-1.5 text-sm"
           >
-            <option value="psr_diff">PSR 差异检验</option>
+            <option value="psr_diff">{t('component.compare.stat_test.option.psr_diff')}</option>
             <option value="bootstrap">Bootstrap</option>
-            {backtestIds.length >= 3 && <option value="mcs">MCS 检验</option>}
+            {backtestIds.length >= 3 && <option value="mcs">{t('component.compare.stat_test.option.mcs')}</option>}
           </select>
         </div>
 
         {/* Confidence selector */}
         <div>
-          <label className="block text-xs text-gray-500 mb-1">置信水平</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('component.compare.stat_test.label.confidence')}</label>
           <select
             value={confidence}
             onChange={(e) => setConfidence(Number(e.target.value))}
@@ -250,11 +256,11 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
         {/* Block size input (bootstrap only) */}
         {testType === 'bootstrap' && (
           <div>
-            <label className="block text-xs text-gray-500 mb-1">块大小 (Block Size)</label>
+            <label className="block text-xs text-gray-500 mb-1">{t('component.compare.stat_test.label.block_size')}</label>
             <input
               type="number"
               min={1}
-              placeholder="自动"
+              placeholder={t('component.compare.stat_test.placeholder.block_size')}
               value={blockSize}
               onChange={(e) => setBlockSize(e.target.value)}
               className="border rounded px-2 py-1.5 text-sm w-24"
@@ -267,13 +273,13 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
           disabled={isLoading}
           className="px-4 py-1.5 text-sm font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
         >
-          {isLoading ? '运行中...' : '运行检验'}
+          {isLoading ? t('common.running') : t('component.compare.stat_test.btn.run')}
         </button>
       </div>
 
       {error && (
         <div className="p-3 text-sm text-red-500 bg-red-50 rounded">
-          检验失败: {(error as Error).message}
+          {t('component.compare.stat_test.error.failed', { error: (error as Error).message })}
         </div>
       )}
 
@@ -281,7 +287,7 @@ export const StatisticalTestPanel: React.FC<StatisticalTestPanelProps> = ({
 
       {!data && !isLoading && !error && (
         <div className="p-6 text-center text-gray-400 text-sm">
-          选择检验类型后点击"运行检验"
+          {t('component.compare.stat_test.hint.empty')}
         </div>
       )}
     </div>

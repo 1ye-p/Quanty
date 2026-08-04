@@ -925,6 +925,74 @@
         "mode_moderate": "稳健",
         "mode_aggressive": "激进"
       }
+    },
+    "compare": {
+      "stat_test": {
+        "title": "统计检验",
+        "label": {
+          "test_type": "检验类型",
+          "confidence": "置信水平",
+          "block_size": "块大小 (Block Size)"
+        },
+        "option": {
+          "psr_diff": "PSR 差异检验",
+          "mcs": "MCS 检验"
+        },
+        "placeholder": {
+          "block_size": "自动"
+        },
+        "btn": {
+          "run": "运行检验"
+        },
+        "error": {
+          "failed": "检验失败: {{error}}",
+          "unknown_type": "未知测试类型: {{type}}"
+        },
+        "hint": {
+          "empty": "选择检验类型后点击\"运行检验\""
+        },
+        "psr": {
+          "col": {
+            "metric": "指标",
+            "strategy_a": "策略 A",
+            "strategy_b": "策略 B",
+            "diff": "差值",
+            "p_value": "p-value",
+            "significance": "显著性"
+          },
+          "significant": "显著",
+          "not_significant": "不显著",
+          "row": {
+            "sharpe": "Sharpe"
+          }
+        },
+        "bootstrap": {
+          "diff_mean_label": "差值均值 (95% CI)",
+          "mean": "均值",
+          "ci": "95% CI",
+          "block_size": "块大小"
+        },
+        "mcs": {
+          "col": {
+            "strategy": "策略",
+            "sharpe": "Sharpe",
+            "confidence_set": "置信集"
+          },
+          "in_set": "在集中",
+          "out_set": "集外"
+        }
+      },
+      "metrics_table": {
+        "col": {
+          "metric": "指标"
+        }
+      },
+      "nav_chart": {
+        "title": "净值曲线对比"
+      },
+      "drawdown_chart": {
+        "title": "回撤对比"
+      }
     }
   },
   "page": {

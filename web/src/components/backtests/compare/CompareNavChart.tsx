@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface NavCurvePoint {
@@ -17,6 +18,7 @@ interface CompareNavChartProps {
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export const CompareNavChart: React.FC<CompareNavChartProps> = ({ curves }) => {
+  const { t } = useTranslation();
   if (curves.length === 0) return null;
 
   // Merge all curve data onto same timeline
@@ -35,7 +37,7 @@ export const CompareNavChart: React.FC<CompareNavChartProps> = ({ curves }) => {
 
   return (
     <div className="card p-4">
-      <h3 className="font-medium mb-4">净值曲线对比</h3>
+      <h3 className="font-medium mb-4">{t('component.compare.nav_chart.title')}</h3>
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={mergedData}>
           <CartesianGrid strokeDasharray="3 3" />
