@@ -233,6 +233,56 @@
         "loading": "Loading trade analysis...",
         "no_data": "No trade data available for analysis"
       }
+    },
+    "tca": {
+      "section": {
+        "cost_breakdown": "Cost Breakdown",
+        "slippage_distribution": "Slippage Distribution",
+        "implementation_shortfall": "Implementation Shortfall",
+        "is_decomposition": "IS Decomposition",
+        "is_by_order_size": "IS by Order Size",
+        "cumulative_is": "Cumulative IS Over Time",
+        "top_assets_by_cost": "Top {{count}} Assets by Cost",
+        "cost_by_month": "Cost by Month"
+      },
+      "label": {
+        "total_cost": "Total Cost",
+        "cost_ratio": "Cost Ratio",
+        "trade_count": "Trade Count",
+        "avg_cost_per_trade": "Avg Cost/Trade",
+        "total_turnover": "Total Turnover",
+        "mean": "Mean",
+        "p25": "P25",
+        "p50_median": "P50 (Median)",
+        "p75": "P75",
+        "total_is_bps": "Total IS (bps)",
+        "total_is_pct": "Total IS (%)",
+        "delay_cost_bps": "Delay Cost (bps)",
+        "trading_cost_bps": "Trading Cost (bps)"
+      },
+      "series": {
+        "commission": "Commission",
+        "stamp_duty": "Stamp Duty",
+        "slippage": "Slippage",
+        "market_impact": "Market Impact",
+        "frequency": "Frequency",
+        "is_components": "IS Components",
+        "delay": "Delay",
+        "trading": "Trading",
+        "missed_trade": "Missed Trade",
+        "is_bps": "IS (bps)",
+        "cumulative_is": "Cumulative IS"
+      },
+      "unit": {
+        "bps_value": "{{value}} bps"
+      },
+      "count_unit": {
+        "trades_count": "{{count}} trades"
+      },
+      "empty": {
+        "loading": "Loading TCA data...",
+        "no_data": "No trade data available for cost analysis"
+      }
     }
   },
   "page": {

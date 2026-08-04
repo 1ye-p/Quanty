@@ -1,4 +1,5 @@
 import { MetricCard } from '../../components/ui/MetricCard'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
@@ -17,6 +18,7 @@ function fmt(n: unknown, digits = 2): string {
 }
 
 export function BacktestTcaTab() {
+  const { t } = useTranslation()
   const { id: selectedId } = useParams<{ id: string }>()
 
   const { data: tcaData, isLoading } = useQuery({
@@ -35,11 +37,11 @@ export function BacktestTcaTab() {
   if (!selectedId) return null
 
   if (isLoading) {
-    return <div className="text-center text-gray-400 py-12">Loading TCA data...</div>
+    return <div className="text-center text-gray-400 py-12">{t('component.tca.empty.loading')}</div>
   }
 
   if (!tcaData) {
-    return <div className="text-center text-gray-400 py-12">No trade data available for cost analysis</div>
+    return <div className="text-center text-gray-400 py-12">{t('component.tca.empty.no_data')}</div>
   }
 
   const totalCommission = Number(tcaData.total_commission ?? 0)
@@ -54,10 +56,10 @@ export function BacktestTcaTab() {
 
   // Cost breakdown pie data
   const costBreakdown = [
-    { name: 'Commission', value: totalCommission },
-    { name: 'Stamp Duty', value: totalStampDuty },
-    { name: 'Slippage', value: totalSlippage },
-    { name: 'Market Impact', value: marketImpact },
+    { name: t('component.tca.series.commission'), value: totalCommission },
+    { name: t('component.tca.series.stamp_duty'), value: totalStampDuty },
+    { name: t('component.tca.series.slippage'), value: totalSlippage },
+    { name: t('component.tca.series.market_impact'), value: marketImpact },
   ].filter(d => d.value > 0)
 
   // Compute per-asset cost from fills
@@ -146,17 +148,17 @@ export function BacktestTcaTab() {
     <div className="space-y-6">
       {/* Summary metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <MetricCard label="Total Cost" value={fmt(totalCost)} />
-        <MetricCard label="Cost Ratio" value={`${Number(tcaData.cost_pct_turnover ?? 0).toFixed(4)}%`} />
-        <MetricCard label="Trade Count" value={String(numTrades)} />
-        <MetricCard label="Avg Cost/Trade" value={fmt(tcaData.cost_per_trade)} />
+        <MetricCard label={t('component.tca.label.total_cost')} value={fmt(totalCost)} />
+        <MetricCard label={t('component.tca.label.cost_ratio')} value={`${Number(tcaData.cost_pct_turnover ?? 0).toFixed(4)}%`} />
+        <MetricCard label={t('component.tca.label.trade_count')} value={String(numTrades)} />
+        <MetricCard label={t('component.tca.label.avg_cost_per_trade')} value={fmt(tcaData.cost_per_trade)} />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <MetricCard label="Total Turnover" value={fmt(totalTurnover, 0)} />
-        <MetricCard label="Commission" value={fmt(totalCommission)} />
-        <MetricCard label="Stamp Duty" value={fmt(totalStampDuty)} />
-        <MetricCard label="Slippage" value={fmt(totalSlippage)} />
+        <MetricCard label={t('component.tca.label.total_turnover')} value={fmt(totalTurnover, 0)} />
+        <MetricCard label={t('component.tca.series.commission')} value={fmt(totalCommission)} />
+        <MetricCard label={t('component.tca.series.stamp_duty')} value={fmt(totalStampDuty)} />
+        <MetricCard label={t('component.tca.series.slippage')} value={fmt(totalSlippage)} />
       </div>
 
       {/* Cost breakdown pie + Slippage percentiles side by side */}
@@ -164,7 +166,7 @@ export function BacktestTcaTab() {
         {/* Cost breakdown pie */}
         {costBreakdown.length > 0 && (
           <div className="card p-4">
-            <h3 className="font-semibold text-gray-800 mb-3">Cost Breakdown</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">{t('component.tca.section.cost_breakdown')}</h3>
             <div className="grid grid-cols-2 gap-4 items-center">
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
@@ -202,12 +204,12 @@ export function BacktestTcaTab() {
         {/* Slippage analysis */}
         {slippages.length > 0 && (
           <div className="card p-4">
-            <h3 className="font-semibold text-gray-800 mb-3">Slippage Distribution</h3>
+            <h3 className="font-semibold text-gray-800 mb-3">{t('component.tca.section.slippage_distribution')}</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-              <MetricCard label="Mean" value={fmt(slipMean, 4)} />
-              <MetricCard label="P25" value={fmt(slipP25, 4)} />
-              <MetricCard label="P50 (Median)" value={fmt(slipP50, 4)} />
-              <MetricCard label="P75" value={fmt(slipP75, 4)} />
+              <MetricCard label={t('component.tca.label.mean')} value={fmt(slipMean, 4)} />
+              <MetricCard label={t('component.tca.label.p25')} value={fmt(slipP25, 4)} />
+              <MetricCard label={t('component.tca.label.p50_median')} value={fmt(slipP50, 4)} />
+              <MetricCard label={t('component.tca.label.p75')} value={fmt(slipP75, 4)} />
             </div>
             {slipHistData.length > 0 && (
               <ResponsiveContainer width="100%" height={160}>
@@ -215,8 +217,8 @@ export function BacktestTcaTab() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="label" tick={{ fontSize: 9 }} interval={Math.floor(slipBins / 6)} />
                   <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v: number) => `${v} trades`} />
-                  <Bar dataKey="count" name="Frequency" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
+                  <Tooltip formatter={(v: number) => t('component.tca.count_unit.trades_count', { count: v })} />
+                  <Bar dataKey="count" name={t('component.tca.series.frequency')} fill="#8b5cf6" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -238,7 +240,7 @@ export function BacktestTcaTab() {
 
         // Decomposition bar data
         const decompData = [
-          { name: 'IS Components', delay: delayCost, trading: tradingCost, missed: missedCost },
+          { name: t('component.tca.series.is_components'), delay: delayCost, trading: tradingCost, missed: missedCost },
         ]
 
         // Timeseries
@@ -249,20 +251,20 @@ export function BacktestTcaTab() {
 
         return (
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-800 text-lg">Implementation Shortfall</h3>
+            <h3 className="font-semibold text-gray-800 text-lg">{t('component.tca.section.implementation_shortfall')}</h3>
 
             {/* IS Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <MetricCard label="Total IS (bps)" value={fmt(totalIsBps, 2)} />
-              <MetricCard label="Total IS (%)" value={`${fmt(totalIsPct, 4)}%`} />
-              <MetricCard label="Delay Cost (bps)" value={fmt(delayCost, 2)} />
-              <MetricCard label="Trading Cost (bps)" value={fmt(tradingCost, 2)} />
+              <MetricCard label={t('component.tca.label.total_is_bps')} value={fmt(totalIsBps, 2)} />
+              <MetricCard label={t('component.tca.label.total_is_pct')} value={`${fmt(totalIsPct, 4)}%`} />
+              <MetricCard label={t('component.tca.label.delay_cost_bps')} value={fmt(delayCost, 2)} />
+              <MetricCard label={t('component.tca.label.trading_cost_bps')} value={fmt(tradingCost, 2)} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* IS Decomposition stacked bar */}
               <div className="card p-4">
-                <h4 className="font-medium text-gray-700 mb-3">IS Decomposition</h4>
+                <h4 className="font-medium text-gray-700 mb-3">{t('component.tca.section.is_decomposition')}</h4>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart
                     data={decompData}
@@ -272,11 +274,11 @@ export function BacktestTcaTab() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis type="number" tick={{ fontSize: 10 }} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={100} />
-                    <Tooltip formatter={(v: number) => `${fmt(v, 2)} bps`} />
+                    <Tooltip formatter={(v: number) => t('component.tca.unit.bps_value', { value: fmt(v, 2) })} />
                     <Legend />
-                    <Bar dataKey="delay" name="Delay" stackId="a" fill="#f59e0b" radius={[2, 2, 0, 0]} />
-                    <Bar dataKey="trading" name="Trading" stackId="a" fill="#3b82f6" />
-                    <Bar dataKey="missed" name="Missed Trade" stackId="a" fill="#ef4444" />
+                    <Bar dataKey="delay" name={t('component.tca.series.delay')} stackId="a" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="trading" name={t('component.tca.series.trading')} stackId="a" fill="#3b82f6" />
+                    <Bar dataKey="missed" name={t('component.tca.series.missed_trade')} stackId="a" fill="#ef4444" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -284,14 +286,14 @@ export function BacktestTcaTab() {
               {/* IS by Order Size */}
               {byOrderSize.length > 0 && (
                 <div className="card p-4">
-                  <h4 className="font-medium text-gray-700 mb-3">IS by Order Size</h4>
+                  <h4 className="font-medium text-gray-700 mb-3">{t('component.tca.section.is_by_order_size')}</h4>
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={byOrderSize} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                       <XAxis dataKey="bucket" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v: number) => `${fmt(v, 2)} bps`} />
-                      <Bar dataKey="is_bps" name="IS (bps)" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
+                      <Tooltip formatter={(v: number) => t('component.tca.unit.bps_value', { value: fmt(v, 2) })} />
+                      <Bar dataKey="is_bps" name={t('component.tca.series.is_bps')} fill="#8b5cf6" radius={[2, 2, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -301,17 +303,17 @@ export function BacktestTcaTab() {
             {/* IS Timeseries */}
             {timeseries.length > 0 && (
               <div className="card p-4">
-                <h4 className="font-medium text-gray-700 mb-3">Cumulative IS Over Time</h4>
+                <h4 className="font-medium text-gray-700 mb-3">{t('component.tca.section.cumulative_is')}</h4>
                 <ResponsiveContainer width="100%" height={240}>
                   <LineChart data={timeseries} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} />
-                    <Tooltip formatter={(v: number) => `${fmt(v, 2)} bps`} />
+                    <Tooltip formatter={(v: number) => t('component.tca.unit.bps_value', { value: fmt(v, 2) })} />
                     <Line
                       type="monotone"
                       dataKey="cumulative_is_bps"
-                      name="Cumulative IS"
+                      name={t('component.tca.series.cumulative_is')}
                       stroke="#3b82f6"
                       strokeWidth={2}
                       dot={false}
@@ -327,7 +329,7 @@ export function BacktestTcaTab() {
       {/* Cost by asset (horizontal bar) */}
       {assetCostData.length > 0 && (
         <div className="card p-4">
-          <h3 className="font-semibold text-gray-800 mb-3">Top {assetCostData.length} Assets by Cost</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">{t('component.tca.section.top_assets_by_cost', { count: assetCostData.length })}</h3>
           <ResponsiveContainer width="100%" height={Math.max(240, assetCostData.length * 28)}>
             <BarChart
               data={assetCostData}
@@ -339,9 +341,9 @@ export function BacktestTcaTab() {
               <YAxis type="category" dataKey="asset" tick={{ fontSize: 10 }} width={80} />
               <Tooltip formatter={(v: number) => fmt(v)} />
               <Legend />
-              <Bar dataKey="commission" name="Commission" stackId="a" fill="#3b82f6" />
-              <Bar dataKey="stamp" name="Stamp Duty" stackId="a" fill="#f59e0b" />
-              <Bar dataKey="slippage" name="Slippage" stackId="a" fill="#8b5cf6" />
+              <Bar dataKey="commission" name={t('component.tca.series.commission')} stackId="a" fill="#3b82f6" />
+              <Bar dataKey="stamp" name={t('component.tca.series.stamp_duty')} stackId="a" fill="#f59e0b" />
+              <Bar dataKey="slippage" name={t('component.tca.series.slippage')} stackId="a" fill="#8b5cf6" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -350,7 +352,7 @@ export function BacktestTcaTab() {
       {/* Cost by time period */}
       {timeCostData.length > 0 && (
         <div className="card p-4">
-          <h3 className="font-semibold text-gray-800 mb-3">Cost by Month</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">{t('component.tca.section.cost_by_month')}</h3>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={timeCostData} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -358,9 +360,9 @@ export function BacktestTcaTab() {
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip formatter={(v: number) => fmt(v)} />
               <Legend />
-              <Bar dataKey="commission" name="Commission" stackId="a" fill="#3b82f6" />
-              <Bar dataKey="stamp" name="Stamp Duty" stackId="a" fill="#f59e0b" />
-              <Bar dataKey="slippage" name="Slippage" stackId="a" fill="#8b5cf6" />
+              <Bar dataKey="commission" name={t('component.tca.series.commission')} stackId="a" fill="#3b82f6" />
+              <Bar dataKey="stamp" name={t('component.tca.series.stamp_duty')} stackId="a" fill="#f59e0b" />
+              <Bar dataKey="slippage" name={t('component.tca.series.slippage')} stackId="a" fill="#8b5cf6" />
             </BarChart>
           </ResponsiveContainer>
         </div>

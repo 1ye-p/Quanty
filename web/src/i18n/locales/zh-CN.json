@@ -233,6 +233,56 @@
         "loading": "正在加载交易分析...",
         "no_data": "暂无交易数据可供分析"
       }
+    },
+    "tca": {
+      "section": {
+        "cost_breakdown": "成本构成",
+        "slippage_distribution": "滑点分布",
+        "implementation_shortfall": "执行差额 (IS)",
+        "is_decomposition": "IS 分解",
+        "is_by_order_size": "按下单规模 IS",
+        "cumulative_is": "累计 IS 时序",
+        "top_assets_by_cost": "按成本排名前 {{count}} 标的",
+        "cost_by_month": "按月成本"
+      },
+      "label": {
+        "total_cost": "总成本",
+        "cost_ratio": "成本占比",
+        "trade_count": "成交笔数",
+        "avg_cost_per_trade": "单笔均成本",
+        "total_turnover": "总成交额",
+        "mean": "均值",
+        "p25": "P25",
+        "p50_median": "P50 (中位数)",
+        "p75": "P75",
+        "total_is_bps": "总 IS (bps)",
+        "total_is_pct": "总 IS (%)",
+        "delay_cost_bps": "延迟成本 (bps)",
+        "trading_cost_bps": "交易成本 (bps)"
+      },
+      "series": {
+        "commission": "佣金",
+        "stamp_duty": "印花税",
+        "slippage": "滑点",
+        "market_impact": "市场冲击",
+        "frequency": "频次",
+        "is_components": "IS 构成",
+        "delay": "延迟",
+        "trading": "交易",
+        "missed_trade": "错失交易",
+        "is_bps": "IS (bps)",
+        "cumulative_is": "累计 IS"
+      },
+      "unit": {
+        "bps_value": "{{value}} bps"
+      },
+      "count_unit": {
+        "trades_count": "{{count}} 笔"
+      },
+      "empty": {
+        "loading": "正在加载交易成本分析数据...",
+        "no_data": "暂无成交数据可供成本分析"
+      }
     }
   },
   "page": {
