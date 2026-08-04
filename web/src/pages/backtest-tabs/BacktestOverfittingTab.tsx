@@ -5,6 +5,7 @@ import { backtestsApi, backtestExtApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -13,10 +14,11 @@ import {
 
 
 function FoldMetricsCard({ folds }: { folds: Record<string, unknown>[] }) {
+  const { t } = useTranslation()
   if (!folds || folds.length === 0) return null
   return (
     <div className="card">
-      <h3 className="font-semibold text-gray-800 mb-3">Walk-Forward Fold Metrics</h3>
+      <h3 className="font-semibold text-gray-800 mb-3">{t('component.overfitting.section.wf_fold_metrics')}</h3>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {folds.map((fold, i) => {
           const metrics = fold.metrics_json as Record<string, number> | null
@@ -24,11 +26,11 @@ function FoldMetricsCard({ folds }: { folds: Record<string, unknown>[] }) {
           const ret = metrics?.total_return ?? 0
           return (
             <div key={i} className={`text-center p-3 rounded-lg ${sharpe > 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-              <div className="text-xs text-gray-500 mb-1">Fold {i + 1}</div>
+              <div className="text-xs text-gray-500 mb-1">{t('component.overfitting.label.fold', { index: i + 1 })}</div>
               <div className={`text-lg font-bold ${sharpe > 0 ? 'text-green-700' : 'text-red-700'}`}>
                 {sharpe.toFixed(2)}
               </div>
-              <div className="text-xs text-gray-400">Sharpe</div>
+              <div className="text-xs text-gray-400">{t('component.overfitting.label.sharpe')}</div>
               <div className={`text-sm mt-1 ${ret > 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {(ret * 100).toFixed(1)}%
               </div>
@@ -41,12 +43,13 @@ function FoldMetricsCard({ folds }: { folds: Record<string, unknown>[] }) {
 }
 
 function OverfitScore({ score }: { score: number }) {
+  const { t } = useTranslation()
   const pct = Math.round(score * 100)
   const color = score > 0.7 ? 'bg-red-500' : score > 0.4 ? 'bg-yellow-500' : 'bg-green-500'
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-gray-700">Overfit Score</span>
+        <span className="text-sm font-medium text-gray-700">{t('component.overfitting.label.overfit_score')}</span>
         <span className={`badge ${score > 0.7 ? 'bg-red-100 text-red-800' : score > 0.4 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
           {pct}%
         </span>
@@ -55,13 +58,14 @@ function OverfitScore({ score }: { score: number }) {
         <div className={`${color} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
       </div>
       <div className="text-xs text-gray-400 mt-1">
-        {score > 0.7 ? 'Significant overfitting detected' : score > 0.4 ? 'Mild overfitting' : 'Low overfit risk'}
+{score > 0.7 ? t('component.overfitting.hint.overfit_significant') : score > 0.4 ? t('component.overfitting.hint.overfit_mild') : t('component.overfitting.hint.overfit_low')}
       </div>
     </div>
   )
 }
 
 export function BacktestOverfittingTab() {
+  const { t } = useTranslation()
   const { id: selectedId } = useParams<{ id: string }>()
   const [cpcvEmbargoDays, setCpcvEmbargoDays] = useState(0)
 
@@ -105,8 +109,8 @@ export function BacktestOverfittingTab() {
       {analysis && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <OverfitScore score={overfitScore} />
-          <MetricCard label="PSR (Prob. Sharpe)" value={psr.toFixed(3)} sub="Closer to 1 is better" warn={psr < 0.5} />
-          <MetricCard label="DSR (Deflated Sharpe)" value={dsr.toFixed(3)} sub="Multi-test corrected" warn={dsr < 0.5} />
+          <MetricCard label={t('component.overfitting.label.psr')} value={psr.toFixed(3)} sub={t('component.overfitting.sub.psr_better')} warn={psr < 0.5} />
+          <MetricCard label={t('component.overfitting.label.dsr')} value={dsr.toFixed(3)} sub={t('component.overfitting.sub.dsr_corrected')} warn={dsr < 0.5} />
         </div>
       )}
 
@@ -116,14 +120,14 @@ export function BacktestOverfittingTab() {
 
       {wfChartData.length > 0 && (
         <div className="card">
-          <h3 className="font-semibold text-gray-800 mb-3">Walk-Forward OOS Sharpe ({wfChartData.length} windows)</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">{t('component.overfitting.section.wf_oos_sharpe', { count: wfChartData.length })}</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={wfChartData}>
               <XAxis dataKey="window" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip formatter={(v: number) => v.toFixed(3)} />
               <ReferenceLine y={0} stroke="#e5e7eb" />
-              <Bar dataKey="sharpe" name="Sharpe">
+              <Bar dataKey="sharpe" name={t('component.overfitting.label.sharpe')}>
                 {wfChartData.map((_: unknown, i: number) => (
                   <Cell key={i} fill={wfChartData[i].sharpe > 0 ? '#4f63d2' : '#ef4444'} />
                 ))}
@@ -135,7 +139,7 @@ export function BacktestOverfittingTab() {
 
       {cpvcWindows.length > 0 && (
         <div className="card">
-          <h3 className="font-semibold text-gray-800 mb-3">CPCV Validation Windows ({cpvcWindows.length} combos)</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">{t('component.overfitting.section.cpcv_windows', { count: cpvcWindows.length })}</h3>
           <div className="grid grid-cols-4 gap-2">
             {(cpvcWindows as Record<string, unknown>[]).slice(0, 8).map((w, i) => {
               const metrics = w.metrics_json as Record<string, number> | null
@@ -153,7 +157,7 @@ export function BacktestOverfittingTab() {
 
       {multipleTestData && Object.keys(multipleTestData).length > 0 && (
         <div className="card">
-          <h3 className="font-semibold text-gray-800 mb-3">Multiple Testing Correction</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">{t('component.overfitting.section.multiple_testing')}</h3>
           <div className="space-y-2">
             {Object.entries(multipleTestData).map(([method, result]) => {
               const r = result as Record<string, unknown>
@@ -161,7 +165,7 @@ export function BacktestOverfittingTab() {
                 <div key={method} className="flex items-center justify-between text-sm">
                   <span className="text-gray-600 capitalize">{method.replace('_', '-')}</span>
                   <span className={`badge ${r.any_significant ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {r.any_significant ? 'Significant' : 'Not significant'}
+{r.any_significant ? t('component.overfitting.label.significant') : t('component.overfitting.label.not_significant')}
                   </span>
                 </div>
               )
@@ -172,14 +176,14 @@ export function BacktestOverfittingTab() {
 
       {!analysis && !validationData && !multipleTestData && (
         <div className="card text-center py-12">
-          <div className="text-4xl mb-3">Lab</div>
-          <div className="text-gray-500 mb-2">No overfitting analysis data available</div>
+          <div className="text-4xl mb-3">{t('component.overfitting.empty.icon')}</div>
+          <div className="text-gray-500 mb-2">{t('component.overfitting.empty.title')}</div>
           <p className="text-xs text-gray-400 mb-4">
-            Analysis runs automatically after backtest completion. Trigger manually if not yet generated.
+            {t('component.overfitting.empty.hint')}
           </p>
           <div className="flex flex-col items-center gap-3">
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-600">CPCV Embargo Days:</label>
+              <label className="text-xs text-gray-600">{t('component.overfitting.label.cpcv_embargo_days')}</label>
               <input
                 type="number"
                 className="input w-20 text-sm"
@@ -188,23 +192,23 @@ export function BacktestOverfittingTab() {
                 min={0}
                 max={30}
               />
-              <span className="text-xs text-gray-400">Exclude N days after each test fold from training set</span>
+              <span className="text-xs text-gray-400">{t('component.overfitting.hint.embargo')}</span>
             </div>
             <button
               className="btn-primary"
               onClick={async () => {
                 try {
                   await backtestsApi.triggerAnalysis(selectedId!, { embargo_days: cpcvEmbargoDays })
-                  toast.info('Analysis task submitted, check results in ~30 seconds')
+                  toast.info(t('component.overfitting.hint.submitted'))
                 } catch (e) {
-                  toast.error(`Failed to trigger analysis: ${(e as Error).message}`)
+                  toast.error(t('component.overfitting.error.trigger_failed', { message: (e as Error).message }))
                 }
               }}
             >
-              Re-run Analysis
+              {t('component.overfitting.btn.rerun')}
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Analysis includes PSR/DSR/CPCV overfitting detection</p>
+          <p className="text-xs text-gray-400 mt-2">{t('component.overfitting.hint.includes')}</p>
         </div>
       )}
     </div>

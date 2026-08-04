@@ -283,6 +283,47 @@
         "loading": "Loading TCA data...",
         "no_data": "No trade data available for cost analysis"
       }
+    },
+    "overfitting": {
+      "section": {
+        "wf_fold_metrics": "Walk-Forward Fold Metrics",
+        "wf_oos_sharpe": "Walk-Forward OOS Sharpe ({{count}} windows)",
+        "cpcv_windows": "CPCV Validation Windows ({{count}} combos)",
+        "multiple_testing": "Multiple Testing Correction"
+      },
+      "label": {
+        "overfit_score": "Overfit Score",
+        "fold": "Fold {{index}}",
+        "sharpe": "Sharpe",
+        "psr": "PSR (Prob. Sharpe)",
+        "dsr": "DSR (Deflated Sharpe)",
+        "significant": "Significant",
+        "not_significant": "Not significant",
+        "cpcv_embargo_days": "CPCV Embargo Days:"
+      },
+      "sub": {
+        "psr_better": "Closer to 1 is better",
+        "dsr_corrected": "Multi-test corrected"
+      },
+      "hint": {
+        "overfit_significant": "Significant overfitting detected",
+        "overfit_mild": "Mild overfitting",
+        "overfit_low": "Low overfit risk",
+        "embargo": "Exclude N days after each test fold from training set",
+        "submitted": "Analysis task submitted, check results in ~30 seconds",
+        "includes": "Analysis includes PSR/DSR/CPCV overfitting detection"
+      },
+      "empty": {
+        "icon": "Lab",
+        "title": "No overfitting analysis data available",
+        "hint": "Analysis runs automatically after backtest completion. Trigger manually if not yet generated."
+      },
+      "btn": {
+        "rerun": "Re-run Analysis"
+      },
+      "error": {
+        "trigger_failed": "Failed to trigger analysis: {{message}}"
+      }
     }
   },
   "page": {

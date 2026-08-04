@@ -283,6 +283,47 @@
         "loading": "正在加载交易成本分析数据...",
         "no_data": "暂无成交数据可供成本分析"
       }
+    },
+    "overfitting": {
+      "section": {
+        "wf_fold_metrics": "Walk-Forward 折叠指标",
+        "wf_oos_sharpe": "Walk-Forward 样本外夏普 ({{count}} 个窗口)",
+        "cpcv_windows": "CPCV 验证窗口 ({{count}} 个组合)",
+        "multiple_testing": "多重检验校正"
+      },
+      "label": {
+        "overfit_score": "过拟合得分",
+        "fold": "折叠 {{index}}",
+        "sharpe": "夏普",
+        "psr": "PSR (夏普概率)",
+        "dsr": "DSR (缩减夏普)",
+        "significant": "显著",
+        "not_significant": "不显著",
+        "cpcv_embargo_days": "CPCV 禁运天数："
+      },
+      "sub": {
+        "psr_better": "越接近 1 越好",
+        "dsr_corrected": "经多重检验校正"
+      },
+      "hint": {
+        "overfit_significant": "检测到显著过拟合",
+        "overfit_mild": "轻度过拟合",
+        "overfit_low": "过拟合风险低",
+        "embargo": "从训练集中排除每个测试折叠后的 N 天",
+        "submitted": "分析任务已提交，约 30 秒后查看结果",
+        "includes": "分析包含 PSR/DSR/CPCV 过拟合检测"
+      },
+      "empty": {
+        "icon": "实验室",
+        "title": "暂无过拟合分析数据",
+        "hint": "分析在回测完成后自动运行。如尚未生成，可手动触发。"
+      },
+      "btn": {
+        "rerun": "重新运行分析"
+      },
+      "error": {
+        "trigger_failed": "触发分析失败：{{message}}"
+      }
     }
   },
   "page": {
