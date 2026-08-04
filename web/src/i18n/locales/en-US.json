@@ -381,6 +381,71 @@
         "quintile_failed": "Quintile computation failed: {{message}}",
         "ic_failed": "IC computation failed: {{message}}"
       }
+    },
+    "datasets": {
+      "title": "Datasets",
+      "subtitle": "{{count}} versions · Click a version to view detailed analysis",
+      "tab": {
+        "preview": "Data Preview",
+        "stats": "Field Stats",
+        "quality": "Quality Report",
+        "anomalies": "Anomaly Markers",
+        "compare": "Version Compare",
+        "prices": "Price Browser"
+      },
+      "compare": {
+        "version_a": "Version A",
+        "version_b": "Version B",
+        "select_version": "Select version",
+        "vs": "vs",
+        "btn_compare": "Compare",
+        "hint_select_two": "Select two different versions and click Compare",
+        "failed": "Compare failed: {{message}}",
+        "summary": {
+          "version_a_count": "Version A rows",
+          "version_b_count": "Version B rows",
+          "added": "Added rows",
+          "removed": "Removed rows"
+        },
+        "field_changes": "Field changes",
+        "common_fields": "{{count}} common fields",
+        "stats_table": "Field stats comparison",
+        "column": {
+          "field": "Field",
+          "a_mean": "A mean",
+          "b_mean": "B mean",
+          "diff": "Diff",
+          "change_rate": "Change rate",
+          "a_null_rate": "A null rate",
+          "b_null_rate": "B null rate"
+        }
+      },
+      "schedule": {
+        "label": "Data schedule",
+        "status": {
+          "running": "Ingesting...",
+          "success": "Enabled",
+          "error": "Last failed",
+          "pending": "Pending first run"
+        },
+        "last_data_date": "Latest data: ",
+        "last_run": "Last run: ",
+        "next_run": "Next scheduled: ",
+        "btn_update_now": "Update now",
+        "error_prefix": "Error: "
+      },
+      "list": {
+        "empty": "No datasets",
+        "column": {
+          "name": "Name",
+          "frequency": "Frequency",
+          "asset_count": "Assets",
+          "row_count": "Rows"
+        }
+      },
+      "detail": {
+        "select_prompt": "Please select a dataset version on the left"
+      }
     }
   }
 }

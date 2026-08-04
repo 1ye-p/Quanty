@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { datasetsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -11,16 +12,17 @@ import { PriceChart } from '@/components/datasets/PriceChart'
 
 type DetailTab = 'preview' | 'stats' | 'quality' | 'anomalies' | 'compare' | 'prices'
 
-const TABS: { key: DetailTab; label: string }[] = [
-  { key: 'preview', label: '数据预览' },
-  { key: 'stats', label: '字段统计' },
-  { key: 'quality', label: '质量报告' },
-  { key: 'anomalies', label: '异常标记' },
-  { key: 'compare', label: '版本对比' },
-  { key: 'prices', label: '行情浏览' },
+const TABS: { key: DetailTab; labelKey: string }[] = [
+  { key: 'preview', labelKey: 'page.datasets.tab.preview' },
+  { key: 'stats', labelKey: 'page.datasets.tab.stats' },
+  { key: 'quality', labelKey: 'page.datasets.tab.quality' },
+  { key: 'anomalies', labelKey: 'page.datasets.tab.anomalies' },
+  { key: 'compare', labelKey: 'page.datasets.tab.compare' },
+  { key: 'prices', labelKey: 'page.datasets.tab.prices' },
 ]
 
 function VersionComparison({ versions }: { versions: { version_id: string; dataset_name: string }[] }) {
+  const { t } = useTranslation()
   const [versionA, setVersionA] = useState('')
   const [versionB, setVersionB] = useState('')
   const [triggered, setTriggered] = useState(false)
@@ -42,27 +44,27 @@ function VersionComparison({ versions }: { versions: { version_id: string; datas
       {/* Selectors */}
       <div className="flex items-end gap-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">版本 A</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('page.datasets.compare.version_a')}</label>
           <select
             value={versionA}
             onChange={e => { setVersionA(e.target.value); setTriggered(false) }}
             className="input-field text-sm w-48"
           >
-            <option value="">选择版本</option>
+            <option value="">{t('page.datasets.compare.select_version')}</option>
             {versions.map(v => (
               <option key={v.version_id} value={v.version_id}>{v.dataset_name}</option>
             ))}
           </select>
         </div>
-        <div className="text-gray-400 text-sm pb-1">vs</div>
+        <div className="text-gray-400 text-sm pb-1">{t('page.datasets.compare.vs')}</div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">版本 B</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('page.datasets.compare.version_b')}</label>
           <select
             value={versionB}
             onChange={e => { setVersionB(e.target.value); setTriggered(false) }}
             className="input-field text-sm w-48"
           >
-            <option value="">选择版本</option>
+            <option value="">{t('page.datasets.compare.select_version')}</option>
             {versions.map(v => (
               <option key={v.version_id} value={v.version_id}>{v.dataset_name}</option>
             ))}
@@ -73,24 +75,24 @@ function VersionComparison({ versions }: { versions: { version_id: string; datas
           disabled={!versionA || !versionB || versionA === versionB}
           className="btn-primary text-sm disabled:opacity-40"
         >
-          对比
+          {t('page.datasets.compare.btn_compare')}
         </button>
       </div>
 
       {/* Empty / error states */}
       {!triggered && (
         <div className="card flex items-center justify-center h-32 text-gray-400 text-sm">
-          选择两个不同版本后点击对比
+          {t('page.datasets.compare.hint_select_two')}
         </div>
       )}
       {triggered && isLoading && (
         <div className="card flex items-center justify-center h-32 text-gray-400 text-sm">
-          加载中...
+          {t('common.loading')}
         </div>
       )}
       {triggered && error && (
         <div className="card flex items-center justify-center h-32 text-red-500 text-sm">
-          对比失败：{(error as Error).message}
+          {t('page.datasets.compare.failed', { message: (error as Error).message })}
         </div>
       )}
 
@@ -100,19 +102,19 @@ function VersionComparison({ versions }: { versions: { version_id: string; datas
           {/* Summary cards */}
           <div className="grid grid-cols-4 gap-3">
             <div className="bg-white rounded-xl shadow-sm border p-4">
-              <div className="text-xs text-gray-500">版本 A 行数</div>
+              <div className="text-xs text-gray-500">{t('page.datasets.compare.summary.version_a_count')}</div>
               <div className="text-lg font-semibold mt-1">{data.row_changes.version_a_count.toLocaleString()}</div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border p-4">
-              <div className="text-xs text-gray-500">版本 B 行数</div>
+              <div className="text-xs text-gray-500">{t('page.datasets.compare.summary.version_b_count')}</div>
               <div className="text-lg font-semibold mt-1">{data.row_changes.version_b_count.toLocaleString()}</div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border p-4">
-              <div className="text-xs text-gray-500">新增行数</div>
+              <div className="text-xs text-gray-500">{t('page.datasets.compare.summary.added')}</div>
               <div className="text-lg font-semibold mt-1 text-green-600">+{data.row_changes.added.toLocaleString()}</div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border p-4">
-              <div className="text-xs text-gray-500">移除行数</div>
+              <div className="text-xs text-gray-500">{t('page.datasets.compare.summary.removed')}</div>
               <div className="text-lg font-semibold mt-1 text-red-600">-{data.row_changes.removed.toLocaleString()}</div>
             </div>
           </div>
@@ -120,7 +122,7 @@ function VersionComparison({ versions }: { versions: { version_id: string; datas
           {/* Field changes */}
           {(data.field_changes.added_fields.length > 0 || data.field_changes.removed_fields.length > 0) && (
             <div className="bg-white rounded-xl shadow-sm border p-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">字段变更</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">{t('page.datasets.compare.field_changes')}</h3>
               <div className="flex flex-wrap gap-2">
                 {data.field_changes.added_fields.map(f => (
                   <span key={f} className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">+ {f}</span>
@@ -129,7 +131,7 @@ function VersionComparison({ versions }: { versions: { version_id: string; datas
                   <span key={f} className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">- {f}</span>
                 ))}
                 {data.field_changes.common_fields.length > 0 && (
-                  <span className="text-xs text-gray-400">{data.field_changes.common_fields.length} 个共同字段</span>
+                  <span className="text-xs text-gray-400">{t('page.datasets.compare.common_fields', { count: data.field_changes.common_fields.length })}</span>
                 )}
               </div>
             </div>
@@ -138,17 +140,17 @@ function VersionComparison({ versions }: { versions: { version_id: string; datas
           {/* Field stats table */}
           {data.field_stats.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm border p-4 overflow-x-auto">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">字段统计对比</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-3">{t('page.datasets.compare.stats_table')}</h3>
               <table className="w-full text-xs">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="table-th text-left">字段</th>
-                    <th className="table-th text-right">A 均值</th>
-                    <th className="table-th text-right">B 均值</th>
-                    <th className="table-th text-right">差异</th>
-                    <th className="table-th text-right">变化率</th>
-                    <th className="table-th text-right">A 空值率</th>
-                    <th className="table-th text-right">B 空值率</th>
+                    <th className="table-th text-left">{t('page.datasets.compare.column.field')}</th>
+                    <th className="table-th text-right">{t('page.datasets.compare.column.a_mean')}</th>
+                    <th className="table-th text-right">{t('page.datasets.compare.column.b_mean')}</th>
+                    <th className="table-th text-right">{t('page.datasets.compare.column.diff')}</th>
+                    <th className="table-th text-right">{t('page.datasets.compare.column.change_rate')}</th>
+                    <th className="table-th text-right">{t('page.datasets.compare.column.a_null_rate')}</th>
+                    <th className="table-th text-right">{t('page.datasets.compare.column.b_null_rate')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -181,6 +183,7 @@ function VersionComparison({ versions }: { versions: { version_id: string; datas
 }
 
 export function DatasetsPage() {
+  const { t } = useTranslation()
   const [selectedVersion, setSelectedVersion] = useState('')
   const [activeTab, setActiveTab] = useState<DetailTab>('preview')
 
@@ -213,8 +216,8 @@ export function DatasetsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">数据集</h1>
-        <p className="page-subtitle">共 {data?.total ?? 0} 个版本 · 点击版本查看详细分析</p>
+        <h1 className="page-title">{t('page.datasets.title')}</h1>
+        <p className="page-subtitle">{t('page.datasets.subtitle', { count: data?.total ?? 0 })}</p>
       </div>
 
       {/* Schedule status bar */}
@@ -224,7 +227,7 @@ export function DatasetsPage() {
         }`}>
           <div className="flex items-center gap-3">
             <div>
-              <span className="text-sm font-medium text-gray-700">数据调度</span>
+              <span className="text-sm font-medium text-gray-700">{t('page.datasets.schedule.label')}</span>
               <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
                 scheduleStatus.last_status === 'running'
                   ? 'bg-blue-100 text-blue-700 animate-pulse'
@@ -234,21 +237,21 @@ export function DatasetsPage() {
                   ? 'bg-red-100 text-red-700'
                   : 'bg-gray-100 text-gray-600'
               }`}>
-                {scheduleStatus.last_status === 'running' ? '摄取中...'
-                  : scheduleStatus.last_status === 'success' ? '已启用'
-                  : scheduleStatus.last_status === 'error' ? '上次失败'
-                  : '待首次运行'}
+                {scheduleStatus.last_status === 'running' ? t('page.datasets.schedule.status.running')
+                  : scheduleStatus.last_status === 'success' ? t('page.datasets.schedule.status.success')
+                  : scheduleStatus.last_status === 'error' ? t('page.datasets.schedule.status.error')
+                  : t('page.datasets.schedule.status.pending')}
               </span>
             </div>
             <div className="text-xs text-gray-500 space-x-3">
               {scheduleStatus.last_data_date && (
-                <span>最新数据：<strong className="text-gray-700">{scheduleStatus.last_data_date}</strong></span>
+                <span>{t('page.datasets.schedule.last_data_date')}<strong className="text-gray-700">{scheduleStatus.last_data_date}</strong></span>
               )}
               {scheduleStatus.last_run && (
-                <span>上次运行：{scheduleStatus.last_run.slice(0, 16).replace('T', ' ')}</span>
+                <span>{t('page.datasets.schedule.last_run')}{scheduleStatus.last_run.slice(0, 16).replace('T', ' ')}</span>
               )}
               {scheduleStatus.next_run && (
-                <span>下次计划：{scheduleStatus.next_run.slice(0, 16).replace('T', ' ')}</span>
+                <span>{t('page.datasets.schedule.next_run')}{scheduleStatus.next_run.slice(0, 16).replace('T', ' ')}</span>
               )}
             </div>
           </div>
@@ -257,13 +260,13 @@ export function DatasetsPage() {
             disabled={scheduleStatus.last_status === 'running' || triggerMutation.isPending}
             className="btn-secondary text-xs disabled:opacity-40"
           >
-            {scheduleStatus.last_status === 'running' ? '摄取中...' : '立即更新'}
+            {scheduleStatus.last_status === 'running' ? t('page.datasets.schedule.status.running') : t('page.datasets.schedule.btn_update_now')}
           </button>
         </div>
       )}
       {scheduleStatus?.last_error && (
         <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
-          错误：{scheduleStatus.last_error}
+          {t('page.datasets.schedule.error_prefix')}{scheduleStatus.last_error}
         </div>
       )}
 
@@ -271,14 +274,15 @@ export function DatasetsPage() {
       <div className="grid grid-cols-12 gap-4">
         {/* Left: dataset list (4 cols) */}
         <div className="col-span-4">
-          <DataState isLoading={isLoading} error={error} isEmpty={!data?.items.length} emptyText="暂无数据集">
+          <DataState isLoading={isLoading} error={error} isEmpty={!data?.items.length} emptyText={t('page.datasets.list.empty')}>
             <div className="card p-0 overflow-hidden max-h-[calc(100vh-280px)] overflow-y-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
-                    {['名称', '频率', '资产数', '行数'].map(h => (
-                      <th key={h} className="table-th text-xs">{h}</th>
-                    ))}
+                    <th className="table-th text-xs">{t('page.datasets.list.column.name')}</th>
+                    <th className="table-th text-xs">{t('page.datasets.list.column.frequency')}</th>
+                    <th className="table-th text-xs">{t('page.datasets.list.column.asset_count')}</th>
+                    <th className="table-th text-xs">{t('page.datasets.list.column.row_count')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -311,7 +315,7 @@ export function DatasetsPage() {
         <div className="col-span-8">
           {!selectedVersion ? (
             <div className="card flex items-center justify-center h-64 text-gray-400 text-sm">
-              请在左侧选择一个数据集版本
+              {t('page.datasets.detail.select_prompt')}
             </div>
           ) : (
             <div className="space-y-4">
@@ -327,7 +331,7 @@ export function DatasetsPage() {
                     }`}
                     onClick={() => setActiveTab(tab.key)}
                   >
-                    {tab.label}
+                    {t(tab.labelKey)}
                   </button>
                 ))}
               </div>

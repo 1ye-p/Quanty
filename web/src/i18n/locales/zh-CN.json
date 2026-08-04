@@ -381,6 +381,71 @@
         "quintile_failed": "五分位计算失败: {{message}}",
         "ic_failed": "IC 计算失败: {{message}}"
       }
+    },
+    "datasets": {
+      "title": "数据集",
+      "subtitle": "共 {{count}} 个版本 · 点击版本查看详细分析",
+      "tab": {
+        "preview": "数据预览",
+        "stats": "字段统计",
+        "quality": "质量报告",
+        "anomalies": "异常标记",
+        "compare": "版本对比",
+        "prices": "行情浏览"
+      },
+      "compare": {
+        "version_a": "版本 A",
+        "version_b": "版本 B",
+        "select_version": "选择版本",
+        "vs": "vs",
+        "btn_compare": "对比",
+        "hint_select_two": "选择两个不同版本后点击对比",
+        "failed": "对比失败：{{message}}",
+        "summary": {
+          "version_a_count": "版本 A 行数",
+          "version_b_count": "版本 B 行数",
+          "added": "新增行数",
+          "removed": "移除行数"
+        },
+        "field_changes": "字段变更",
+        "common_fields": "{{count}} 个共同字段",
+        "stats_table": "字段统计对比",
+        "column": {
+          "field": "字段",
+          "a_mean": "A 均值",
+          "b_mean": "B 均值",
+          "diff": "差异",
+          "change_rate": "变化率",
+          "a_null_rate": "A 空值率",
+          "b_null_rate": "B 空值率"
+        }
+      },
+      "schedule": {
+        "label": "数据调度",
+        "status": {
+          "running": "摄取中...",
+          "success": "已启用",
+          "error": "上次失败",
+          "pending": "待首次运行"
+        },
+        "last_data_date": "最新数据：",
+        "last_run": "上次运行：",
+        "next_run": "下次计划：",
+        "btn_update_now": "立即更新",
+        "error_prefix": "错误："
+      },
+      "list": {
+        "empty": "暂无数据集",
+        "column": {
+          "name": "名称",
+          "frequency": "频率",
+          "asset_count": "资产数",
+          "row_count": "行数"
+        }
+      },
+      "detail": {
+        "select_prompt": "请在左侧选择一个数据集版本"
+      }
     }
   }
 }
