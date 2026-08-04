@@ -161,6 +161,59 @@
         "top_n_per_sector": "每行业选股数",
         "top_sectors": "选行业数",
         "ui_mode": "UI 模式"
+      },
+      "templates": {
+        "title": "策略模板",
+        "buy_label": "买",
+        "sell_label": "卖",
+        "items": {
+          "ma_cross": {
+            "name": "均线交叉",
+            "description": "短期均线上穿长期均线买入，下穿卖出"
+          },
+          "rsi_oversold": {
+            "name": "RSI 超卖反弹",
+            "description": "RSI 超卖且价格在均线上方时买入，超买时卖出"
+          },
+          "macd_golden": {
+            "name": "MACD 金叉",
+            "description": "MACD 金叉买入，死叉卖出"
+          },
+          "bollinger_breakout": {
+            "name": "布林带突破",
+            "description": "价格突破布林带下轨买入，突破上轨卖出"
+          },
+          "kdj_golden": {
+            "name": "KDJ 金叉",
+            "description": "KDJ K 线上穿 D 线买入，下穿卖出"
+          },
+          "volume_breakout": {
+            "name": "放量突破",
+            "description": "成交量放大且价格突破 20 日高点时买入"
+          },
+          "adx_trend": {
+            "name": "ADX 趋势跟踪",
+            "description": "ADX 强趋势信号，配合均线方向"
+          },
+          "cci_oversold": {
+            "name": "CCI 超卖反弹",
+            "description": "CCI 跌入超卖区后回升买入"
+          }
+        }
+      },
+      "form": {
+        "title_create": "新建策略",
+        "title_edit": "编辑策略: {{id}}",
+        "id_placeholder": "策略 ID（唯一标识符）",
+        "id_exists_error": "策略 ID 已存在，请使用其他名称",
+        "save_failed": "保存失败：{{message}}",
+        "rollback_success": "已回滚到历史版本",
+        "rollback_failed": "回滚失败：{{message}}",
+        "mode_builder": "可视化构建",
+        "mode_json": "JSON 编辑",
+        "rollback": "回滚",
+        "rollback_confirm_title": "确认回滚版本",
+        "rollback_confirm_body": "确定回滚到此版本？当前配置将被覆盖。"
       }
     },
     "risk": {

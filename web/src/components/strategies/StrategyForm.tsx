@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { strategiesApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
@@ -19,6 +20,7 @@ export function StrategyForm({
   onClose,
 }: StrategyFormProps) {
   const qc = useQueryClient()
+  const { t } = useTranslation()
   const [configText, setConfigText] = useState(initialConfig)
   const [newId, setNewId] = useState('')
   const [configError, setConfigError] = useState<string | null>(null)
@@ -51,9 +53,9 @@ export function StrategyForm({
     onError: (err: Error) => {
       const msg = err.message
       if (msg.includes('409') || msg.toLowerCase().includes('already exists') || msg.includes('已存在')) {
-        setStrategyIdError('策略 ID 已存在，请使用其他名称')
+        setStrategyIdError(t('component.strategies.form.id_exists_error'))
       } else {
-        toast.error(`保存失败：${msg}`)
+        toast.error(t('component.strategies.form.save_failed', { message: msg }))
       }
     },
   })
@@ -73,10 +75,10 @@ export function StrategyForm({
       const fresh = await strategiesApi.get(editingId!)
       setConfigText(fresh.config_text)
       refetchVersions()
-      toast.success('已回滚到历史版本')
+      toast.success(t('component.strategies.form.rollback_success'))
     },
     onError: (err: Error) => {
-      toast.error(`回滚失败：${err.message}`)
+      toast.error(t('component.strategies.form.rollback_failed', { message: err.message }))
     },
   })
 
@@ -92,7 +94,9 @@ export function StrategyForm({
       <div className="bg-white rounded-xl shadow-xl w-[700px] max-w-[95vw] max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="font-semibold text-gray-900">
-            {editingId === 'new' ? '新建策略' : `编辑策略: ${editingId}`}
+            {editingId === 'new'
+              ? t('component.strategies.form.title_create')
+              : t('component.strategies.form.title_edit', { id: editingId })}
           </h2>
           <button className="text-gray-400 hover:text-gray-600" onClick={onClose}>✕</button>
         </div>
@@ -100,7 +104,7 @@ export function StrategyForm({
           <div className="p-4 border-b">
             <input
               className="input"
-              placeholder="策略 ID（唯一标识符）"
+              placeholder={t('component.strategies.form.id_placeholder')}
               value={newId}
               onChange={e => {
                 setNewId(e.target.value)
@@ -120,7 +124,7 @@ export function StrategyForm({
             }`}
             onClick={() => setEditorMode('builder')}
           >
-            可视化构建
+            {t('component.strategies.form.mode_builder')}
           </button>
           <button
             className={`px-3 py-1.5 text-sm rounded-t-lg border-b-2 ${
@@ -128,7 +132,7 @@ export function StrategyForm({
             }`}
             onClick={() => setEditorMode('json')}
           >
-            JSON 编辑
+            {t('component.strategies.form.mode_json')}
           </button>
         </div>
         <div className="flex-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
@@ -161,7 +165,7 @@ export function StrategyForm({
           </div>
         )}
         <div className="flex justify-end gap-2 p-4 border-t">
-          <button className="btn-secondary" onClick={onClose}>取消</button>
+          <button className="btn-secondary" onClick={onClose}>{t('common.cancel')}</button>
           <button
             className="btn-primary"
             disabled={!canSave}
@@ -170,7 +174,7 @@ export function StrategyForm({
               else updateMutation.mutate(editingId)
             }}
           >
-            {isSaving ? '保存中...' : '保存'}
+            {isSaving ? t('common.saving') : t('common.save')}
           </button>
         </div>
       </div>
@@ -179,10 +183,10 @@ export function StrategyForm({
       {rollbackTarget && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <h3 className="font-semibold mb-2">确认回滚版本</h3>
-            <p className="text-sm text-gray-600 mb-4">确定回滚到此版本？当前配置将被覆盖。</p>
+            <h3 className="font-semibold mb-2">{t('component.strategies.form.rollback_confirm_title')}</h3>
+            <p className="text-sm text-gray-600 mb-4">{t('component.strategies.form.rollback_confirm_body')}</p>
             <div className="flex justify-end gap-2">
-              <button className="btn-secondary" onClick={() => setRollbackTarget(null)}>取消</button>
+              <button className="btn-secondary" onClick={() => setRollbackTarget(null)}>{t('common.cancel')}</button>
               <button
                 className="btn-primary"
                 onClick={() => {
@@ -190,7 +194,7 @@ export function StrategyForm({
                   setRollbackTarget(null)
                 }}
               >
-                回滚
+                {t('component.strategies.form.rollback')}
               </button>
             </div>
           </div>

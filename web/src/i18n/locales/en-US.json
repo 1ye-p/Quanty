@@ -161,6 +161,59 @@
         "top_n_per_sector": "Stocks per sector",
         "top_sectors": "Number of sectors",
         "ui_mode": "UI mode"
+      },
+      "templates": {
+        "title": "Strategy Templates",
+        "buy_label": "Buy",
+        "sell_label": "Sell",
+        "items": {
+          "ma_cross": {
+            "name": "Moving Average Cross",
+            "description": "Buy when short MA crosses above long MA, sell on cross below"
+          },
+          "rsi_oversold": {
+            "name": "RSI Oversold Bounce",
+            "description": "Buy when RSI oversold and price above MA, sell when overbought"
+          },
+          "macd_golden": {
+            "name": "MACD Golden Cross",
+            "description": "Buy on MACD golden cross, sell on death cross"
+          },
+          "bollinger_breakout": {
+            "name": "Bollinger Band Breakout",
+            "description": "Buy when price breaks below lower band, sell on upper band break"
+          },
+          "kdj_golden": {
+            "name": "KDJ Golden Cross",
+            "description": "Buy when K crosses above D, sell on cross below"
+          },
+          "volume_breakout": {
+            "name": "Volume Breakout",
+            "description": "Buy when volume surges and price breaks 20-day high"
+          },
+          "adx_trend": {
+            "name": "ADX Trend Following",
+            "description": "ADX strong-trend signal combined with MA direction"
+          },
+          "cci_oversold": {
+            "name": "CCI Oversold Bounce",
+            "description": "Buy when CCI recovers from oversold zone"
+          }
+        }
+      },
+      "form": {
+        "title_create": "New Strategy",
+        "title_edit": "Edit Strategy: {{id}}",
+        "id_placeholder": "Strategy ID (unique identifier)",
+        "id_exists_error": "Strategy ID already exists, please use another name",
+        "save_failed": "Save failed: {{message}}",
+        "rollback_success": "Rolled back to history version",
+        "rollback_failed": "Rollback failed: {{message}}",
+        "mode_builder": "Visual Builder",
+        "mode_json": "JSON Editor",
+        "rollback": "Rollback",
+        "rollback_confirm_title": "Confirm Rollback",
+        "rollback_confirm_body": "Roll back to this version? Current configuration will be overwritten."
       }
     },
     "risk": {
