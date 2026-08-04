@@ -334,6 +334,13 @@
         "empty": "No strategies yet. Click \"New Strategy\" to start.",
         "updated_at": "Updated {{date}}",
         "backtest": "Backtest"
+      },
+      "missing_factor": {
+        "label": "Missing Factor Handling",
+        "fill_0": "Fill 0 — Fill missing values with 0",
+        "fill_median": "Fill Median — Fill missing values with cross-sectional median",
+        "exclude": "Exclude — Stocks with missing factors are excluded from ranking",
+        "risk_penalty": "Risk Penalty — Penalize stocks with missing factors (incomplete data penalty)"
       }
     },
     "risk": {

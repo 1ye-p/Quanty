@@ -4,10 +4,12 @@
  * Features:
  *   - Asset selector (dropdown from fills data)
  *   - Period toggle (daily / weekly / monthly)
+ *   - Days selector (time range filter)
  *   - KlineChart with trade annotations overlaid
  */
 
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { marketApi } from '@/lib/api/market'
 import { backtestsApi } from '@/lib/api/backtests'
@@ -20,9 +22,20 @@ interface TradeKlineChartProps {
   height?: number
 }
 
+const DAY_OPTIONS = [
+  { value: 0, labelKey: 'page.market.all' },
+  { value: 30, labelKey: 'page.market.last_30_days' },
+  { value: 60, labelKey: 'page.market.last_60_days' },
+  { value: 90, labelKey: 'page.market.last_90_days' },
+  { value: 180, labelKey: 'page.market.last_180_days' },
+  { value: 365, labelKey: 'page.market.last_1_year' },
+] as const
+
 export function TradeKlineChart({ backtestId, height = 400 }: TradeKlineChartProps) {
+  const { t } = useTranslation()
   const [selectedAsset, setSelectedAsset] = useState('')
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+  const [days, setDays] = useState<number>(0) // 0 = all
 
   // Fetch all fills to get asset list
   const { data: fillsData } = useQuery({
@@ -68,6 +81,14 @@ export function TradeKlineChart({ backtestId, height = 400 }: TradeKlineChartPro
     staleTime: 60_000,
   })
 
+  // Filter prices by days parameter
+  const filteredPrices = useMemo(() => {
+    if (!priceData?.prices || days === 0) return priceData?.prices || []
+    const now = new Date()
+    const cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
+    return priceData.prices.filter(p => new Date(p.trade_date) >= cutoffDate)
+  }, [priceData, days])
+
   // Convert fills to annotations
   const annotations = useMemo(() => {
     return fillsToAnnotations(assetFills)
@@ -78,20 +99,20 @@ export function TradeKlineChart({ backtestId, height = 400 }: TradeKlineChartPro
       {/* Controls */}
       <div className="flex items-end gap-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">资产</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('page.market.asset')}</label>
           <select
             value={effectiveAsset}
             onChange={e => setSelectedAsset(e.target.value)}
             className="input-field text-sm w-48"
           >
-            {assets.length === 0 && <option value="">无成交记录</option>}
+            {assets.length === 0 && <option value="">{t('common.no_data')}</option>}
             {assets.map(a => (
               <option key={a} value={a}>{a}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">周期</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('page.market.period')}</label>
           <div className="flex gap-1">
             {(['daily', 'weekly', 'monthly'] as const).map(p => (
               <button
@@ -103,25 +124,39 @@ export function TradeKlineChart({ backtestId, height = 400 }: TradeKlineChartPro
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {p === 'daily' ? '日' : p === 'weekly' ? '周' : '月'}
+                {t(`page.market.${p}`)}
               </button>
             ))}
           </div>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">{t('page.market.days')}</label>
+          <select
+            value={days}
+            onChange={e => setDays(Number(e.target.value))}
+            className="input-field text-sm w-32"
+          >
+            {DAY_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey)}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
       {/* Chart */}
       {!effectiveAsset && (
         <div className="card flex items-center justify-center h-64 text-gray-400 text-sm">
-          无成交记录
+          {t('common.no_data')}
         </div>
       )}
 
       {effectiveAsset && (
-        <DataState isLoading={isLoading} isEmpty={!priceData?.prices.length}>
-          {priceData && priceData.prices.length > 0 && (
+        <DataState isLoading={isLoading} isEmpty={filteredPrices.length === 0}>
+          {filteredPrices.length > 0 && (
             <KlineChart
-              data={priceData.prices}
+              data={filteredPrices}
               annotations={annotations}
               height={height}
               defaultRangeMonths={12}

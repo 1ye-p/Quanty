@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface GlobalRiskConfigProps {
   value: {
@@ -22,6 +23,7 @@ interface GlobalRiskConfigProps {
  * - global_take_profit_pct: positive value (e.g. 0.20 means take profit at +20%)
  */
 export function GlobalRiskConfig({ value, onChange }: GlobalRiskConfigProps) {
+  const { t } = useTranslation()
   const [stopLoss, setStopLoss] = useState(
     value.global_stop_loss_pct != null ? String(Math.abs(value.global_stop_loss_pct) * 100) : ''
   )
@@ -51,9 +53,9 @@ export function GlobalRiskConfig({ value, onChange }: GlobalRiskConfigProps) {
   return (
     <div className="border rounded-lg p-3 bg-rose-50 space-y-3">
       <h4 className="text-sm font-medium text-rose-800">
-        全局止盈止损
+        {t('common.risk_policy.global_risk_title')}
         <span className="ml-2 text-xs text-gray-400 font-normal">
-          在策略级风控之后生效，覆盖所有持仓
+          {t('common.risk_policy.global_risk_subtitle')}
         </span>
       </h4>
 
@@ -61,11 +63,11 @@ export function GlobalRiskConfig({ value, onChange }: GlobalRiskConfigProps) {
         {/* Global Stop Loss */}
         <div>
           <label className="block text-xs text-gray-600 mb-1">
-            全局止损 (%)
+            {t('common.risk_policy.global_stop_loss_label')}
             <span
               className="ml-1 text-gray-400 cursor-help"
-              title="当任意持仓亏损超过此比例时强制平仓。例如输入 5 表示 -5% 止损。"
-              aria-label="止损说明"
+              title={t('common.risk_policy.global_stop_loss_hint')}
+              aria-label={t('common.risk_policy.global_stop_loss')}
             >
               ⓘ
             </span>
@@ -75,7 +77,7 @@ export function GlobalRiskConfig({ value, onChange }: GlobalRiskConfigProps) {
             step={0.5}
             min={0}
             max={100}
-            placeholder="不启用"
+            placeholder={t('common.risk_policy.placeholder_disabled')}
             value={stopLoss}
             onChange={e => handleStopLossChange(e.target.value)}
             className="input w-full text-sm"
@@ -85,11 +87,11 @@ export function GlobalRiskConfig({ value, onChange }: GlobalRiskConfigProps) {
         {/* Global Take Profit */}
         <div>
           <label className="block text-xs text-gray-600 mb-1">
-            全局止盈 (%)
+            {t('common.risk_policy.global_take_profit_label')}
             <span
               className="ml-1 text-gray-400 cursor-help"
-              title="当任意持仓盈利超过此比例时强制平仓。例如输入 20 表示 +20% 止盈。"
-              aria-label="止盈说明"
+              title={t('common.risk_policy.global_take_profit_hint')}
+              aria-label={t('common.risk_policy.global_take_profit')}
             >
               ⓘ
             </span>
@@ -99,7 +101,7 @@ export function GlobalRiskConfig({ value, onChange }: GlobalRiskConfigProps) {
             step={0.5}
             min={0}
             max={1000}
-            placeholder="不启用"
+            placeholder={t('common.risk_policy.placeholder_disabled')}
             value={takeProfit}
             onChange={e => handleTakeProfitChange(e.target.value)}
             className="input w-full text-sm"
