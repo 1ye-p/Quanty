@@ -148,6 +148,8 @@
       "back_home": "返回首页"
     },
     "backtest": {
+      "title": "回测详情",
+      "backToList": "返回列表",
       "tabs": {
         "overview": "总览",
         "tearsheet": "策略报告",

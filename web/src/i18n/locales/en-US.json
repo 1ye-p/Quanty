@@ -148,6 +148,8 @@
       "back_home": "Back to Home"
     },
     "backtest": {
+      "title": "Backtest Detail",
+      "backToList": "Back to list",
       "tabs": {
         "overview": "Overview",
         "tearsheet": "Tearsheet",

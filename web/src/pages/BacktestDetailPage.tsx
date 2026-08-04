@@ -6,22 +6,22 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useEffect } from 'react'
 import { useWorkflowStore } from '@/stores/workflowStore'
 
-type TabDef = { id: string; label: string; path: string }
+type TabDef = { id: string; path: string }
 
 const TABS: TabDef[] = [
-  { id: 'overview', label: 'Overview', path: '' },
-  { id: 'tearsheet', label: 'Tearsheet', path: 'tearsheet' },
-  { id: 'overfitting', label: 'Overfitting', path: 'overfitting' },
-  { id: 'fills', label: 'Fills', path: 'fills' },
-  { id: 'walkforward', label: 'Walk-Forward', path: 'walkforward' },
-  { id: 'tca', label: 'TCA', path: 'tca' },
-  { id: 'risk', label: 'Risk', path: 'risk' },
-  { id: 'calendar', label: 'Calendar', path: 'calendar' },
-  { id: 'advanced', label: 'Advanced', path: 'advanced' },
-  { id: 'model-compare', label: 'Model Compare', path: 'model-compare' },
-  { id: 'feature-importance', label: 'Feature Importance', path: 'feature-importance' },
-  { id: 'model-diagnostics', label: 'Model Diagnostics', path: 'model-diagnostics' },
-  { id: 'trade-analysis', label: 'Trade Analysis', path: 'trade-analysis' },
+  { id: 'overview', path: '' },
+  { id: 'tearsheet', path: 'tearsheet' },
+  { id: 'overfitting', path: 'overfitting' },
+  { id: 'fills', path: 'fills' },
+  { id: 'walkforward', path: 'walkforward' },
+  { id: 'tca', path: 'tca' },
+  { id: 'risk', path: 'risk' },
+  { id: 'calendar', path: 'calendar' },
+  { id: 'advanced', path: 'advanced' },
+  { id: 'model-compare', path: 'model-compare' },
+  { id: 'feature-importance', path: 'feature-importance' },
+  { id: 'model-diagnostics', path: 'model-diagnostics' },
+  { id: 'trade-analysis', path: 'trade-analysis' },
 ]
 
 export function BacktestDetailPage() {
@@ -60,10 +60,10 @@ export function BacktestDetailPage() {
           onClick={() => navigate('/backtests')}
           className="text-gray-400 hover:text-gray-600 text-sm"
         >
-          Back to list
+          {t('page.backtest.backToList')}
         </button>
         <h1 className="page-title mb-0">
-          {detail?.strategy_id ?? 'Backtest'}
+          {detail?.strategy_id ?? t('page.backtest.title')}
         </h1>
         <span className="font-mono text-xs text-gray-400">{id.slice(0, 12)}...</span>
       </div>
