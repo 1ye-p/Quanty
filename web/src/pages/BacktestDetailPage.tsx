@@ -70,7 +70,7 @@ export function BacktestDetailPage() {
 
       {/* Tab navigation */}
       <div className="flex gap-1 mb-4 border-b border-gray-200 overflow-x-auto">
-        {visibleTabs.map(({ id: tabId, label, path }) => (
+        {visibleTabs.map(({ id: tabId, path }) => (
           <NavLink
             key={tabId}
             to={path}
