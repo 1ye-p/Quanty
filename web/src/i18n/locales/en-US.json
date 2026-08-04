@@ -425,6 +425,31 @@
       },
       "scatter_title": "Trade Timing",
       "empty": "No trade records"
+    },
+    "walkforward": {
+      "empty": {
+        "not_walkforward": "This backtest is not in Walk-Forward mode"
+      },
+      "metric": {
+        "avg_sharpe": "Avg Sharpe",
+        "avg_return": "Avg Return",
+        "max_drawdown": "Max Drawdown",
+        "fold_count": "Fold Count"
+      },
+      "table": {
+        "fold": "Fold",
+        "train": "Train",
+        "oos": "OOS",
+        "sharpe": "Sharpe",
+        "return": "Return",
+        "drawdown": "Drawdown",
+        "win_rate": "Win Rate"
+      },
+      "timeline": {
+        "title": "Timeline",
+        "train": "Train",
+        "oos": "OOS"
+      }
     }
   },
   "page": {

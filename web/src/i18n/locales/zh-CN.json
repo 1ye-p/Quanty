@@ -425,6 +425,31 @@
       },
       "scatter_title": "交易时点",
       "empty": "暂无成交记录"
+    },
+    "walkforward": {
+      "empty": {
+        "not_walkforward": "此回测不是 Walk-Forward 模式"
+      },
+      "metric": {
+        "avg_sharpe": "平均夏普",
+        "avg_return": "平均收益",
+        "max_drawdown": "最大回撤",
+        "fold_count": "折叠数"
+      },
+      "table": {
+        "fold": "折叠",
+        "train": "训练",
+        "oos": "样本外",
+        "sharpe": "夏普",
+        "return": "收益",
+        "drawdown": "回撤",
+        "win_rate": "胜率"
+      },
+      "timeline": {
+        "title": "时间轴",
+        "train": "训练",
+        "oos": "样本外"
+      }
     }
   },
   "page": {
