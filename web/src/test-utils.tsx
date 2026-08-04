@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { I18nextProvider } from 'react-i18next'
 import type { ReactNode } from 'react'
 
-// Initialize i18n for tests — use zh to match production default
+// Initialize i18n for tests — use zh-CN to match production default
 import './i18n'
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
