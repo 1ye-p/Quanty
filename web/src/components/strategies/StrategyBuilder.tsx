@@ -238,21 +238,21 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
     <div className="space-y-4 p-4">
       {/* Strategy Type */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">{t('strategy.type')}</label>
+        <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.type')}</label>
         <select className="input w-full" value={strategyType} onChange={e => setStrategyType(e.target.value)}>
-          <option value="StaticTopN">StaticTopN — {t('strategy.types.StaticTopN')}</option>
-          <option value="MLModelStrategy">MLModelStrategy — {t('strategy.types.MLModelStrategy')}</option>
-          <option value="MultiFactor">MultiFactor — {t('strategy.types.MultiFactor')}</option>
-          <option value="MarketNeutral">MarketNeutral — {t('strategy.types.MarketNeutral')}</option>
-          <option value="SectorRotation">SectorRotation — {t('strategy.types.SectorRotation')}</option>
-          <option value="Combo">Combo — {t('strategy.types.Combo')}</option>
-          <option value="IndicatorSignal">IndicatorSignal — {t('strategy.types.IndicatorSignal')}</option>
+          <option value="StaticTopN">StaticTopN — {t('component.strategies.types.StaticTopN')}</option>
+          <option value="MLModelStrategy">MLModelStrategy — {t('component.strategies.types.MLModelStrategy')}</option>
+          <option value="MultiFactor">MultiFactor — {t('component.strategies.types.MultiFactor')}</option>
+          <option value="MarketNeutral">MarketNeutral — {t('component.strategies.types.MarketNeutral')}</option>
+          <option value="SectorRotation">SectorRotation — {t('component.strategies.types.SectorRotation')}</option>
+          <option value="Combo">Combo — {t('component.strategies.types.Combo')}</option>
+          <option value="IndicatorSignal">IndicatorSignal — {t('component.strategies.types.IndicatorSignal')}</option>
         </select>
       </div>
 
       {/* Universe Selector */}
       <div>
-        <label className="text-xs text-gray-500 mb-1 block">股票池</label>
+        <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.params.stock_pool')}</label>
         <select
           className="input w-full"
           value={universeId}
@@ -264,12 +264,12 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           {universes?.predefined.map(u => (
             <option key={u.id} value={u.id}>{u.name} — {u.description}</option>
           ))}
-          <option value="custom">自定义股票代码</option>
+          <option value="custom">{t('component.strategies.builder.custom_assets_option')}</option>
         </select>
       </div>
       {universeId === 'custom' && (
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">自定义股票代码（逗号分隔）</label>
+          <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.builder.custom_assets_label')}</label>
           <input
             className="input w-full"
             value={customAssets}
@@ -282,7 +282,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       {/* Factors & Top N */}
       <div className="space-y-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">因子选择</label>
+          <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.builder.factor_selection')}</label>
           <FactorSelector
             selected={selectedFactors}
             onChange={setSelectedFactors}
@@ -291,7 +291,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
         {selectedFactors.length > 0 && (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">因子权重</label>
+            <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.builder.factor_weights')}</label>
             <FactorWeightTable
               factors={selectedFactors}
               weights={factorWeights}
@@ -331,7 +331,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Top N</label>
+            <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.builder.top_n')}</label>
             <input type="number" className="input w-full" value={topN} onChange={e => setTopN(e.target.value)} min={1} />
           </div>
           <div>
@@ -343,7 +343,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
         </div>
         {missingFactorHandling === 'risk_penalty' && (
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">每缺失因子扣分 (penalty_per_missing)</label>
+            <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.builder.penalty_per_missing')}</label>
             <input
               type="number"
               className="input w-full"
@@ -359,9 +359,9 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       {/* MarketNeutral: short_n */}
       {strategyType === 'MarketNeutral' && (
         <div className="border rounded-lg p-3 bg-blue-50">
-          <div className="text-xs font-medium text-gray-600 mb-2">市场中性参数</div>
+          <div className="text-xs font-medium text-gray-600 mb-2">{t('component.strategies.builder.market_neutral_params')}</div>
           <div>
-            <label className="text-xs text-gray-500">做空数量 (Short N)</label>
+            <label className="text-xs text-gray-500">{t('component.strategies.builder.short_n')}</label>
             <input type="number" className="input w-full" value={shortN}
               onChange={e => setShortN(e.target.value)} min={1} />
           </div>
@@ -371,15 +371,15 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       {/* SectorRotation params */}
       {strategyType === 'SectorRotation' && (
         <div className="border rounded-lg p-3 bg-blue-50">
-          <div className="text-xs font-medium text-gray-600 mb-2">行业轮动参数</div>
+          <div className="text-xs font-medium text-gray-600 mb-2">{t('component.strategies.builder.sector_rotation_params')}</div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500">选行业数</label>
+              <label className="text-xs text-gray-500">{t('component.strategies.builder.top_sectors')}</label>
               <input type="number" className="input w-full" value={topSectors}
                 onChange={e => setTopSectors(e.target.value)} min={1} />
             </div>
             <div>
-              <label className="text-xs text-gray-500">每行业选股数</label>
+              <label className="text-xs text-gray-500">{t('component.strategies.builder.top_n_per_sector')}</label>
               <input type="number" className="input w-full" value={topNPerSector}
                 onChange={e => setTopNPerSector(e.target.value)} min={1} />
             </div>
@@ -390,16 +390,16 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       {/* Combo params */}
       {strategyType === 'Combo' && (
         <div className="border rounded-lg p-3 bg-blue-50">
-          <div className="text-xs font-medium text-gray-600 mb-2">组合策略参数</div>
+          <div className="text-xs font-medium text-gray-600 mb-2">{t('component.strategies.builder.combo_params')}</div>
           <div className="mb-2">
-            <label className="text-xs text-gray-500">合并方式</label>
+            <label className="text-xs text-gray-500">{t('component.strategies.builder.combo_method')}</label>
             <select className="input w-full" value={comboMethod} onChange={e => setComboMethod(e.target.value)}>
-              <option value="equal_weight">equal_weight — 等权合并</option>
-              <option value="custom">custom — 自定义权重</option>
+              <option value="equal_weight">{t('component.strategies.builder.combo_equal_weight')}</option>
+              <option value="custom">{t('component.strategies.builder.combo_custom')}</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500">子策略配置 (JSON 数组)</label>
+            <label className="text-xs text-gray-500">{t('component.strategies.builder.sub_strategy_configs')}</label>
             <textarea className="input w-full font-mono text-xs" rows={4}
               value={subStrategyConfigs} onChange={e => setSubStrategyConfigs(e.target.value)}
               placeholder='[{"strategy_type":"StaticTopN","top_n":5,"sort_factor":"ret_20d"},{"strategy_type":"MultiFactor","top_n":5,"sort_factor":"vol_20d"}]' />
@@ -410,7 +410,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       {/* IndicatorSignal params */}
       {strategyType === 'IndicatorSignal' && (
         <div className="border rounded-lg p-3 bg-blue-50 space-y-4">
-          <div className="text-xs font-medium text-gray-600 mb-2">指标信号参数</div>
+          <div className="text-xs font-medium text-gray-600 mb-2">{t('component.strategies.builder.indicator_signal_params')}</div>
 
           {/* Mode toggle + template button */}
           <div className="flex gap-2 mb-4">
@@ -418,19 +418,19 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
               className={`text-xs px-3 py-1.5 rounded transition-colors ${editorMode === 'ui' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}
               onClick={() => setEditorMode('ui')}
             >
-              UI 模式
+              {t('component.strategies.builder.ui_mode')}
             </button>
             <button
               className={`text-xs px-3 py-1.5 rounded transition-colors ${editorMode === 'code' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}
               onClick={() => setEditorMode('code')}
             >
-              代码模式
+              {t('component.strategies.builder.code_mode')}
             </button>
             <button
               className="text-xs px-3 py-1.5 rounded bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 transition-colors"
               onClick={() => setShowTemplates(true)}
             >
-              加载模板
+              {t('component.strategies.builder.load_template')}
             </button>
           </div>
 
@@ -438,12 +438,12 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           {showTemplates && (
             <div className="border rounded-lg p-3 bg-white">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-gray-600">选择策略模板</span>
+                <span className="text-xs font-medium text-gray-600">{t('component.strategies.builder.select_template')}</span>
                 <button
                   className="text-xs text-gray-400 hover:text-gray-600"
                   onClick={() => setShowTemplates(false)}
                 >
-                  关闭
+                  {t('component.strategies.builder.close')}
                 </button>
               </div>
               <StrategyTemplates onSelect={handleTemplateSelect} />
@@ -453,19 +453,19 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           {/* Entry conditions */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-gray-500 font-medium">入场条件</label>
+              <label className="text-xs text-gray-500 font-medium">{t('component.strategies.builder.entry_conditions')}</label>
               <button
                 className="text-xs text-blue-600 hover:text-blue-800"
                 onClick={() => setEntryConditions(prev => [...prev, ''])}
               >
-                + 添加条件
+                {t('component.strategies.builder.add_condition')}
               </button>
             </div>
             {entryConditions.map((cond, idx) => (
               <div key={idx} className="mb-2">
                 {editorMode === 'ui' ? (
                   <ConditionEditor
-                    label={`入场条件 ${idx + 1}`}
+                    label={t('component.strategies.builder.entry_condition_n', { n: idx + 1 })}
                     value={cond}
                     onChange={(dsl) => {
                       setEntryConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
@@ -473,7 +473,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
                   />
                 ) : (
                   <RuleConditionEditor
-                    label={`入场条件 ${idx + 1}`}
+                    label={t('component.strategies.builder.entry_condition_n', { n: idx + 1 })}
                     value={cond}
                     onChange={(dsl) => {
                       setEntryConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
@@ -485,7 +485,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
                     className="mt-1 text-xs text-red-500 hover:text-red-700"
                     onClick={() => setEntryConditions(prev => prev.filter((_, i) => i !== idx))}
                   >
-                    删除此条件
+                    {t('component.strategies.builder.delete_condition')}
                   </button>
                 )}
               </div>
@@ -495,19 +495,19 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           {/* Exit conditions */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-gray-500 font-medium">出场条件</label>
+              <label className="text-xs text-gray-500 font-medium">{t('component.strategies.builder.exit_conditions')}</label>
               <button
                 className="text-xs text-blue-600 hover:text-blue-800"
                 onClick={() => setExitConditions(prev => [...prev, ''])}
               >
-                + 添加条件
+                {t('component.strategies.builder.add_condition')}
               </button>
             </div>
             {exitConditions.map((cond, idx) => (
               <div key={idx} className="mb-2">
                 {editorMode === 'ui' ? (
                   <ConditionEditor
-                    label={`出场条件 ${idx + 1}`}
+                    label={t('component.strategies.builder.exit_condition_n', { n: idx + 1 })}
                     value={cond}
                     onChange={(dsl) => {
                       setExitConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
@@ -515,7 +515,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
                   />
                 ) : (
                   <RuleConditionEditor
-                    label={`出场条件 ${idx + 1}`}
+                    label={t('component.strategies.builder.exit_condition_n', { n: idx + 1 })}
                     value={cond}
                     onChange={(dsl) => {
                       setExitConditions(prev => prev.map((c, i) => i === idx ? dsl : c))
@@ -527,7 +527,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
                     className="mt-1 text-xs text-red-500 hover:text-red-700"
                     onClick={() => setExitConditions(prev => prev.filter((_, i) => i !== idx))}
                   >
-                    删除此条件
+                    {t('component.strategies.builder.delete_condition')}
                   </button>
                 )}
               </div>
@@ -557,29 +557,29 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
           {/* Position sizing */}
           <div>
-            <label className="text-xs text-gray-500">最大持仓数</label>
+            <label className="text-xs text-gray-500">{t('component.strategies.builder.max_positions_label')}</label>
             <input type="number" className="input w-full" value={maxPositions}
               onChange={e => setMaxPositions(e.target.value)} min={1} />
           </div>
 
           {/* Filters */}
           <div>
-            <label className="text-xs text-gray-500 font-medium mb-2 block">过滤选项</label>
+            <label className="text-xs text-gray-500 font-medium mb-2 block">{t('component.strategies.builder.filters_title')}</label>
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={filterST}
                   onChange={e => setFilterST(e.target.checked)} />
-                <span className="text-gray-700">排除 ST 股票</span>
+                <span className="text-gray-700">{t('component.strategies.builder.exclude_st')}</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={filterSuspended}
                   onChange={e => setFilterSuspended(e.target.checked)} />
-                <span className="text-gray-700">排除停牌股票</span>
+                <span className="text-gray-700">{t('component.strategies.builder.exclude_suspended')}</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={filterLimitUpDown}
                   onChange={e => setFilterLimitUpDown(e.target.checked)} />
-                <span className="text-gray-700">排除涨跌停股票</span>
+                <span className="text-gray-700">{t('component.strategies.builder.exclude_limit_up_down')}</span>
               </label>
             </div>
           </div>
@@ -588,15 +588,15 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">{t('strategy.params.rebalance_frequency')}</label>
+          <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.params.rebalance_frequency')}</label>
           <select className="input w-full" value={rebalance} onChange={e => setRebalance(e.target.value)}>
-            <option value="1d">每日 (1d)</option>
-            <option value="1w">每周 (1w)</option>
-            <option value="1mo">每月 (1mo)</option>
+            <option value="1d">{t('component.strategies.builder.rebalance_daily')}</option>
+            <option value="1w">{t('component.strategies.builder.rebalance_weekly')}</option>
+            <option value="1mo">{t('component.strategies.builder.rebalance_monthly')}</option>
           </select>
         </div>
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">仓位管理器 (Sizer)</label>
+          <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.builder.sizer_label')}</label>
           <select className="input w-full" value={sizer} onChange={e => { setSizer(e.target.value); setSizerParams({}) }}>
             {sizers?.map(s => (
               <option key={s.name} value={s.name}>{s.name} — {s.description}</option>
@@ -608,7 +608,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       {/* Sizer params */}
       {selectedSizerInfo && selectedSizerInfo.params.length > 0 && (
         <div className="border rounded-lg p-3 bg-gray-50">
-          <div className="text-xs font-medium text-gray-600 mb-2">Sizer 参数</div>
+          <div className="text-xs font-medium text-gray-600 mb-2">{t('component.strategies.builder.sizer_params')}</div>
           <div className="grid grid-cols-2 gap-2">
             {selectedSizerInfo.params.map(p => (
               <div key={p.key}>
@@ -624,15 +624,15 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
       {/* Risk limits */}
       <div className="border rounded-lg p-3">
-        <div className="text-xs font-medium text-gray-600 mb-2">风控限制</div>
+        <div className="text-xs font-medium text-gray-600 mb-2">{t('component.strategies.builder.risk_limits')}</div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-500">单股最大仓位 %</label>
+            <label className="text-xs text-gray-500">{t('component.strategies.builder.max_position_pct')}</label>
             <input type="number" className="input w-full" value={maxPositionPct}
               onChange={e => setMaxPositionPct(e.target.value)} min={0} max={1} step={0.01} />
           </div>
           <div>
-            <label className="text-xs text-gray-500">最大杠杆</label>
+            <label className="text-xs text-gray-500">{t('component.strategies.builder.max_leverage')}</label>
             <input type="number" className="input w-full" value={maxLeverage}
               onChange={e => setMaxLeverage(e.target.value)} min={0} max={5} step={0.1} />
           </div>
@@ -641,22 +641,22 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
       {/* Market rule */}
       <div className="border rounded-lg p-3">
-        <div className="text-xs font-medium text-gray-600 mb-2">市场规则</div>
+        <div className="text-xs font-medium text-gray-600 mb-2">{t('component.strategies.builder.market_rule')}</div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-gray-500">市场</label>
+            <label className="text-xs text-gray-500">{t('component.strategies.builder.market_label')}</label>
             <select className="input w-full" value={market} onChange={e => setMarket(e.target.value)}>
-              <option value="CN">A 股</option>
-              <option value="US">美股</option>
-              <option value="HK">港股</option>
+              <option value="CN">{t('component.strategies.builder.market_cn')}</option>
+              <option value="US">{t('page.market.us')}</option>
+              <option value="HK">{t('page.market.hk')}</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500">复权方式</label>
+            <label className="text-xs text-gray-500">{t('component.strategies.builder.adj_type')}</label>
             <select className="input w-full" value={adjType} onChange={e => setAdjType(e.target.value)}>
-              <option value="forward">前复权</option>
-              <option value="backward">后复权</option>
-              <option value="none">不复权</option>
+              <option value="forward">{t('page.market.adj_forward')}</option>
+              <option value="backward">{t('page.market.adj_backward')}</option>
+              <option value="none">{t('page.market.adj_none')}</option>
             </select>
           </div>
         </div>
@@ -667,19 +667,19 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
       {/* Quick risk config */}
       <div className="border rounded-lg p-3 bg-amber-50 space-y-3">
-        <h4 className="text-sm font-medium text-amber-800">{t('strategy.quick_risk_params')}</h4>
+        <h4 className="text-sm font-medium text-amber-800">{t('component.strategies.quick_risk_params')}</h4>
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              {t('risk.stop_loss')} (%)
-              <span className="ml-1 text-gray-400 cursor-help" title={t('risk.stop_loss_hint')}>ⓘ</span>
+              {t('component.risk.stop_loss')} (%)
+              <span className="ml-1 text-gray-400 cursor-help" title={t('component.risk.stop_loss_hint')}>ⓘ</span>
             </label>
             <input
               type="number"
               step={0.5}
               min={0}
               max={50}
-              placeholder="不启用"
+              placeholder={t('common.risk_policy.placeholder_disabled')}
               value={quickStopLoss}
               onChange={e => {
                 setQuickStopLoss(e.target.value)
@@ -695,8 +695,8 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           </div>
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              {t('risk.position_limit')} (%)
-              <span className="ml-1 text-gray-400 cursor-help" title={t('risk.position_limit_hint')}>ⓘ</span>
+              {t('component.risk.position_limit')} (%)
+              <span className="ml-1 text-gray-400 cursor-help" title={t('component.risk.position_limit_hint')}>ⓘ</span>
             </label>
             <input
               type="number"
@@ -714,15 +714,15 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           </div>
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              {t('risk.drawdown_breaker')} (%)
-              <span className="ml-1 text-gray-400 cursor-help" title={t('risk.drawdown_breaker_hint')}>ⓘ</span>
+              {t('component.risk.drawdown_breaker')} (%)
+              <span className="ml-1 text-gray-400 cursor-help" title={t('component.risk.drawdown_breaker_hint')}>ⓘ</span>
             </label>
             <input
               type="number"
               step={1}
               min={0}
               max={50}
-              placeholder="不启用"
+              placeholder={t('common.risk_policy.placeholder_disabled')}
               value={quickDrawdownBreaker}
               onChange={e => {
                 setQuickDrawdownBreaker(e.target.value)
@@ -741,7 +741,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
 
       {/* Risk policies */}
       <div className="border rounded-lg p-3">
-        <div className="text-xs font-medium text-gray-600 mb-2">{t('risk.policies')}</div>
+        <div className="text-xs font-medium text-gray-600 mb-2">{t('component.risk.policies')}</div>
         <div className="grid grid-cols-2 gap-2">
           {policies?.map(p => (
             <label key={p.name} className="flex items-start gap-2 text-sm cursor-pointer">
