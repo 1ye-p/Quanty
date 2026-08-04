@@ -1392,6 +1392,78 @@
         "stop_body": "Stop this backtest?",
         "delete_body": "Delete this backtest record? This cannot be undone."
       }
+    },
+    "news": {
+      "title": "News Feed",
+      "subtitle": "News events · Sentiment filter · Asset linkage",
+      "tab": {
+        "timeline": "News Timeline",
+        "impact": "Impact Analysis",
+        "portfolio": "Portfolio News"
+      },
+      "loading_detail": "Loading details...",
+      "load_failed": "Failed to load",
+      "no_body": "No body content",
+      "sentiment": "Sentiment",
+      "event_id": "event_id",
+      "stat": {
+        "total_events": "news events",
+        "avg_sentiment": "Avg sentiment"
+      },
+      "trend": {
+        "title": "Sentiment Trend (last 30 days)",
+        "legend": {
+          "daily": "Daily avg",
+          "ma7": "7-day MA",
+          "ma30": "30-day MA"
+        },
+        "hint": "Positive (above blue area) = overall optimistic; negative = pessimistic"
+      },
+      "calendar": {
+        "title": "Sentiment Calendar",
+        "clear_filter": "Clear filter: {{date}}",
+        "no_data": "No data",
+        "day_labels": {
+          "sun": "Sun",
+          "mon": "Mon",
+          "tue": "Tue",
+          "wed": "Wed",
+          "thu": "Thu",
+          "fri": "Fri",
+          "sat": "Sat"
+        },
+        "legend": {
+          "negative": "Negative",
+          "positive": "Positive"
+        }
+      },
+      "asset": {
+        "title": "Asset Sentiment Analysis",
+        "placeholder": "Enter asset ID, e.g. 000001.SZ",
+        "no_data": "No sentiment data for this asset",
+        "subtitle": {
+          "daily_sentiment": "Daily sentiment average",
+          "daily_count": "Daily news count"
+        },
+        "tooltip": {
+          "sentiment": "Sentiment",
+          "news_count": "News count"
+        }
+      },
+      "filter": {
+        "all_sources": "All sources",
+        "all_types": "All types",
+        "date": "Date"
+      },
+      "empty": "No news data yet, please run newsflow ingestion first",
+      "portfolio": {
+        "loading": "Loading positions...",
+        "no_position": "No positions",
+        "no_position_hint": "Open positions in the trading module first to view related news",
+        "no_news": "No news related to your positions",
+        "abnormal_warning": "{{count}} holding(s) have abnormal negative sentiment, please monitor",
+        "count_summary": "{{count}} portfolio-related news (holding assets: {{assets}})"
+      }
     }
   }
 }

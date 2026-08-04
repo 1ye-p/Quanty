@@ -1392,6 +1392,78 @@
         "stop_body": "确定要停止此回测吗？",
         "delete_body": "确定要删除此回测记录吗？此操作不可撤销。"
       }
+    },
+    "news": {
+      "title": "消息面",
+      "subtitle": "新闻事件浏览 · 情绪过滤 · 资产关联",
+      "tab": {
+        "timeline": "新闻时间线",
+        "impact": "影响分析",
+        "portfolio": "持仓新闻"
+      },
+      "loading_detail": "加载详情中...",
+      "load_failed": "加载失败",
+      "no_body": "暂无正文内容",
+      "sentiment": "情绪",
+      "event_id": "event_id",
+      "stat": {
+        "total_events": "条新闻事件",
+        "avg_sentiment": "平均情绪分"
+      },
+      "trend": {
+        "title": "情绪趋势（近30天）",
+        "legend": {
+          "daily": "日均情绪",
+          "ma7": "7日均线",
+          "ma30": "30日均线"
+        },
+        "hint": "正值（蓝色区域上方）= 整体偏乐观；负值 = 偏悲观"
+      },
+      "calendar": {
+        "title": "情绪日历",
+        "clear_filter": "清除过滤：{{date}}",
+        "no_data": "无数据",
+        "day_labels": {
+          "sun": "日",
+          "mon": "一",
+          "tue": "二",
+          "wed": "三",
+          "thu": "四",
+          "fri": "五",
+          "sat": "六"
+        },
+        "legend": {
+          "negative": "负面",
+          "positive": "正面"
+        }
+      },
+      "asset": {
+        "title": "资产情绪分析",
+        "placeholder": "输入资产ID，如 000001.SZ",
+        "no_data": "该资产暂无情绪数据",
+        "subtitle": {
+          "daily_sentiment": "每日情绪均值",
+          "daily_count": "每日新闻数量"
+        },
+        "tooltip": {
+          "sentiment": "情绪",
+          "news_count": "新闻数"
+        }
+      },
+      "filter": {
+        "all_sources": "全部来源",
+        "all_types": "全部类型",
+        "date": "日期"
+      },
+      "empty": "暂无新闻数据，请先运行 newsflow 接入",
+      "portfolio": {
+        "loading": "加载持仓中...",
+        "no_position": "暂无持仓",
+        "no_position_hint": "请先在交易模块建仓后查看持仓相关新闻",
+        "no_news": "暂无与持仓相关的新闻",
+        "abnormal_warning": "{{count}} 条持仓资产存在异常负面情绪，请关注",
+        "count_summary": "共 {{count}} 条持仓相关新闻（持仓资产: {{assets}} 个）"
+      }
     }
   }
 }
