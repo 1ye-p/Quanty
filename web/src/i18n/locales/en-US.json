@@ -367,6 +367,35 @@
         "chart_icon": "Chart",
         "no_trade_data": "No trade analysis data"
       }
+    },
+    "calendar": {
+      "section": {
+        "holiday_effect": "Holiday Effect"
+      },
+      "label": {
+        "win": "win",
+        "pre_n_days": "Before Day {{n}}",
+        "t_stat_d1": "t-stat D1"
+      },
+      "hint": {
+        "day_of_week": "Average daily return by weekday",
+        "by_month": "Average return by calendar month",
+        "month_end_vs_rest": "Returns around month-end vs rest of month",
+        "holiday_effect": "Average returns on trading days before A-share holidays (Spring Festival, National Day, New Year)",
+        "month_end_observations": "Based on {{count}} month-end observations.",
+        "significant_95": " Statistically significant at 95% confidence.",
+        "not_significant_95": " Not statistically significant.",
+        "significant_paren": " (significant)",
+        "not_significant_paren": " (not significant)"
+      },
+      "empty": {
+        "loading": "Loading calendar analysis...",
+        "icon": "Calendar",
+        "no_data": "No calendar analysis data available",
+        "hint": "Calendar data is generated automatically after backtest completion",
+        "no_effect_data": "No calendar effect data found",
+        "requires_completed": "This analysis requires completed trade data"
+      }
     }
   },
   "page": {

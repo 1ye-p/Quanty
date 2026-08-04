@@ -367,6 +367,35 @@
         "chart_icon": "图表",
         "no_trade_data": "暂无交易分析数据"
       }
+    },
+    "calendar": {
+      "section": {
+        "holiday_effect": "节假日效应"
+      },
+      "label": {
+        "win": "胜率",
+        "pre_n_days": "前 {{n}} 日",
+        "t_stat_d1": "t-stat D1"
+      },
+      "hint": {
+        "day_of_week": "按星期统计的平均收益",
+        "by_month": "按日历月份统计的平均收益",
+        "month_end_vs_rest": "月末附近收益 vs 月内其他交易日",
+        "holiday_effect": "A股节假日（春节、国庆、元旦）前交易日的平均收益",
+        "month_end_observations": "基于 {{count}} 个月末观测样本。",
+        "significant_95": " 在 95% 置信水平下统计显著。",
+        "not_significant_95": " 不具统计显著性。",
+        "significant_paren": " （显著）",
+        "not_significant_paren": " （不显著）"
+      },
+      "empty": {
+        "loading": "正在加载日历效应分析数据...",
+        "icon": "日历",
+        "no_data": "暂无日历效应分析数据",
+        "hint": "日历效应数据在回测完成后自动生成",
+        "no_effect_data": "未找到日历效应数据",
+        "requires_completed": "此分析需要已完成的交易数据"
+      }
     }
   },
   "page": {

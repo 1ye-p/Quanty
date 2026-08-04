@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { MetricCard } from '../../components/ui/MetricCard'
 import { useParams } from 'react-router-dom'
 import { backtestsApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -6,24 +8,23 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend,
 } from 'recharts'
 
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
 function fmtPct(v: unknown, digits = 2): string {
   const n = Number(v ?? 0) * 100
   return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}%`
 }
 
 function WinRateBadge({ rate }: { rate: number }) {
+  const { t } = useTranslation()
   const pct = (rate * 100).toFixed(0)
   return (
     <span className={`text-xs font-medium ${rate >= 0.5 ? 'text-green-600' : 'text-red-500'}`}>
-      {pct}% win
+      {pct}% {t('component.calendar.label.win')}
     </span>
   )
 }
 
 export function BacktestCalendarTab() {
+  const { t } = useTranslation()
   const { id: selectedId } = useParams<{ id: string }>()
 
   const { data, isLoading } = useQuery({
@@ -35,15 +36,15 @@ export function BacktestCalendarTab() {
   if (!selectedId) return null
 
   if (isLoading) {
-    return <div className="text-center text-gray-400 py-12">Loading calendar analysis...</div>
+    return <div className="text-center text-gray-400 py-12">{t('component.calendar.empty.loading')}</div>
   }
 
   if (!data) {
     return (
       <div className="card text-center text-gray-400 py-12">
-        <div className="text-4xl mb-3">Calendar</div>
-        <div className="text-gray-500 mb-2">No calendar analysis data available</div>
-        <p className="text-xs text-gray-400">Calendar data is generated automatically after backtest completion</p>
+        <div className="text-4xl mb-3">{t('component.calendar.empty.icon')}</div>
+        <div className="text-gray-500 mb-2">{t('component.calendar.empty.no_data')}</div>
+        <p className="text-xs text-gray-400">{t('component.calendar.empty.hint')}</p>
       </div>
     )
   }
@@ -119,8 +120,8 @@ export function BacktestCalendarTab() {
       {/* Day-of-Week Effect */}
       {weekdayChartData.length > 0 && (
         <div className="card p-4">
-          <h3 className="font-semibold text-gray-800 mb-1">Day-of-Week Effect</h3>
-          <p className="text-xs text-gray-400 mb-4">Average daily return by weekday</p>
+          <h3 className="font-semibold text-gray-800 mb-1">{t('component.advanced.section.weekday_effect')}</h3>
+          <p className="text-xs text-gray-400 mb-4">{t('component.calendar.hint.day_of_week')}</p>
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mb-4">
             {weekdayChartData.map((d, i) => (
               <div key={i} className="card text-center py-3">
@@ -129,7 +130,7 @@ export function BacktestCalendarTab() {
                 </div>
                 <div className="text-xs text-gray-500 mt-1">{d.day}</div>
                 <WinRateBadge rate={d.win_rate} />
-                <div className="text-xs text-gray-400 mt-0.5">{d.count} trades</div>
+                <div className="text-xs text-gray-400 mt-0.5">{t('component.advanced.sub.trades', { count: d.count })}</div>
               </div>
             ))}
           </div>
@@ -139,7 +140,7 @@ export function BacktestCalendarTab() {
               <XAxis dataKey="day" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v * 100).toFixed(2)}%`} />
               <Tooltip formatter={(v: number) => `${(v * 100).toFixed(3)}%`} />
-              <Bar dataKey="avg_return" name="Avg Return" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="avg_return" name={t('component.advanced.series.avg_return')} radius={[4, 4, 0, 0]}>
                 {weekdayChartData.map((d, i) => (
                   <Cell key={i} fill={d.avg_return >= 0 ? '#22c55e' : '#ef4444'} />
                 ))}
@@ -152,8 +153,8 @@ export function BacktestCalendarTab() {
       {/* Month Effect */}
       {monthChartData.length > 0 && (
         <div className="card p-4">
-          <h3 className="font-semibold text-gray-800 mb-1">Month Effect</h3>
-          <p className="text-xs text-gray-400 mb-4">Average return by calendar month</p>
+          <h3 className="font-semibold text-gray-800 mb-1">{t('component.advanced.section.month_effect')}</h3>
+          <p className="text-xs text-gray-400 mb-4">{t('component.calendar.hint.by_month')}</p>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={monthChartData} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -161,7 +162,7 @@ export function BacktestCalendarTab() {
               <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v * 100).toFixed(2)}%`} />
               <Tooltip formatter={(v: number) => `${(v * 100).toFixed(3)}%`} />
               <Legend />
-              <Bar dataKey="avg_return" name="Avg Return" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="avg_return" name={t('component.advanced.series.avg_return')} radius={[4, 4, 0, 0]}>
                 {monthChartData.map((d, i) => (
                   <Cell key={i} fill={d.avg_return >= 0 ? '#3b82f6' : '#ef4444'} />
                 ))}
@@ -182,19 +183,19 @@ export function BacktestCalendarTab() {
       {/* Month-End Effect */}
       {monthEndStats && (
         <div className="card p-4">
-          <h3 className="font-semibold text-gray-800 mb-1">Month-End Effect</h3>
-          <p className="text-xs text-gray-400 mb-4">Returns around month-end vs rest of month</p>
+          <h3 className="font-semibold text-gray-800 mb-1">{t('component.advanced.section.month_end_effect')}</h3>
+          <p className="text-xs text-gray-400 mb-4">{t('component.calendar.hint.month_end_vs_rest')}</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <MetricCard label="Month-End Mean" value={fmtPct(monthEndStats.month_end_mean)} />
-            <MetricCard label="Non-Month-End Mean" value={fmtPct(monthEndStats.non_month_end_mean)} />
-            <MetricCard label="t-Statistic" value={monthEndStats.t_statistic.toFixed(3)} />
-            <MetricCard label="p-Value" value={monthEndStats.p_value.toFixed(4)} />
+            <MetricCard label={t('component.advanced.label.month_end_avg_return')} value={fmtPct(monthEndStats.month_end_mean)} />
+            <MetricCard label={t('component.advanced.label.non_month_end_avg')} value={fmtPct(monthEndStats.non_month_end_mean)} />
+            <MetricCard label={t('component.advanced.label.t_statistic')} value={monthEndStats.t_statistic.toFixed(3)} />
+            <MetricCard label={t('component.advanced.label.p_value')} value={monthEndStats.p_value.toFixed(4)} />
           </div>
           <p className="text-xs text-gray-400 mt-3">
-            Based on {monthEndStats.month_end_count} month-end observations.
+            {t('component.calendar.hint.month_end_observations', { count: monthEndStats.month_end_count })}
             {monthEndStats.p_value < 0.05
-              ? ' Statistically significant at 95% confidence.'
-              : ' Not statistically significant.'}
+              ? t('component.calendar.hint.significant_95')
+              : t('component.calendar.hint.not_significant_95')}
           </p>
         </div>
       )}
@@ -202,9 +203,9 @@ export function BacktestCalendarTab() {
       {/* Holiday Effect */}
       {holidayEffects.length > 0 && (
         <div className="card p-4">
-          <h3 className="font-semibold text-gray-800 mb-1">节假日效应 (Holiday Effect)</h3>
+          <h3 className="font-semibold text-gray-800 mb-1">{t('component.calendar.section.holiday_effect')}</h3>
           <p className="text-xs text-gray-400 mb-4">
-            Average returns on trading days before A-share holidays (Spring Festival, National Day, New Year)
+            {t('component.calendar.hint.holiday_effect')}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             {holidayEffects.map((h, hi) => (
@@ -213,13 +214,13 @@ export function BacktestCalendarTab() {
                 <div className="space-y-2">
                   {h.pre_days.map((pd, pi) => (
                     <div key={pi} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">前{pd.n}日</span>
+                      <span className="text-gray-500">{t('component.calendar.label.pre_n_days', { n: pd.n })}</span>
                       <div className="flex items-center gap-3">
                         <span className={pd.mean_return >= 0 ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
                           {fmtPct(pd.mean_return)}
                         </span>
                         <WinRateBadge rate={pd.win_rate} />
-                        <span className="text-xs text-gray-400">{pd.count}次</span>
+                        <span className="text-xs text-gray-400">{t('component.advanced.sub.trades', { count: pd.count })}</span>
                       </div>
                     </div>
                   ))}
@@ -227,10 +228,10 @@ export function BacktestCalendarTab() {
                 {/* Show t-stat for D1 as significance indicator */}
                 {h.pre_days.length > 0 && h.pre_days[0].count > 0 && (
                   <p className="text-xs text-gray-400 mt-3 text-center">
-                    t-stat D1: {h.pre_days[0].t_stat.toFixed(2)}
+                    {t('component.calendar.label.t_stat_d1')}: {h.pre_days[0].t_stat.toFixed(2)}
                     {Math.abs(h.pre_days[0].t_stat) >= 1.96
-                      ? ' (significant)'
-                      : ' (not significant)'}
+                      ? t('component.calendar.hint.significant_paren')
+                      : t('component.calendar.hint.not_significant_paren')}
                   </p>
                 )}
               </div>
@@ -244,7 +245,7 @@ export function BacktestCalendarTab() {
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${(v * 100).toFixed(2)}%`} />
                 <Tooltip formatter={(v: number) => `${(v * 100).toFixed(3)}%`} />
-                <Bar dataKey="avg_return" name="Avg Return" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="avg_return" name={t('component.advanced.series.avg_return')} radius={[4, 4, 0, 0]}>
                   {holidayChartData.map((d, i) => (
                     <Cell key={i} fill={d.avg_return >= 0 ? '#22c55e' : '#ef4444'} />
                   ))}
@@ -258,9 +259,9 @@ export function BacktestCalendarTab() {
       {/* Empty state if all sections are empty */}
       {weekdayChartData.length === 0 && monthChartData.length === 0 && !monthEndStats && holidayEffects.length === 0 && (
         <div className="card text-center text-gray-400 py-12">
-          <div className="text-4xl mb-3">Calendar</div>
-          <div className="text-gray-500 mb-2">No calendar effect data found</div>
-          <p className="text-xs text-gray-400">This analysis requires completed trade data</p>
+          <div className="text-4xl mb-3">{t('component.calendar.empty.icon')}</div>
+          <div className="text-gray-500 mb-2">{t('component.calendar.empty.no_effect_data')}</div>
+          <p className="text-xs text-gray-400">{t('component.calendar.empty.requires_completed')}</p>
         </div>
       )}
     </div>
