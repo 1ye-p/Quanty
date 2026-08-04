@@ -4,6 +4,7 @@
  * Shows description, parameters, formula, economic meaning, and use case.
  * Reusable for FactorSelector and IndicatorPicker.
  */
+import { useTranslation } from 'react-i18next'
 import type { AvailableFactor } from '@/lib/api/factors'
 
 interface FactorHelpPanelProps {
@@ -12,6 +13,7 @@ interface FactorHelpPanelProps {
 }
 
 export function FactorHelpPanel({ factor, onClose }: FactorHelpPanelProps) {
+  const { t } = useTranslation()
   if (!factor) return null
 
   return (
@@ -24,7 +26,7 @@ export function FactorHelpPanel({ factor, onClose }: FactorHelpPanelProps) {
         <button
           className="text-gray-400 hover:text-gray-600 text-sm"
           onClick={onClose}
-          aria-label="关闭"
+          aria-label={t('component.strategies.factor_help_panel.close')}
         >
           ✕
         </button>
@@ -33,14 +35,14 @@ export function FactorHelpPanel({ factor, onClose }: FactorHelpPanelProps) {
       <div className="space-y-3 text-sm">
         {/* Description */}
         <div>
-          <div className="text-xs font-medium text-gray-500 mb-1">说明</div>
+          <div className="text-xs font-medium text-gray-500 mb-1">{t('component.strategies.factor_help_panel.description')}</div>
           <p className="text-gray-700">{factor.description}</p>
         </div>
 
         {/* Formula */}
         {factor.formula && (
           <div>
-            <div className="text-xs font-medium text-gray-500 mb-1">公式</div>
+            <div className="text-xs font-medium text-gray-500 mb-1">{t('component.strategies.factor_help_panel.formula')}</div>
             <code className="block p-2 bg-gray-50 rounded text-xs font-mono text-gray-800 break-all">
               {factor.formula}
             </code>
@@ -50,7 +52,7 @@ export function FactorHelpPanel({ factor, onClose }: FactorHelpPanelProps) {
         {/* Economic Meaning */}
         {factor.economic_meaning && (
           <div>
-            <div className="text-xs font-medium text-gray-500 mb-1">经济含义</div>
+            <div className="text-xs font-medium text-gray-500 mb-1">{t('component.strategies.factor_help_panel.economic_meaning')}</div>
             <p className="text-gray-700">{factor.economic_meaning}</p>
           </div>
         )}
@@ -58,7 +60,7 @@ export function FactorHelpPanel({ factor, onClose }: FactorHelpPanelProps) {
         {/* Use Case */}
         {factor.use_case && (
           <div>
-            <div className="text-xs font-medium text-gray-500 mb-1">应用场景</div>
+            <div className="text-xs font-medium text-gray-500 mb-1">{t('component.strategies.factor_help_panel.use_case')}</div>
             <p className="text-gray-700">{factor.use_case}</p>
           </div>
         )}

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { Strategy } from '@/lib/types'
 
 interface StrategyTableProps {
@@ -15,14 +16,15 @@ export function StrategyTable({
   onBacktest,
   onDelete,
 }: StrategyTableProps) {
+  const { t } = useTranslation()
   if (isLoading) {
-    return <p className="text-gray-400">Loading...</p>
+    return <p className="text-gray-400">{t('common.loading')}</p>
   }
 
   if (strategies.length === 0) {
     return (
       <div className="text-center text-gray-400 py-12">
-        暂无策略，点击"新建策略"开始
+        {t('component.strategies.strategy_table.empty')}
       </div>
     )
   }
@@ -35,7 +37,7 @@ export function StrategyTable({
             <div>
               <div className="font-semibold text-gray-900">{s.strategy_id}</div>
               <div className="text-xs text-gray-400 mt-1">
-                更新于 {s.updated_at?.slice(0, 16) ?? '---'}
+                {t('component.strategies.strategy_table.updated_at', { date: s.updated_at?.slice(0, 16) ?? '---' })}
               </div>
             </div>
             <div className="flex gap-2">
@@ -43,19 +45,19 @@ export function StrategyTable({
                 className="btn-secondary text-xs px-3 py-1 text-green-600 border-green-300 hover:bg-green-50"
                 onClick={() => onBacktest(s)}
               >
-                ▶ 回测
+                ▶ {t('component.strategies.strategy_table.backtest')}
               </button>
               <button
                 className="btn-secondary text-xs px-3 py-1"
                 onClick={() => onEdit(s)}
               >
-                编辑
+                {t('common.edit')}
               </button>
               <button
                 className="btn-danger text-xs px-3 py-1"
                 onClick={() => onDelete(s.strategy_id)}
               >
-                删除
+                {t('common.delete')}
               </button>
             </div>
           </div>

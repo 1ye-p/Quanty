@@ -7,6 +7,7 @@
  */
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import type { editor as editorTypes } from 'monaco-editor'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   CONDITION_DSL_LANG_ID,
@@ -137,6 +138,7 @@ let _latestCompletions = CONDITION_DSL_COMPLETIONS
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function RuleConditionEditor({ label, value, onChange, assetId }: RuleConditionEditorProps) {
+  const { t } = useTranslation()
   const [isVisual, setIsVisual] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
@@ -242,30 +244,30 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
         <h3 className="font-semibold text-gray-900 text-sm">{label}</h3>
         <div className="flex items-center gap-2">
           {diagnostics.length === 0 && value.trim() && (
-            <span className="text-[11px] text-green-600 bg-green-50 px-2 py-0.5 rounded">语法正确</span>
+            <span className="text-[11px] text-green-600 bg-green-50 px-2 py-0.5 rounded">{t('component.strategies.rule_condition_editor.syntax_ok')}</span>
           )}
           {diagnostics.length > 0 && (
             <span className="text-[11px] text-red-600 bg-red-50 px-2 py-0.5 rounded">
-              {diagnostics.length} 个错误
+              {t('component.strategies.rule_condition_editor.error_count', { count: diagnostics.length })}
             </span>
           )}
           <button
             className={`text-xs px-2 py-1 rounded transition-colors ${showTemplates ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             onClick={() => setShowTemplates(!showTemplates)}
           >
-            模板
+            {t('component.strategies.rule_condition_editor.templates')}
           </button>
           <button
             className={`text-xs px-2 py-1 rounded transition-colors ${showHelp ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             onClick={() => setShowHelp(!showHelp)}
           >
-            帮助
+            {t('component.strategies.rule_condition_editor.help')}
           </button>
           <button
             className={`text-xs px-2 py-1 rounded transition-colors ${isVisual ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             onClick={() => setIsVisual(!isVisual)}
           >
-            {isVisual ? '代码' : '可视化'}
+            {isVisual ? t('component.strategies.rule_condition_editor.mode_code') : t('component.strategies.rule_condition_editor.mode_visual')}
           </button>
         </div>
       </div>
@@ -284,7 +286,7 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
               <Suspense
                 fallback={
                   <div className="h-32 bg-gray-50 animate-pulse rounded flex items-center justify-center text-xs text-gray-400">
-                    Loading editor...
+                    {t('component.strategies.rule_condition_editor.loading_editor')}
                   </div>
                 }
               >
@@ -326,7 +328,7 @@ export function RuleConditionEditor({ label, value, onChange, assetId }: RuleCon
 
               {/* Hint */}
               <div className="text-[11px] text-gray-400">
-                支持: sma(20), rsi(14), close, AND/OR, crosses_above, &gt;/&lt;/==
+                {t('component.strategies.rule_condition_editor.hint')}
               </div>
             </div>
           )}

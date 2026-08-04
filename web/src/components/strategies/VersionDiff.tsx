@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { DiffEditor } from '@monaco-editor/react'
 import type { Version } from './types'
 
@@ -9,6 +10,7 @@ interface VersionDiffProps {
 }
 
 export function VersionDiff({ oldVersion, newVersion, onClose }: VersionDiffProps) {
+  const { t } = useTranslation()
   // Escape key to close
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -33,7 +35,7 @@ export function VersionDiff({ oldVersion, newVersion, onClose }: VersionDiffProp
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
           <h3 className="font-medium text-gray-800">
-            版本对比: {oldVersion.version_id} → {newVersion.version_id}
+            {t('component.strategies.version_diff.title', { old: oldVersion.version_id, new: newVersion.version_id })}
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">
             ✕

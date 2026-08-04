@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { VersionDiff } from './VersionDiff'
 import type { Version } from './types'
 
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function VersionHistoryPanel({ versions, onRollback }: Props) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [diffTarget, setDiffTarget] = useState<string | null>(null)
   const [diffVersions, setDiffVersions] = useState<{ old: Version; new: Version } | null>(null)
@@ -15,8 +17,8 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
   if (versions.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-2">版本历史</h3>
-        <p className="text-sm text-gray-400">暂无版本历史</p>
+        <h3 className="font-semibold text-gray-800 mb-2">{t('component.strategies.version_history.title')}</h3>
+        <p className="text-sm text-gray-400">{t('component.strategies.version_history.empty')}</p>
       </div>
     )
   }
@@ -29,7 +31,7 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
         className="flex items-center justify-between w-full"
         onClick={() => setExpanded(!expanded)}
       >
-        <h3 className="font-semibold text-gray-800">版本历史 ({versions.length})</h3>
+        <h3 className="font-semibold text-gray-800">{t('component.strategies.version_history.title_with_count', { count: versions.length })}</h3>
         <span className="text-gray-400">{expanded ? '▲' : '▼'}</span>
       </button>
 
@@ -53,7 +55,7 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
                       setDiffVersions(null) // close diff modal if open
                     }}
                   >
-                    查看
+                    {t('component.strategies.version_history.view')}
                   </button>
                   <button
                     className="text-xs text-blue-600 hover:underline disabled:text-gray-300"
@@ -66,13 +68,13 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
                     }}
                     disabled={i === versions.length - 1}
                   >
-                    对比上一版本
+                    {t('component.strategies.version_history.compare_previous')}
                   </button>
                   <button
                     className="text-xs text-orange-600 hover:underline"
                     onClick={() => onRollback(v.version_id)}
                   >
-                    回滚
+                    {t('component.strategies.version_history.rollback')}
                   </button>
                 </div>
               </div>
@@ -84,12 +86,12 @@ export function VersionHistoryPanel({ versions, onRollback }: Props) {
       {diffVersion && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setDiffTarget(null)}>
           <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <h3 className="font-semibold mb-3">版本配置</h3>
+            <h3 className="font-semibold mb-3">{t('component.strategies.version_history.config_title')}</h3>
             <pre className="text-xs bg-gray-50 p-3 rounded overflow-x-auto">
               {(() => { try { return JSON.stringify(JSON.parse(diffVersion.config_text), null, 2) } catch { return diffVersion.config_text } })()}
             </pre>
             <div className="mt-4 flex justify-end">
-              <button className="btn-secondary" onClick={() => setDiffTarget(null)}>关闭</button>
+              <button className="btn-secondary" onClick={() => setDiffTarget(null)}>{t('component.strategies.version_history.close')}</button>
             </div>
           </div>
         </div>

@@ -291,6 +291,49 @@
         "direction_positive": "正向",
         "direction_negative": "反向",
         "range_hint": "权重范围: -10 到 10 · 正值 = 因子值越高得分越高 · 负值 = 因子值越低得分越高"
+      },
+      "factor_selector": {
+        "loading": "加载因子列表...",
+        "load_failed": "加载因子失败: {{message}}",
+        "view_details": "查看详情",
+        "view_factor_details": "查看因子详情",
+        "select_all": "全选",
+        "deselect_all": "取消全选"
+      },
+      "factor_help_panel": {
+        "close": "关闭",
+        "description": "说明",
+        "formula": "公式",
+        "economic_meaning": "经济含义",
+        "use_case": "应用场景"
+      },
+      "version_history": {
+        "title": "版本历史",
+        "title_with_count": "版本历史 ({{count}})",
+        "empty": "暂无版本历史",
+        "view": "查看",
+        "compare_previous": "对比上一版本",
+        "rollback": "回滚",
+        "config_title": "版本配置",
+        "close": "关闭"
+      },
+      "version_diff": {
+        "title": "版本对比: {{old}} → {{new}}"
+      },
+      "rule_condition_editor": {
+        "syntax_ok": "语法正确",
+        "error_count": "{{count}} 个错误",
+        "templates": "模板",
+        "help": "帮助",
+        "mode_code": "代码",
+        "mode_visual": "可视化",
+        "loading_editor": "加载编辑器...",
+        "hint": "支持: sma(20), rsi(14), close, AND/OR, crosses_above, >/</=="
+      },
+      "strategy_table": {
+        "empty": "暂无策略，点击\"新建策略\"开始",
+        "updated_at": "更新于 {{date}}",
+        "backtest": "回测"
       }
     },
     "risk": {

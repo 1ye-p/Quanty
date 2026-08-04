@@ -5,6 +5,7 @@
  * and shows checkboxes with Chinese/English names.
  */
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { factorsApi, type AvailableFactor } from '@/lib/api/factors'
 import { FactorHelpPanel } from './FactorHelpPanel'
@@ -15,6 +16,7 @@ interface FactorSelectorProps {
 }
 
 export function FactorSelector({ selected, onChange }: FactorSelectorProps) {
+  const { t } = useTranslation()
   const [helpFactor, setHelpFactor] = useState<AvailableFactor | null>(null)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
@@ -68,7 +70,7 @@ export function FactorSelector({ selected, onChange }: FactorSelectorProps) {
   if (isLoading) {
     return (
       <div className="border rounded-lg p-4 bg-gray-50">
-        <div className="text-sm text-gray-500">加载因子列表...</div>
+        <div className="text-sm text-gray-500">{t('component.strategies.factor_selector.loading')}</div>
       </div>
     )
   }
@@ -76,7 +78,7 @@ export function FactorSelector({ selected, onChange }: FactorSelectorProps) {
   if (error) {
     return (
       <div className="border rounded-lg p-4 bg-red-50">
-        <div className="text-sm text-red-600">加载因子失败: {error.message}</div>
+        <div className="text-sm text-red-600">{t('component.strategies.factor_selector.load_failed', { message: error.message })}</div>
       </div>
     )
   }
@@ -122,7 +124,7 @@ export function FactorSelector({ selected, onChange }: FactorSelectorProps) {
                     toggleAllInCategory(category.factors)
                   }}
                 >
-                  {selectedInCategory.length === categoryFactors.length ? '取消全选' : '全选'}
+                  {selectedInCategory.length === categoryFactors.length ? t('component.strategies.factor_selector.deselect_all') : t('component.strategies.factor_selector.select_all')}
                 </button>
               </div>
 
@@ -152,8 +154,8 @@ export function FactorSelector({ selected, onChange }: FactorSelectorProps) {
                       <button
                         className="text-xs text-gray-400 hover:text-blue-600 ml-2"
                         onClick={() => setHelpFactor(factor)}
-                        title="查看详情"
-                        aria-label="查看因子详情"
+                        title={t('component.strategies.factor_selector.view_details')}
+                        aria-label={t('component.strategies.factor_selector.view_factor_details')}
                       >
                         ⓘ
                       </button>

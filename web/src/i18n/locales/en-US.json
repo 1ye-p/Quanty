@@ -291,6 +291,49 @@
         "direction_positive": "Long",
         "direction_negative": "Short",
         "range_hint": "Weight range: -10 to 10 · Positive = higher factor value scores higher · Negative = lower factor value scores higher"
+      },
+      "factor_selector": {
+        "loading": "Loading factors...",
+        "load_failed": "Failed to load factors: {{message}}",
+        "view_details": "View details",
+        "view_factor_details": "View factor details",
+        "select_all": "Select all",
+        "deselect_all": "Deselect all"
+      },
+      "factor_help_panel": {
+        "close": "Close",
+        "description": "Description",
+        "formula": "Formula",
+        "economic_meaning": "Economic meaning",
+        "use_case": "Use case"
+      },
+      "version_history": {
+        "title": "Version history",
+        "title_with_count": "Version history ({{count}})",
+        "empty": "No version history",
+        "view": "View",
+        "compare_previous": "Compare with previous",
+        "rollback": "Rollback",
+        "config_title": "Version configuration",
+        "close": "Close"
+      },
+      "version_diff": {
+        "title": "Version diff: {{old}} → {{new}}"
+      },
+      "rule_condition_editor": {
+        "syntax_ok": "Syntax OK",
+        "error_count": "{{count}} errors",
+        "templates": "Templates",
+        "help": "Help",
+        "mode_code": "Code",
+        "mode_visual": "Visual",
+        "loading_editor": "Loading editor...",
+        "hint": "Supports: sma(20), rsi(14), close, AND/OR, crosses_above, >/</=="
+      },
+      "strategy_table": {
+        "empty": "No strategies yet. Click \"New Strategy\" to start.",
+        "updated_at": "Updated {{date}}",
+        "backtest": "Backtest"
       }
     },
     "risk": {
