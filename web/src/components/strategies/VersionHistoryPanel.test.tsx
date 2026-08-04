@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import '../../test-utils'  // initializes global i18n singleton (zh-CN) for useTranslation()
 import { describe, it, expect, vi } from 'vitest'
 import { VersionHistoryPanel } from './VersionHistoryPanel'
 
