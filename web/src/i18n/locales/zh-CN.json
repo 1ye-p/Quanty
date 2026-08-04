@@ -184,6 +184,55 @@
         "loading": "策略报告数据加载中...",
         "hint": "需要完整的 portfolio_returns 存储才能显示 NAV 曲线"
       }
+    },
+    "trade_analysis": {
+      "section": {
+        "streaks": "连胜/连败",
+        "mfe_mae_scatter": "MFE / MAE 散点图",
+        "long_short": "多空对比分析",
+        "pnl_distribution": "盈亏分布",
+        "holding_distribution": "持仓时长分布",
+        "top_assets": "按盈亏排名前 {{count}} 标的"
+      },
+      "label": {
+        "total_trades": "总交易数",
+        "profit_factor": "盈亏比",
+        "avg_holding_days": "平均持仓天数",
+        "total_pnl": "总盈亏",
+        "avg_win": "平均盈利",
+        "avg_loss": "平均亏损",
+        "expectancy": "期望值",
+        "max_win_streak": "最大连胜",
+        "max_loss_streak": "最大连亏",
+        "avg_win_streak": "平均连胜",
+        "avg_loss_streak": "平均连亏",
+        "trades": "交易数",
+        "avg_hold": "平均持仓",
+        "long": "多头",
+        "short": "空头",
+        "mfe_adverse": "MAE (不利)",
+        "mfe_favorable": "MFE (有利)",
+        "direction": "方向",
+        "pnl": "盈亏",
+        "return": "收益率",
+        "mfe": "MFE",
+        "mae": "MAE"
+      },
+      "phrase": {
+        "mfe_mae_desc": "每笔交易的最大有利偏移 (MFE) 与最大不利偏移 (MAE)。每个点代表一次完整交易。",
+        "holding_days_unit": "{{days}}d"
+      },
+      "series": {
+        "profit": "盈利",
+        "loss": "亏损"
+      },
+      "count_unit": {
+        "trades_count": "{{count}} 笔交易"
+      },
+      "empty": {
+        "loading": "正在加载交易分析...",
+        "no_data": "暂无交易数据可供分析"
+      }
     }
   },
   "page": {

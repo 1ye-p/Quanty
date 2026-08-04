@@ -184,6 +184,55 @@
         "loading": "Tearsheet data loading...",
         "hint": "Requires complete portfolio_returns storage for NAV curve display"
       }
+    },
+    "trade_analysis": {
+      "section": {
+        "streaks": "Win/Loss Streaks",
+        "mfe_mae_scatter": "MFE / MAE Scatter",
+        "long_short": "Long vs Short Analysis",
+        "pnl_distribution": "P&L Distribution",
+        "holding_distribution": "Holding Period Distribution",
+        "top_assets": "Top {{count}} Assets by P&L"
+      },
+      "label": {
+        "total_trades": "Total Trades",
+        "profit_factor": "Profit Factor",
+        "avg_holding_days": "Avg Holding Days",
+        "total_pnl": "Total P&L",
+        "avg_win": "Avg Win",
+        "avg_loss": "Avg Loss",
+        "expectancy": "Expectancy",
+        "max_win_streak": "Max Win Streak",
+        "max_loss_streak": "Max Loss Streak",
+        "avg_win_streak": "Avg Win Streak",
+        "avg_loss_streak": "Avg Loss Streak",
+        "trades": "Trades",
+        "avg_hold": "Avg Hold",
+        "long": "Long",
+        "short": "Short",
+        "mfe_adverse": "MAE (Adverse)",
+        "mfe_favorable": "MFE (Favorable)",
+        "direction": "Direction",
+        "pnl": "P&L",
+        "return": "Return",
+        "mfe": "MFE",
+        "mae": "MAE"
+      },
+      "phrase": {
+        "mfe_mae_desc": "Maximum Favorable Excursion vs Maximum Adverse Excursion per trade. Each dot is one round-trip.",
+        "holding_days_unit": "{{days}}d"
+      },
+      "series": {
+        "profit": "Profit",
+        "loss": "Loss"
+      },
+      "count_unit": {
+        "trades_count": "{{count}} trades"
+      },
+      "empty": {
+        "loading": "Loading trade analysis...",
+        "no_data": "No trade data available for analysis"
+      }
     }
   },
   "page": {
