@@ -1,8 +1,10 @@
 import { useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { getShareContent } from '@/lib/share'
 
 export function SharePage() {
+  const { t } = useTranslation()
   const { shareId } = useParams<{ shareId: string }>()
 
   const { data, isLoading, error } = useQuery({
@@ -16,7 +18,7 @@ export function SharePage() {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-        <span className="ml-3 text-gray-500">加载分享内容...</span>
+        <span className="ml-3 text-gray-500">{t('page.share.loading')}</span>
       </div>
     )
   }
@@ -25,23 +27,23 @@ export function SharePage() {
     return (
       <div className="text-center py-24">
         <div className="text-4xl mb-4">🔗</div>
-        <h1 className="text-xl font-semibold text-gray-800 mb-2">链接无效或已过期</h1>
-        <p className="text-sm text-gray-500">该分享链接可能已被删除或超过有效期。</p>
+        <h1 className="text-xl font-semibold text-gray-800 mb-2">{t('page.share.invalid_title')}</h1>
+        <p className="text-sm text-gray-500">{t('page.share.invalid_msg')}</p>
       </div>
     )
   }
 
-  const title = data.type === 'backtest' ? '回测结果' : '策略配置'
+  const title = data.type === 'backtest' ? t('page.share.type.backtest') : t('page.share.type.strategy')
   const entries = Object.entries(data.data)
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">分享: {title}</h1>
+        <h1 className="page-title">{t('page.share.title', { type: title })}</h1>
         <p className="page-subtitle">
-          分享 ID: <span className="font-mono">{data.shareId}</span>
+          {t('page.share.subtitle_id')}: <span className="font-mono">{data.shareId}</span>
           {' · '}
-          创建于 {new Date(data.createdAt).toLocaleString('zh-CN')}
+          {t('page.share.created_at', { date: new Date(data.createdAt).toLocaleString('zh-CN') })}
         </p>
       </div>
 
@@ -49,8 +51,8 @@ export function SharePage() {
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th className="table-th w-48">字段</th>
-              <th className="table-th">值</th>
+              <th className="table-th w-48">{t('page.share.col.field')}</th>
+              <th className="table-th">{t('page.share.col.value')}</th>
             </tr>
           </thead>
           <tbody>

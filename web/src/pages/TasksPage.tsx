@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { mlApi, backtestsApi, scoringApi, jobsApi } from '@/lib/api'
 import { elapsedStr } from '@/lib/utils'
@@ -14,6 +15,7 @@ interface TaskItem {
 }
 
 export function TasksPage() {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState<'all' | 'running' | 'completed' | 'failed'>('all')
   const [confirmAction, setConfirmAction] = useState<{ type: 'cancel' | 'delete'; taskId: string } | null>(null)
@@ -52,7 +54,7 @@ export function TasksPage() {
 
   const allTasks: TaskItem[] = [
     ...(mlExperiments?.items ?? []).map(e => ({
-      type: 'ML训练',
+      type: t('page.tasks.type.ml_train'),
       id: e.run_id.slice(0, 10),
       fullId: e.run_id,
       status: e.status,
@@ -60,7 +62,7 @@ export function TasksPage() {
       detail: e.trainer_name ?? '',
     })),
     ...(btRuns?.items ?? []).map(r => ({
-      type: '回测',
+      type: t('page.tasks.type.backtest'),
       id: r.run_id.slice(0, 10),
       fullId: r.run_id,
       status: r.status,
@@ -68,7 +70,7 @@ export function TasksPage() {
       detail: r.strategy_id ?? '',
     })),
     ...(scoringRuns?.items ?? []).map(s => ({
-      type: '截面打分',
+      type: t('page.tasks.type.scoring'),
       id: s.run_id.slice(0, 10),
       fullId: s.run_id,
       status: s.status,
@@ -104,8 +106,8 @@ export function TasksPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">任务管理</h1>
-        <p className="text-sm text-gray-500 mt-1">查看和管理所有后台任务</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('page.tasks.title')}</h1>
+        <p className="text-sm text-gray-500 mt-1">{t('page.tasks.subtitle')}</p>
       </div>
 
       {/* Stats */}
@@ -115,28 +117,28 @@ export function TasksPage() {
           className={`card text-center py-3 cursor-pointer transition-colors ${filter === 'all' ? 'ring-2 ring-brand-500' : 'hover:bg-gray-50'}`}
         >
           <div className="text-2xl font-bold text-gray-800">{allTasks.length}</div>
-          <div className="text-xs text-gray-500">全部任务</div>
+          <div className="text-xs text-gray-500">{t('page.tasks.stat.all')}</div>
         </button>
         <button
           onClick={() => setFilter('running')}
           className={`card text-center py-3 cursor-pointer transition-colors ${filter === 'running' ? 'ring-2 ring-blue-500' : 'hover:bg-gray-50'}`}
         >
           <div className="text-2xl font-bold text-blue-600">{runningCount}</div>
-          <div className="text-xs text-gray-500">运行中</div>
+          <div className="text-xs text-gray-500">{t('page.tasks.stat.running')}</div>
         </button>
         <button
           onClick={() => setFilter('completed')}
           className={`card text-center py-3 cursor-pointer transition-colors ${filter === 'completed' ? 'ring-2 ring-green-500' : 'hover:bg-gray-50'}`}
         >
           <div className="text-2xl font-bold text-green-600">{completedCount}</div>
-          <div className="text-xs text-gray-500">已完成</div>
+          <div className="text-xs text-gray-500">{t('page.tasks.stat.completed')}</div>
         </button>
         <button
           onClick={() => setFilter('failed')}
           className={`card text-center py-3 cursor-pointer transition-colors ${filter === 'failed' ? 'ring-2 ring-red-500' : 'hover:bg-gray-50'}`}
         >
           <div className="text-2xl font-bold text-red-600">{failedCount}</div>
-          <div className="text-xs text-gray-500">失败</div>
+          <div className="text-xs text-gray-500">{t('page.tasks.stat.failed')}</div>
         </button>
       </div>
 
@@ -145,19 +147,25 @@ export function TasksPage() {
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th className="table-th">类型</th>
-              <th className="table-th">ID</th>
-              <th className="table-th">详情</th>
-              <th className="table-th">状态</th>
-              <th className="table-th">耗时</th>
-              <th className="table-th">操作</th>
+              <th className="table-th">{t('page.tasks.col.type')}</th>
+              <th className="table-th">{t('page.tasks.col.id')}</th>
+              <th className="table-th">{t('page.tasks.col.detail')}</th>
+              <th className="table-th">{t('page.tasks.col.status')}</th>
+              <th className="table-th">{t('page.tasks.col.elapsed')}</th>
+              <th className="table-th">{t('page.tasks.col.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {filteredTasks.length === 0 ? (
               <tr>
                 <td colSpan={6} className="table-td text-center text-gray-400 py-12">
-                  {filter === 'all' ? '暂无任务记录' : `暂无${filter === 'running' ? '运行中' : filter === 'completed' ? '已完成' : '失败'}的任务`}
+                  {filter === 'all'
+                    ? t('page.tasks.empty.all')
+                    : filter === 'running'
+                      ? t('page.tasks.empty.running')
+                      : filter === 'completed'
+                        ? t('page.tasks.empty.completed')
+                        : t('page.tasks.empty.failed')}
                 </td>
               </tr>
             ) : (
@@ -185,7 +193,7 @@ export function TasksPage() {
                         disabled={cancelMutation.isPending}
                         className="text-xs text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
                       >
-                        取消
+                        {t('page.tasks.action.cancel')}
                       </button>
                     )}
                     {(task.status === 'completed' || task.status === 'done' || task.status === 'failed' || task.status === 'error') && (
@@ -194,7 +202,7 @@ export function TasksPage() {
                         disabled={deleteMutation.isPending}
                         className="text-xs text-gray-500 hover:text-gray-700 hover:underline disabled:opacity-50"
                       >
-                        删除
+                        {t('page.tasks.action.delete')}
                       </button>
                     )}
                   </td>
@@ -207,9 +215,9 @@ export function TasksPage() {
 
       <ConfirmDialog
         isOpen={confirmAction !== null}
-        title={confirmAction?.type === 'cancel' ? '确认取消任务' : '确认删除任务'}
-        message={confirmAction?.type === 'cancel' ? '确定取消该任务？' : '确定删除该任务记录？此操作不可撤销。'}
-        confirmLabel={confirmAction?.type === 'cancel' ? '取消任务' : '删除'}
+        title={confirmAction?.type === 'cancel' ? t('page.tasks.confirm.cancel_title') : t('page.tasks.confirm.delete_title')}
+        message={confirmAction?.type === 'cancel' ? t('page.tasks.confirm.cancel_msg') : t('page.tasks.confirm.delete_msg')}
+        confirmLabel={confirmAction?.type === 'cancel' ? t('page.tasks.confirm.cancel_label') : t('page.tasks.confirm.delete_label')}
         variant="danger"
         onConfirm={() => {
           if (confirmAction) {

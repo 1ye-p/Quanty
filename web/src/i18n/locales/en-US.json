@@ -1787,6 +1787,134 @@
       "toast": {
         "config_saved": "Node config saved"
       }
+    },
+    "tasks": {
+      "title": "Task Management",
+      "subtitle": "View and manage all background tasks",
+      "stat": {
+        "all": "All Tasks",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "type": {
+        "ml_train": "ML Training",
+        "backtest": "Backtest",
+        "scoring": "Cross-section Scoring"
+      },
+      "col": {
+        "type": "Type",
+        "id": "ID",
+        "detail": "Detail",
+        "status": "Status",
+        "elapsed": "Elapsed",
+        "actions": "Actions"
+      },
+      "empty": {
+        "all": "No task records",
+        "running": "No running tasks",
+        "completed": "No completed tasks",
+        "failed": "No failed tasks"
+      },
+      "action": {
+        "cancel": "Cancel",
+        "delete": "Delete"
+      },
+      "confirm": {
+        "cancel_title": "Confirm Cancel Task",
+        "delete_title": "Confirm Delete Task",
+        "cancel_msg": "Cancel this task?",
+        "delete_msg": "Delete this task record? This action cannot be undone.",
+        "cancel_label": "Cancel Task",
+        "delete_label": "Delete"
+      }
+    },
+    "risk": {
+      "title": "Risk Management",
+      "tab": {
+        "check": "Risk Check",
+        "positions": "Position Risk",
+        "factor": "Factor Risk",
+        "events": "Risk Events"
+      },
+      "section": {
+        "policies": "Risk Policies",
+        "sizers": "Position Sizers",
+        "check_tool": "Risk Check Tool",
+        "policy_params": "Policy Parameters"
+      },
+      "field": {
+        "policy": "Risk Policy",
+        "asset_id": "Asset ID",
+        "side": "Side",
+        "qty": "Quantity",
+        "price": "Price",
+        "nav": "Portfolio NAV"
+      },
+      "placeholder": {
+        "select_policy": "-- Select policy --"
+      },
+      "option": {
+        "buy": "Buy",
+        "sell": "Sell"
+      },
+      "action": {
+        "check": "Run Risk Check",
+        "checking": "Checking..."
+      },
+      "result": {
+        "original": "Original",
+        "approved": "Approved"
+      }
+    },
+    "backtest_compare": {
+      "title": "Backtest Compare",
+      "action": {
+        "back": "Back to List",
+        "clear": "Clear Selection"
+      },
+      "empty": {
+        "select_hint": "Select at least 2 backtests from the list to compare"
+      },
+      "error": {
+        "load_failed": "Load failed: {{message}}"
+      }
+    },
+    "share": {
+      "loading": "Loading share content...",
+      "invalid_title": "Invalid or Expired Link",
+      "invalid_msg": "This share link may have been deleted or has expired.",
+      "title": "Share: {{type}}",
+      "subtitle_id": "Share ID",
+      "created_at": "Created {{date}}",
+      "type": {
+        "backtest": "Backtest Result",
+        "strategy": "Strategy Config"
+      },
+      "col": {
+        "field": "Field",
+        "value": "Value"
+      }
+    },
+    "optimize": {
+      "title": "Portfolio Optimization",
+      "tab": {
+        "constraints": "Constraints",
+        "results": "Optimization Results",
+        "risk": "Risk Budget",
+        "frontier": "Efficient Frontier"
+      },
+      "advanced_constraints": "Advanced Constraints",
+      "frontier": {
+        "computing": "Computing efficient frontier...",
+        "empty": "Run an optimization to view the efficient frontier",
+        "selected": "Selected: {{ret}} return, {{vol}} vol, Sharpe {{sharpe}}"
+      },
+      "toast": {
+        "optimize_complete": "Optimization complete",
+        "optimize_failed": "Optimization failed: {{error}}",
+        "ml_imported": "ML predictions imported"
+      }
     }
   }
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { backtestsApi } from '@/lib/api/backtests';
 import { useBacktestCompareStore } from '@/stores/backtestCompareStore';
@@ -10,6 +11,7 @@ import { CompareDrawdownChart } from '@/components/backtests/compare/CompareDraw
 
 export const BacktestComparePage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { selectedIds, clearSelection } = useBacktestCompareStore();
 
   const { data: apiData, isLoading, error } = useQuery({
@@ -59,26 +61,26 @@ export const BacktestComparePage: React.FC = () => {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h1 className="page-title">回测对比</h1>
-          <button onClick={() => navigate('/backtests')} className="btn-secondary">返回列表</button>
+          <h1 className="page-title">{t('page.backtest_compare.title')}</h1>
+          <button onClick={() => navigate('/backtests')} className="btn-secondary">{t('page.backtest_compare.action.back')}</button>
         </div>
         <div className="card p-8 text-center text-gray-400">
-          请先在回测列表中选择至少 2 个回测进行对比
+          {t('page.backtest_compare.empty.select_hint')}
         </div>
       </div>
     );
   }
 
-  if (isLoading) return <div>加载中...</div>;
-  if (error) return <div className="card p-8 text-center text-red-500">加载失败: {(error as Error).message}</div>;
+  if (isLoading) return <div>{t('common.loading')}</div>;
+  if (error) return <div className="card p-8 text-center text-red-500">{t('page.backtest_compare.error.load_failed', { message: (error as Error).message })}</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="page-title">回测对比</h1>
+        <h1 className="page-title">{t('page.backtest_compare.title')}</h1>
         <div className="flex gap-2">
-          <button onClick={clearSelection} className="btn-secondary">清除选择</button>
-          <button onClick={() => navigate('/backtests')} className="btn-secondary">返回列表</button>
+          <button onClick={clearSelection} className="btn-secondary">{t('page.backtest_compare.action.clear')}</button>
+          <button onClick={() => navigate('/backtests')} className="btn-secondary">{t('page.backtest_compare.action.back')}</button>
         </div>
       </div>
       {metrics && metrics.length > 0 && <CompareMetricsTable metrics={metrics} />}

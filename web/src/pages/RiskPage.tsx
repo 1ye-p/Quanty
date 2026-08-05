@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { riskApi } from '@/lib/api'
 import type { PolicyInfo, SizerInfo, RiskCheckResult } from '@/lib/api'
@@ -8,14 +9,15 @@ import { RiskEventHistory } from '@/components/risk/RiskEventHistory'
 import { FactorRiskPanel } from '@/components/risk/FactorRiskPanel'
 
 export function RiskPage() {
+  const { t } = useTranslation()
   // Tab navigation
   const [activeTab, setActiveTab] = useState('check')
 
   const tabs = [
-    { id: 'check', label: '风控检查' },
-    { id: 'positions', label: '持仓风控' },
-    { id: 'factor', label: '因子风险' },
-    { id: 'events', label: '风控事件' },
+    { id: 'check', label: t('page.risk.tab.check') },
+    { id: 'positions', label: t('page.risk.tab.positions') },
+    { id: 'factor', label: t('page.risk.tab.factor') },
+    { id: 'events', label: t('page.risk.tab.events') },
   ]
 
   // Risk check form state
@@ -91,7 +93,7 @@ export function RiskPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">风控管理</h1>
+      <h1 className="text-2xl font-bold text-gray-900">{t('page.risk.title')}</h1>
 
       <div className="flex gap-1 border-b mb-6">
         {tabs.map(tab => (
@@ -114,67 +116,67 @@ export function RiskPage() {
       <div className="grid grid-cols-2 gap-6">
         {/* Policies List */}
         <div className="bg-white rounded-xl shadow-sm border p-5">
-          <h2 className="font-semibold text-gray-800 mb-3">风控策略</h2>
+          <h2 className="font-semibold text-gray-800 mb-3">{t('page.risk.section.policies')}</h2>
           <div className="space-y-3 max-h-[500px] overflow-y-auto">
             {policies?.map(p => (
               <PolicyCard key={p.name} policy={p} />
             ))}
-            {!policies && <div className="text-gray-400 text-sm">加载中...</div>}
+            {!policies && <div className="text-gray-400 text-sm">{t('common.loading')}</div>}
           </div>
         </div>
 
         {/* Sizers List */}
         <div className="bg-white rounded-xl shadow-sm border p-5">
-          <h2 className="font-semibold text-gray-800 mb-3">仓位管理器 (Sizer)</h2>
+          <h2 className="font-semibold text-gray-800 mb-3">{t('page.risk.section.sizers')}</h2>
           <div className="space-y-3 max-h-[500px] overflow-y-auto">
             {sizers?.map(s => (
               <SizerCard key={s.name} sizer={s} />
             ))}
-            {!sizers && <div className="text-gray-400 text-sm">加载中...</div>}
+            {!sizers && <div className="text-gray-400 text-sm">{t('common.loading')}</div>}
           </div>
         </div>
       </div>
 
       {/* Risk Check Tool */}
       <div className="bg-white rounded-xl shadow-sm border p-5 space-y-4">
-        <h2 className="font-semibold text-gray-800">风控检查工具</h2>
+        <h2 className="font-semibold text-gray-800">{t('page.risk.section.check_tool')}</h2>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">风控策略</label>
+            <label className="text-xs text-gray-500 mb-1 block">{t('page.risk.field.policy')}</label>
             <select className="input w-full" value={policyName}
               onChange={e => { setPolicyName(e.target.value); setPolicyParams({}); setCheckResult(null) }}>
-              <option value="">-- 选择策略 --</option>
+              <option value="">{t('page.risk.placeholder.select_policy')}</option>
               {policies?.map(p => (
                 <option key={p.name} value={p.name}>{p.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">资产 ID</label>
+            <label className="text-xs text-gray-500 mb-1 block">{t('page.risk.field.asset_id')}</label>
             <input className="input w-full" value={assetId} onChange={e => setAssetId(e.target.value)}
               placeholder="600519.SSE" />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">方向</label>
+            <label className="text-xs text-gray-500 mb-1 block">{t('page.risk.field.side')}</label>
             <select className="input w-full" value={side} onChange={e => setSide(e.target.value)}>
-              <option value="buy">买入</option>
-              <option value="sell">卖出</option>
+              <option value="buy">{t('page.risk.option.buy')}</option>
+              <option value="sell">{t('page.risk.option.sell')}</option>
             </select>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">数量</label>
+            <label className="text-xs text-gray-500 mb-1 block">{t('page.risk.field.qty')}</label>
             <input type="number" className="input w-full" value={qty}
               onChange={e => setQty(e.target.value)} min={1} />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">价格</label>
+            <label className="text-xs text-gray-500 mb-1 block">{t('page.risk.field.price')}</label>
             <input type="number" className="input w-full" value={price}
               onChange={e => setPrice(e.target.value)} min={0} step={0.01} />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">组合 NAV</label>
+            <label className="text-xs text-gray-500 mb-1 block">{t('page.risk.field.nav')}</label>
             <input type="number" className="input w-full" value={nav}
               onChange={e => setNav(e.target.value)} min={0} />
           </div>
@@ -183,7 +185,7 @@ export function RiskPage() {
         {/* Policy params */}
         {selectedPolicy && selectedPolicy.params.length > 0 && (
           <div className="border rounded-lg p-3 bg-gray-50">
-            <div className="text-xs font-medium text-gray-600 mb-2">策略参数</div>
+            <div className="text-xs font-medium text-gray-600 mb-2">{t('page.risk.section.policy_params')}</div>
             <div className="grid grid-cols-3 gap-2">
               {selectedPolicy.params.map(p => (
                 <div key={p.key}>
@@ -199,7 +201,7 @@ export function RiskPage() {
 
         <button className="btn-primary" onClick={handleCheck}
           disabled={checkMutation.isPending || !policyName || !assetId}>
-          {checkMutation.isPending ? '检查中...' : '执行风控检查'}
+          {checkMutation.isPending ? t('page.risk.action.checking') : t('page.risk.action.check')}
         </button>
 
         {checkMutation.isError && (
@@ -212,7 +214,7 @@ export function RiskPage() {
             <div className="flex items-center gap-3 mb-2">
               <span className="text-lg font-bold uppercase">{checkResult.decision}</span>
               <span className="text-sm">
-                原始: {checkResult.original_qty} → 批准: {checkResult.approved_qty}
+                {t('page.risk.result.original')}: {checkResult.original_qty} → {t('page.risk.result.approved')}: {checkResult.approved_qty}
               </span>
             </div>
             {checkResult.reasons.length > 0 && (

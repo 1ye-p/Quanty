@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { optimizeApi, mlApi } from '@/lib/api'
@@ -32,6 +33,7 @@ function formatPct(value: number): string {
 }
 
 export function OptimizePage() {
+  const { t } = useTranslation()
   // ── Tab navigation ────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<TabKey>('constraints')
 
@@ -91,7 +93,7 @@ export function OptimizePage() {
     onSuccess: (data) => {
       setOptResult(data)
       setActiveTab('results')
-      toast.success('Optimization complete')
+      toast.success(t('page.optimize.toast.optimize_complete'))
       const { currentWorkflow: wf, updateContext: uc } = useWorkflowStore.getState()
       if (wf === 'optimize') uc({ optimizeResults: data })
       // Fetch frontier data after optimization using the assets from the result
@@ -100,7 +102,7 @@ export function OptimizePage() {
         fetchFrontier(assets)
       }
     },
-    onError: (err) => { toast.error(`Optimization failed: ${String(err)}`) },
+    onError: (err) => { toast.error(t('page.optimize.toast.optimize_failed', { error: String(err) })) },
   })
 
   const frontierMutation = useMutation({
@@ -146,7 +148,7 @@ export function OptimizePage() {
       }
       return next
     })
-    toast.success('ML predictions imported')
+    toast.success(t('page.optimize.toast.ml_imported'))
   }
 
   // ── Optimize handler ──────────────────────────────────────────────────
@@ -247,15 +249,15 @@ export function OptimizePage() {
 
   // ── Tabs ──────────────────────────────────────────────────────────────
   const tabs: { key: TabKey; label: string }[] = [
-    { key: 'constraints', label: '约束配置' },
-    { key: 'results', label: '优化结果' },
-    { key: 'risk', label: '风险预算' },
-    { key: 'frontier', label: '有效前沿' },
+    { key: 'constraints', label: t('page.optimize.tab.constraints') },
+    { key: 'results', label: t('page.optimize.tab.results') },
+    { key: 'risk', label: t('page.optimize.tab.risk') },
+    { key: 'frontier', label: t('page.optimize.tab.frontier') },
   ]
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">组合优化</h1>
+      <h1 className="text-2xl font-bold text-gray-900">{t('page.optimize.title')}</h1>
 
       <CovarianceCard
         assetIdsText={assetIdsText}
@@ -312,7 +314,7 @@ export function OptimizePage() {
             onClick={() => setShowConstraints(!showConstraints)}
             className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
           >
-            {showConstraints ? '▼' : '▶'} 高级约束配置
+            {showConstraints ? '▼' : '▶'} {t('page.optimize.advanced_constraints')}
           </button>
           {showConstraints && (
             <ConstraintsTab
@@ -401,7 +403,11 @@ export function OptimizePage() {
               minVariancePoint={frontierResult.min_variance_point}
               individualAssets={frontierResult.individual_assets}
               onPointClick={(point) => {
-                toast.info(`Selected: ${formatPct(point.expected_return)} return, ${formatPct(point.volatility)} vol, Sharpe ${point.sharpe.toFixed(3)}`)
+                toast.info(t('page.optimize.frontier.selected', {
+                  ret: formatPct(point.expected_return),
+                  vol: formatPct(point.volatility),
+                  sharpe: point.sharpe.toFixed(3),
+                }))
               }}
             />
           )}
@@ -411,10 +417,10 @@ export function OptimizePage() {
               {frontierMutation.isPending ? (
                 <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-                  <span>Computing efficient frontier...</span>
+                  <span>{t('page.optimize.frontier.computing')}</span>
                 </div>
               ) : (
-                <p>Run an optimization to view the efficient frontier</p>
+                <p>{t('page.optimize.frontier.empty')}</p>
               )}
             </div>
           )}

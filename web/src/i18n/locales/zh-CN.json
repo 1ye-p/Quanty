@@ -1787,6 +1787,134 @@
       "toast": {
         "config_saved": "节点配置已保存"
       }
+    },
+    "tasks": {
+      "title": "任务管理",
+      "subtitle": "查看和管理所有后台任务",
+      "stat": {
+        "all": "全部任务",
+        "running": "运行中",
+        "completed": "已完成",
+        "failed": "失败"
+      },
+      "type": {
+        "ml_train": "ML训练",
+        "backtest": "回测",
+        "scoring": "截面打分"
+      },
+      "col": {
+        "type": "类型",
+        "id": "ID",
+        "detail": "详情",
+        "status": "状态",
+        "elapsed": "耗时",
+        "actions": "操作"
+      },
+      "empty": {
+        "all": "暂无任务记录",
+        "running": "暂无运行中的任务",
+        "completed": "暂无已完成的任务",
+        "failed": "暂无失败的任务"
+      },
+      "action": {
+        "cancel": "取消",
+        "delete": "删除"
+      },
+      "confirm": {
+        "cancel_title": "确认取消任务",
+        "delete_title": "确认删除任务",
+        "cancel_msg": "确定取消该任务？",
+        "delete_msg": "确定删除该任务记录？此操作不可撤销。",
+        "cancel_label": "取消任务",
+        "delete_label": "删除"
+      }
+    },
+    "risk": {
+      "title": "风控管理",
+      "tab": {
+        "check": "风控检查",
+        "positions": "持仓风控",
+        "factor": "因子风险",
+        "events": "风控事件"
+      },
+      "section": {
+        "policies": "风控策略",
+        "sizers": "仓位管理器 (Sizer)",
+        "check_tool": "风控检查工具",
+        "policy_params": "策略参数"
+      },
+      "field": {
+        "policy": "风控策略",
+        "asset_id": "资产 ID",
+        "side": "方向",
+        "qty": "数量",
+        "price": "价格",
+        "nav": "组合 NAV"
+      },
+      "placeholder": {
+        "select_policy": "-- 选择策略 --"
+      },
+      "option": {
+        "buy": "买入",
+        "sell": "卖出"
+      },
+      "action": {
+        "check": "执行风控检查",
+        "checking": "检查中..."
+      },
+      "result": {
+        "original": "原始",
+        "approved": "批准"
+      }
+    },
+    "backtest_compare": {
+      "title": "回测对比",
+      "action": {
+        "back": "返回列表",
+        "clear": "清除选择"
+      },
+      "empty": {
+        "select_hint": "请先在回测列表中选择至少 2 个回测进行对比"
+      },
+      "error": {
+        "load_failed": "加载失败: {{message}}"
+      }
+    },
+    "share": {
+      "loading": "加载分享内容...",
+      "invalid_title": "链接无效或已过期",
+      "invalid_msg": "该分享链接可能已被删除或超过有效期。",
+      "title": "分享: {{type}}",
+      "subtitle_id": "分享 ID",
+      "created_at": "创建于 {{date}}",
+      "type": {
+        "backtest": "回测结果",
+        "strategy": "策略配置"
+      },
+      "col": {
+        "field": "字段",
+        "value": "值"
+      }
+    },
+    "optimize": {
+      "title": "组合优化",
+      "tab": {
+        "constraints": "约束配置",
+        "results": "优化结果",
+        "risk": "风险预算",
+        "frontier": "有效前沿"
+      },
+      "advanced_constraints": "高级约束配置",
+      "frontier": {
+        "computing": "正在计算有效前沿...",
+        "empty": "运行一次优化以查看有效前沿",
+        "selected": "已选: {{ret}} 收益, {{vol}} 波动, Sharpe {{sharpe}}"
+      },
+      "toast": {
+        "optimize_complete": "优化完成",
+        "optimize_failed": "优化失败: {{error}}",
+        "ml_imported": "ML 预测已导入"
+      }
     }
   }
 }
