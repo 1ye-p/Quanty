@@ -1611,6 +1611,63 @@
       "computing": "Computing, please wait…",
       "pagination": "{{total}} records, page {{page}} / {{totalPages}}",
       "run_failed": "Scoring failed: {{message}}"
+    },
+    "ml": {
+      "title": "Machine Learning Lab",
+      "subtitle": "Model Training · Experiment Comparison · Prediction",
+      "tab": {
+        "models": "Models",
+        "train": "Train",
+        "experiments": "Experiments",
+        "predictions": "Predictions"
+      },
+      "section": {
+        "submit_train": "Submit Training Job",
+        "workflow_hint": "Workflow Tips",
+        "feature_importance": "Feature Importance",
+        "exec_detail": "Execution Details",
+        "train_params": "Training Parameters",
+        "train_metrics": "Training Metrics",
+        "error_detail": "Error Details"
+      },
+      "label": {
+        "status": "Status",
+        "trainer": "Trainer",
+        "target": "Target",
+        "feature_set": "Feature Set",
+        "metric": "Metric"
+      },
+      "btn": {
+        "live_predict": "Live Predict",
+        "backtest_with_model": "Backtest with Model",
+        "clear_selection": "Clear selection"
+      },
+      "option": {
+        "category_other": "Other"
+      },
+      "workflow_step": {
+        "select_feature_set": "Select a Feature Set version",
+        "select_model": "Choose model and hyperparameters",
+        "submit_train": "Submit training job",
+        "view_results": "View results in the \"Experiments\" tab",
+        "create_strategy": "Create a trading strategy from the model"
+      },
+      "predict": {
+        "select_first": "Select a completed experiment in the \"Experiments\" tab first",
+        "modal_title": "Live Prediction Ranking",
+        "model_label": "Model: ",
+        "date_label": "Date: {{date}}",
+        "loading": "Loading model...",
+        "summary": "{{total}} assets in total, showing Top-{{topN}}",
+        "column_rank": "#",
+        "column_asset": "Asset",
+        "column_prediction": "Predicted Return",
+        "empty": "No prediction data"
+      },
+      "compare": {
+        "title": "Model Comparison ({{count}})"
+      },
+      "empty": "No data"
     }
   }
 }

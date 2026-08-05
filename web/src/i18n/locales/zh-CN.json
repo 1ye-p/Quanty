@@ -1611,6 +1611,63 @@
       "computing": "计算中，请稍候…",
       "pagination": "共 {{total}} 条，第 {{page}} / {{totalPages}} 页",
       "run_failed": "评分失败: {{message}}"
+    },
+    "ml": {
+      "title": "机器学习实验室",
+      "subtitle": "模型训练 · 实验对比 · 预测",
+      "tab": {
+        "models": "模型库",
+        "train": "训练",
+        "experiments": "实验",
+        "predictions": "预测"
+      },
+      "section": {
+        "submit_train": "提交训练任务",
+        "workflow_hint": "工作流提示",
+        "feature_importance": "特征重要性",
+        "exec_detail": "执行详情",
+        "train_params": "训练参数",
+        "train_metrics": "训练指标",
+        "error_detail": "错误详情"
+      },
+      "label": {
+        "status": "状态",
+        "trainer": "Trainer",
+        "target": "Target",
+        "feature_set": "Feature Set",
+        "metric": "指标"
+      },
+      "btn": {
+        "live_predict": "实时预测",
+        "backtest_with_model": "用此模型回测",
+        "clear_selection": "清除选择"
+      },
+      "option": {
+        "category_other": "其他"
+      },
+      "workflow_step": {
+        "select_feature_set": "选择 Feature Set 版本",
+        "select_model": "选择模型和超参数",
+        "submit_train": "提交训练任务",
+        "view_results": "在\"实验\"标签页查看结果",
+        "create_strategy": "用模型创建交易策略"
+      },
+      "predict": {
+        "select_first": "请先在\"实验\"标签页中选择一个已完成的实验",
+        "modal_title": "实时预测排名",
+        "model_label": "模型：",
+        "date_label": "日期：{{date}}",
+        "loading": "模型加载中...",
+        "summary": "共 {{total}} 只资产，展示 Top-{{topN}}",
+        "column_rank": "#",
+        "column_asset": "资产代码",
+        "column_prediction": "预测收益",
+        "empty": "无预测数据"
+      },
+      "compare": {
+        "title": "模型对比（{{count}} 个）"
+      },
+      "empty": "暂无数据"
     }
   }
 }

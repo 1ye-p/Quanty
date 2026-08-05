@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { mlApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
@@ -13,14 +14,15 @@ import { useWorkflowStore } from '@/stores/workflowStore'
 
 type TabKey = 'models' | 'train' | 'experiments' | 'predictions'
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'models', label: '模型库' },
-  { key: 'train', label: '训练' },
-  { key: 'experiments', label: '实验' },
-  { key: 'predictions', label: '预测' },
+const TABS: { key: TabKey }[] = [
+  { key: 'models' },
+  { key: 'train' },
+  { key: 'experiments' },
+  { key: 'predictions' },
 ]
 
 export function MLLabPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<TabKey>('models')
   const [selectedRun, setSelectedRun] = useState<string | null>(null)
@@ -100,8 +102,8 @@ export function MLLabPage() {
 
   return (
     <div>
-      <h1 className="page-title">机器学习实验室</h1>
-      <p className="page-subtitle">模型训练 · 实验对比 · 预测</p>
+      <h1 className="page-title">{t('page.ml.title')}</h1>
+      <p className="page-subtitle">{t('page.ml.subtitle')}</p>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 border-b">
@@ -115,7 +117,7 @@ export function MLLabPage() {
             }`}
             onClick={() => setActiveTab(tab.key)}
           >
-            {tab.label}
+            {t(`page.ml.tab.${tab.key}`)}
           </button>
         ))}
       </div>
@@ -128,7 +130,7 @@ export function MLLabPage() {
         <div className="flex gap-6">
           <div className="flex-1">
             <div className="card">
-              <h2 className="font-semibold text-gray-800 mb-4">提交训练任务</h2>
+              <h2 className="font-semibold text-gray-800 mb-4">{t('page.ml.section.submit_train')}</h2>
               <TrainForm
                 groupedModels={groupedModels}
                 onSubmitted={() => { refetch(); setActiveTab('experiments') }}
@@ -137,13 +139,13 @@ export function MLLabPage() {
           </div>
           <div className="w-80 flex-shrink-0">
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-3 text-sm">工作流提示</h3>
+              <h3 className="font-semibold text-gray-800 mb-3 text-sm">{t('page.ml.section.workflow_hint')}</h3>
               <ol className="text-xs text-gray-600 space-y-2 list-decimal list-inside">
-                <li>选择 Feature Set 版本</li>
-                <li>选择模型和超参数</li>
-                <li>提交训练任务</li>
-                <li>在"实验"标签页查看结果</li>
-                <li>用模型创建交易策略</li>
+                <li>{t('page.ml.workflow_step.select_feature_set')}</li>
+                <li>{t('page.ml.workflow_step.select_model')}</li>
+                <li>{t('page.ml.workflow_step.submit_train')}</li>
+                <li>{t('page.ml.workflow_step.view_results')}</li>
+                <li>{t('page.ml.workflow_step.create_strategy')}</li>
               </ol>
             </div>
           </div>
@@ -181,7 +183,7 @@ export function MLLabPage() {
             {/* Feature Importance sidebar */}
             {selectedRun && fi && fi.items.length > 0 && (
               <div className="w-80">
-                <h2 className="font-semibold text-gray-800 mb-3">特征重要性</h2>
+                <h2 className="font-semibold text-gray-800 mb-3">{t('page.ml.section.feature_importance')}</h2>
                 <div className="card">
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={[...fi.items].sort((a, b) => b.importance - a.importance).slice(0, 15)} layout="vertical">
@@ -199,29 +201,29 @@ export function MLLabPage() {
           {/* Experiment detail panel */}
           {selectedExperiment && (
             <div className="card mt-4">
-              <h3 className="font-semibold text-gray-800 mb-3">执行详情</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">{t('page.ml.section.exec_detail')}</h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-500">状态</span>
+                  <span className="text-gray-500">{t('page.ml.label.status')}</span>
                   <div><StatusBadge status={selectedExperiment.status?.toLowerCase() ?? 'unknown'} /></div>
                 </div>
                 <div>
-                  <span className="text-gray-500">Trainer</span>
+                  <span className="text-gray-500">{t('page.ml.label.trainer')}</span>
                   <div className="font-medium">{selectedExperiment.trainer_name || '--'}</div>
                 </div>
                 <div>
-                  <span className="text-gray-500">Target</span>
+                  <span className="text-gray-500">{t('page.ml.label.target')}</span>
                   <div className="font-medium">{selectedExperiment.target_name || '--'}</div>
                 </div>
                 <div>
-                  <span className="text-gray-500">Feature Set</span>
+                  <span className="text-gray-500">{t('page.ml.label.feature_set')}</span>
                   <div className="font-medium font-mono text-xs">{selectedExperiment.feature_set_version || '--'}</div>
                 </div>
               </div>
 
               {selectedExperiment.params && Object.keys(selectedExperiment.params).length > 0 && (
                 <div className="mt-3">
-                  <span className="text-sm text-gray-500">训练参数</span>
+                  <span className="text-sm text-gray-500">{t('page.ml.section.train_params')}</span>
                   <pre className="mt-1 p-2 bg-gray-50 rounded text-xs overflow-x-auto max-h-40">
                     {JSON.stringify(selectedExperiment.params, null, 2)}
                   </pre>
@@ -230,7 +232,7 @@ export function MLLabPage() {
 
               {selectedExperiment.metrics && Object.keys(selectedExperiment.metrics).length > 0 && (
                 <div className="mt-3">
-                  <span className="text-sm text-gray-500">训练指标</span>
+                  <span className="text-sm text-gray-500">{t('page.ml.section.train_metrics')}</span>
                   <div className="grid grid-cols-3 gap-2 mt-1">
                     {Object.entries(selectedExperiment.metrics).map(([key, val]) => (
                       <div key={key} className="p-2 bg-gray-50 rounded text-center">
@@ -246,7 +248,7 @@ export function MLLabPage() {
 
               {selectedExperiment.status === 'error' && selectedExperiment.error_text && (
                 <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <span className="text-sm font-medium text-red-700">错误详情</span>
+                  <span className="text-sm font-medium text-red-700">{t('page.ml.section.error_detail')}</span>
                   <pre className="mt-1 text-xs text-red-600 whitespace-pre-wrap">{selectedExperiment.error_text}</pre>
                 </div>
               )}
@@ -255,11 +257,11 @@ export function MLLabPage() {
                 <div className="mt-3 flex justify-end gap-2">
                   <button className="btn-secondary text-sm"
                     onClick={() => { setPredictRunId(selectedExperiment.run_id); setShowPredictModal(true); setActiveTab('predictions') }}>
-                    实时预测
+                    {t('page.ml.btn.live_predict')}
                   </button>
                   <button className="btn-primary text-sm"
                     onClick={() => navigate(`/strategies?ml_model=${encodeURIComponent(selectedExperiment.run_id)}&strategy_type=MLModelStrategy&feature_set_version=${encodeURIComponent(selectedExperiment.feature_set_version ?? '')}&target_name=${encodeURIComponent(selectedExperiment.target_name ?? 'ret_5d')}`)}>
-                    用此模型回测
+                    {t('page.ml.btn.backtest_with_model')}
                   </button>
                 </div>
               )}
@@ -270,16 +272,16 @@ export function MLLabPage() {
           {comparedExperiments.length >= 2 && (
             <div className="card mt-6">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-gray-800">模型对比（{comparedExperiments.length} 个）</h2>
+                <h2 className="font-semibold text-gray-800">{t('page.ml.compare.title', { count: comparedExperiments.length })}</h2>
                 <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setCompareRuns([])}>
-                  清除选择
+                  {t('page.ml.btn.clear_selection')}
                 </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      {['指标', ...comparedExperiments.map(r => r.run_id.slice(0, 8) + '...')].map(h => (
+                      {[t('page.ml.label.metric'), ...comparedExperiments.map(r => r.run_id.slice(0, 8) + '...')].map(h => (
                         <th key={h} className="table-th text-center">{h}</th>
                       ))}
                     </tr>
@@ -311,7 +313,7 @@ export function MLLabPage() {
           <PredictionsTab runId={selectedRun} />
         ) : (
           <div className="card text-center py-8 text-gray-400">
-            请先在"实验"标签页中选择一个已完成的实验
+            {t('page.ml.predict.select_first')}
           </div>
         )
       )}
@@ -322,10 +324,10 @@ export function MLLabPage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b">
               <div>
-                <h2 className="font-semibold text-gray-900">实时预测排名</h2>
+                <h2 className="font-semibold text-gray-900">{t('page.ml.predict.modal_title')}</h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  模型：<span className="font-mono">{predictRunId.slice(0, 16)}...</span>
-                  {predictResult?.date && <span className="ml-2">日期：{predictResult.date}</span>}
+                  {t('page.ml.predict.model_label')}<span className="font-mono">{predictRunId.slice(0, 16)}...</span>
+                  {predictResult?.date && <span className="ml-2">{t('page.ml.predict.date_label', { date: predictResult.date })}</span>}
                 </p>
               </div>
               <button onClick={() => { setShowPredictModal(false); setPredictRunId(null) }}
@@ -335,19 +337,19 @@ export function MLLabPage() {
               {predictFetching ? (
                 <div className="flex items-center justify-center py-8 text-gray-500">
                   <div className="animate-spin w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full mr-2" />
-                  模型加载中...
+                  {t('page.ml.predict.loading')}
                 </div>
               ) : predictResult?.predictions?.length ? (
                 <>
                   <div className="text-xs text-gray-500 mb-3">
-                    共 {predictResult.total_assets} 只资产，展示 Top-{predictResult.top_n}
+                    {t('page.ml.predict.summary', { total: predictResult.total_assets, topN: predictResult.top_n })}
                   </div>
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-gray-500 border-b">
-                        <th className="py-1.5 pr-3 w-12">#</th>
-                        <th className="py-1.5 pr-3">资产代码</th>
-                        <th className="py-1.5 text-right">预测收益</th>
+                        <th className="py-1.5 pr-3 w-12">{t('page.ml.predict.column_rank')}</th>
+                        <th className="py-1.5 pr-3">{t('page.ml.predict.column_asset')}</th>
+                        <th className="py-1.5 text-right">{t('page.ml.predict.column_prediction')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -367,7 +369,7 @@ export function MLLabPage() {
                   </table>
                 </>
               ) : (
-                <div className="text-center text-gray-400 py-8">无预测数据</div>
+                <div className="text-center text-gray-400 py-8">{t('common.no_data')}</div>
               )}
             </div>
           </div>
