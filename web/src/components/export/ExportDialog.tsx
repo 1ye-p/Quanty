@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { exportReport, type ExportFormat, type ExportScope } from '@/lib/export/pdf'
 
@@ -10,6 +11,7 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ isOpen, onClose, runId }: ExportDialogProps) {
+  const { t } = useTranslation()
   const [format, setFormat] = useState<ExportFormat>('pdf')
   const [scope, setScope] = useState<ExportScope>('full')
   const [includeCharts, setIncludeCharts] = useState(true)
@@ -22,10 +24,10 @@ export function ExportDialog({ isOpen, onClose, runId }: ExportDialogProps) {
     setLoading(true)
     try {
       await exportReport({ format, scope, includeCharts, includeMetrics, runId })
-      toast.success('导出成功，文件已下载')
+      toast.success(t('component.export_dialog.toast_success'))
       onClose()
     } catch (err: unknown) {
-      toast.error(`导出失败: ${(err as Error).message}`)
+      toast.error(t('component.export_dialog.toast_failed', { message: (err as Error).message }))
     } finally {
       setLoading(false)
     }
@@ -37,11 +39,11 @@ export function ExportDialog({ isOpen, onClose, runId }: ExportDialogProps) {
         className="bg-bg-primary rounded-xl shadow-xl w-full max-w-md p-6 space-y-5"
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-text-primary">导出报告</h2>
+        <h2 className="text-lg font-semibold text-text-primary">{t('component.export_dialog.title')}</h2>
 
         {/* Format */}
         <div>
-          <label className="block text-sm font-medium text-text-secondary mb-1">格式</label>
+          <label className="block text-sm font-medium text-text-secondary mb-1">{t('component.export_dialog.format')}</label>
           <div className="flex gap-3">
             {(['pdf', 'png'] as const).map(f => (
               <button
@@ -61,11 +63,11 @@ export function ExportDialog({ isOpen, onClose, runId }: ExportDialogProps) {
 
         {/* Scope */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">范围</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('component.export_dialog.scope')}</label>
           <div className="flex gap-3">
             {([
-              { value: 'full' as const, label: '完整报告' },
-              { value: 'tearsheet' as const, label: 'Tearsheet' },
+              { value: 'full' as const, label: t('component.export_dialog.scope_full') },
+              { value: 'tearsheet' as const, label: t('component.export_dialog.scope_tearsheet') },
             ]).map(s => (
               <button
                 key={s.value}
@@ -91,7 +93,7 @@ export function ExportDialog({ isOpen, onClose, runId }: ExportDialogProps) {
               onChange={e => setIncludeCharts(e.target.checked)}
               className="rounded border-gray-300"
             />
-            包含图表
+            {t('component.export_dialog.include_charts')}
           </label>
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
@@ -100,17 +102,17 @@ export function ExportDialog({ isOpen, onClose, runId }: ExportDialogProps) {
               onChange={e => setIncludeMetrics(e.target.checked)}
               className="rounded border-gray-300"
             />
-            包含指标表格
+            {t('component.export_dialog.include_metrics_table')}
           </label>
         </div>
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2">
           <button onClick={onClose} className="btn-secondary">
-            取消
+            {t('common.cancel')}
           </button>
           <button onClick={handleExport} disabled={loading} className="btn-primary">
-            {loading ? '导出中...' : '导出'}
+            {loading ? t('component.export_dialog.exporting') : t('common.export')}
           </button>
         </div>
       </div>

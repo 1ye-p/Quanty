@@ -2007,6 +2007,78 @@
         "data_points": "Data points:",
         "indicator_columns": "Indicator columns:"
       }
+    },
+    "scoring": {
+      "history": {
+        "history_compare": "History Comparison",
+        "no_history_title": "No scoring history yet",
+        "no_history_hint": "Run a scoring to view historical comparison here",
+        "select_snapshot": "Snapshot Selection",
+        "select_last5": "Select last 5",
+        "select_at_least_2": "Select at least 2 snapshots to compare",
+        "asset_score_trend": "Asset Score Trend",
+        "select_asset": "Select Asset",
+        "total_assets_suffix": "...{{count}} assets in total",
+        "asset_trend_title": "{{asset}} Score Trend",
+        "tooltip_score": "Score",
+        "tooltip_rank": "Rank",
+        "tooltip_date_label": "Date: {{label}}",
+        "asset_no_data": "No data for this asset in selected snapshots",
+        "select_asset_hint": "Select an asset above to view the trend",
+        "rank_change_top10": "Rank Changes (Top 10)",
+        "col_asset": "Asset",
+        "col_rank_change": "Rank Change",
+        "rank_change_failed": "Unable to compute rank changes"
+      }
+    },
+    "export_dialog": {
+      "title": "Export Report",
+      "format": "Format",
+      "scope": "Scope",
+      "scope_full": "Full Report",
+      "scope_tearsheet": "Tearsheet",
+      "include_charts": "Include charts",
+      "include_metrics_table": "Include metrics table",
+      "toast_success": "Export succeeded, file downloaded",
+      "toast_failed": "Export failed: {{message}}",
+      "exporting": "Exporting..."
+    },
+    "share_dialog": {
+      "title": "Share {{type}}",
+      "type_backtest": "Backtest Results",
+      "type_strategy": "Strategy Config",
+      "show_config": "Show strategy config",
+      "show_results": "Show backtest results",
+      "expiry": "Validity",
+      "expiry_24h": "24 hours",
+      "expiry_72h": "3 days",
+      "expiry_168h": "7 days",
+      "expiry_720h": "30 days",
+      "expiry_never": "Never expires",
+      "creating": "Creating...",
+      "btn_create_link": "Create Link",
+      "btn_copy_link": "Copy Link",
+      "close": "Close",
+      "toast_created": "Share link created",
+      "toast_create_failed": "Creation failed: {{message}}",
+      "toast_copied": "Link copied to clipboard",
+      "toast_copy_failed": "Copy failed",
+      "expires_at": "Expires at: {{date}}"
+    },
+    "news": {
+      "impact": {
+        "select_asset": "Select Asset",
+        "load_failed_with_msg": "Load failed: {{message}}",
+        "sentiment_price_trend": "Sentiment & Price Trend",
+        "legend_sentiment": "Sentiment",
+        "legend_price": "Price",
+        "event_impact_title": "Major News Event Impact",
+        "event_sentiment": "Sentiment",
+        "event_price_change": "Price Change",
+        "no_events": "No major news events",
+        "sentiment_distribution": "Sentiment Distribution",
+        "select_asset_hint": "Select an asset to view news impact analysis"
+      }
     }
   },
   "page": {

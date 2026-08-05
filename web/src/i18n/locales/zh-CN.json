@@ -2007,6 +2007,78 @@
         "data_points": "数据点:",
         "indicator_columns": "指标列:"
       }
+    },
+    "scoring": {
+      "history": {
+        "history_compare": "历史对比",
+        "no_history_title": "暂无历史打分记录",
+        "no_history_hint": "运行打分后即可在此查看历史对比",
+        "select_snapshot": "历史快照选择",
+        "select_last5": "选择最近5次",
+        "select_at_least_2": "请选择至少2个快照进行对比",
+        "asset_score_trend": "资产得分趋势",
+        "select_asset": "选择资产",
+        "total_assets_suffix": "...共 {{count}} 个资产",
+        "asset_trend_title": "{{asset}} 得分趋势",
+        "tooltip_score": "得分",
+        "tooltip_rank": "排名",
+        "tooltip_date_label": "日期: {{label}}",
+        "asset_no_data": "该资产在选中的快照中无数据",
+        "select_asset_hint": "请从上方选择一个资产查看趋势",
+        "rank_change_top10": "排名变动（Top 10）",
+        "col_asset": "资产",
+        "col_rank_change": "排名变化",
+        "rank_change_failed": "无法计算排名变动"
+      }
+    },
+    "export_dialog": {
+      "title": "导出报告",
+      "format": "格式",
+      "scope": "范围",
+      "scope_full": "完整报告",
+      "scope_tearsheet": "Tearsheet",
+      "include_charts": "包含图表",
+      "include_metrics_table": "包含指标表格",
+      "toast_success": "导出成功，文件已下载",
+      "toast_failed": "导出失败: {{message}}",
+      "exporting": "导出中..."
+    },
+    "share_dialog": {
+      "title": "分享{{type}}",
+      "type_backtest": "回测结果",
+      "type_strategy": "策略配置",
+      "show_config": "显示策略配置",
+      "show_results": "显示回测结果",
+      "expiry": "有效期",
+      "expiry_24h": "24 小时",
+      "expiry_72h": "3 天",
+      "expiry_168h": "7 天",
+      "expiry_720h": "30 天",
+      "expiry_never": "永不过期",
+      "creating": "创建中...",
+      "btn_create_link": "创建链接",
+      "btn_copy_link": "复制链接",
+      "close": "关闭",
+      "toast_created": "分享链接已创建",
+      "toast_create_failed": "创建失败: {{message}}",
+      "toast_copied": "链接已复制到剪贴板",
+      "toast_copy_failed": "复制失败",
+      "expires_at": "过期时间: {{date}}"
+    },
+    "news": {
+      "impact": {
+        "select_asset": "选择资产",
+        "load_failed_with_msg": "加载失败: {{message}}",
+        "sentiment_price_trend": "情绪与价格走势",
+        "legend_sentiment": "情绪",
+        "legend_price": "价格",
+        "event_impact_title": "重大新闻事件影响",
+        "event_sentiment": "情绪",
+        "event_price_change": "价格变化",
+        "no_events": "暂无重大新闻事件",
+        "sentiment_distribution": "情绪分布",
+        "select_asset_hint": "选择一个资产查看新闻影响分析"
+      }
     }
   },
   "page": {

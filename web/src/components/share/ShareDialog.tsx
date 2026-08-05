@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { createShareLink, type ShareLink } from '@/lib/share'
 
@@ -12,6 +13,7 @@ interface ShareDialogProps {
 }
 
 export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
+  const { t } = useTranslation()
   const [showConfig, setShowConfig] = useState(true)
   const [showResults, setShowResults] = useState(true)
   const [expiresInHours, setExpiresInHours] = useState<number | null>(72)
@@ -30,9 +32,9 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
         expiresInHours,
       })
       setLink(result)
-      toast.success('分享链接已创建')
+      toast.success(t('component.share_dialog.toast_created'))
     } catch (err: unknown) {
-      toast.error(`创建失败: ${(err as Error).message}`)
+      toast.error(t('component.share_dialog.toast_create_failed', { message: (err as Error).message }))
     } finally {
       setLoading(false)
     }
@@ -41,8 +43,8 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
   function handleCopy() {
     if (!link) return
     navigator.clipboard.writeText(link.url).then(
-      () => toast.success('链接已复制到剪贴板'),
-      () => toast.error('复制失败'),
+      () => toast.success(t('component.share_dialog.toast_copied')),
+      () => toast.error(t('component.share_dialog.toast_copy_failed')),
     )
   }
 
@@ -58,7 +60,7 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
         onClick={e => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold text-text-primary">
-          分享{type === 'backtest' ? '回测结果' : '策略配置'}
+          {t('component.share_dialog.title', { type: type === 'backtest' ? t('component.share_dialog.type_backtest') : t('component.share_dialog.type_strategy') })}
         </h2>
 
         {!link ? (
@@ -72,7 +74,7 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
                   onChange={e => setShowConfig(e.target.checked)}
                   className="rounded border-border-primary"
                 />
-                显示策略配置
+                {t('component.share_dialog.show_config')}
               </label>
               <label className="flex items-center gap-2 text-sm text-text-secondary">
                 <input
@@ -81,13 +83,13 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
                   onChange={e => setShowResults(e.target.checked)}
                   className="rounded border-border-primary"
                 />
-                显示回测结果
+                {t('component.share_dialog.show_results')}
               </label>
             </div>
 
             {/* Expiry */}
             <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">有效期</label>
+              <label className="block text-sm font-medium text-text-secondary mb-1">{t('component.share_dialog.expiry')}</label>
               <select
                 value={expiresInHours ?? ''}
                 onChange={e => {
@@ -96,19 +98,19 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
                 }}
                 className="input"
               >
-                <option value="24">24 小时</option>
-                <option value="72">3 天</option>
-                <option value="168">7 天</option>
-                <option value="720">30 天</option>
-                <option value="">永不过期</option>
+                <option value="24">{t('component.share_dialog.expiry_24h')}</option>
+                <option value="72">{t('component.share_dialog.expiry_72h')}</option>
+                <option value="168">{t('component.share_dialog.expiry_168h')}</option>
+                <option value="720">{t('component.share_dialog.expiry_720h')}</option>
+                <option value="">{t('component.share_dialog.expiry_never')}</option>
               </select>
             </div>
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={handleClose} className="btn-secondary">取消</button>
+              <button onClick={handleClose} className="btn-secondary">{t('common.cancel')}</button>
               <button onClick={handleCreate} disabled={loading} className="btn-primary">
-                {loading ? '创建中...' : '创建链接'}
+                {loading ? t('component.share_dialog.creating') : t('component.share_dialog.btn_create_link')}
               </button>
             </div>
           </>
@@ -119,12 +121,12 @@ export function ShareDialog({ isOpen, onClose, type, id }: ShareDialogProps) {
               {link.url}
             </div>
             {link.expiresAt && (
-              <p className="text-xs text-gray-400">过期时间: {new Date(link.expiresAt).toLocaleString('zh-CN')}</p>
+              <p className="text-xs text-gray-400">{t('component.share_dialog.expires_at', { date: new Date(link.expiresAt).toLocaleString('zh-CN') })}</p>
             )}
 
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={handleClose} className="btn-secondary">关闭</button>
-              <button onClick={handleCopy} className="btn-primary">复制链接</button>
+              <button onClick={handleClose} className="btn-secondary">{t('component.share_dialog.close')}</button>
+              <button onClick={handleCopy} className="btn-primary">{t('component.share_dialog.btn_copy_link')}</button>
             </div>
           </>
         )}

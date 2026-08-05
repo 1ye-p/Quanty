@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { scoringApi } from '@/lib/api/scoring'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
@@ -11,6 +12,7 @@ interface SnapshotScores {
 }
 
 export function ScoreHistory() {
+  const { t } = useTranslation()
   const [selectedAsset, setSelectedAsset] = useState<string>('')
   const [selectedSnapshots, setSelectedSnapshots] = useState<string[]>([])
 
@@ -144,10 +146,10 @@ export function ScoreHistory() {
   if (completedSnapshots.length === 0) {
     return (
       <div className="card">
-        <h2 className="font-semibold text-gray-800 mb-4">历史对比</h2>
+        <h2 className="font-semibold text-gray-800 mb-4">{t('component.scoring.history.history_compare')}</h2>
         <div className="text-center py-12 text-gray-400">
-          <p className="text-lg">暂无历史打分记录</p>
-          <p className="text-sm mt-2">运行打分后即可在此查看历史对比</p>
+          <p className="text-lg">{t('component.scoring.history.no_history_title')}</p>
+          <p className="text-sm mt-2">{t('component.scoring.history.no_history_hint')}</p>
         </div>
       </div>
     )
@@ -158,12 +160,12 @@ export function ScoreHistory() {
       {/* Snapshot selector */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-800">历史快照选择</h2>
+          <h2 className="font-semibold text-gray-800">{t('component.scoring.history.select_snapshot')}</h2>
           <button
             onClick={handleSelectLast5}
             className="text-xs text-brand-600 hover:text-brand-700"
           >
-            选择最近5次
+            {t('component.scoring.history.select_last5')}
           </button>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -184,14 +186,14 @@ export function ScoreHistory() {
           ))}
         </div>
         {selectedSnapshots.length < 2 && (
-          <p className="text-xs text-gray-400 mt-2">请选择至少2个快照进行对比</p>
+          <p className="text-xs text-gray-400 mt-2">{t('component.scoring.history.select_at_least_2')}</p>
         )}
       </div>
 
       {/* Asset selector + trend chart */}
       {selectedSnapshots.length >= 2 && (
         <div className="card">
-          <h2 className="font-semibold text-gray-800 mb-4">资产得分趋势</h2>
+          <h2 className="font-semibold text-gray-800 mb-4">{t('component.scoring.history.asset_score_trend')}</h2>
 
           {scoresLoading ? (
             <div className="animate-pulse space-y-2">
@@ -201,7 +203,7 @@ export function ScoreHistory() {
           ) : (
             <>
               <div className="mb-4">
-                <label className="block text-sm text-gray-600 mb-2">选择资产</label>
+                <label className="block text-sm text-gray-600 mb-2">{t('component.scoring.history.select_asset')}</label>
                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                   {allAssets.slice(0, 100).map(asset => (
                     <button
@@ -217,7 +219,7 @@ export function ScoreHistory() {
                     </button>
                   ))}
                   {allAssets.length > 100 && (
-                    <span className="text-xs text-gray-400 py-1">...共 {allAssets.length} 个资产</span>
+                    <span className="text-xs text-gray-400 py-1">{t('component.scoring.history.total_assets_suffix', { count: allAssets.length })}</span>
                   )}
                 </div>
               </div>
@@ -225,7 +227,7 @@ export function ScoreHistory() {
               {selectedAsset && trendData.length > 0 ? (
                 <div>
                   <h3 className="text-sm text-gray-600 mb-2">
-                    {selectedAsset} 得分趋势
+                    {t('component.scoring.history.asset_trend_title', { asset: selectedAsset })}
                   </h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -234,11 +236,11 @@ export function ScoreHistory() {
                       <YAxis tick={{ fontSize: 11 }} />
                       <Tooltip
                         formatter={(value: number, name: string) => {
-                          if (name === 'score') return [value?.toFixed(4), '得分']
-                          if (name === 'rank') return [value, '排名']
+                          if (name === 'score') return [value?.toFixed(4), t('component.scoring.history.tooltip_score')]
+                          if (name === 'rank') return [value, t('component.scoring.history.tooltip_rank')]
                           return [value, name]
                         }}
-                        labelFormatter={(label: string) => `日期: ${label}`}
+                        labelFormatter={(label: string) => t('component.scoring.history.tooltip_date_label', { label })}
                       />
                       <Line
                         type="monotone"
@@ -264,11 +266,11 @@ export function ScoreHistory() {
                 </div>
               ) : selectedAsset ? (
                 <div className="text-center py-8 text-gray-400">
-                  该资产在选中的快照中无数据
+                  {t('component.scoring.history.asset_no_data')}
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-400">
-                  请从上方选择一个资产查看趋势
+                  {t('component.scoring.history.select_asset_hint')}
                 </div>
               )}
             </>
@@ -279,7 +281,7 @@ export function ScoreHistory() {
       {/* Rank change table */}
       {selectedSnapshots.length >= 2 && snapshotScores && snapshotScores.length >= 2 && (
         <div className="card">
-          <h2 className="font-semibold text-gray-800 mb-4">排名变动（Top 10）</h2>
+          <h2 className="font-semibold text-gray-800 mb-4">{t('component.scoring.history.rank_change_top10')}</h2>
           {scoresLoading ? (
             <div className="animate-pulse space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -291,13 +293,13 @@ export function ScoreHistory() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-gray-500 border-b">
-                    <th className="py-2 pr-4">资产</th>
+                    <th className="py-2 pr-4">{t('component.scoring.history.col_asset')}</th>
                     {sortedSnapshots.map((s, i) => (
                       <th key={i} className="py-2 px-2 text-center">
                         <span className="text-xs text-gray-400">{s.created_at?.slice(5, 10)}</span>
                       </th>
                     ))}
-                    <th className="py-2 pl-4 text-center">排名变化</th>
+                    <th className="py-2 pl-4 text-center">{t('component.scoring.history.col_rank_change')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -329,7 +331,7 @@ export function ScoreHistory() {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-400">
-              无法计算排名变动
+              {t('component.scoring.history.rank_change_failed')}
             </div>
           )}
         </div>
