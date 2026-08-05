@@ -1890,6 +1890,69 @@
         "upload_button_uploading": "Uploading...",
         "upload_button": "Upload"
       }
+    },
+    "alerts": {
+      "shared": {
+        "channel_type": "Channel Type",
+        "name": "Name",
+        "channel_types": {
+          "webhook": "Webhook",
+          "email": "Email",
+          "dingtalk": "DingTalk"
+        }
+      },
+      "silence_rules": {
+        "title": "Silence Rules ({{count}})",
+        "add_new": "+ Add",
+        "collapse": "Collapse",
+        "rule_name": "Rule Name",
+        "rule_name_placeholder": "e.g. Maintenance window",
+        "duration_minutes": "Silence Duration (minutes)",
+        "creating": "Creating...",
+        "no_rules": "No silence rules",
+        "silence_duration": "Silent for {{minutes}} min",
+        "confirm_delete_title": "Confirm Delete Silence Rule",
+        "confirm_delete_message": "Are you sure you want to delete this silence rule? This action cannot be undone.",
+        "created_toast": "Silence rule created",
+        "deleted_toast": "Silence rule deleted",
+        "create_failed": "Create failed: {{message}}",
+        "delete_failed": "Delete failed: {{message}}",
+        "validation_missing_fields": "Please fill in the name and a valid duration"
+      },
+      "channel_form": {
+        "edit_title": "Edit Notification Channel",
+        "create_title": "New Notification Channel",
+        "name_placeholder": "e.g. Ops Alert Group",
+        "updating": "Updating...",
+        "creating": "Creating...",
+        "webhook_url": "Webhook URL",
+        "smtp_host": "SMTP Server",
+        "smtp_port": "Port",
+        "from_addr": "From Address",
+        "to_addrs": "Recipients (comma-separated)",
+        "dingtalk_webhook": "Bot Webhook",
+        "sign_secret_optional": "Sign Secret (optional)",
+        "validation_missing_required": "Please fill in required fields: {{fields}}",
+        "created_toast": "Notification channel created",
+        "updated_toast": "Notification channel updated",
+        "create_failed": "Create failed: {{message}}",
+        "update_failed": "Update failed: {{message}}"
+      },
+      "channel_list": {
+        "title": "Notification Channels ({{count}})",
+        "no_channels_hint": "No notification channels. Create one on the right.",
+        "click_to_disable": "Click to disable",
+        "click_to_enable": "Click to enable",
+        "test": "Test",
+        "status_updated_toast": "Channel status updated",
+        "test_success_toast": "Test sent successfully",
+        "deleted_toast": "Channel deleted",
+        "update_failed": "Update failed: {{message}}",
+        "test_failed": "Test failed: {{message}}",
+        "delete_failed": "Delete failed: {{message}}",
+        "confirm_delete_title": "Confirm Delete Notification Channel",
+        "confirm_delete_message": "Are you sure you want to delete this notification channel? This action cannot be undone."
+      }
     }
   },
   "page": {

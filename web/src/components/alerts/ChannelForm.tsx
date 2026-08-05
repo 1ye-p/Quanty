@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { alertsApi, type NotificationChannel } from '@/lib/api'
 import { toast } from 'sonner'
@@ -10,34 +11,41 @@ interface ChannelFormProps {
   onClose: () => void
 }
 
+/**
+ * Per-type channel config field descriptors.
+ * `labelKey` resolves via component.alerts.channel_form.* (or shared.* for shared labels).
+ * `placeholder` stays a literal — it is example data (URLs / hosts), not user-facing copy.
+ * `optional` marks non-required fields (drives validation).
+ */
 const CHANNEL_FORMS: Record<
   string,
-  { key: string; label: string; placeholder: string }[]
+  { key: string; labelKey: string; placeholder: string; optional?: boolean }[]
 > = {
   webhook: [
-    { key: 'url', label: 'Webhook URL', placeholder: 'https://hooks.example.com/...' },
+    { key: 'url', labelKey: 'component.alerts.channel_form.webhook_url', placeholder: 'https://hooks.example.com/...' },
   ],
   email: [
-    { key: 'smtp_host', label: 'SMTP 服务器', placeholder: 'smtp.gmail.com' },
-    { key: 'smtp_port', label: '端口', placeholder: '587' },
-    { key: 'from_addr', label: '发件人', placeholder: 'alert@example.com' },
+    { key: 'smtp_host', labelKey: 'component.alerts.channel_form.smtp_host', placeholder: 'smtp.gmail.com' },
+    { key: 'smtp_port', labelKey: 'component.alerts.channel_form.smtp_port', placeholder: '587' },
+    { key: 'from_addr', labelKey: 'component.alerts.channel_form.from_addr', placeholder: 'alert@example.com' },
     {
       key: 'to_addrs',
-      label: '收件人（逗号分隔）',
+      labelKey: 'component.alerts.channel_form.to_addrs',
       placeholder: 'a@example.com,b@example.com',
     },
   ],
   dingtalk: [
     {
       key: 'webhook_url',
-      label: '机器人 Webhook',
+      labelKey: 'component.alerts.channel_form.dingtalk_webhook',
       placeholder: 'https://oapi.dingtalk.com/robot/send?access_token=...',
     },
-    { key: 'secret', label: '签名密钥（可选）', placeholder: '' },
+    { key: 'secret', labelKey: 'component.alerts.channel_form.sign_secret_optional', placeholder: '', optional: true },
   ],
 }
 
 export function ChannelForm({ channel, onClose }: ChannelFormProps) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const isEdit = !!channel
 
@@ -63,10 +71,10 @@ export function ChannelForm({ channel, onClose }: ChannelFormProps) {
       alertsApi.createChannel(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['alerts', 'channels'] })
-      toast.success('通知渠道已创建')
+      toast.success(t('component.alerts.channel_form.created_toast'))
       onClose()
     },
-    onError: (e: Error) => toast.error(`创建失败: ${e.message}`),
+    onError: (e: Error) => toast.error(t('component.alerts.channel_form.create_failed', { message: e.message })),
   })
 
   const updateMutation = useMutation({
@@ -74,10 +82,10 @@ export function ChannelForm({ channel, onClose }: ChannelFormProps) {
       alertsApi.updateChannel(id, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['alerts', 'channels'] })
-      toast.success('通知渠道已更新')
+      toast.success(t('component.alerts.channel_form.updated_toast'))
       onClose()
     },
-    onError: (e: Error) => toast.error(`更新失败: ${e.message}`),
+    onError: (e: Error) => toast.error(t('component.alerts.channel_form.update_failed', { message: e.message })),
   })
 
   const fields = CHANNEL_FORMS[chType] ?? []
@@ -105,10 +113,10 @@ export function ChannelForm({ channel, onClose }: ChannelFormProps) {
     const config = buildConfig()
     // Validate required fields for the selected channel type
     const fields = CHANNEL_FORMS[chType] ?? []
-    const requiredKeys = fields.filter(f => !f.label.includes('可选')).map(f => f.key)
+    const requiredKeys = fields.filter(f => !f.optional).map(f => f.key)
     const missing = requiredKeys.filter(k => !config[k])
     if (missing.length > 0) {
-      toast.error(`请填写必填字段: ${missing.join(', ')}`)
+      toast.error(t('component.alerts.channel_form.validation_missing_required', { fields: missing.join(', ') }))
       return
     }
     if (isEdit && channel) {
@@ -128,28 +136,28 @@ export function ChannelForm({ channel, onClose }: ChannelFormProps) {
   return (
     <div className="space-y-3">
       <h3 className="font-semibold text-gray-800">
-        {isEdit ? '编辑通知渠道' : '新增通知渠道'}
+        {isEdit ? t('component.alerts.channel_form.edit_title') : t('component.alerts.channel_form.create_title')}
       </h3>
 
       <div>
-        <label className="block text-xs text-gray-600 mb-1">渠道类型</label>
+        <label className="block text-xs text-gray-600 mb-1">{t('component.alerts.shared.channel_type')}</label>
         <select
           value={chType}
           onChange={(e) => setChType(e.target.value)}
           disabled={isEdit}
           className="input w-full text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <option value="webhook">Webhook</option>
-          <option value="email">邮件</option>
-          <option value="dingtalk">钉钉</option>
+          <option value="webhook">{t('component.alerts.shared.channel_types.webhook')}</option>
+          <option value="email">{t('component.alerts.shared.channel_types.email')}</option>
+          <option value="dingtalk">{t('component.alerts.shared.channel_types.dingtalk')}</option>
         </select>
       </div>
 
       <div>
-        <label className="block text-xs text-gray-600 mb-1">名称</label>
+        <label className="block text-xs text-gray-600 mb-1">{t('component.alerts.shared.name')}</label>
         <input
           className="input w-full text-sm"
-          placeholder="如：运维告警群"
+          placeholder={t('component.alerts.channel_form.name_placeholder')}
           value={chName}
           onChange={(e) => setChName(e.target.value)}
         />
@@ -157,7 +165,7 @@ export function ChannelForm({ channel, onClose }: ChannelFormProps) {
 
       {fields.map((f) => (
         <div key={f.key}>
-          <label className="block text-xs text-gray-600 mb-1">{f.label}</label>
+          <label className="block text-xs text-gray-600 mb-1">{t(f.labelKey)}</label>
           <input
             className="input w-full text-sm"
             placeholder={f.placeholder}
@@ -175,10 +183,12 @@ export function ChannelForm({ channel, onClose }: ChannelFormProps) {
           disabled={isPending || !chName.trim()}
           className="btn-primary text-sm disabled:opacity-50"
         >
-          {isPending ? '保存中...' : isEdit ? '更新' : '创建'}
+          {isPending
+            ? (isEdit ? t('component.alerts.channel_form.updating') : t('component.alerts.channel_form.creating'))
+            : (isEdit ? t('common.save') : t('common.create'))}
         </button>
         <button onClick={onClose} className="btn-secondary text-sm">
-          取消
+          {t('common.cancel')}
         </button>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { alertsApi, type NotificationChannel } from '@/lib/api'
 import { toast } from 'sonner'
@@ -14,17 +15,13 @@ const CHANNEL_ICONS: Record<string, string> = {
   dingtalk: '📢',
 }
 
-function channelTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    webhook: 'Webhook',
-    email: '邮件',
-    dingtalk: '钉钉',
-  }
-  return map[type] ?? type
-}
-
 export function ChannelList({ onEdit }: ChannelListProps) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
+
+  function channelTypeLabel(type: string): string {
+    return t(`component.alerts.shared.channel_types.${type}`, { defaultValue: type })
+  }
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({
@@ -37,15 +34,15 @@ export function ChannelList({ onEdit }: ChannelListProps) {
       alertsApi.updateChannel(id, { enabled }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['alerts', 'channels'] })
-      toast.success('渠道状态已更新')
+      toast.success(t('component.alerts.channel_list.status_updated_toast'))
     },
-    onError: (e: Error) => toast.error(`更新失败: ${e.message}`),
+    onError: (e: Error) => toast.error(t('component.alerts.channel_list.update_failed', { message: e.message })),
   })
 
   const testMutation = useMutation({
     mutationFn: async (id: string) => alertsApi.testChannel(id),
-    onSuccess: (d) => toast.success(d.message || '测试发送成功'),
-    onError: (e: Error) => toast.error(`测试失败: ${e.message}`),
+    onSuccess: (d) => toast.success(d.message || t('component.alerts.channel_list.test_success_toast')),
+    onError: (e: Error) => toast.error(t('component.alerts.channel_list.test_failed', { message: e.message })),
   })
 
   const deleteMutation = useMutation({
@@ -53,9 +50,9 @@ export function ChannelList({ onEdit }: ChannelListProps) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['alerts', 'channels'] })
       setDeleteTarget(null)
-      toast.success('渠道已删除')
+      toast.success(t('component.alerts.channel_list.deleted_toast'))
     },
-    onError: (e: Error) => toast.error(`删除失败: ${e.message}`),
+    onError: (e: Error) => toast.error(t('component.alerts.channel_list.delete_failed', { message: e.message })),
   })
 
   if (isLoading) {
@@ -72,12 +69,12 @@ export function ChannelList({ onEdit }: ChannelListProps) {
   return (
     <div>
       <h3 className="font-semibold text-gray-800 mb-3">
-        通知渠道（{items.length}）
+        {t('component.alerts.channel_list.title', { count: items.length })}
       </h3>
 
       {items.length === 0 ? (
         <p className="text-sm text-gray-400 py-6 text-center">
-          暂无通知渠道，请在右侧创建
+          {t('component.alerts.channel_list.no_channels_hint')}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -113,28 +110,28 @@ export function ChannelList({ onEdit }: ChannelListProps) {
                       ? 'bg-green-100 text-green-700 hover:bg-green-200'
                       : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                   }`}
-                  title={ch.enabled ? '点击禁用' : '点击启用'}
+                  title={ch.enabled ? t('component.alerts.channel_list.click_to_disable') : t('component.alerts.channel_list.click_to_enable')}
                 >
-                  {ch.enabled ? '启用' : '禁用'}
+                  {ch.enabled ? t('common.enabled') : t('common.disabled')}
                 </button>
                 <button
                   onClick={() => onEdit(ch)}
                   className="text-xs text-blue-500 hover:underline"
                 >
-                  编辑
+                  {t('common.edit')}
                 </button>
                 <button
                   onClick={() => testMutation.mutate(ch.channel_id)}
                   disabled={testMutation.isPending}
                   className="text-xs text-amber-600 hover:underline disabled:opacity-50"
                 >
-                  测试
+                  {t('component.alerts.channel_list.test')}
                 </button>
                 <button
                   onClick={() => setDeleteTarget(ch.channel_id)}
                   className="text-xs text-red-500 hover:underline"
                 >
-                  删除
+                  {t('common.delete')}
                 </button>
               </div>
             </li>
@@ -144,9 +141,9 @@ export function ChannelList({ onEdit }: ChannelListProps) {
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title="确认删除通知渠道"
-        message="确定删除此通知渠道？此操作不可撤销。"
-        confirmLabel="删除"
+        title={t('component.alerts.channel_list.confirm_delete_title')}
+        message={t('component.alerts.channel_list.confirm_delete_message')}
+        confirmLabel={t('common.delete')}
         variant="danger"
         onConfirm={() => {
           if (deleteTarget) deleteMutation.mutate(deleteTarget)

@@ -1890,6 +1890,69 @@
         "upload_button_uploading": "上传中…",
         "upload_button": "上传"
       }
+    },
+    "alerts": {
+      "shared": {
+        "channel_type": "渠道类型",
+        "name": "名称",
+        "channel_types": {
+          "webhook": "Webhook",
+          "email": "邮件",
+          "dingtalk": "钉钉"
+        }
+      },
+      "silence_rules": {
+        "title": "静默规则（{{count}}）",
+        "add_new": "+ 新增",
+        "collapse": "收起",
+        "rule_name": "规则名称",
+        "rule_name_placeholder": "如：维护窗口",
+        "duration_minutes": "静默时长（分钟）",
+        "creating": "创建中...",
+        "no_rules": "暂无静默规则",
+        "silence_duration": "静默 {{minutes}} 分钟",
+        "confirm_delete_title": "确认删除静默规则",
+        "confirm_delete_message": "确定删除此静默规则？此操作不可撤销。",
+        "created_toast": "静默规则已创建",
+        "deleted_toast": "静默规则已删除",
+        "create_failed": "创建失败: {{message}}",
+        "delete_failed": "删除失败: {{message}}",
+        "validation_missing_fields": "请填写名称和有效的时长"
+      },
+      "channel_form": {
+        "edit_title": "编辑通知渠道",
+        "create_title": "新增通知渠道",
+        "name_placeholder": "如：运维告警群",
+        "updating": "更新中...",
+        "creating": "创建中...",
+        "webhook_url": "Webhook URL",
+        "smtp_host": "SMTP 服务器",
+        "smtp_port": "端口",
+        "from_addr": "发件人",
+        "to_addrs": "收件人（逗号分隔）",
+        "dingtalk_webhook": "机器人 Webhook",
+        "sign_secret_optional": "签名密钥（可选）",
+        "validation_missing_required": "请填写必填字段: {{fields}}",
+        "created_toast": "通知渠道已创建",
+        "updated_toast": "通知渠道已更新",
+        "create_failed": "创建失败: {{message}}",
+        "update_failed": "更新失败: {{message}}"
+      },
+      "channel_list": {
+        "title": "通知渠道（{{count}}）",
+        "no_channels_hint": "暂无通知渠道，请在右侧创建",
+        "click_to_disable": "点击禁用",
+        "click_to_enable": "点击启用",
+        "test": "测试",
+        "status_updated_toast": "渠道状态已更新",
+        "test_success_toast": "测试发送成功",
+        "deleted_toast": "渠道已删除",
+        "update_failed": "更新失败: {{message}}",
+        "test_failed": "测试失败: {{message}}",
+        "delete_failed": "删除失败: {{message}}",
+        "confirm_delete_title": "确认删除通知渠道",
+        "confirm_delete_message": "确定删除此通知渠道？此操作不可撤销。"
+      }
     }
   },
   "page": {
