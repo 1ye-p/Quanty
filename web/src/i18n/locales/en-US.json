@@ -1576,6 +1576,130 @@
         "col_pct_total": "% of Total",
         "col_variance": "Variance"
       }
+    },
+    "datasets": {
+      "anomaly": {
+        "type_outlier": "Outlier",
+        "type_missing": "Missing",
+        "type_duplicate": "Duplicate",
+        "type_invalid": "Invalid",
+        "title": "Anomaly Markers",
+        "none_found": "No anomalies found",
+        "count_unit": "{{count}} records",
+        "examples_label": "Examples:"
+      },
+      "asset_search": {
+        "placeholder": "Enter stock code or name, e.g. SSE:600036 or CMB",
+        "no_match": "No matches found"
+      },
+      "preview": {
+        "title": "Data Preview",
+        "total_rows": "{{count}} rows total",
+        "null_label": "NULL",
+        "page_of": "Page {{page}} / {{total}}",
+        "prev_page": "Previous",
+        "next_page": "Next",
+        "empty": "No data"
+      },
+      "field_stats": {
+        "title": "Field Statistics",
+        "null_rate_chart_title": "Null Rate Distribution (%)",
+        "tooltip_null_rate": "Null rate",
+        "tooltip_field": "Field: {{name}}",
+        "empty": "No field statistics",
+        "col": {
+          "field": "Field",
+          "type": "Type",
+          "count": "Count",
+          "null_rate": "Null Rate",
+          "unique": "Unique",
+          "min": "Min",
+          "max": "Max",
+          "mean": "Mean",
+          "std": "Std Dev"
+        }
+      },
+      "price_chart": {
+        "asset_label": "Stock Code",
+        "prompt_asset": "Enter a stock code to view quotes",
+        "empty_no_data": "No data for this period"
+      },
+      "price_stats": {
+        "latest_price": "Latest Price",
+        "change_pct": "Change %",
+        "high_52w": "52W High",
+        "low_52w": "52W Low",
+        "avg_volume": "Avg Volume"
+      },
+      "quality": {
+        "title": "Quality Report",
+        "total_rows": "Total Rows:",
+        "total_fields": "Total Fields:",
+        "issues_found": "Issues Found: {{count}}",
+        "issues_list_title": "Issues",
+        "suggestions_title": "Suggestions",
+        "empty": "No quality report",
+        "col": {
+          "field": "Field",
+          "issue_type": "Issue Type",
+          "count": "Count",
+          "percentage": "Percentage"
+        }
+      }
+    },
+    "live": {
+      "deployment": {
+        "status_active": "Active",
+        "status_stopped": "Stopped",
+        "stop_confirm": "Confirm stopping strategy {{id}}?",
+        "btn_stop": "Stop",
+        "btn_stopping": "Stopping...",
+        "label_deployed_at": "Deployed:"
+      },
+      "execution_log": {
+        "title": "Execution Log",
+        "empty": "No execution records",
+        "empty_hint": "Order records will appear here after the strategy executes",
+        "total_count": "{{count}} records total",
+        "col": {
+          "time": "Time",
+          "asset": "Asset",
+          "side": "Side",
+          "qty": "Qty",
+          "price": "Price",
+          "fee": "Fee",
+          "status": "Status"
+        },
+        "side_buy": "Buy",
+        "side_sell": "Sell",
+        "status_filled": "Filled",
+        "status_rejected": "Rejected"
+      },
+      "fund_curve": {
+        "title": "NAV Curve",
+        "empty": "No NAV data",
+        "tooltip_nav": "NAV"
+      },
+      "position_pnl": {
+        "title": "Position P&L",
+        "empty": "No positions",
+        "col": {
+          "asset": "Asset",
+          "qty": "Qty",
+          "cost_price": "Cost Price",
+          "current_price": "Current Price",
+          "pnl": "P&L",
+          "pnl_pct": "P&L %"
+        }
+      },
+      "risk_monitor": {
+        "title": "Risk Monitor",
+        "empty": "No risk data",
+        "label_daily_pnl": "Daily P&L",
+        "label_concentration": "Concentration",
+        "label_turnover": "Daily Turnover",
+        "alerts_title": "Risk Alerts"
+      }
     }
   },
   "page": {

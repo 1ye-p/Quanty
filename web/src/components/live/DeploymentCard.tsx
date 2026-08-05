@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { type LiveDeployment } from '@/lib/api/live'
 
 interface DeploymentCardProps {
@@ -15,6 +16,7 @@ export function DeploymentCard({
   onStop,
   stopPending,
 }: DeploymentCardProps) {
+  const { t } = useTranslation()
   const d = deployment
   const isActive = d.status === 'active'
   const pnl = d.metrics?.cagr ?? 0
@@ -33,7 +35,7 @@ export function DeploymentCard({
         <div className="flex items-center gap-2">
           <span className="font-semibold text-gray-800">{d.strategy_id}</span>
           <span className={`text-xs px-1.5 py-0.5 rounded-full ${badgeColor}`}>
-            {isActive ? '运行中' : '已停止'}
+            {isActive ? t('component.live.deployment.status_active') : t('component.live.deployment.status_stopped')}
           </span>
         </div>
         {isActive && (
@@ -41,36 +43,36 @@ export function DeploymentCard({
             disabled={stopPending}
             onClick={e => {
               e.stopPropagation()
-              if (!confirm(`确认停止策略 ${d.strategy_id}？`)) return
+              if (!confirm(t('component.live.deployment.stop_confirm', { id: d.strategy_id }))) return
               onStop()
             }}
             className="btn-secondary text-xs disabled:opacity-50"
           >
-            {stopPending ? '停止中...' : '停止'}
+            {stopPending ? t('component.live.deployment.btn_stopping') : t('component.live.deployment.btn_stop')}
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600">
         <div>
-          <span className="text-gray-400">初始资金：</span>
+          <span className="text-gray-400">{t('page.live.stat.initial_cash')}：</span>
           <span>¥{d.initial_cash?.toLocaleString()}</span>
         </div>
         <div>
-          <span className="text-gray-400">风控：</span>
+          <span className="text-gray-400">{t('page.live.stat.risk_mode')}：</span>
           <span>{d.risk_mode}</span>
         </div>
         <div>
-          <span className="text-gray-400">部署时间：</span>
+          <span className="text-gray-400">{t('component.live.deployment.label_deployed_at')}</span>
           <span>{d.deployed_at?.slice(0, 10)}</span>
         </div>
         <div>
-          <span className="text-gray-400">Sharpe：</span>
+          <span className="text-gray-400">{t('page.live.stat.sharpe')}：</span>
           <span>{d.metrics?.sharpe != null ? Number(d.metrics.sharpe).toFixed(3) : '--'}</span>
         </div>
         {d.metrics?.cagr != null && (
           <div>
-            <span className="text-gray-400">收益率：</span>
+            <span className="text-gray-400">{t('page.live.stat.return_rate')}：</span>
             <span className={pnlColor}>
               {pnl >= 0 ? '+' : ''}{(pnl * 100).toFixed(2)}%
             </span>
@@ -78,7 +80,7 @@ export function DeploymentCard({
         )}
         {d.metrics?.max_drawdown != null && (
           <div>
-            <span className="text-gray-400">最大回撤：</span>
+            <span className="text-gray-400">{t('common.metric.max_drawdown')}：</span>
             <span className="text-red-600">
               {(Number(d.metrics.max_drawdown) * 100).toFixed(2)}%
             </span>

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { datasetsApi } from '@/lib/api'
 import { DataState } from '@/components/ui/DataState'
@@ -10,6 +11,7 @@ interface FieldStatsProps {
 const NULL_RATE_WARN = 0.1
 
 export function FieldStats({ datasetId }: FieldStatsProps) {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['datasets', datasetId, 'field-stats'],
     queryFn: () => datasetsApi.getFieldStats(datasetId),
@@ -24,15 +26,15 @@ export function FieldStats({ datasetId }: FieldStatsProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-gray-700">字段统计</h3>
+      <h3 className="text-sm font-medium text-gray-700">{t('component.datasets.field_stats.title')}</h3>
 
-      <DataState isLoading={isLoading} error={error} isEmpty={!data?.fields.length} emptyText="暂无字段统计">
+      <DataState isLoading={isLoading} error={error} isEmpty={!data?.fields.length} emptyText={t('component.datasets.field_stats.empty')}>
         {data && (
           <>
             {/* Null rate chart */}
             {chartData && chartData.length > 0 && (
               <div>
-                <h4 className="text-xs font-medium text-gray-500 mb-2">空值率分布 (%)</h4>
+                <h4 className="text-xs font-medium text-gray-500 mb-2">{t('component.datasets.field_stats.null_rate_chart_title')}</h4>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={chartData} margin={{ top: 4, right: 12, left: -10, bottom: 0 }}>
                     <XAxis
@@ -45,8 +47,8 @@ export function FieldStats({ datasetId }: FieldStatsProps) {
                     />
                     <YAxis tick={{ fontSize: 10 }} unit="%" />
                     <Tooltip
-                      formatter={(v: number) => [`${v}%`, '空值率']}
-                      labelFormatter={v => `字段: ${v}`}
+                      formatter={(v: number) => [`${v}%`, t('component.datasets.field_stats.tooltip_null_rate')]}
+                      labelFormatter={v => t('component.datasets.field_stats.tooltip_field', { name: v })}
                     />
                     <Bar dataKey="nullRate" radius={[3, 3, 0, 0]}>
                       {chartData.map((entry, i) => (
@@ -66,8 +68,18 @@ export function FieldStats({ datasetId }: FieldStatsProps) {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    {['字段', '类型', '数量', '空值率', '唯一值', '最小值', '最大值', '均值', '标准差'].map(h => (
-                      <th key={h} className="table-th whitespace-nowrap">{h}</th>
+                    {([
+                      ['field', 'component.datasets.field_stats.col.field'],
+                      ['type', 'component.datasets.field_stats.col.type'],
+                      ['count', 'component.datasets.field_stats.col.count'],
+                      ['null_rate', 'component.datasets.field_stats.col.null_rate'],
+                      ['unique', 'component.datasets.field_stats.col.unique'],
+                      ['min', 'component.datasets.field_stats.col.min'],
+                      ['max', 'component.datasets.field_stats.col.max'],
+                      ['mean', 'component.datasets.field_stats.col.mean'],
+                      ['std', 'component.datasets.field_stats.col.std'],
+                    ] as const).map(([k, key]) => (
+                      <th key={k} className="table-th whitespace-nowrap">{t(key)}</th>
                     ))}
                   </tr>
                 </thead>

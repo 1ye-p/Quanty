@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { marketApi } from '@/lib/api/market'
 
 function useDebouncedValue<T>(value: T, delay: number): T {
@@ -17,6 +18,7 @@ interface AssetSearchProps {
 }
 
 export function AssetSearch({ value, onChange }: AssetSearchProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const debouncedSearch = useDebouncedValue(search, 300)
@@ -47,7 +49,7 @@ export function AssetSearch({ value, onChange }: AssetSearchProps) {
             if (search && search !== value) setSearch('')
           }, 200)
         }}
-        placeholder="输入股票代码或名称，如 SSE:600036 或 招商"
+        placeholder={t('component.datasets.asset_search.placeholder')}
         className="input-field w-full"
       />
       {showDropdown && filteredAssets.length > 0 && (
@@ -70,7 +72,7 @@ export function AssetSearch({ value, onChange }: AssetSearchProps) {
       )}
       {showDropdown && search.length >= 2 && filteredAssets.length === 0 && (
         <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg p-3 text-sm text-gray-400">
-          无匹配结果
+          {t('component.datasets.asset_search.no_match')}
         </div>
       )}
     </div>

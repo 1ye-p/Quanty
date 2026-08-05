@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { marketApi } from '@/lib/api/market'
 import { KlineChart } from '@/components/charts/KlineChart'
 import { PriceStats } from './PriceStats'
@@ -7,6 +8,7 @@ import { AssetSearch } from './AssetSearch'
 import { DataState } from '@/components/ui/DataState'
 
 export function PriceChart() {
+  const { t } = useTranslation()
   const [assetId, setAssetId] = useState('')
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date()
@@ -30,11 +32,11 @@ export function PriceChart() {
       {/* Search and controls */}
       <div className="flex items-end gap-3">
         <div className="flex-1">
-          <label className="block text-xs text-gray-500 mb-1">股票代码</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('component.datasets.price_chart.asset_label')}</label>
           <AssetSearch value={assetId} onChange={setAssetId} />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">起始日期</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('common.start_date')}</label>
           <input
             type="date"
             value={dateRange.start}
@@ -43,7 +45,7 @@ export function PriceChart() {
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">结束日期</label>
+          <label className="block text-xs text-gray-500 mb-1">{t('common.end_date')}</label>
           <input
             type="date"
             value={dateRange.end}
@@ -56,12 +58,12 @@ export function PriceChart() {
       {/* Content */}
       {!assetId && (
         <div className="card flex items-center justify-center h-64 text-gray-400 text-sm">
-          请输入股票代码查看行情
+          {t('component.datasets.price_chart.prompt_asset')}
         </div>
       )}
 
       {assetId && (
-        <DataState isLoading={isLoading} error={error} isEmpty={data && data.prices.length === 0} emptyText="该时间段无数据">
+        <DataState isLoading={isLoading} error={error} isEmpty={data && data.prices.length === 0} emptyText={t('component.datasets.price_chart.empty_no_data')}>
           {data && data.prices.length > 0 && (
             <>
               <PriceStats stats={data.stats} />

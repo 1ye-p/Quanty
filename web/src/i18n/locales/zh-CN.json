@@ -1576,6 +1576,130 @@
         "col_pct_total": "占总计 (%)",
         "col_variance": "方差"
       }
+    },
+    "datasets": {
+      "anomaly": {
+        "type_outlier": "异常值",
+        "type_missing": "缺失值",
+        "type_duplicate": "重复值",
+        "type_invalid": "无效值",
+        "title": "异常标记",
+        "none_found": "未发现异常",
+        "count_unit": "{{count}} 条",
+        "examples_label": "示例:"
+      },
+      "asset_search": {
+        "placeholder": "输入股票代码或名称，如 SSE:600036 或 招商",
+        "no_match": "无匹配结果"
+      },
+      "preview": {
+        "title": "数据预览",
+        "total_rows": "共 {{count}} 行",
+        "null_label": "NULL",
+        "page_of": "第 {{page}} / {{total}} 页",
+        "prev_page": "上一页",
+        "next_page": "下一页",
+        "empty": "暂无数据"
+      },
+      "field_stats": {
+        "title": "字段统计",
+        "null_rate_chart_title": "空值率分布 (%)",
+        "tooltip_null_rate": "空值率",
+        "tooltip_field": "字段: {{name}}",
+        "empty": "暂无字段统计",
+        "col": {
+          "field": "字段",
+          "type": "类型",
+          "count": "数量",
+          "null_rate": "空值率",
+          "unique": "唯一值",
+          "min": "最小值",
+          "max": "最大值",
+          "mean": "均值",
+          "std": "标准差"
+        }
+      },
+      "price_chart": {
+        "asset_label": "股票代码",
+        "prompt_asset": "请输入股票代码查看行情",
+        "empty_no_data": "该时间段无数据"
+      },
+      "price_stats": {
+        "latest_price": "最新价",
+        "change_pct": "涨跌幅",
+        "high_52w": "52周最高",
+        "low_52w": "52周最低",
+        "avg_volume": "平均成交量"
+      },
+      "quality": {
+        "title": "质量报告",
+        "total_rows": "总行数:",
+        "total_fields": "总字段:",
+        "issues_found": "发现问题: {{count}} 项",
+        "issues_list_title": "问题列表",
+        "suggestions_title": "改进建议",
+        "empty": "暂无质量报告",
+        "col": {
+          "field": "字段",
+          "issue_type": "问题类型",
+          "count": "数量",
+          "percentage": "占比"
+        }
+      }
+    },
+    "live": {
+      "deployment": {
+        "status_active": "运行中",
+        "status_stopped": "已停止",
+        "stop_confirm": "确认停止策略 {{id}}？",
+        "btn_stop": "停止",
+        "btn_stopping": "停止中...",
+        "label_deployed_at": "部署时间："
+      },
+      "execution_log": {
+        "title": "执行日志",
+        "empty": "暂无执行记录",
+        "empty_hint": "策略执行后会在此显示订单记录",
+        "total_count": "共 {{count}} 条",
+        "col": {
+          "time": "时间",
+          "asset": "资产",
+          "side": "方向",
+          "qty": "数量",
+          "price": "成交价",
+          "fee": "费用",
+          "status": "状态"
+        },
+        "side_buy": "买入",
+        "side_sell": "卖出",
+        "status_filled": "已成交",
+        "status_rejected": "已拒绝"
+      },
+      "fund_curve": {
+        "title": "净值曲线",
+        "empty": "暂无净值数据",
+        "tooltip_nav": "净值"
+      },
+      "position_pnl": {
+        "title": "持仓盈亏",
+        "empty": "暂无持仓",
+        "col": {
+          "asset": "资产",
+          "qty": "数量",
+          "cost_price": "成本价",
+          "current_price": "现价",
+          "pnl": "盈亏",
+          "pnl_pct": "盈亏%"
+        }
+      },
+      "risk_monitor": {
+        "title": "风险监控",
+        "empty": "暂无风险数据",
+        "label_daily_pnl": "日盈亏",
+        "label_concentration": "持仓集中度",
+        "label_turnover": "日换手率",
+        "alerts_title": "风险告警"
+      }
     }
   },
   "page": {

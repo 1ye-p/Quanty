@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { liveApi, type LiveExecution } from '@/lib/api/live'
 
 interface ExecutionLogProps {
@@ -6,6 +7,7 @@ interface ExecutionLogProps {
 }
 
 export function ExecutionLog({ deploymentId }: ExecutionLogProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: ['live', 'executions', deploymentId],
     queryFn: () => liveApi.getExecutions(deploymentId, 50),
@@ -16,8 +18,8 @@ export function ExecutionLog({ deploymentId }: ExecutionLogProps) {
   if (isLoading) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-4">执行日志</h3>
-        <div className="text-gray-400 text-sm">加载中...</div>
+        <h3 className="font-semibold text-gray-800 mb-4">{t('component.live.execution_log.title')}</h3>
+        <div className="text-gray-400 text-sm">{t('common.loading')}</div>
       </div>
     )
   }
@@ -25,11 +27,11 @@ export function ExecutionLog({ deploymentId }: ExecutionLogProps) {
   if (!data?.items || data.items.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-4">执行日志</h3>
+        <h3 className="font-semibold text-gray-800 mb-4">{t('component.live.execution_log.title')}</h3>
         <div className="text-center text-gray-400 py-8">
           <div className="text-3xl mb-2">📋</div>
-          <div>暂无执行记录</div>
-          <p className="text-xs mt-1">策略执行后会在此显示订单记录</p>
+          <div>{t('component.live.execution_log.empty')}</div>
+          <p className="text-xs mt-1">{t('component.live.execution_log.empty_hint')}</p>
         </div>
       </div>
     )
@@ -39,8 +41,8 @@ export function ExecutionLog({ deploymentId }: ExecutionLogProps) {
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-800">
-          执行日志
-          <span className="text-xs text-gray-500 ml-2">共 {data.total} 条</span>
+          {t('component.live.execution_log.title')}
+          <span className="text-xs text-gray-500 ml-2">{t('component.live.execution_log.total_count', { count: data.total })}</span>
         </h3>
       </div>
 
@@ -48,13 +50,13 @@ export function ExecutionLog({ deploymentId }: ExecutionLogProps) {
         <table className="w-full text-xs">
           <thead className="bg-gray-50 sticky top-0">
             <tr>
-              <th className="table-th">时间</th>
-              <th className="table-th">资产</th>
-              <th className="table-th">方向</th>
-              <th className="table-th text-right">数量</th>
-              <th className="table-th text-right">成交价</th>
-              <th className="table-th text-right">费用</th>
-              <th className="table-th">状态</th>
+              <th className="table-th">{t('component.live.execution_log.col.time')}</th>
+              <th className="table-th">{t('component.live.execution_log.col.asset')}</th>
+              <th className="table-th">{t('component.live.execution_log.col.side')}</th>
+              <th className="table-th text-right">{t('component.live.execution_log.col.qty')}</th>
+              <th className="table-th text-right">{t('component.live.execution_log.col.price')}</th>
+              <th className="table-th text-right">{t('component.live.execution_log.col.fee')}</th>
+              <th className="table-th">{t('component.live.execution_log.col.status')}</th>
             </tr>
           </thead>
           <tbody>
@@ -72,7 +74,7 @@ export function ExecutionLog({ deploymentId }: ExecutionLogProps) {
                         : 'bg-green-100 text-green-800'
                     }`}
                   >
-                    {ex.side === 'buy' ? '买入' : '卖出'}
+                    {ex.side === 'buy' ? t('component.live.execution_log.side_buy') : t('component.live.execution_log.side_sell')}
                   </span>
                 </td>
                 <td className="table-td text-right">
@@ -95,9 +97,9 @@ export function ExecutionLog({ deploymentId }: ExecutionLogProps) {
                     }`}
                   >
                     {ex.status === 'filled'
-                      ? '已成交'
+                      ? t('component.live.execution_log.status_filled')
                       : ex.status === 'rejected'
-                        ? '已拒绝'
+                        ? t('component.live.execution_log.status_rejected')
                         : ex.status}
                   </span>
                 </td>

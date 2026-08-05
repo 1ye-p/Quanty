@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { liveApi } from '@/lib/api/live'
 import {
   LineChart,
@@ -15,6 +16,7 @@ interface FundCurveProps {
 }
 
 export function FundCurve({ deploymentId }: FundCurveProps) {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['live', 'pnl', deploymentId],
     queryFn: () => liveApi.pnl(deploymentId),
@@ -25,9 +27,9 @@ export function FundCurve({ deploymentId }: FundCurveProps) {
   if (isLoading) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-4">净值曲线</h3>
+        <h3 className="font-semibold text-gray-800 mb-4">{t('component.live.fund_curve.title')}</h3>
         <div className="h-64 flex items-center justify-center text-gray-400">
-          加载中...
+          {t('common.loading')}
         </div>
       </div>
     )
@@ -36,9 +38,9 @@ export function FundCurve({ deploymentId }: FundCurveProps) {
   if (error || !data?.series || data.series.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-4">净值曲线</h3>
+        <h3 className="font-semibold text-gray-800 mb-4">{t('component.live.fund_curve.title')}</h3>
         <div className="h-64 flex items-center justify-center text-gray-400">
-          暂无净值数据
+          {t('component.live.fund_curve.empty')}
         </div>
       </div>
     )
@@ -52,7 +54,7 @@ export function FundCurve({ deploymentId }: FundCurveProps) {
 
   return (
     <div className="card">
-      <h3 className="font-semibold text-gray-800 mb-4">净值曲线</h3>
+      <h3 className="font-semibold text-gray-800 mb-4">{t('component.live.fund_curve.title')}</h3>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>

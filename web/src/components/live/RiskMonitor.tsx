@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { liveApi } from '@/lib/api/live'
 
 interface RiskMonitorProps {
@@ -30,6 +31,7 @@ function MetricCard({
 }
 
 export function RiskMonitor({ deploymentId }: RiskMonitorProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: ['live', 'risk', deploymentId],
     queryFn: () => liveApi.risk(deploymentId),
@@ -40,8 +42,8 @@ export function RiskMonitor({ deploymentId }: RiskMonitorProps) {
   if (isLoading) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-4">风险监控</h3>
-        <div className="text-gray-400 text-sm">加载中...</div>
+        <h3 className="font-semibold text-gray-800 mb-4">{t('component.live.risk_monitor.title')}</h3>
+        <div className="text-gray-400 text-sm">{t('common.loading')}</div>
       </div>
     )
   }
@@ -51,8 +53,8 @@ export function RiskMonitor({ deploymentId }: RiskMonitorProps) {
   if (!snapshot) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-4">风险监控</h3>
-        <div className="text-center text-gray-400 py-8">暂无风险数据</div>
+        <h3 className="font-semibold text-gray-800 mb-4">{t('component.live.risk_monitor.title')}</h3>
+        <div className="text-center text-gray-400 py-8">{t('component.live.risk_monitor.empty')}</div>
       </div>
     )
   }
@@ -77,28 +79,28 @@ export function RiskMonitor({ deploymentId }: RiskMonitorProps) {
 
   return (
     <div className="card">
-      <h3 className="font-semibold text-gray-800 mb-4">风险监控</h3>
+      <h3 className="font-semibold text-gray-800 mb-4">{t('component.live.risk_monitor.title')}</h3>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <MetricCard
-          label="日盈亏"
+          label={t('component.live.risk_monitor.label_daily_pnl')}
           value={`${dailyPnl >= 0 ? '+' : ''}${(dailyPnl * 100).toFixed(2)}%`}
           warn={dailyPnlWarn}
         />
         <MetricCard
-          label="最大回撤"
+          label={t('common.metric.max_drawdown')}
           value={`${(maxDrawdown * 100).toFixed(2)}%`}
           warn={maxDdWarn}
           critical={maxDdCritical}
         />
         <MetricCard
-          label="持仓集中度"
+          label={t('component.live.risk_monitor.label_concentration')}
           value={`${(concentration * 100).toFixed(1)}%`}
           warn={concentrationWarn}
           critical={concentrationCritical}
         />
         <MetricCard
-          label="日换手率"
+          label={t('component.live.risk_monitor.label_turnover')}
           value={`${(turnover * 100).toFixed(1)}%`}
           warn={turnoverWarn}
         />
@@ -107,7 +109,7 @@ export function RiskMonitor({ deploymentId }: RiskMonitorProps) {
       {/* Risk alerts */}
       {alerts.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-2">风险告警</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-2">{t('component.live.risk_monitor.alerts_title')}</h4>
           <div className="space-y-1.5 max-h-32 overflow-y-auto">
             {alerts.map((alert, idx) => (
               <div

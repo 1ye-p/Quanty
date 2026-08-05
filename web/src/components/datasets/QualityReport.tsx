@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { datasetsApi } from '@/lib/api'
 import { DataState } from '@/components/ui/DataState'
 
@@ -25,6 +26,7 @@ function scoreRing(score: number): string {
 }
 
 export function QualityReport({ datasetId }: QualityReportProps) {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['datasets', datasetId, 'quality-report'],
     queryFn: () => datasetsApi.getQualityReport(datasetId),
@@ -34,9 +36,9 @@ export function QualityReport({ datasetId }: QualityReportProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-gray-700">质量报告</h3>
+      <h3 className="text-sm font-medium text-gray-700">{t('component.datasets.quality.title')}</h3>
 
-      <DataState isLoading={isLoading} error={error} isEmpty={!data} emptyText="暂无质量报告">
+      <DataState isLoading={isLoading} error={error} isEmpty={!data} emptyText={t('component.datasets.quality.empty')}>
         {data && (
           <>
             {/* Score ring + summary */}
@@ -64,13 +66,13 @@ export function QualityReport({ datasetId }: QualityReportProps) {
               </div>
               <div>
                 <div className="text-sm text-gray-600">
-                  总行数: <strong>{data.total_rows.toLocaleString()}</strong>
+                  {t('component.datasets.quality.total_rows')} <strong>{data.total_rows.toLocaleString()}</strong>
                 </div>
                 <div className="text-sm text-gray-600">
-                  总字段: <strong>{data.total_fields}</strong>
+                  {t('component.datasets.quality.total_fields')} <strong>{data.total_fields}</strong>
                 </div>
                 <div className="text-sm text-gray-600">
-                  发现问题: <strong className={data.issues.length > 0 ? 'text-amber-600' : 'text-green-600'}>{data.issues.length} 项</strong>
+                  <strong className={data.issues.length > 0 ? 'text-amber-600' : 'text-green-600'}>{t('component.datasets.quality.issues_found', { count: data.issues.length })}</strong>
                 </div>
               </div>
             </div>
@@ -78,13 +80,18 @@ export function QualityReport({ datasetId }: QualityReportProps) {
             {/* Issues list */}
             {data.issues.length > 0 && (
               <div>
-                <h4 className="text-xs font-medium text-gray-500 mb-2">问题列表</h4>
+                <h4 className="text-xs font-medium text-gray-500 mb-2">{t('component.datasets.quality.issues_list_title')}</h4>
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        {['字段', '问题类型', '数量', '占比'].map(h => (
-                          <th key={h} className="table-th">{h}</th>
+                        {([
+                          ['field', 'component.datasets.quality.col.field'],
+                          ['issue_type', 'component.datasets.quality.col.issue_type'],
+                          ['count', 'component.datasets.quality.col.count'],
+                          ['percentage', 'component.datasets.quality.col.percentage'],
+                        ] as const).map(([k, key]) => (
+                          <th key={k} className="table-th">{t(key)}</th>
                         ))}
                       </tr>
                     </thead>
@@ -110,7 +117,7 @@ export function QualityReport({ datasetId }: QualityReportProps) {
             {/* Suggestions */}
             {data.suggestions.length > 0 && (
               <div>
-                <h4 className="text-xs font-medium text-gray-500 mb-2">改进建议</h4>
+                <h4 className="text-xs font-medium text-gray-500 mb-2">{t('component.datasets.quality.suggestions_title')}</h4>
                 <ul className="space-y-1.5">
                   {data.suggestions.map((s, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
