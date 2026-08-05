@@ -3,6 +3,7 @@
  * 使用 Class 组件（React Error Boundaries 只能用 Class）。
  */
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import i18n from '@/i18n'
 
 interface Props {
   children: ReactNode
@@ -30,9 +31,9 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <div className="card max-w-md w-full text-center">
             <div className="text-4xl mb-4">⚠️</div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">页面出错了</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">{i18n.t('component.error_boundary.title')}</h2>
             <p className="text-sm text-gray-500 mb-4">
-              {this.state.error?.message ?? '发生了未知错误'}
+              {this.state.error?.message ?? i18n.t('component.error_boundary.unknown_error')}
             </p>
             <button
               onClick={() => {
@@ -41,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
               }}
               className="btn-primary"
             >
-              返回首页
+              {i18n.t('component.error_boundary.back_home')}
             </button>
           </div>
         </div>

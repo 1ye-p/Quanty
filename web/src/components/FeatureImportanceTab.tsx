@@ -5,6 +5,7 @@
  *   modelVersion — ML experiment run ID
  */
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
@@ -20,6 +21,7 @@ const BAR_COLOR = '#6366f1'
 const BAR_COLOR_ALT = '#a5b4fc'
 
 export function FeatureImportanceTab({ modelVersion }: FeatureImportanceTabProps) {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['feature-importance', modelVersion],
     queryFn: () => mlApi.featureImportance(modelVersion),
@@ -36,14 +38,14 @@ export function FeatureImportanceTab({ modelVersion }: FeatureImportanceTabProps
       isLoading={isLoading}
       error={error}
       isEmpty={items.length === 0}
-      emptyText="暂无特征重要性数据"
+      emptyText={t('component.feature_importance.no_data')}
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-700">Top {TOP_N} 特征重要性</h3>
+          <h3 className="font-semibold text-gray-700">{t('component.feature_importance.title_with_count', { count: TOP_N })}</h3>
           {hasMore && (
             <span className="text-xs text-gray-400">
-              共 {allItems.length} 个特征，展示前 {TOP_N} 个
+              {t('component.feature_importance.more_hint', { total: allItems.length, count: TOP_N })}
             </span>
           )}
         </div>
@@ -70,8 +72,8 @@ export function FeatureImportanceTab({ modelVersion }: FeatureImportanceTabProps
               }
             />
             <Tooltip
-              formatter={(value: number) => [value.toFixed(4), 'Importance']}
-              labelFormatter={(label: string) => `Feature: ${label}`}
+              formatter={(value: number) => [value.toFixed(4), t('component.feature_importance.tooltip_importance')]}
+              labelFormatter={(label: string) => t('component.feature_importance.tooltip_feature', { label })}
             />
             <Bar dataKey="importance" radius={[0, 4, 4, 0]} maxBarSize={22}>
               {items.map((_, idx) => (
@@ -86,7 +88,7 @@ export function FeatureImportanceTab({ modelVersion }: FeatureImportanceTabProps
 
         {/* Summary footer */}
         <div className="text-xs text-gray-400 text-right">
-          {data?.total != null && `共 ${data.total} 个特征`}
+          {data?.total != null && t('component.feature_importance.footer_total', { total: data.total })}
         </div>
       </div>
     </DataState>

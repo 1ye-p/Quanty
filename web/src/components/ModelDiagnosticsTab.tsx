@@ -6,6 +6,7 @@
  *   modelVersion — model version string (mlflow run ID or job ID)
  */
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -25,10 +26,11 @@ function formatNum(v: number, decimals = 4): string {
 }
 
 function TrainingCurveChart({ data }: { data: DiagnosticsData['training_curve'] }) {
+  const { t } = useTranslation()
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400 text-sm bg-gray-50 rounded-lg">
-        无训练曲线数据
+        {t('component.model_diagnostics.no_training_curve_data')}
       </div>
     )
   }
@@ -40,16 +42,16 @@ function TrainingCurveChart({ data }: { data: DiagnosticsData['training_curve'] 
       <div className="flex items-center gap-3 mb-2">
         <div className="flex items-center gap-1.5 text-xs">
           <span className="w-3 h-0.5 bg-blue-500 inline-block rounded" />
-          <span className="text-gray-500">train_loss</span>
+          <span className="text-gray-500">{t('component.model_diagnostics.legend_train_loss')}</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs">
           <span className="w-3 h-0.5 bg-red-500 inline-block rounded" />
-          <span className="text-gray-500">valid_loss</span>
+          <span className="text-gray-500">{t('component.model_diagnostics.legend_valid_loss')}</span>
         </div>
         {hasIc && (
           <div className="flex items-center gap-1.5 text-xs">
             <span className="w-3 h-0.5 bg-green-500 inline-block rounded" />
-            <span className="text-gray-500">valid_ic</span>
+            <span className="text-gray-500">{t('component.model_diagnostics.legend_valid_ic')}</span>
           </div>
         )}
       </div>
@@ -61,9 +63,9 @@ function TrainingCurveChart({ data }: { data: DiagnosticsData['training_curve'] 
           <Tooltip
             formatter={(value: number, name: string) => [
               formatNum(value),
-              name === 'train_loss' ? 'Train Loss'
-                : name === 'valid_loss' ? 'Valid Loss'
-                : 'Valid IC',
+              name === 'train_loss' ? t('component.model_diagnostics.tooltip_train_loss')
+                : name === 'valid_loss' ? t('component.model_diagnostics.tooltip_valid_loss')
+                : t('component.model_diagnostics.tooltip_valid_ic'),
             ]}
           />
           <Line
@@ -100,10 +102,11 @@ function TrainingCurveChart({ data }: { data: DiagnosticsData['training_curve'] 
 }
 
 function PredictionDistributionChart({ data }: { data: DiagnosticsData['prediction_distribution'] }) {
+  const { t } = useTranslation()
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400 text-sm bg-gray-50 rounded-lg">
-        无预测分布数据
+        {t('component.model_diagnostics.no_prediction_dist_data')}
       </div>
     )
   }
@@ -131,9 +134,9 @@ function PredictionDistributionChart({ data }: { data: DiagnosticsData['predicti
         <Tooltip
           labelFormatter={(_: string, payload: Array<{ payload?: { label?: string } }>) => {
             const label = payload?.[0]?.payload?.label
-            return label ? `Range: ${label}` : ''
+            return label ? t('component.model_diagnostics.tooltip_range', { label }) : ''
           }}
-          formatter={(value: number) => [value.toLocaleString(), 'Count']}
+          formatter={(value: number) => [value.toLocaleString(), t('component.model_diagnostics.tooltip_count')]}
         />
         <Bar dataKey="count" fill="#8b5cf6" radius={[2, 2, 0, 0]} />
       </BarChart>
@@ -142,10 +145,11 @@ function PredictionDistributionChart({ data }: { data: DiagnosticsData['predicti
 }
 
 function WalkForwardStabilityChart({ data }: { data: DiagnosticsData['walk_forward_stability'] }) {
+  const { t } = useTranslation()
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400 text-sm bg-gray-50 rounded-lg">
-        无 Walk-Forward 稳定性数据
+        {t('component.model_diagnostics.no_walk_forward_data')}
       </div>
     )
   }
@@ -162,15 +166,15 @@ function WalkForwardStabilityChart({ data }: { data: DiagnosticsData['walk_forwa
       <div className="flex items-center gap-4 mb-2">
         <div className="flex items-center gap-1.5 text-xs">
           <span className="w-3 h-0.5 bg-blue-500 inline-block rounded" />
-          <span className="text-gray-500">IC</span>
+          <span className="text-gray-500">{t('component.model_diagnostics.legend_ic')}</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs">
           <span className="w-3 h-0.5 bg-orange-500 inline-block rounded" />
-          <span className="text-gray-500">Sharpe</span>
+          <span className="text-gray-500">{t('component.model_diagnostics.legend_sharpe')}</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs">
           <span className="w-3 h-0.5 bg-green-500 inline-block rounded" />
-          <span className="text-gray-500">Win Rate</span>
+          <span className="text-gray-500">{t('component.model_diagnostics.legend_win_rate')}</span>
         </div>
       </div>
       <ResponsiveContainer width="100%" height={260}>
@@ -190,6 +194,7 @@ function WalkForwardStabilityChart({ data }: { data: DiagnosticsData['walk_forwa
 }
 
 export function ModelDiagnosticsTab({ modelVersion }: ModelDiagnosticsTabProps) {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: extendedQueryKeys.ml.diagnostics(modelVersion),
     queryFn: () => mlApi.getModelDiagnostics(modelVersion),
@@ -208,25 +213,25 @@ export function ModelDiagnosticsTab({ modelVersion }: ModelDiagnosticsTabProps) 
       isLoading={isLoading}
       error={error}
       isEmpty={!isLoading && !hasAnyData}
-      emptyText="暂无诊断数据"
+      emptyText={t('component.model_diagnostics.no_data')}
     >
       {data && (
         <div className="space-y-6">
           {/* Training Curve */}
           <div className="card">
-            <h3 className="font-semibold text-gray-700 mb-3">训练曲线</h3>
+            <h3 className="font-semibold text-gray-700 mb-3">{t('component.model_diagnostics.training_curve_title')}</h3>
             <TrainingCurveChart data={data.training_curve} />
           </div>
 
           {/* Prediction Distribution */}
           <div className="card">
-            <h3 className="font-semibold text-gray-700 mb-3">预测分布</h3>
+            <h3 className="font-semibold text-gray-700 mb-3">{t('component.model_diagnostics.prediction_dist_title')}</h3>
             <PredictionDistributionChart data={data.prediction_distribution} />
           </div>
 
           {/* Walk-Forward Stability */}
           <div className="card">
-            <h3 className="font-semibold text-gray-700 mb-3">Walk-Forward 稳定性</h3>
+            <h3 className="font-semibold text-gray-700 mb-3">{t('component.model_diagnostics.walk_forward_title')}</h3>
             <WalkForwardStabilityChart data={data.walk_forward_stability} />
           </div>
         </div>

@@ -2079,6 +2079,48 @@
         "sentiment_distribution": "Sentiment Distribution",
         "select_asset_hint": "Select an asset to view news impact analysis"
       }
+    },
+    "model_compare": {
+      "select_at_least_two": "Please select at least 2 models to compare",
+      "no_compare_data": "No comparison data",
+      "key_metrics": "Key Metrics Comparison",
+      "metric_column": "Metric",
+      "nav_overlay": "NAV Curve Overlay",
+      "metric_profit_factor": "Profit Factor",
+      "metric_total_trades": "Total Trades"
+    },
+    "feature_importance": {
+      "no_data": "No feature importance data",
+      "title_with_count": "Top {{count}} Feature Importance",
+      "more_hint": "{{total}} features in total, showing top {{count}}",
+      "tooltip_importance": "Importance",
+      "tooltip_feature": "Feature: {{label}}",
+      "footer_total": "{{total}} features in total"
+    },
+    "model_diagnostics": {
+      "no_data": "No diagnostics data",
+      "training_curve_title": "Training Curve",
+      "prediction_dist_title": "Prediction Distribution",
+      "walk_forward_title": "Walk-Forward Stability",
+      "no_training_curve_data": "No training curve data",
+      "no_prediction_dist_data": "No prediction distribution data",
+      "no_walk_forward_data": "No walk-forward stability data",
+      "legend_train_loss": "train_loss",
+      "legend_valid_loss": "valid_loss",
+      "legend_valid_ic": "valid_ic",
+      "tooltip_train_loss": "Train Loss",
+      "tooltip_valid_loss": "Valid Loss",
+      "tooltip_valid_ic": "Valid IC",
+      "tooltip_count": "Count",
+      "tooltip_range": "Range: {{label}}",
+      "legend_ic": "IC",
+      "legend_sharpe": "Sharpe",
+      "legend_win_rate": "Win Rate"
+    },
+    "error_boundary": {
+      "title": "Something went wrong",
+      "unknown_error": "An unknown error occurred",
+      "back_home": "Back to Home"
     }
   },
   "page": {

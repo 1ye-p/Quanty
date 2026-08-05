@@ -6,6 +6,7 @@
  *   selectedModels — array of model IDs to compare
  */
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, CartesianGrid,
@@ -30,16 +31,16 @@ interface CompareRun {
 }
 
 const METRIC_DEFS = [
-  { key: 'total_return', label: '总收益率', pct: true, invert: false },
-  { key: 'annualized_return', label: '年化收益', pct: true, invert: false },
-  { key: 'sharpe_ratio', label: 'Sharpe Ratio', pct: false, invert: false },
-  { key: 'sortino_ratio', label: 'Sortino Ratio', pct: false, invert: false },
-  { key: 'max_drawdown', label: '最大回撤', pct: true, invert: true },
-  { key: 'calmar_ratio', label: 'Calmar Ratio', pct: false, invert: false },
-  { key: 'win_rate', label: '胜率', pct: true, invert: false },
-  { key: 'annualized_volatility', label: '年化波动率', pct: true, invert: true },
-  { key: 'profit_factor', label: '盈亏比', pct: false, invert: false },
-  { key: 'total_trades', label: '交易次数', pct: false, invert: false },
+  { key: 'total_return', labelKey: 'common.metric.total_return', pct: true, invert: false },
+  { key: 'annualized_return', labelKey: 'common.metric.annualized_return', pct: true, invert: false },
+  { key: 'sharpe_ratio', labelKey: 'common.metric.sharpe_ratio', pct: false, invert: false },
+  { key: 'sortino_ratio', labelKey: 'common.metric.sortino_ratio', pct: false, invert: false },
+  { key: 'max_drawdown', labelKey: 'common.metric.max_drawdown', pct: true, invert: true },
+  { key: 'calmar_ratio', labelKey: 'common.metric.calmar_ratio', pct: false, invert: false },
+  { key: 'win_rate', labelKey: 'common.metric.win_rate', pct: true, invert: false },
+  { key: 'annualized_volatility', labelKey: 'common.metric.annual_volatility', pct: true, invert: true },
+  { key: 'profit_factor', labelKey: 'component.model_compare.metric_profit_factor', pct: false, invert: false },
+  { key: 'total_trades', labelKey: 'component.model_compare.metric_total_trades', pct: false, invert: false },
 ] as const
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4']
@@ -58,6 +59,7 @@ function mergeNavSeries(runs: CompareRun[]): Array<Record<string, unknown>> {
 }
 
 export function ModelCompareTab({ backtestId, selectedModels }: ModelCompareTabProps) {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: ['backtests', 'compare', backtestId, selectedModels.join(',')],
     queryFn: () => backtestsApi.compare(selectedModels.join(',')),
@@ -69,7 +71,7 @@ export function ModelCompareTab({ backtestId, selectedModels }: ModelCompareTabP
     return (
       <div className="text-center py-12 text-gray-400">
         <div className="text-4xl mb-2">📊</div>
-        <div className="text-sm">请至少选择 2 个模型进行对比</div>
+        <div className="text-sm">{t('component.model_compare.select_at_least_two')}</div>
       </div>
     )
   }
@@ -78,16 +80,16 @@ export function ModelCompareTab({ backtestId, selectedModels }: ModelCompareTabP
   const navData = mergeNavSeries(runs)
 
   return (
-    <DataState isLoading={isLoading} error={error} isEmpty={runs.length === 0} emptyText="暂无对比数据">
+    <DataState isLoading={isLoading} error={error} isEmpty={runs.length === 0} emptyText={t('component.model_compare.no_compare_data')}>
       <div className="space-y-6">
         {/* Metrics comparison table */}
         <div>
-          <h3 className="font-semibold text-gray-700 mb-3">关键指标对比</h3>
+          <h3 className="font-semibold text-gray-700 mb-3">{t('component.model_compare.key_metrics')}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 border-b bg-gray-50">
-                  <th className="py-2 px-3">指标</th>
+                  <th className="py-2 px-3">{t('component.model_compare.metric_column')}</th>
                   {runs.map(r => (
                     <th key={r.run_id} className="py-2 px-3 text-center min-w-[120px]">
                       <div className="font-semibold text-gray-800 truncate max-w-[120px]" title={r.strategy_id}>
@@ -99,7 +101,7 @@ export function ModelCompareTab({ backtestId, selectedModels }: ModelCompareTabP
                 </tr>
               </thead>
               <tbody>
-                {METRIC_DEFS.map(({ key, label, pct, invert }) => {
+                {METRIC_DEFS.map(({ key, labelKey, pct, invert }) => {
                   const vals = runs.map(r => {
                     const v = r.metrics?.[key]
                     return v !== undefined && v !== null ? Number(v) : NaN
@@ -110,7 +112,7 @@ export function ModelCompareTab({ backtestId, selectedModels }: ModelCompareTabP
                     : NaN
                   return (
                     <tr key={key} className="border-b hover:bg-gray-50">
-                      <td className="py-2 px-3 text-gray-600">{label}</td>
+                      <td className="py-2 px-3 text-gray-600">{t(labelKey)}</td>
                       {vals.map((v, i) => {
                         const isBest = !isNaN(v) && v === best
                         const display = isNaN(v)
@@ -138,7 +140,7 @@ export function ModelCompareTab({ backtestId, selectedModels }: ModelCompareTabP
         {/* NAV curve overlay chart */}
         {navData.length > 0 && (
           <div>
-            <h3 className="font-semibold text-gray-700 mb-3">净值曲线叠加</h3>
+            <h3 className="font-semibold text-gray-700 mb-3">{t('component.model_compare.nav_overlay')}</h3>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart
                 data={navData}

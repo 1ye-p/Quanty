@@ -2079,6 +2079,48 @@
         "sentiment_distribution": "情绪分布",
         "select_asset_hint": "选择一个资产查看新闻影响分析"
       }
+    },
+    "model_compare": {
+      "select_at_least_two": "请至少选择 2 个模型进行对比",
+      "no_compare_data": "暂无对比数据",
+      "key_metrics": "关键指标对比",
+      "metric_column": "指标",
+      "nav_overlay": "净值曲线叠加",
+      "metric_profit_factor": "盈亏比",
+      "metric_total_trades": "交易次数"
+    },
+    "feature_importance": {
+      "no_data": "暂无特征重要性数据",
+      "title_with_count": "Top {{count}} 特征重要性",
+      "more_hint": "共 {{total}} 个特征，展示前 {{count}} 个",
+      "tooltip_importance": "Importance",
+      "tooltip_feature": "特征: {{label}}",
+      "footer_total": "共 {{total}} 个特征"
+    },
+    "model_diagnostics": {
+      "no_data": "暂无诊断数据",
+      "training_curve_title": "训练曲线",
+      "prediction_dist_title": "预测分布",
+      "walk_forward_title": "Walk-Forward 稳定性",
+      "no_training_curve_data": "无训练曲线数据",
+      "no_prediction_dist_data": "无预测分布数据",
+      "no_walk_forward_data": "无 Walk-Forward 稳定性数据",
+      "legend_train_loss": "train_loss",
+      "legend_valid_loss": "valid_loss",
+      "legend_valid_ic": "valid_ic",
+      "tooltip_train_loss": "Train Loss",
+      "tooltip_valid_loss": "Valid Loss",
+      "tooltip_valid_ic": "Valid IC",
+      "tooltip_count": "Count",
+      "tooltip_range": "范围: {{label}}",
+      "legend_ic": "IC",
+      "legend_sharpe": "Sharpe",
+      "legend_win_rate": "Win Rate"
+    },
+    "error_boundary": {
+      "title": "页面出错了",
+      "unknown_error": "发生了未知错误",
+      "back_home": "返回首页"
     }
   },
   "page": {
