@@ -6,6 +6,7 @@
  * Shows last 20 periods, top 20 factors.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface ICDataPoint {
   period: string     // e.g. "2025-W01", "2025-01", "2025-Q1"
@@ -20,11 +21,7 @@ interface Props {
 
 type Granularity = 'week' | 'month' | 'quarter'
 
-const GRANULARITY_OPTIONS: { key: Granularity; label: string }[] = [
-  { key: 'week', label: 'Weekly' },
-  { key: 'month', label: 'Monthly' },
-  { key: 'quarter', label: 'Quarterly' },
-]
+const GRANULARITY_OPTIONS: Granularity[] = ['week', 'month', 'quarter']
 
 const MAX_PERIODS = 20
 const MAX_FACTORS = 20
@@ -46,8 +43,11 @@ function icColor(ic: number): { bg: string; text: string } {
   return { bg: 'bg-gray-50', text: 'text-gray-400' }
 }
 
-export function ICTimeseriesHeatmap({ data, title = 'IC Timeseries Heatmap' }: Props) {
+export function ICTimeseriesHeatmap({ data, title }: Props) {
+  const { t } = useTranslation()
   const [granularity, setGranularity] = useState<Granularity>('month')
+  const resolvedTitle = title ?? t('component.charts.ic_timeseries_heatmap.title')
+  const granularityLabel = (g: Granularity) => t(`component.charts.ic_timeseries_heatmap.granularity_${g}`)
 
   const { periods, factors, matrix } = useMemo(() => {
     if (data.length === 0) return { periods: [], factors: [], matrix: new Map<string, number>() }
@@ -87,9 +87,9 @@ export function ICTimeseriesHeatmap({ data, title = 'IC Timeseries Heatmap' }: P
   if (!data || data.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-2">{title}</h3>
+        <h3 className="font-semibold text-gray-800 mb-2">{resolvedTitle}</h3>
         <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
-          No IC data available
+          {t('component.charts.ic_timeseries_heatmap.no_data')}
         </div>
       </div>
     )
@@ -98,19 +98,19 @@ export function ICTimeseriesHeatmap({ data, title = 'IC Timeseries Heatmap' }: P
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800">{title}</h3>
+        <h3 className="font-semibold text-gray-800">{resolvedTitle}</h3>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
           {GRANULARITY_OPTIONS.map(g => (
             <button
-              key={g.key}
-              onClick={() => setGranularity(g.key)}
+              key={g}
+              onClick={() => setGranularity(g)}
               className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                granularity === g.key
+                granularity === g
                   ? 'bg-white text-gray-800 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {g.label}
+              {granularityLabel(g)}
             </button>
           ))}
         </div>
@@ -118,7 +118,7 @@ export function ICTimeseriesHeatmap({ data, title = 'IC Timeseries Heatmap' }: P
 
       {factors.length === 0 || periods.length === 0 ? (
         <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
-          No matching data for selected granularity
+          {t('component.charts.ic_timeseries_heatmap.no_match_granularity')}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -126,7 +126,7 @@ export function ICTimeseriesHeatmap({ data, title = 'IC Timeseries Heatmap' }: P
             <thead>
               <tr className="text-gray-500">
                 <th className="py-1.5 px-2 text-left font-medium sticky left-0 bg-white z-10 min-w-[100px]">
-                  Factor
+                  {t('component.charts.ic_timeseries_heatmap.col_factor')}
                 </th>
                 {periods.map(p => (
                   <th key={p} className="py-1.5 px-1 text-center font-medium min-w-[56px] whitespace-nowrap">
@@ -166,7 +166,7 @@ export function ICTimeseriesHeatmap({ data, title = 'IC Timeseries Heatmap' }: P
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
-        <span className="text-xs text-gray-500 mr-1">IC:</span>
+        <span className="text-xs text-gray-500 mr-1">{t('component.charts.ic_timeseries_heatmap.legend_label')}</span>
         {[
           { label: '>0.08', bg: 'bg-blue-700', text: 'text-white' },
           { label: '0.05-0.08', bg: 'bg-blue-500', text: 'text-white' },

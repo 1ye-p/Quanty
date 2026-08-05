@@ -5,6 +5,7 @@
  * Intensity based on absolute value: >0.8 strong, >0.6 medium, >0.4 moderate, >0.2 weak.
  * Diagonal is always 1.0 (self-correlation).
  */
+import { useTranslation } from 'react-i18next'
 
 export interface CorrelationMatrixData {
   factors: string[]
@@ -63,13 +64,15 @@ const LEGEND_ITEMS = [
   { label: '<-0.8', bg: 'bg-red-800', text: 'text-white' },
 ]
 
-export function FactorCorrelationMatrix({ data, title = 'Factor Correlation Matrix' }: Props) {
+export function FactorCorrelationMatrix({ data, title }: Props) {
+  const { t } = useTranslation()
+  const resolvedTitle = title ?? t('component.charts.factor_correlation_matrix.title')
   if (!data || !data.factors || data.factors.length === 0 || !data.matrix || data.matrix.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-2">{title}</h3>
+        <h3 className="font-semibold text-gray-800 mb-2">{resolvedTitle}</h3>
         <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
-          No correlation data available
+          {t('component.charts.factor_correlation_matrix.no_data')}
         </div>
       </div>
     )
@@ -82,9 +85,9 @@ export function FactorCorrelationMatrix({ data, title = 'Factor Correlation Matr
   if (data.matrix.length !== n * n) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-2">{title}</h3>
+        <h3 className="font-semibold text-gray-800 mb-2">{resolvedTitle}</h3>
         <div className="flex items-center justify-center h-40 text-red-400 text-sm">
-          Matrix size mismatch: expected {n * n}, got {data.matrix.length}
+          {t('component.charts.factor_correlation_matrix.matrix_mismatch', { expected: n * n, actual: data.matrix.length })}
         </div>
       </div>
     )
@@ -92,7 +95,7 @@ export function FactorCorrelationMatrix({ data, title = 'Factor Correlation Matr
 
   return (
     <div className="card">
-      <h3 className="font-semibold text-gray-800 mb-4">{title}</h3>
+      <h3 className="font-semibold text-gray-800 mb-4">{resolvedTitle}</h3>
 
       <div className="overflow-x-auto">
         <table className="text-xs border-collapse">
@@ -142,7 +145,7 @@ export function FactorCorrelationMatrix({ data, title = 'Factor Correlation Matr
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
-        <span className="text-xs text-gray-500 mr-1">Correlation:</span>
+        <span className="text-xs text-gray-500 mr-1">{t('component.charts.factor_correlation_matrix.legend_label')}</span>
         {LEGEND_ITEMS.map(item => (
           <div key={item.label} className="flex items-center gap-1">
             <div className={`w-3.5 h-2.5 rounded-sm ${item.bg}`} />

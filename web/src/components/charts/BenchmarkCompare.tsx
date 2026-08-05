@@ -9,6 +9,7 @@
  * Handles missing benchmark data gracefully.
  */
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   LineChart, Line, AreaChart, Area,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -151,6 +152,7 @@ export function BenchmarkCompare({
   benchmarkLabel = 'Benchmark',
   rebalanceDates,
 }: Props) {
+  const { t } = useTranslation()
   // Merge data
   const merged = useMemo(() => {
     if (!benchmarkNav || benchmarkNav.length === 0 || strategyNav.length === 0) return []
@@ -233,8 +235,8 @@ export function BenchmarkCompare({
   if (merged.length === 0) {
     return (
       <div className="card text-center text-gray-400 py-8">
-        <div className="text-3xl mb-2">Chart</div>
-        <div className="text-sm">No overlapping dates between strategy and benchmark</div>
+        <div className="text-3xl mb-2">{t('component.charts.benchmark_compare.empty_title')}</div>
+        <div className="text-sm">{t('component.charts.benchmark_compare.no_overlap')}</div>
       </div>
     )
   }
@@ -247,13 +249,13 @@ export function BenchmarkCompare({
       {/* NAV Overlay */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-800">Benchmark Comparison</h3>
+          <h3 className="font-semibold text-gray-800">{t('component.charts.benchmark_compare.title')}</h3>
           <div className="text-sm text-gray-600">
-            Excess Return:
+            {t('component.charts.benchmark_compare.excess_return')}:
             <span className={`font-mono font-semibold ml-1 ${lastExcess >= 0 ? 'text-green-600' : 'text-red-500'}`}>
               {lastExcess >= 0 ? '+' : ''}{lastExcess.toFixed(2)}%
             </span>
-            <span className="text-xs text-gray-400 ml-1">vs {benchmarkLabel}</span>
+            <span className="text-xs text-gray-400 ml-1">{t('component.charts.benchmark_compare.vs_benchmark', { benchmark: benchmarkLabel })}</span>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={240}>
@@ -275,7 +277,7 @@ export function BenchmarkCompare({
                   stroke="#f59e0b"
                   strokeDasharray="4 4"
                   strokeWidth={1}
-                  label={{ value: 'Rebalance', position: 'top', fontSize: 9, fill: '#f59e0b' }}
+                  label={{ value: t('component.charts.benchmark_compare.rebalance'), position: 'top', fontSize: 9, fill: '#f59e0b' }}
                 />
                 {visibleRebalanceDates.slice(1).map(d => (
                   <ReferenceLine
@@ -290,7 +292,7 @@ export function BenchmarkCompare({
             )}
             <Line
               dataKey="strategy"
-              name="Strategy"
+              name={t('component.charts.benchmark_compare.line_strategy')}
               stroke="#3b82f6"
               dot={false}
               strokeWidth={2}
@@ -310,7 +312,7 @@ export function BenchmarkCompare({
       {/* Cumulative Excess Return */}
       {excessData.length > 0 && (
         <div className="card">
-          <h3 className="font-semibold text-gray-800 mb-3">Cumulative Excess Return</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">{t('component.charts.benchmark_compare.cumulative_excess')}</h3>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={excessData} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -326,7 +328,7 @@ export function BenchmarkCompare({
               <Area
                 type="monotone"
                 dataKey="excess"
-                name="Excess Return"
+                name={t('component.charts.benchmark_compare.area_excess')}
                 stroke="#10b981"
                 fill="#d1fae5"
                 fillOpacity={0.6}
@@ -342,59 +344,59 @@ export function BenchmarkCompare({
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <MetricCard
-              label="Alpha"
+              label={t('component.charts.benchmark_compare.metric_alpha')}
               value={`${(metrics.alpha * 100).toFixed(2)}%`}
-              sub="Annualized Jensen's α"
+              sub={t('component.charts.benchmark_compare.card_alpha_sub')}
               warn={metrics.alpha < 0}
             />
             <MetricCard
-              label="Beta"
+              label={t('component.charts.benchmark_compare.metric_beta')}
               value={metrics.beta.toFixed(3)}
-              sub="Systematic risk exposure"
+              sub={t('component.charts.benchmark_compare.card_beta_sub')}
             />
             <MetricCard
-              label="Tracking Error"
+              label={t('component.charts.benchmark_compare.metric_tracking_error')}
               value={`${(metrics.trackingError * 100).toFixed(2)}%`}
-              sub="Annualized TE"
+              sub={t('component.charts.benchmark_compare.card_te_sub')}
             />
             <MetricCard
-              label="Information Ratio"
+              label={t('component.charts.benchmark_compare.metric_information_ratio')}
               value={metrics.informationRatio.toFixed(3)}
-              sub="Excess return / TE"
+              sub={t('component.charts.benchmark_compare.card_ir_sub')}
               warn={metrics.informationRatio < 0}
             />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <MetricCard
-              label="Up Capture"
+              label={t('component.charts.benchmark_compare.metric_up_capture')}
               value={`${(metrics.upCapture * 100).toFixed(1)}%`}
-              sub="Gains vs benchmark up days"
+              sub={t('component.charts.benchmark_compare.card_up_capture_sub')}
               good={metrics.upCapture > 1}
               warn={metrics.upCapture < 1}
             />
             <MetricCard
-              label="Down Capture"
+              label={t('component.charts.benchmark_compare.metric_down_capture')}
               value={`${(metrics.downCapture * 100).toFixed(1)}%`}
-              sub="Losses vs benchmark down days"
+              sub={t('component.charts.benchmark_compare.card_down_capture_sub')}
               good={metrics.downCapture < 1}
               warn={metrics.downCapture > 1}
             />
             <MetricCard
-              label="Capture Ratio"
+              label={t('component.charts.benchmark_compare.metric_capture_ratio')}
               value={metrics.captureRatio.toFixed(3)}
-              sub="Up capture / Down capture"
+              sub={t('component.charts.benchmark_compare.card_capture_ratio_sub')}
               good={metrics.captureRatio > 1}
               warn={metrics.captureRatio < 1}
             />
             <MetricCard
-              label="Correlation"
+              label={t('component.charts.benchmark_compare.metric_correlation')}
               value={metrics.correlation.toFixed(4)}
-              sub="Pearson ρ (strategy vs benchmark)"
+              sub={t('component.charts.benchmark_compare.card_correlation_sub')}
             />
             <MetricCard
-              label="R²"
+              label={t('component.charts.benchmark_compare.metric_r_squared')}
               value={metrics.rSquared.toFixed(4)}
-              sub="Coefficient of determination"
+              sub={t('component.charts.benchmark_compare.card_r_squared_sub')}
             />
           </div>
         </>
@@ -404,7 +406,7 @@ export function BenchmarkCompare({
       {rollingBetaAlphaData.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-end">
-            <label className="text-xs text-gray-500 mr-2">Rolling Window:</label>
+            <label className="text-xs text-gray-500 mr-2">{t('component.charts.benchmark_compare.rolling_window')}</label>
             <select
               value={benchmarkRollingWindow}
               onChange={e => setBenchmarkRollingWindow(Number(e.target.value))}
@@ -416,14 +418,14 @@ export function BenchmarkCompare({
           <RollingMetricsChart
             data={rollingBetaAlphaData}
             metrics={[
-              { key: 'beta', label: 'Rolling Beta', color: '#8b5cf6' },
-              { key: 'alpha', label: 'Rolling Alpha', color: '#10b981' },
+              { key: 'beta', label: t('component.charts.benchmark_compare.rolling_beta'), color: '#8b5cf6' },
+              { key: 'alpha', label: t('component.charts.benchmark_compare.rolling_alpha'), color: '#10b981' },
             ]}
             window={benchmarkRollingWindow}
-            title="Rolling Beta / Alpha"
+            title={t('component.charts.benchmark_compare.rolling_beta_alpha_title')}
             referenceLines={[
-              { value: 1, label: 'Beta=1', color: '#c084fc' },
-              { value: 0, label: 'Zero', color: '#e5e7eb' },
+              { value: 1, label: t('component.charts.benchmark_compare.ref_beta_one'), color: '#c084fc' },
+              { value: 0, label: t('component.charts.benchmark_compare.ref_zero'), color: '#e5e7eb' },
             ]}
           />
         </div>

@@ -5,6 +5,7 @@
  * HHI legend: <1000 low concentration, 1000-1800 medium, >1800 high.
  */
 import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   AreaChart,
   Area,
@@ -34,10 +35,12 @@ function formatPct(value: number): string {
   return `${(value * 100).toFixed(1)}%`
 }
 
-function hhiLevel(hhi: number): { label: string; color: string; bg: string } {
-  if (hhi > 1800) return { label: 'High', color: 'text-red-600', bg: 'bg-red-50 border-red-200' }
-  if (hhi > 1000) return { label: 'Medium', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' }
-  return { label: 'Low', color: 'text-green-600', bg: 'bg-green-50 border-green-200' }
+type HhiLevelKey = 'high' | 'medium' | 'low'
+
+function hhiLevel(hhi: number): { key: HhiLevelKey; color: string; bg: string } {
+  if (hhi > 1800) return { key: 'high', color: 'text-red-600', bg: 'bg-red-50 border-red-200' }
+  if (hhi > 1000) return { key: 'medium', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' }
+  return { key: 'low', color: 'text-green-600', bg: 'bg-green-50 border-green-200' }
 }
 
 function WeightTooltip({ active, payload, label }: TooltipProps<number, string>) {
@@ -59,26 +62,30 @@ function WeightTooltip({ active, payload, label }: TooltipProps<number, string>)
 }
 
 function HHITooltip({ active, payload, label }: TooltipProps<number, string>) {
+  const { t } = useTranslation()
   if (!active || !payload?.length) return null
   const hhi = payload[0]?.value ?? 0
   const level = hhiLevel(hhi)
+  const levelLabel = t(`component.charts.position_concentration.level_${level.key}`)
   return (
     <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-3 text-xs">
       <p className="font-semibold text-gray-700 mb-1">{label}</p>
-      <p className="text-gray-800">HHI: <span className="font-medium">{hhi.toFixed(0)}</span></p>
-      <p className={`${level.color} font-medium`}>{level.label} Concentration</p>
+      <p className="text-gray-800">{t('component.charts.position_concentration.hhi_tooltip')}: <span className="font-medium">{hhi.toFixed(0)}</span></p>
+      <p className={`${level.color} font-medium`}>{t('component.charts.position_concentration.concentration_level', { level: levelLabel })}</p>
     </div>
   )
 }
 
-export function PositionConcentration({ data, title = 'Position Concentration' }: Props) {
+export function PositionConcentration({ data, title }: Props) {
+  const { t } = useTranslation()
   const uid = useId()
+  const resolvedTitle = title ?? t('component.charts.position_concentration.title')
   if (!data || data.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-2">{title}</h3>
+        <h3 className="font-semibold text-gray-800 mb-2">{resolvedTitle}</h3>
         <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
-          No concentration data available
+          {t('component.charts.position_concentration.no_data')}
         </div>
       </div>
     )
@@ -86,15 +93,16 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
 
   const latest = data[data.length - 1]
   const level = hhiLevel(latest.hhi)
+  const levelLabel = t(`component.charts.position_concentration.level_${level.key}`)
 
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800">{title}</h3>
+        <h3 className="font-semibold text-gray-800">{resolvedTitle}</h3>
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${level.bg}`}>
-          <span className="text-gray-500">HHI:</span>
+          <span className="text-gray-500">{t('component.charts.position_concentration.hhi_label')}</span>
           <span className="font-semibold text-gray-800">{latest.hhi.toFixed(0)}</span>
-          <span className={`font-medium ${level.color}`}>({level.label})</span>
+          <span className={`font-medium ${level.color}`}>({levelLabel})</span>
         </div>
       </div>
 
@@ -132,7 +140,7 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
           <Area
             type="monotone"
             dataKey="top20_weight"
-            name="Top 20"
+            name={t('component.charts.position_concentration.series_top20')}
             stackId="weights"
             stroke="#f59e0b"
             fill={`url(#${uid}-gradTop20)`}
@@ -141,7 +149,7 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
           <Area
             type="monotone"
             dataKey="top10_weight"
-            name="Top 10"
+            name={t('component.charts.position_concentration.series_top10')}
             stackId="weights"
             stroke="#10b981"
             fill={`url(#${uid}-gradTop10)`}
@@ -150,7 +158,7 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
           <Area
             type="monotone"
             dataKey="top5_weight"
-            name="Top 5"
+            name={t('component.charts.position_concentration.series_top5')}
             stackId="weights"
             stroke="#3b82f6"
             fill={`url(#${uid}-gradTop5)`}
@@ -161,7 +169,7 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
 
       {/* HHI series */}
       <div className="mt-6">
-        <h4 className="text-sm font-medium text-gray-600 mb-2">HHI Index Over Time</h4>
+        <h4 className="text-sm font-medium text-gray-600 mb-2">{t('component.charts.position_concentration.hhi_series_title')}</h4>
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
             <defs>
@@ -185,7 +193,7 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
             <Area
               type="monotone"
               dataKey="hhi"
-              name="HHI"
+              name={t('component.charts.position_concentration.series_hhi')}
               stroke="#8b5cf6"
               fill="url(#gradHHI)"
               strokeWidth={2}
@@ -196,15 +204,15 @@ export function PositionConcentration({ data, title = 'Position Concentration' }
         <div className="flex items-center justify-center gap-4 mt-2">
           <div className="flex items-center gap-1 text-xs">
             <div className="w-3 h-1 rounded bg-green-400" />
-            <span className="text-gray-500">&lt;1000 Low</span>
+            <span className="text-gray-500">{t('component.charts.position_concentration.legend_low')}</span>
           </div>
           <div className="flex items-center gap-1 text-xs">
             <div className="w-3 h-1 rounded bg-amber-400" />
-            <span className="text-gray-500">1000-1800 Medium</span>
+            <span className="text-gray-500">{t('component.charts.position_concentration.legend_medium')}</span>
           </div>
           <div className="flex items-center gap-1 text-xs">
             <div className="w-3 h-1 rounded bg-red-400" />
-            <span className="text-gray-500">&gt;1800 High</span>
+            <span className="text-gray-500">{t('component.charts.position_concentration.legend_high')}</span>
           </div>
         </div>
       </div>

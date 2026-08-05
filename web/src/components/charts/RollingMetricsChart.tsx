@@ -5,6 +5,8 @@
  *  - OverviewTab for rolling Sharpe / Volatility
  *  - BenchmarkCompare for rolling Beta / Alpha
  */
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   LineChart,
   Line,
@@ -93,6 +95,7 @@ export function RollingMetricsChart({
   height = 250,
   referenceLines,
 }: RollingMetricsChartProps) {
+  const { t } = useTranslation()
   if (!data || data.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border p-4">
@@ -100,7 +103,7 @@ export function RollingMetricsChart({
           <div className="text-sm font-semibold text-gray-800 mb-2">
             {title}
             <span className="text-xs font-normal text-gray-400 ml-2">
-              window={windowSize}
+              {t('component.charts.rolling_metrics.window_label', { window: windowSize })}
             </span>
           </div>
         )}
@@ -108,7 +111,7 @@ export function RollingMetricsChart({
           className="flex items-center justify-center rounded-lg bg-gray-50 text-gray-400 text-sm"
           style={{ height }}
         >
-          No rolling data available
+          {t('component.charts.rolling_metrics.no_data')}
         </div>
       </div>
     )
@@ -122,7 +125,7 @@ export function RollingMetricsChart({
         <div className="text-sm font-semibold text-gray-800 mb-2">
           {title}
           <span className="text-xs font-normal text-gray-400 ml-2">
-            window={windowSize}
+            {t('component.charts.rolling_metrics.window_label', { window: windowSize })}
           </span>
         </div>
       )}

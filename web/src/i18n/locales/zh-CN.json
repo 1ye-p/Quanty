@@ -1013,6 +1013,119 @@
         "empty_text": "暂无数据",
         "load_failed_title": "加载失败"
       }
+    },
+    "charts": {
+      "benchmark_compare": {
+        "title": "基准对比",
+        "no_overlap": "策略与基准无重叠日期",
+        "excess_return": "超额收益",
+        "vs_benchmark": "对比 {{benchmark}}",
+        "cumulative_excess": "累计超额收益",
+        "rebalance": "调仓",
+        "rolling_window": "滚动窗口",
+        "rolling_beta_alpha_title": "滚动 Beta / Alpha",
+        "rolling_beta": "滚动 Beta",
+        "rolling_alpha": "滚动 Alpha",
+        "ref_beta_one": "Beta=1",
+        "ref_zero": "零轴",
+        "line_strategy": "策略",
+        "area_excess": "超额收益",
+        "card_alpha_sub": "年化 Jensen α",
+        "card_beta_sub": "系统性风险暴露",
+        "card_te_sub": "年化跟踪误差",
+        "card_ir_sub": "超额收益 / 跟踪误差",
+        "card_up_capture_sub": "基准上涨日捕获",
+        "card_down_capture_sub": "基准下跌日损失",
+        "card_capture_ratio_sub": "上行捕获 / 下行捕获",
+        "card_correlation_sub": "Pearson 相关系数（策略 vs 基准）",
+        "card_r_squared_sub": "决定系数",
+        "metric_alpha": "Alpha",
+        "metric_beta": "Beta",
+        "metric_tracking_error": "跟踪误差",
+        "metric_information_ratio": "信息比率",
+        "metric_up_capture": "上行捕获",
+        "metric_down_capture": "下行捕获",
+        "metric_capture_ratio": "捕获比率",
+        "metric_correlation": "相关系数",
+        "metric_r_squared": "R²",
+        "empty_title": "图表"
+      },
+      "collapsed_marker_tooltip": {
+        "trades_count": "{{count}} 笔交易",
+        "buys": "{{count}} 买",
+        "sells": "{{count}} 卖",
+        "marker_buys": "{{count}} 买",
+        "marker_sells": "{{count}} 卖",
+        "marker_join": " / "
+      },
+      "factor_correlation_matrix": {
+        "title": "因子相关性矩阵",
+        "no_data": "暂无相关性数据",
+        "matrix_mismatch": "矩阵尺寸不匹配：期望 {{expected}}，实际 {{actual}}",
+        "legend_label": "相关性："
+      },
+      "ic_timeseries_heatmap": {
+        "title": "IC 时序热力图",
+        "no_data": "暂无 IC 数据",
+        "no_match_granularity": "所选粒度无匹配数据",
+        "granularity_week": "周",
+        "granularity_month": "月",
+        "granularity_quarter": "季",
+        "col_factor": "因子",
+        "legend_label": "IC："
+      },
+      "kline": {
+        "no_data": "暂无行情数据"
+      },
+      "monthly_return_heatmap": {
+        "title": "月度收益",
+        "no_data": "暂无收益数据",
+        "col_year": "年份",
+        "col_total": "合计"
+      },
+      "pnl": {
+        "no_data": "暂无时序数据",
+        "series_nav": "净值",
+        "series_drawdown": "回撤"
+      },
+      "position_concentration": {
+        "title": "持仓集中度",
+        "no_data": "暂无集中度数据",
+        "hhi_label": "HHI：",
+        "hhi_series_title": "HHI 指数变化",
+        "hhi_tooltip": "HHI",
+        "concentration_level": "{{level}} 集中",
+        "level_low": "低",
+        "level_medium": "中",
+        "level_high": "高",
+        "series_top20": "前20",
+        "series_top10": "前10",
+        "series_top5": "前5",
+        "series_hhi": "HHI",
+        "legend_low": "<1000 低",
+        "legend_medium": "1000-1800 中",
+        "legend_high": ">1800 高"
+      },
+      "rolling_metrics": {
+        "window_label": "窗口={{window}}",
+        "no_data": "暂无滚动数据"
+      },
+      "trade_scatter": {
+        "title": "交易散点图",
+        "no_data": "暂无交易数据",
+        "filter_all": "全部",
+        "filter_profit": "盈利",
+        "filter_loss": "亏损",
+        "tooltip_date": "日期",
+        "tooltip_side": "方向",
+        "tooltip_price": "价格",
+        "tooltip_qty": "数量",
+        "tooltip_pnl": "盈亏",
+        "series_buy": "买入",
+        "series_sell": "卖出",
+        "legend_buy": "买入",
+        "legend_sell": "卖出"
+      }
     }
   },
   "page": {

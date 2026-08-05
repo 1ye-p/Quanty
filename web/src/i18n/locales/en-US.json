@@ -1013,6 +1013,119 @@
         "empty_text": "No data",
         "load_failed_title": "Load failed"
       }
+    },
+    "charts": {
+      "benchmark_compare": {
+        "title": "Benchmark Comparison",
+        "no_overlap": "No overlapping dates between strategy and benchmark",
+        "excess_return": "Excess Return",
+        "vs_benchmark": "vs {{benchmark}}",
+        "cumulative_excess": "Cumulative Excess Return",
+        "rebalance": "Rebalance",
+        "rolling_window": "Rolling Window:",
+        "rolling_beta_alpha_title": "Rolling Beta / Alpha",
+        "rolling_beta": "Rolling Beta",
+        "rolling_alpha": "Rolling Alpha",
+        "ref_beta_one": "Beta=1",
+        "ref_zero": "Zero",
+        "line_strategy": "Strategy",
+        "area_excess": "Excess Return",
+        "card_alpha_sub": "Annualized Jensen's α",
+        "card_beta_sub": "Systematic risk exposure",
+        "card_te_sub": "Annualized TE",
+        "card_ir_sub": "Excess return / TE",
+        "card_up_capture_sub": "Gains vs benchmark up days",
+        "card_down_capture_sub": "Losses vs benchmark down days",
+        "card_capture_ratio_sub": "Up capture / Down capture",
+        "card_correlation_sub": "Pearson ρ (strategy vs benchmark)",
+        "card_r_squared_sub": "Coefficient of determination",
+        "metric_alpha": "Alpha",
+        "metric_beta": "Beta",
+        "metric_tracking_error": "Tracking Error",
+        "metric_information_ratio": "Information Ratio",
+        "metric_up_capture": "Up Capture",
+        "metric_down_capture": "Down Capture",
+        "metric_capture_ratio": "Capture Ratio",
+        "metric_correlation": "Correlation",
+        "metric_r_squared": "R²",
+        "empty_title": "Chart"
+      },
+      "collapsed_marker_tooltip": {
+        "trades_count": "{{count}} trades",
+        "buys": "{{count}} buy",
+        "sells": "{{count}} sell",
+        "marker_buys": "{{count}} buy",
+        "marker_sells": "{{count}} sell",
+        "marker_join": " / "
+      },
+      "factor_correlation_matrix": {
+        "title": "Factor Correlation Matrix",
+        "no_data": "No correlation data available",
+        "matrix_mismatch": "Matrix size mismatch: expected {{expected}}, got {{actual}}",
+        "legend_label": "Correlation:"
+      },
+      "ic_timeseries_heatmap": {
+        "title": "IC Timeseries Heatmap",
+        "no_data": "No IC data available",
+        "no_match_granularity": "No matching data for selected granularity",
+        "granularity_week": "Weekly",
+        "granularity_month": "Monthly",
+        "granularity_quarter": "Quarterly",
+        "col_factor": "Factor",
+        "legend_label": "IC:"
+      },
+      "kline": {
+        "no_data": "No price data available"
+      },
+      "monthly_return_heatmap": {
+        "title": "Monthly Returns",
+        "no_data": "No return data available",
+        "col_year": "Year",
+        "col_total": "Total"
+      },
+      "pnl": {
+        "no_data": "No time series data",
+        "series_nav": "NAV",
+        "series_drawdown": "Drawdown"
+      },
+      "position_concentration": {
+        "title": "Position Concentration",
+        "no_data": "No concentration data available",
+        "hhi_label": "HHI:",
+        "hhi_series_title": "HHI Index Over Time",
+        "hhi_tooltip": "HHI",
+        "concentration_level": "{{level}} Concentration",
+        "level_low": "Low",
+        "level_medium": "Medium",
+        "level_high": "High",
+        "series_top20": "Top 20",
+        "series_top10": "Top 10",
+        "series_top5": "Top 5",
+        "series_hhi": "HHI",
+        "legend_low": "<1000 Low",
+        "legend_medium": "1000-1800 Medium",
+        "legend_high": ">1800 High"
+      },
+      "rolling_metrics": {
+        "window_label": "window={{window}}",
+        "no_data": "No rolling data available"
+      },
+      "trade_scatter": {
+        "title": "Trade Scatter",
+        "no_data": "No trade data available",
+        "filter_all": "All",
+        "filter_profit": "Profit",
+        "filter_loss": "Loss",
+        "tooltip_date": "Date",
+        "tooltip_side": "Side",
+        "tooltip_price": "Price",
+        "tooltip_qty": "Qty",
+        "tooltip_pnl": "P&L",
+        "series_buy": "Buy",
+        "series_sell": "Sell",
+        "legend_buy": "Buy",
+        "legend_sell": "Sell"
+      }
     }
   },
   "page": {

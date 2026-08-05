@@ -9,6 +9,7 @@
  *   >=-5%  red         (bg-red-500)
  *   <-5%  dark red    (bg-red-700)
  */
+import { useTranslation } from 'react-i18next'
 
 export interface MonthlyReturnRow {
   year: number
@@ -50,13 +51,15 @@ const LEGEND_ITEMS = [
   { label: '<-5%', className: 'bg-red-700' },
 ]
 
-export function MonthlyReturnHeatmap({ data, title = 'Monthly Returns' }: Props) {
+export function MonthlyReturnHeatmap({ data, title }: Props) {
+  const { t } = useTranslation()
+  const resolvedTitle = title ?? t('component.charts.monthly_return_heatmap.title')
   if (!data || data.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-2">{title}</h3>
+        <h3 className="font-semibold text-gray-800 mb-2">{resolvedTitle}</h3>
         <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
-          No return data available
+          {t('component.charts.monthly_return_heatmap.no_data')}
         </div>
       </div>
     )
@@ -66,17 +69,17 @@ export function MonthlyReturnHeatmap({ data, title = 'Monthly Returns' }: Props)
 
   return (
     <div className="card">
-      <h3 className="font-semibold text-gray-800 mb-4">{title}</h3>
+      <h3 className="font-semibold text-gray-800 mb-4">{resolvedTitle}</h3>
 
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="text-gray-500">
-              <th className="py-1.5 px-2 text-left font-medium sticky left-0 bg-white">Year</th>
+              <th className="py-1.5 px-2 text-left font-medium sticky left-0 bg-white">{t('component.charts.monthly_return_heatmap.col_year')}</th>
               {MONTH_LABELS.map(m => (
                 <th key={m} className="py-1.5 px-2 text-center font-medium">{m}</th>
               ))}
-              <th className="py-1.5 px-2 text-center font-medium border-l border-gray-200">Total</th>
+              <th className="py-1.5 px-2 text-center font-medium border-l border-gray-200">{t('component.charts.monthly_return_heatmap.col_total')}</th>
             </tr>
           </thead>
           <tbody>

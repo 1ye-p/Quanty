@@ -8,6 +8,7 @@
  *   ddColor    — Drawdown area color (default #ef4444)
  */
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   createChart,
   ColorType,
@@ -37,10 +38,14 @@ export function PnLChart({
   ddColor = '#ef4444',
   showDrawdown = true,
 }: Props) {
+  const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const navSeriesRef = useRef<ISeriesApi<'Line'> | null>(null)
   const ddSeriesRef = useRef<ISeriesApi<'Area'> | null>(null)
+
+  const navTitle = t('component.charts.pnl.series_nav')
+  const ddTitle = t('component.charts.pnl.series_drawdown')
 
   // Init chart
   useEffect(() => {
@@ -68,7 +73,7 @@ export function PnLChart({
     const navSeries = chart.addLineSeries({
       color: navColor,
       lineWidth: 2,
-      title: 'NAV',
+      title: navTitle,
       priceScaleId: 'right',
     })
     navSeriesRef.current = navSeries
@@ -80,7 +85,7 @@ export function PnLChart({
         topColor: `${ddColor}30`,
         bottomColor: `${ddColor}00`,
         lineWidth: 1,
-        title: 'Drawdown',
+        title: ddTitle,
         priceScaleId: 'left',
         lineStyle: LineStyle.Dotted,
       })
@@ -99,7 +104,7 @@ export function PnLChart({
       chart.remove()
       chartRef.current = null
     }
-  }, [height, navColor, ddColor, showDrawdown])
+  }, [height, navColor, ddColor, showDrawdown, navTitle, ddTitle])
 
   // Update data
   useEffect(() => {
@@ -127,7 +132,7 @@ export function PnLChart({
         className="flex items-center justify-center rounded-lg bg-gray-50 text-gray-400 text-sm"
         style={{ height }}
       >
-        暂无时序数据
+        {t('component.charts.pnl.no_data')}
       </div>
     )
   }

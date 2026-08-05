@@ -5,6 +5,7 @@
  * Filter buttons: all, profit, loss.
  */
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ScatterChart,
   Scatter,
@@ -42,6 +43,7 @@ interface ScatterTooltipPayload {
 }
 
 function TradeTooltip({ active, payload }: TooltipProps<number, string>) {
+  const { t } = useTranslation()
   if (!active || !payload?.length) return null
   const trade = (payload[0] as unknown as ScatterTooltipPayload)?.payload
   if (!trade) return null
@@ -57,28 +59,28 @@ function TradeTooltip({ active, payload }: TooltipProps<number, string>) {
       )}
       <div className="space-y-1">
         <div className="flex justify-between">
-          <span className="text-gray-500">Date</span>
+          <span className="text-gray-500">{t('component.charts.trade_scatter.tooltip_date')}</span>
           <span className="text-gray-800 font-medium">{trade.date}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500">Side</span>
+          <span className="text-gray-500">{t('component.charts.trade_scatter.tooltip_side')}</span>
           <span className={`font-medium ${trade.side === 'buy' ? 'text-green-600' : 'text-red-600'}`}>
             {trade.side.toUpperCase()}
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500">Price</span>
+          <span className="text-gray-500">{t('component.charts.trade_scatter.tooltip_price')}</span>
           <span className="text-gray-800 font-medium">{formatPrice(trade.price)}</span>
         </div>
         {trade.quantity != null && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Qty</span>
+            <span className="text-gray-500">{t('component.charts.trade_scatter.tooltip_qty')}</span>
             <span className="text-gray-800 font-medium">{trade.quantity}</span>
           </div>
         )}
         {trade.pnl != null && (
           <div className="flex justify-between border-t border-gray-100 pt-1 mt-1">
-            <span className="text-gray-500">P&L</span>
+            <span className="text-gray-500">{t('component.charts.trade_scatter.tooltip_pnl')}</span>
             <span className={`font-semibold ${pnlColor}`}>
               {trade.pnl >= 0 ? '+' : ''}{(trade.pnl * 100).toFixed(2)}%
             </span>
@@ -104,8 +106,16 @@ function SellTriangle(props: { cx?: number; cy?: number }) {
   return <polygon points={points} fill="#dc2626" stroke="#b91c1c" strokeWidth={1} opacity={0.85} />
 }
 
-export function TradeScatter({ data, title = 'Trade Scatter' }: Props) {
+export function TradeScatter({ data, title }: Props) {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<FilterMode>('all')
+  const resolvedTitle = title ?? t('component.charts.trade_scatter.title')
+
+  const filters: { key: FilterMode; label: string }[] = [
+    { key: 'all', label: t('component.charts.trade_scatter.filter_all') },
+    { key: 'profit', label: t('component.charts.trade_scatter.filter_profit') },
+    { key: 'loss', label: t('component.charts.trade_scatter.filter_loss') },
+  ]
 
   const { buys, sells } = useMemo(() => {
     let filtered = data
@@ -123,24 +133,18 @@ export function TradeScatter({ data, title = 'Trade Scatter' }: Props) {
   if (!data || data.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-2">{title}</h3>
+        <h3 className="font-semibold text-gray-800 mb-2">{resolvedTitle}</h3>
         <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
-          No trade data available
+          {t('component.charts.trade_scatter.no_data')}
         </div>
       </div>
     )
   }
 
-  const filters: { key: FilterMode; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'profit', label: 'Profit' },
-    { key: 'loss', label: 'Loss' },
-  ]
-
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800">{title}</h3>
+        <h3 className="font-semibold text-gray-800">{resolvedTitle}</h3>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
           {filters.map(f => (
             <button
@@ -174,17 +178,17 @@ export function TradeScatter({ data, title = 'Trade Scatter' }: Props) {
             tick={{ fontSize: 11, fill: '#6b7280' }}
             axisLine={{ stroke: '#e5e7eb' }}
             tickFormatter={formatPrice}
-            name="Price"
+            name={t('component.charts.trade_scatter.tooltip_price')}
           />
           <ZAxis range={[40, 40]} />
           <Tooltip content={<TradeTooltip />} cursor={false} />
           <Scatter
-            name="Buy"
+            name={t('component.charts.trade_scatter.series_buy')}
             data={buys}
             shape={<BuyTriangle />}
           />
           <Scatter
-            name="Sell"
+            name={t('component.charts.trade_scatter.series_sell')}
             data={sells}
             shape={<SellTriangle />}
           />
@@ -197,13 +201,13 @@ export function TradeScatter({ data, title = 'Trade Scatter' }: Props) {
           <svg width="14" height="14" viewBox="0 0 14 14">
             <polygon points="7,1 1,13 13,13" fill="#16a34a" stroke="#15803d" strokeWidth={1} />
           </svg>
-          Buy
+          {t('component.charts.trade_scatter.legend_buy')}
         </div>
         <div className="flex items-center gap-1.5 text-xs text-gray-600">
           <svg width="14" height="14" viewBox="0 0 14 14">
             <polygon points="7,13 1,1 13,1" fill="#dc2626" stroke="#b91c1c" strokeWidth={1} />
           </svg>
-          Sell
+          {t('component.charts.trade_scatter.legend_sell')}
         </div>
       </div>
     </div>
