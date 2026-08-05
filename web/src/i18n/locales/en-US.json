@@ -1925,7 +1925,29 @@
       "docs_subtitle": "Research reports, strategy docs, notes management & semantic search",
       "search_placeholder": "Search docs… (semantic + keyword hybrid)",
       "sources": "Sources ({{count}})",
-      "source_meta": "Doc {{id}}... relevance {{score}}"
+      "source_meta": "Doc {{id}}... relevance {{score}}",
+      "tab_search": "Search",
+      "tab_qa": "Q&A",
+      "search": {
+        "results": "Results for \"{{keyword}}\" ({{count}})",
+        "searching": "Searching…",
+        "upload": "Upload Document",
+        "collapse": "Collapse",
+        "no_title": "Untitled",
+        "relevance": "Relevance",
+        "confirm_delete": "Are you sure you want to delete this document?",
+        "deleting": "Deleting…",
+        "deleted_toast": "Document deleted",
+        "delete_failed": "Delete failed: {{message}}"
+      },
+      "qa": {
+        "qa_failed_retry": "Q&A failed, please retry",
+        "thinking": "Thinking...",
+        "empty": "Knowledge base is empty, please upload documents first",
+        "failed": "Q&A failed: {{message}}",
+        "sending": "Sending...",
+        "send": "Ask"
+      }
     },
     "alerts": {
       "center": "Alert Center",

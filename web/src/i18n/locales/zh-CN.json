@@ -1925,7 +1925,29 @@
       "docs_subtitle": "研报、策略文档、笔记管理与语义检索",
       "search_placeholder": "搜索文档…（语义 + 关键词混合检索）",
       "sources": "参考来源（{{count}} 条）",
-      "source_meta": "文档 {{id}}... 相关度 {{score}}"
+      "source_meta": "文档 {{id}}... 相关度 {{score}}",
+      "tab_search": "搜索",
+      "tab_qa": "问答",
+      "search": {
+        "results": "“{{keyword}}” 的结果（{{count}} 条）",
+        "searching": "搜索中…",
+        "upload": "上传文档",
+        "collapse": "收起",
+        "no_title": "无标题",
+        "relevance": "相关度",
+        "confirm_delete": "确定删除该文档？",
+        "deleting": "删除中…",
+        "deleted_toast": "文档已删除",
+        "delete_failed": "删除失败：{{message}}"
+      },
+      "qa": {
+        "qa_failed_retry": "问答失败，请重试",
+        "thinking": "思考中...",
+        "empty": "知识库为空，请先上传文档",
+        "failed": "问答失败：{{message}}",
+        "sending": "发送中...",
+        "send": "提问"
+      }
     },
     "alerts": {
       "center": "告警中心",

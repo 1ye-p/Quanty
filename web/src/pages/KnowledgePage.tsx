@@ -47,7 +47,7 @@ function QATab() {
       setQuestion('')
     },
     onError: (err: Error) => {
-      toast.error(err.message || '问答失败，请重试')
+      toast.error(err.message || t('page.knowledge.qa.qa_failed_retry'))
     },
   })
 
@@ -153,7 +153,7 @@ function QATab() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                思考中...
+                {t('page.knowledge.qa.thinking')}
               </div>
             </div>
           </div>
@@ -165,8 +165,8 @@ function QATab() {
             <div className="bg-red-50 rounded-2xl rounded-bl-md border border-red-200 px-4 py-3">
               <p className="text-sm text-red-600">
                 {qaMutation.error.message.includes('empty')
-                  ? '知识库为空，请先上传文档'
-                  : `问答失败：${qaMutation.error.message}`}
+                  ? t('page.knowledge.qa.empty')
+                  : t('page.knowledge.qa.failed', { message: qaMutation.error.message })}
               </p>
             </div>
           </div>
@@ -190,7 +190,7 @@ function QATab() {
             className="btn-primary"
             disabled={!question.trim() || qaMutation.isPending}
           >
-            {qaMutation.isPending ? '发送中...' : '提问'}
+            {qaMutation.isPending ? t('page.knowledge.qa.sending') : t('page.knowledge.qa.send')}
           </button>
         </form>
       </div>
@@ -222,11 +222,11 @@ function SearchTab({
   const deleteMutation = useMutation({
     mutationFn: (id: string) => knowledgeApi.delete(id),
     onSuccess: () => {
-      toast.success('文档已删除')
+      toast.success(t('page.knowledge.search.deleted_toast'))
       setSelectedDoc(null)
       qc.invalidateQueries({ queryKey: queryKeys.knowledge.all })
     },
-    onError: (err: Error) => toast.error(`删除失败：${err.message}`),
+    onError: (err: Error) => toast.error(t('page.knowledge.search.delete_failed', { message: err.message })),
   })
 
   function handleSearch(e: React.FormEvent) {
@@ -246,7 +246,7 @@ function SearchTab({
             className="btn-primary"
             onClick={() => setShowUpload((prev) => !prev)}
           >
-            {showUpload ? '收起' : '上传文档'}
+            {showUpload ? t('page.knowledge.search.collapse') : t('page.knowledge.search.upload')}
           </button>
         </div>
 
@@ -273,7 +273,9 @@ function SearchTab({
         {submitted && (
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-gray-600 mb-3">
-              {searching ? '搜索中…' : `"${submitted}" 的结果（${results?.total_found ?? 0} 条）`}
+              {searching
+                ? t('page.knowledge.search.searching')
+                : t('page.knowledge.search.results', { keyword: submitted, count: results?.total_found ?? 0 })}
             </h3>
             <div className="space-y-2">
               {results?.hits.map((hit: SearchHit) => (
@@ -293,9 +295,9 @@ function SearchTab({
                     setSearchText('')
                   }}
                 >
-                  <div className="font-medium text-gray-900">{hit.title || '无标题'}</div>
+                  <div className="font-medium text-gray-900">{hit.title || t('page.knowledge.search.no_title')}</div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {hit.source_name} · {hit.logical_type} · 相关度 {hit.score.toFixed(3)}
+                    {hit.source_name} · {hit.logical_type} · {t('page.knowledge.search.relevance')} {hit.score.toFixed(3)}
                   </div>
                   {hit.headline && (
                     <div className="mt-2 text-sm text-gray-600 italic">{hit.headline}</div>
@@ -333,12 +335,12 @@ function SearchTab({
                 className="text-sm text-red-500 hover:text-red-700 transition-colors"
                 disabled={deleteMutation.isPending}
                 onClick={() => {
-                  if (confirm('确定删除该文档？')) {
+                  if (confirm(t('page.knowledge.search.confirm_delete'))) {
                     deleteMutation.mutate(selectedDoc.doc_id)
                   }
                 }}
               >
-                {deleteMutation.isPending ? '删除中…' : '删除'}
+                {deleteMutation.isPending ? t('page.knowledge.search.deleting') : t('common.delete')}
               </button>
             </div>
           )}
@@ -362,8 +364,8 @@ export function KnowledgePage() {
   const [selectedDoc, setSelectedDoc] = useState<KnowledgeDoc | null>(null)
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: 'search', label: '搜索' },
-    { key: 'qa', label: '问答' },
+    { key: 'search', label: t('page.knowledge.tab_search') },
+    { key: 'qa', label: t('page.knowledge.tab_qa') },
   ]
 
   return (
