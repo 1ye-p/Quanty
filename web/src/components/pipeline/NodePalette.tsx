@@ -4,9 +4,11 @@
  * Each item is draggable; on drop the ReactFlow canvas receives the node type
  * via `dataTransfer.setData('application/reactflow', nodeType)`.
  */
+import { useTranslation } from 'react-i18next'
 import { NODE_TYPES } from './NodeTypeRegistry'
 
 export function NodePalette() {
+  const { t } = useTranslation()
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType)
     event.dataTransfer.effectAllowed = 'move'
@@ -14,7 +16,7 @@ export function NodePalette() {
 
   return (
     <div className="w-48 bg-white border-r p-3 space-y-2">
-      <h3 className="text-sm font-semibold text-gray-700 mb-2">节点类型</h3>
+      <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('component.pipeline.node_type')}</h3>
       {NODE_TYPES.map((nt) => (
         <div
           key={nt.type}
@@ -25,7 +27,7 @@ export function NodePalette() {
         >
           <span>{nt.icon}</span>
           <span className="text-xs font-medium" style={{ color: nt.color.text }}>
-            {nt.label}
+            {t(`component.pipeline.node_label.${nt.type}`, { defaultValue: nt.label })}
           </span>
         </div>
       ))}

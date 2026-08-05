@@ -92,7 +92,12 @@
       "running_tasks": "个任务运行中",
       "running_tasks_title": "进行中的任务",
       "auto_refresh": "每10秒自动刷新",
-      "no_running_tasks": "无运行中任务"
+      "no_running_tasks": "无运行中任务",
+      "language_switcher": {
+        "aria_label": "语言",
+        "zh-CN": "中文",
+        "en-US": "English"
+      }
     }
   },
   "component": {
@@ -365,7 +370,63 @@
       "custom_range_results": "自定义区间结果",
       "scenario_comparison": "情景对比汇总",
       "scenario": "情景",
-      "benchmark_return": "基准收益"
+      "benchmark_return": "基准收益",
+      "factor_risk": {
+        "empty": "暂无持仓权重数据",
+        "load_failed": "加载失败: {{message}}",
+        "total_risk": "总风险",
+        "factor_risk": "因子风险",
+        "factor_risk_pct": "因子风险占比",
+        "idiosyncratic_risk": "特异性风险",
+        "style_exposure_title": "风格暴露雷达图",
+        "style_risk_title": "风格风险贡献",
+        "industry_risk_title": "行业风险贡献 (Top 10)",
+        "exposure": "暴露",
+        "risk_contribution": "风险贡献",
+        "style": {
+          "market_cap": "市值",
+          "value": "价值",
+          "momentum": "动量",
+          "volatility": "波动率",
+          "turnover": "换手率",
+          "quality": "质量"
+        }
+      },
+      "position_risk": {
+        "empty": "暂无持仓",
+        "load_failed": "加载失败: {{message}}",
+        "var_method": {
+          "parametric": "参数法",
+          "historical": "历史模拟",
+          "monte_carlo": "蒙特卡洛"
+        },
+        "portfolio_var_title": "组合 VaR",
+        "portfolio_var": "组合 VaR",
+        "var_amount": "VaR 金额",
+        "cvar": "CVaR / ES",
+        "diversification_benefit": "分散化收益",
+        "confidence_horizon": "置信度 / 期限",
+        "position_count": "持仓数量",
+        "concentration_hhi": "集中度 (HHI)",
+        "max_single_weight": "最大单只占比",
+        "sector_concentration": "行业集中度",
+        "weight_distribution_title": "持仓权重分布",
+        "position_detail_title": "持仓明细",
+        "col": {
+          "asset": "标的",
+          "weight": "权重",
+          "market_value": "市值",
+          "beta": "Beta",
+          "volatility": "波动率",
+          "var_95": "VaR (95%)"
+        },
+        "weight": "权重"
+      },
+      "event_history": {
+        "empty": "暂无风控事件",
+        "load_failed": "加载失败: {{message}}",
+        "title": "风控事件历史"
+      }
     },
     "tearsheet": {
       "section": {
@@ -1699,6 +1760,135 @@
         "label_concentration": "持仓集中度",
         "label_turnover": "日换手率",
         "alerts_title": "风险告警"
+      }
+    },
+    "pipeline": {
+      "node_type": "节点类型",
+      "no_config_fields": "该节点类型暂无可配置项",
+      "select_placeholder": "请选择...",
+      "config_title": "配置: {{label}}",
+      "close": "关闭",
+      "status": {
+        "running": "运行中",
+        "success": "成功",
+        "failed": "失败",
+        "cancelled": "已取消",
+        "error": "失败",
+        "partial_failure": "部分失败",
+        "idle": "空闲",
+        "started": "已启动",
+        "already_running": "运行中",
+        "pending": "等待中"
+      },
+      "execution_history": {
+        "title": "执行历史",
+        "empty": "暂无执行记录",
+        "load_failed": "加载失败"
+      },
+      "status_card": {
+        "title": "管道状态",
+        "loading": "加载管道状态...",
+        "unavailable": "无法获取管道状态",
+        "total_stages": "总阶段",
+        "run_id": "运行 ID",
+        "started": "开始",
+        "finished": "结束",
+        "duration": "耗时"
+      },
+      "run_dialog": {
+        "title": "运行管道",
+        "params_label": "参数 (JSON)",
+        "json_error": "JSON 格式错误",
+        "run": "运行",
+        "triggering": "触发中...",
+        "triggered": "管道已触发",
+        "trigger_failed": "触发失败: {{message}}"
+      },
+      "node_label": {
+        "data_source": "数据源",
+        "factor_calc": "因子计算",
+        "model_train": "模型训练",
+        "backtest": "回测",
+        "optimize": "组合优化",
+        "merge": "合并",
+        "filter": "过滤",
+        "custom_script": "自定义"
+      },
+      "node_desc": {
+        "data_source": "加载数据",
+        "factor_calc": "计算因子",
+        "model_train": "训练ML模型",
+        "backtest": "运行回测",
+        "optimize": "组合优化",
+        "merge": "合并多条路径",
+        "filter": "过滤数据",
+        "custom_script": "自定义脚本"
+      },
+      "config_field": {
+        "source": "数据源",
+        "start_date": "开始日期",
+        "end_date": "结束日期",
+        "factor_set": "因子集",
+        "universe": "股票池",
+        "model_name": "模型",
+        "n_folds": "交叉验证折数",
+        "strategy_type": "策略类型",
+        "top_n": "选股数量",
+        "method": "优化方法",
+        "max_weight": "单股权重上限"
+      },
+      "config_option": {
+        "source_tdx": "通达信",
+        "source_tushare": "Tushare",
+        "source_akshare": "AKShare",
+        "factor_alpha158": "Alpha158",
+        "factor_alpha101": "Alpha101",
+        "factor_gtja191": "GTJA191",
+        "factor_all": "全部因子",
+        "universe_hs300": "沪深300",
+        "universe_zz500": "中证500",
+        "universe_zz1000": "中证1000",
+        "universe_all": "全市场",
+        "model_lightgbm": "LightGBM",
+        "model_xgboost": "XGBoost",
+        "model_random_forest": "随机森林",
+        "strategy_top_n": "Top-N 选股",
+        "strategy_ml_signal": "ML 信号",
+        "strategy_multi_factor": "多因子",
+        "method_mvo": "均值-方差 (MVO)",
+        "method_risk_parity": "风险平价",
+        "method_min_variance": "最小方差"
+      }
+    },
+    "knowledge": {
+      "doc_list": {
+        "load_failed": "加载失败：{{message}}",
+        "empty": "暂无文档",
+        "untitled": "无标题"
+      },
+      "doc_preview": {
+        "select_prompt": "选择文档以预览",
+        "load_failed": "加载失败：{{message}}",
+        "no_content": "无可预览内容"
+      },
+      "doc_tags": {
+        "all": "全部"
+      },
+      "doc_upload": {
+        "title": "上传文档",
+        "no_file_error": "请选择文件",
+        "upload_success": "文档上传成功",
+        "upload_failed": "上传失败：{{message}}",
+        "drop_hint": "拖拽文件到此处，或点击选择",
+        "format_hint": "支持 PDF、Word、Markdown、Python、Notebook 等",
+        "description_label": "描述（可选）",
+        "description_placeholder": "文档描述…",
+        "tags_label": "标签",
+        "tag_placeholder": "输入标签后按 Enter",
+        "add_tag": "添加",
+        "uploading": "上传中...",
+        "upload_button_uploading": "上传中…",
+        "upload_button": "上传"
       }
     }
   },

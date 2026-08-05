@@ -92,7 +92,12 @@
       "running_tasks": "tasks running",
       "running_tasks_title": "Running Tasks",
       "auto_refresh": "Auto-refresh every 10s",
-      "no_running_tasks": "No running tasks"
+      "no_running_tasks": "No running tasks",
+      "language_switcher": {
+        "aria_label": "Language",
+        "zh-CN": "中文",
+        "en-US": "English"
+      }
     }
   },
   "component": {
@@ -365,7 +370,63 @@
       "custom_range_results": "Custom Range Results",
       "scenario_comparison": "Scenario Comparison Summary",
       "scenario": "Scenario",
-      "benchmark_return": "Benchmark Return"
+      "benchmark_return": "Benchmark Return",
+      "factor_risk": {
+        "empty": "No position weight data",
+        "load_failed": "Failed to load: {{message}}",
+        "total_risk": "Total Risk",
+        "factor_risk": "Factor Risk",
+        "factor_risk_pct": "Factor Risk Share",
+        "idiosyncratic_risk": "Idiosyncratic Risk",
+        "style_exposure_title": "Style Exposure Radar",
+        "style_risk_title": "Style Risk Contribution",
+        "industry_risk_title": "Industry Risk Contribution (Top 10)",
+        "exposure": "Exposure",
+        "risk_contribution": "Risk Contribution",
+        "style": {
+          "market_cap": "Market Cap",
+          "value": "Value",
+          "momentum": "Momentum",
+          "volatility": "Volatility",
+          "turnover": "Turnover",
+          "quality": "Quality"
+        }
+      },
+      "position_risk": {
+        "empty": "No positions",
+        "load_failed": "Failed to load: {{message}}",
+        "var_method": {
+          "parametric": "Parametric",
+          "historical": "Historical",
+          "monte_carlo": "Monte Carlo"
+        },
+        "portfolio_var_title": "Portfolio VaR",
+        "portfolio_var": "Portfolio VaR",
+        "var_amount": "VaR Amount",
+        "cvar": "CVaR / ES",
+        "diversification_benefit": "Diversification Benefit",
+        "confidence_horizon": "Confidence / Horizon",
+        "position_count": "Position Count",
+        "concentration_hhi": "Concentration (HHI)",
+        "max_single_weight": "Max Single Weight",
+        "sector_concentration": "Sector Concentration",
+        "weight_distribution_title": "Position Weight Distribution",
+        "position_detail_title": "Position Details",
+        "col": {
+          "asset": "Asset",
+          "weight": "Weight",
+          "market_value": "Market Value",
+          "beta": "Beta",
+          "volatility": "Volatility",
+          "var_95": "VaR (95%)"
+        },
+        "weight": "Weight"
+      },
+      "event_history": {
+        "empty": "No risk events",
+        "load_failed": "Failed to load: {{message}}",
+        "title": "Risk Event History"
+      }
     },
     "tearsheet": {
       "section": {
@@ -1699,6 +1760,135 @@
         "label_concentration": "Concentration",
         "label_turnover": "Daily Turnover",
         "alerts_title": "Risk Alerts"
+      }
+    },
+    "pipeline": {
+      "node_type": "Node Types",
+      "no_config_fields": "No configurable fields for this node type",
+      "select_placeholder": "Select...",
+      "config_title": "Configure: {{label}}",
+      "close": "Close",
+      "status": {
+        "running": "Running",
+        "success": "Success",
+        "failed": "Failed",
+        "cancelled": "Cancelled",
+        "error": "Failed",
+        "partial_failure": "Partial Failure",
+        "idle": "Idle",
+        "started": "Started",
+        "already_running": "Running",
+        "pending": "Pending"
+      },
+      "execution_history": {
+        "title": "Execution History",
+        "empty": "No executions yet",
+        "load_failed": "Failed to load"
+      },
+      "status_card": {
+        "title": "Pipeline Status",
+        "loading": "Loading pipeline status...",
+        "unavailable": "Unable to retrieve pipeline status",
+        "total_stages": "Total Stages",
+        "run_id": "Run ID",
+        "started": "Started",
+        "finished": "Finished",
+        "duration": "Duration"
+      },
+      "run_dialog": {
+        "title": "Run Pipeline",
+        "params_label": "Parameters (JSON)",
+        "json_error": "Invalid JSON format",
+        "run": "Run",
+        "triggering": "Triggering...",
+        "triggered": "Pipeline triggered",
+        "trigger_failed": "Trigger failed: {{message}}"
+      },
+      "node_label": {
+        "data_source": "Data Source",
+        "factor_calc": "Factor Calculation",
+        "model_train": "Model Training",
+        "backtest": "Backtest",
+        "optimize": "Portfolio Optimization",
+        "merge": "Merge",
+        "filter": "Filter",
+        "custom_script": "Custom"
+      },
+      "node_desc": {
+        "data_source": "Load data",
+        "factor_calc": "Compute factors",
+        "model_train": "Train ML model",
+        "backtest": "Run backtest",
+        "optimize": "Portfolio optimization",
+        "merge": "Merge multiple paths",
+        "filter": "Filter data",
+        "custom_script": "Custom script"
+      },
+      "config_field": {
+        "source": "Data Source",
+        "start_date": "Start Date",
+        "end_date": "End Date",
+        "factor_set": "Factor Set",
+        "universe": "Stock Universe",
+        "model_name": "Model",
+        "n_folds": "CV Folds",
+        "strategy_type": "Strategy Type",
+        "top_n": "Top N",
+        "method": "Optimization Method",
+        "max_weight": "Max Weight per Asset"
+      },
+      "config_option": {
+        "source_tdx": "TDX",
+        "source_tushare": "Tushare",
+        "source_akshare": "AKShare",
+        "factor_alpha158": "Alpha158",
+        "factor_alpha101": "Alpha101",
+        "factor_gtja191": "GTJA191",
+        "factor_all": "All Factors",
+        "universe_hs300": "CSI 300",
+        "universe_zz500": "CSI 500",
+        "universe_zz1000": "CSI 1000",
+        "universe_all": "Whole Market",
+        "model_lightgbm": "LightGBM",
+        "model_xgboost": "XGBoost",
+        "model_random_forest": "Random Forest",
+        "strategy_top_n": "Top-N Selection",
+        "strategy_ml_signal": "ML Signal",
+        "strategy_multi_factor": "Multi-Factor",
+        "method_mvo": "Mean-Variance (MVO)",
+        "method_risk_parity": "Risk Parity",
+        "method_min_variance": "Min Variance"
+      }
+    },
+    "knowledge": {
+      "doc_list": {
+        "load_failed": "Failed to load: {{message}}",
+        "empty": "No documents yet",
+        "untitled": "Untitled"
+      },
+      "doc_preview": {
+        "select_prompt": "Select a document to preview",
+        "load_failed": "Failed to load: {{message}}",
+        "no_content": "No content to preview"
+      },
+      "doc_tags": {
+        "all": "All"
+      },
+      "doc_upload": {
+        "title": "Upload Document",
+        "no_file_error": "Please select a file",
+        "upload_success": "Document uploaded successfully",
+        "upload_failed": "Upload failed: {{message}}",
+        "drop_hint": "Drag a file here, or click to select",
+        "format_hint": "Supports PDF, Word, Markdown, Python, Notebook, etc.",
+        "description_label": "Description (optional)",
+        "description_placeholder": "Document description...",
+        "tags_label": "Tags",
+        "tag_placeholder": "Type a tag and press Enter",
+        "add_tag": "Add",
+        "uploading": "Uploading...",
+        "upload_button_uploading": "Uploading...",
+        "upload_button": "Upload"
       }
     }
   },

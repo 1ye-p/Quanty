@@ -5,6 +5,7 @@
  * for connections, drag-and-drop to add nodes, and keyboard deletion.
  */
 import { useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ReactFlow,
   Background,
@@ -58,10 +59,14 @@ export interface PipelineNodeData {
 }
 
 function DAGNode({ data }: NodeProps<Node<PipelineNodeData>>) {
+  const { t } = useTranslation()
   const { label, nodeType, status } = data
   const typeDef = getNodeTypeDef(nodeType)
   const colors = typeDef ? { bg: typeDef.bgColor, border: typeDef.color, text: typeDef.color } : TYPE_COLORS.data
   const icon = STATUS_ICON[status ?? 'pending'] ?? STATUS_ICON.pending
+  const displayLabel = nodeType
+    ? t(`component.pipeline.node_label.${nodeType}`, { defaultValue: label })
+    : label
 
   return (
     <div
@@ -74,7 +79,7 @@ function DAGNode({ data }: NodeProps<Node<PipelineNodeData>>) {
     >
       <Handle type="target" position={Position.Top} className="!bg-gray-400" />
       <div className="text-base mb-1">{icon}</div>
-      <div className="text-sm font-semibold leading-tight">{label}</div>
+      <div className="text-sm font-semibold leading-tight">{displayLabel}</div>
       <Handle type="source" position={Position.Bottom} className="!bg-gray-400" />
     </div>
   )

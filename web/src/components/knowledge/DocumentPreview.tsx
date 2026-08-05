@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import Editor from '@monaco-editor/react'
 import { knowledgeApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
@@ -35,6 +36,7 @@ function getLanguageFromExtension(fileName: string): string {
 }
 
 export function DocumentPreview({ docId, fileName }: DocumentPreviewProps) {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.knowledge.content(docId ?? ''),
     queryFn: () => knowledgeApi.getContent(docId!),
@@ -44,7 +46,7 @@ export function DocumentPreview({ docId, fileName }: DocumentPreviewProps) {
   if (!docId) {
     return (
       <div className="card h-full flex items-center justify-center text-gray-400 text-sm">
-        选择文档以预览
+        {t('component.knowledge.doc_preview.select_prompt')}
       </div>
     )
   }
@@ -64,7 +66,7 @@ export function DocumentPreview({ docId, fileName }: DocumentPreviewProps) {
   if (error) {
     return (
       <div className="card h-full flex items-center justify-center text-red-500 text-sm">
-        加载失败：{error instanceof Error ? error.message : String(error)}
+        {t('component.knowledge.doc_preview.load_failed', { message: error instanceof Error ? error.message : String(error) })}
       </div>
     )
   }
@@ -72,7 +74,7 @@ export function DocumentPreview({ docId, fileName }: DocumentPreviewProps) {
   if (!data?.content) {
     return (
       <div className="card h-full flex items-center justify-center text-gray-400 text-sm">
-        无可预览内容
+        {t('component.knowledge.doc_preview.no_content')}
       </div>
     )
   }

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { knowledgeApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -8,6 +9,7 @@ interface DocumentTagsProps {
 }
 
 export function DocumentTags({ selectedTag, onTagSelect }: DocumentTagsProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.knowledge.tags(),
     queryFn: () => knowledgeApi.getTags(),
@@ -36,7 +38,7 @@ export function DocumentTags({ selectedTag, onTagSelect }: DocumentTagsProps) {
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
         }`}
       >
-        全部
+        {t('component.knowledge.doc_tags.all')}
       </button>
       {tags.map(tag => (
         <button

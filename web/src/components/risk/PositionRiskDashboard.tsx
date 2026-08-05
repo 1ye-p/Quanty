@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { riskApi } from '@/lib/api/risk';
 import { extendedQueryKeys } from '@/lib/queryKeys';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn } from '@/lib/utils';
 
 const VAR_METHODS = [
-  { value: 'parametric', label: '参数法' },
-  { value: 'historical', label: '历史模拟' },
-  { value: 'monte_carlo', label: '蒙特卡洛' },
+  { value: 'parametric' },
+  { value: 'historical' },
+  { value: 'monte_carlo' },
 ] as const;
 
 const getRiskLevel = (value: number, thresholds: [number, number]) => {
@@ -18,6 +19,7 @@ const getRiskLevel = (value: number, thresholds: [number, number]) => {
 };
 
 export const PositionRiskDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const [varMethod, setVarMethod] = useState('parametric');
 
   const { data: portfolio, isLoading, error } = useQuery({
@@ -42,10 +44,10 @@ export const PositionRiskDashboard: React.FC = () => {
     return individualVarSum - portfolioVar.var;
   }, [individualVarSum, portfolioVar]);
 
-  if (isLoading) return <div className="text-center py-4 text-gray-500">加载中...</div>;
-  if (error) return <div className="text-center py-8 text-red-500">加载失败: {error.message}</div>;
+  if (isLoading) return <div className="text-center py-4 text-gray-500">{t('common.loading')}</div>;
+  if (error) return <div className="text-center py-8 text-red-500">{t('component.risk.position_risk.load_failed', { message: error.message })}</div>;
   if (!portfolio?.positions?.length) {
-    return <div className="text-center py-8 text-gray-400">暂无持仓</div>;
+    return <div className="text-center py-8 text-gray-400">{t('component.risk.position_risk.empty')}</div>;
   }
 
   const { positions, hhi, max_weight, sector_concentration } = portfolio;
@@ -55,44 +57,44 @@ export const PositionRiskDashboard: React.FC = () => {
       {/* Portfolio VaR Section */}
       <div className="bg-white rounded-xl shadow-sm border p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-medium text-gray-800">组合 VaR</h3>
+          <h3 className="font-medium text-gray-800">{t('component.risk.position_risk.portfolio_var_title')}</h3>
           <select
             value={varMethod}
             onChange={(e) => setVarMethod(e.target.value)}
             className="text-sm border rounded px-2 py-1 bg-white"
           >
             {VAR_METHODS.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
+              <option key={m.value} value={m.value}>{t(`component.risk.position_risk.var_method.${m.value}`, { defaultValue: m.value })}</option>
             ))}
           </select>
         </div>
         <div className="grid grid-cols-5 gap-4">
           <div className="text-center">
-            <div className="text-sm text-gray-500">组合 VaR</div>
+            <div className="text-sm text-gray-500">{t('component.risk.position_risk.portfolio_var')}</div>
             <div className={cn("text-2xl font-semibold", getRiskLevel(portfolioVar?.var ?? 0, [0.02, 0.05]))}>
               {portfolioVar ? (portfolioVar.var * 100).toFixed(2) + '%' : '-'}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-sm text-gray-500">VaR 金额</div>
+            <div className="text-sm text-gray-500">{t('component.risk.position_risk.var_amount')}</div>
             <div className="text-2xl font-semibold text-gray-800">
               {portfolioVar ? portfolioVar.var_amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-'}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-sm text-gray-500">CVaR / ES</div>
+            <div className="text-sm text-gray-500">{t('component.risk.position_risk.cvar')}</div>
             <div className={cn("text-2xl font-semibold", getRiskLevel(portfolioVar?.cvar ?? 0, [0.03, 0.07]))}>
               {portfolioVar ? (portfolioVar.cvar * 100).toFixed(2) + '%' : '-'}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-sm text-gray-500">分散化收益</div>
+            <div className="text-sm text-gray-500">{t('component.risk.position_risk.diversification_benefit')}</div>
             <div className={cn("text-2xl font-semibold", diversificationBenefit != null && diversificationBenefit > 0 ? 'text-green-600' : 'text-gray-800')}>
               {diversificationBenefit != null ? (diversificationBenefit * 100).toFixed(2) + '%' : '-'}
             </div>
           </div>
           <div className="text-center">
-            <div className="text-sm text-gray-500">置信度 / 期限</div>
+            <div className="text-sm text-gray-500">{t('component.risk.position_risk.confidence_horizon')}</div>
             <div className="text-lg font-semibold text-gray-800">
               {portfolioVar ? `${(portfolioVar.confidence * 100).toFixed(0)}% / 1D` : '-'}
             </div>
@@ -103,23 +105,23 @@ export const PositionRiskDashboard: React.FC = () => {
       {/* Portfolio Risk Summary */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
-          <div className="text-sm text-gray-500">持仓数量</div>
+          <div className="text-sm text-gray-500">{t('component.risk.position_risk.position_count')}</div>
           <div className="text-2xl font-semibold">{positions.length}</div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
-          <div className="text-sm text-gray-500">集中度 (HHI)</div>
+          <div className="text-sm text-gray-500">{t('component.risk.position_risk.concentration_hhi')}</div>
           <div className={cn("text-2xl font-semibold", getRiskLevel(hhi, [0.1, 0.2]))}>
             {(hhi * 10000).toFixed(0)}
           </div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
-          <div className="text-sm text-gray-500">最大单只占比</div>
+          <div className="text-sm text-gray-500">{t('component.risk.position_risk.max_single_weight')}</div>
           <div className={cn("text-2xl font-semibold", getRiskLevel(max_weight, [0.1, 0.2]))}>
             {(max_weight * 100).toFixed(1)}%
           </div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border p-4 text-center">
-          <div className="text-sm text-gray-500">行业集中度</div>
+          <div className="text-sm text-gray-500">{t('component.risk.position_risk.sector_concentration')}</div>
           <div className={cn("text-2xl font-semibold", getRiskLevel(sector_concentration, [0.3, 0.5]))}>
             {(sector_concentration * 100).toFixed(1)}%
           </div>
@@ -128,13 +130,13 @@ export const PositionRiskDashboard: React.FC = () => {
 
       {/* Position Weight Distribution */}
       <div className="bg-white rounded-xl shadow-sm border p-4">
-        <h3 className="font-medium text-gray-800 mb-4">持仓权重分布</h3>
+        <h3 className="font-medium text-gray-800 mb-4">{t('component.risk.position_risk.weight_distribution_title')}</h3>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={positions.slice(0, 20)}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="asset_id" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={80} />
             <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
-            <Tooltip formatter={(v: number) => [`${(v * 100).toFixed(2)}%`, '权重']} />
+            <Tooltip formatter={(v: number) => [`${(v * 100).toFixed(2)}%`, t('component.risk.position_risk.weight')]} />
             <Bar dataKey="weight" fill="#6366f1" />
           </BarChart>
         </ResponsiveContainer>
@@ -142,17 +144,17 @@ export const PositionRiskDashboard: React.FC = () => {
 
       {/* Position Detail Table */}
       <div className="bg-white rounded-xl shadow-sm border p-4">
-        <h3 className="font-medium text-gray-800 mb-4">持仓明细</h3>
+        <h3 className="font-medium text-gray-800 mb-4">{t('component.risk.position_risk.position_detail_title')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50">
-                <th className="p-2 text-left">标的</th>
-                <th className="p-2 text-right">权重</th>
-                <th className="p-2 text-right">市值</th>
-                <th className="p-2 text-right">Beta</th>
-                <th className="p-2 text-right">波动率</th>
-                <th className="p-2 text-right">VaR (95%)</th>
+                <th className="p-2 text-left">{t('component.risk.position_risk.col.asset')}</th>
+                <th className="p-2 text-right">{t('component.risk.position_risk.col.weight')}</th>
+                <th className="p-2 text-right">{t('component.risk.position_risk.col.market_value')}</th>
+                <th className="p-2 text-right">{t('component.risk.position_risk.col.beta')}</th>
+                <th className="p-2 text-right">{t('component.risk.position_risk.col.volatility')}</th>
+                <th className="p-2 text-right">{t('component.risk.position_risk.col.var_95')}</th>
               </tr>
             </thead>
             <tbody>

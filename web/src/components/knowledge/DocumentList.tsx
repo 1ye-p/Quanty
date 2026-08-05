@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { knowledgeApi, type KnowledgeDoc } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -19,6 +20,7 @@ function getFileIcon(logicalType: string, sourceName: string): string {
 }
 
 export function DocumentList({ tag, selectedId, onSelect }: DocumentListProps) {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.knowledge.list(tag ? { tag } : undefined),
     queryFn: () => knowledgeApi.list({ tag: tag ?? undefined }),
@@ -40,7 +42,7 @@ export function DocumentList({ tag, selectedId, onSelect }: DocumentListProps) {
   if (error) {
     return (
       <div className="text-red-500 text-sm p-4">
-        加载失败：{error instanceof Error ? error.message : String(error)}
+        {t('component.knowledge.doc_list.load_failed', { message: error instanceof Error ? error.message : String(error) })}
       </div>
     )
   }
@@ -49,7 +51,7 @@ export function DocumentList({ tag, selectedId, onSelect }: DocumentListProps) {
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400 text-sm">
-        暂无文档
+        {t('component.knowledge.doc_list.empty')}
       </div>
     )
   }
@@ -72,7 +74,7 @@ export function DocumentList({ tag, selectedId, onSelect }: DocumentListProps) {
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-gray-900 truncate">
-                {doc.title || <em className="text-gray-400">无标题</em>}
+                {doc.title || <em className="text-gray-400">{t('component.knowledge.doc_list.untitled')}</em>}
               </div>
               <div className="flex items-center gap-2 mt-1">
                 {doc.tags?.map(tag => (

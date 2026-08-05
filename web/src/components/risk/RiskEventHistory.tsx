@@ -1,5 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { riskApi } from '@/lib/api/risk';
 import type { RiskEvent } from '@/lib/api/risk';
 import { extendedQueryKeys } from '@/lib/queryKeys';
@@ -13,20 +14,21 @@ const severityColors: Record<RiskEvent['severity'], string> = {
 };
 
 export const RiskEventHistory: React.FC = () => {
+  const { t } = useTranslation();
   const { data: events, isLoading, error } = useQuery({
     queryKey: extendedQueryKeys.risk.events(),
     queryFn: () => riskApi.getEvents(),
   });
 
-  if (isLoading) return <div className="text-center py-4 text-gray-500">加载中...</div>;
-  if (error) return <div className="text-center py-8 text-red-500">加载失败: {error.message}</div>;
+  if (isLoading) return <div className="text-center py-4 text-gray-500">{t('common.loading')}</div>;
+  if (error) return <div className="text-center py-8 text-red-500">{t('component.risk.event_history.load_failed', { message: error.message })}</div>;
   if (!events?.length) {
-    return <div className="text-center py-8 text-gray-400">暂无风控事件</div>;
+    return <div className="text-center py-8 text-gray-400">{t('component.risk.event_history.empty')}</div>;
   }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">
-      <h3 className="font-medium text-gray-800 mb-4">风控事件历史</h3>
+      <h3 className="font-medium text-gray-800 mb-4">{t('component.risk.event_history.title')}</h3>
       <div className="space-y-3">
         {events.map(event => (
           <div key={event.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">

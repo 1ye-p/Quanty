@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { pipelineApi } from '@/lib/api/pipeline'
 import { extendedQueryKeys } from '@/lib/queryKeys'
@@ -11,6 +12,7 @@ interface RunDialogProps {
 }
 
 export function RunDialog({ open, onClose, initialParams }: RunDialogProps) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [paramsText, setParamsText] = useState(() =>
     initialParams ? JSON.stringify({ node_configs: initialParams }, null, 2) : '{}'
@@ -27,12 +29,12 @@ export function RunDialog({ open, onClose, initialParams }: RunDialogProps) {
   const runMutation = useMutation({
     mutationFn: (params: Record<string, unknown>) => pipelineApi.run(params),
     onSuccess: () => {
-      toast.success('管道已触发')
+      toast.success(t('component.pipeline.run_dialog.triggered'))
       queryClient.invalidateQueries({ queryKey: extendedQueryKeys.pipeline.executions() })
       queryClient.invalidateQueries({ queryKey: extendedQueryKeys.pipeline.status() })
       onClose()
     },
-    onError: (e: Error) => toast.error(`触发失败: ${e.message}`),
+    onError: (e: Error) => toast.error(t('component.pipeline.run_dialog.trigger_failed', { message: e.message })),
   })
 
   if (!open) return null
@@ -52,11 +54,11 @@ export function RunDialog({ open, onClose, initialParams }: RunDialogProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="bg-white rounded-lg p-6 w-96" onClick={e => e.stopPropagation()}>
-        <h3 className="font-medium text-gray-800 mb-4">运行管道</h3>
+        <h3 className="font-medium text-gray-800 mb-4">{t('component.pipeline.run_dialog.title')}</h3>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">参数 (JSON)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('component.pipeline.run_dialog.params_label')}</label>
             <textarea
               value={paramsText}
               onChange={e => {
@@ -67,7 +69,7 @@ export function RunDialog({ open, onClose, initialParams }: RunDialogProps) {
               rows={4}
               placeholder='{"node_configs": {}}'
             />
-            {parseError && <p className="text-xs text-red-500 mt-1">JSON 格式错误</p>}
+            {parseError && <p className="text-xs text-red-500 mt-1">{t('component.pipeline.run_dialog.json_error')}</p>}
           </div>
 
           <div className="flex gap-2">
@@ -76,10 +78,10 @@ export function RunDialog({ open, onClose, initialParams }: RunDialogProps) {
               disabled={runMutation.isPending}
               className="btn-primary flex-1 disabled:opacity-50"
             >
-              {runMutation.isPending ? '触发中...' : '运行'}
+              {runMutation.isPending ? t('component.pipeline.run_dialog.triggering') : t('component.pipeline.run_dialog.run')}
             </button>
             <button onClick={onClose} className="btn-secondary flex-1">
-              取消
+              {t('common.cancel')}
             </button>
           </div>
         </div>

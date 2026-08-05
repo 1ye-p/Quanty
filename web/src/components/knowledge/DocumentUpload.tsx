@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { knowledgeApi } from '@/lib/api'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from 'sonner'
@@ -9,6 +10,7 @@ interface DocumentUploadProps {
 }
 
 export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
+  const { t } = useTranslation()
   const [dragOver, setDragOver] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [tags, setTags] = useState<string[]>([])
@@ -20,12 +22,12 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
 
   const uploadMutation = useMutation({
     mutationFn: () => {
-      if (!file) throw new Error('请选择文件')
+      if (!file) throw new Error(t('component.knowledge.doc_upload.no_file_error'))
       setProgress(10)
       return knowledgeApi.upload(file, { tags, description })
     },
     onSuccess: () => {
-      toast.success('文档上传成功')
+      toast.success(t('component.knowledge.doc_upload.upload_success'))
       qc.invalidateQueries({ queryKey: queryKeys.knowledge.all })
       setFile(null)
       setTags([])
@@ -34,7 +36,7 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
       onSuccess?.()
     },
     onError: (err: Error) => {
-      toast.error(`上传失败：${err.message}`)
+      toast.error(t('component.knowledge.doc_upload.upload_failed', { message: err.message }))
       setProgress(0)
     },
   })
@@ -79,7 +81,7 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
 
   return (
     <div className="card space-y-4">
-      <h3 className="font-semibold text-gray-800">上传文档</h3>
+      <h3 className="font-semibold text-gray-800">{t('component.knowledge.doc_upload.title')}</h3>
 
       {/* Drag area */}
       <div
@@ -117,19 +119,19 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
         ) : (
           <div>
             <div className="text-3xl mb-2 text-gray-400">+</div>
-            <div className="text-sm text-gray-500">拖拽文件到此处，或点击选择</div>
-            <div className="text-xs text-gray-400 mt-1">支持 PDF、Word、Markdown、Python、Notebook 等</div>
+            <div className="text-sm text-gray-500">{t('component.knowledge.doc_upload.drop_hint')}</div>
+            <div className="text-xs text-gray-400 mt-1">{t('component.knowledge.doc_upload.format_hint')}</div>
           </div>
         )}
       </div>
 
       {/* Description */}
       <div>
-        <label className="block text-xs text-gray-500 mb-1">描述（可选）</label>
+        <label className="block text-xs text-gray-500 mb-1">{t('component.knowledge.doc_upload.description_label')}</label>
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
-          placeholder="文档描述…"
+          placeholder={t('component.knowledge.doc_upload.description_placeholder')}
           rows={2}
           className="input w-full resize-none"
         />
@@ -137,7 +139,7 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
 
       {/* Tags */}
       <div>
-        <label className="block text-xs text-gray-500 mb-1">标签</label>
+        <label className="block text-xs text-gray-500 mb-1">{t('component.knowledge.doc_upload.tags_label')}</label>
         <div className="flex flex-wrap gap-2 mb-2">
           {tags.map(tag => (
             <span
@@ -161,11 +163,11 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
             value={tagInput}
             onChange={e => setTagInput(e.target.value)}
             onKeyDown={handleTagKeyDown}
-            placeholder="输入标签后按 Enter"
+            placeholder={t('component.knowledge.doc_upload.tag_placeholder')}
             className="input flex-1"
           />
           <button type="button" onClick={addTag} className="btn-primary text-sm px-3">
-            添加
+            {t('component.knowledge.doc_upload.add_tag')}
           </button>
         </div>
       </div>
@@ -174,7 +176,7 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
       {uploadMutation.isPending && (
         <div className="flex items-center gap-2 text-sm text-text-secondary">
           <div className="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
-          上传中...
+          {t('component.knowledge.doc_upload.uploading')}
         </div>
       )}
 
@@ -185,7 +187,7 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
           disabled={!file || uploadMutation.isPending}
           onClick={() => uploadMutation.mutate()}
         >
-          {uploadMutation.isPending ? '上传中…' : '上传'}
+          {uploadMutation.isPending ? t('component.knowledge.doc_upload.upload_button_uploading') : t('component.knowledge.doc_upload.upload_button')}
         </button>
       </div>
     </div>
