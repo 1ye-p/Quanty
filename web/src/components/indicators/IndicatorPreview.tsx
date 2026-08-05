@@ -6,6 +6,7 @@
  */
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   LineChart,
   Line,
@@ -47,6 +48,7 @@ const LINE_COLORS = [
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function IndicatorPreview({ assetId, indicators }: IndicatorPreviewProps) {
+  const { t } = useTranslation()
   // Fetch OHLCV data for the asset
   const {
     data: ohlcvData,
@@ -103,9 +105,9 @@ export function IndicatorPreview({ assetId, indicators }: IndicatorPreviewProps)
   if (!indicators.length) {
     return (
       <div className="bg-white rounded-xl shadow-sm border p-4">
-        <h3 className="font-semibold text-gray-900 mb-4">指标预览</h3>
+        <h3 className="font-semibold text-gray-900 mb-4">{t('component.indicators.preview.title')}</h3>
         <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
-          请先选择技术指标
+          {t('component.indicators.preview.select_hint')}
         </div>
       </div>
     )
@@ -114,9 +116,9 @@ export function IndicatorPreview({ assetId, indicators }: IndicatorPreviewProps)
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">指标预览</h3>
+        <h3 className="font-semibold text-gray-900">{t('component.indicators.preview.title')}</h3>
         <span className="text-xs text-gray-500">
-          {assetId} / {indicators.length} 个指标
+          {assetId} / {indicators.length} {t('component.indicators.preview.indicator_count_suffix')}
         </span>
       </div>
 
@@ -124,7 +126,7 @@ export function IndicatorPreview({ assetId, indicators }: IndicatorPreviewProps)
         isLoading={isLoading}
         error={error}
         isEmpty={chartData.length === 0}
-        emptyText="暂无数据"
+        emptyText={t('common.no_data')}
       >
         <ResponsiveContainer width="100%" height={360}>
           <LineChart data={chartData} margin={{ top: 8, right: 24, left: 8, bottom: 0 }}>
@@ -164,8 +166,8 @@ export function IndicatorPreview({ assetId, indicators }: IndicatorPreviewProps)
 
         {/* Summary row */}
         <div className="flex flex-wrap gap-4 text-xs text-gray-500 pt-2">
-          <span>数据点: {chartData.length}</span>
-          <span>指标列: {indicatorCols.length}</span>
+          <span>{t('component.indicators.preview.data_points')} {chartData.length}</span>
+          <span>{t('component.indicators.preview.indicator_columns')} {indicatorCols.length}</span>
         </div>
       </DataState>
     </div>

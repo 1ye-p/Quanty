@@ -6,11 +6,13 @@
  */
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { indicatorsApi, type IndicatorInfo } from '@/lib/api'
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function IndicatorReferencePanel() {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
 
@@ -75,7 +77,7 @@ export function IndicatorReferencePanel() {
       <div className="p-2 border-b">
         <input
           type="text"
-          placeholder="搜索指标..."
+          placeholder={t('component.indicators.reference.search_placeholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full px-2 py-1 border rounded text-xs"
@@ -93,7 +95,7 @@ export function IndicatorReferencePanel() {
                   key={ind.name}
                   className="flex items-start gap-1 p-1 rounded hover:bg-gray-50 cursor-pointer"
                   onClick={() => handleCopy(ind)}
-                  title="点击复制 DSL 表达式"
+                  title={t('component.indicators.reference.copy_dsl_title')}
                 >
                   <span className="text-blue-600 font-mono shrink-0">
                     {ind.name}
@@ -103,7 +105,7 @@ export function IndicatorReferencePanel() {
                   </span>
                   {copied === ind.name && (
                     <span className="text-green-600 ml-auto shrink-0">
-                      已复制
+                      {t('component.indicators.reference.copied')}
                     </span>
                   )}
                 </div>
@@ -115,17 +117,17 @@ export function IndicatorReferencePanel() {
 
       {/* DSL syntax reference */}
       <div className="border-t p-2 bg-gray-50 space-y-1">
-        <h4 className="font-semibold text-gray-700">DSL 语法速查</h4>
+        <h4 className="font-semibold text-gray-700">{t('component.indicators.reference.dsl_syntax_title')}</h4>
         <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
-          <span className="text-gray-500">比较:</span>
+          <span className="text-gray-500">{t('component.indicators.reference.dsl_comparison')}</span>
           <span className="font-mono">&gt; &lt; &gt;= &lt;= == !=</span>
-          <span className="text-gray-500">交叉:</span>
+          <span className="text-gray-500">{t('component.indicators.reference.dsl_crossover')}</span>
           <span className="font-mono">crosses_above crosses_below</span>
-          <span className="text-gray-500">逻辑:</span>
+          <span className="text-gray-500">{t('component.indicators.reference.dsl_logic')}</span>
           <span className="font-mono">AND OR NOT</span>
-          <span className="text-gray-500">时序:</span>
+          <span className="text-gray-500">{t('component.indicators.reference.dsl_temporal')}</span>
           <span className="font-mono">for N bars</span>
-          <span className="text-gray-500">价格:</span>
+          <span className="text-gray-500">{t('component.indicators.reference.dsl_price')}</span>
           <span className="font-mono">close open high low volume</span>
         </div>
       </div>

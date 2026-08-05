@@ -1953,6 +1953,60 @@
         "confirm_delete_title": "Confirm Delete Notification Channel",
         "confirm_delete_message": "Are you sure you want to delete this notification channel? This action cannot be undone."
       }
+    },
+    "workflow": {
+      "bar": {
+        "prev_step": "Previous",
+        "view_summary": "View Summary",
+        "next_step": "Next",
+        "reset": "Reset"
+      },
+      "summary": {
+        "title": "Workflow Complete",
+        "subtitle": "All steps completed. Here is the workflow summary.",
+        "steps_completed_suffix": "steps completed",
+        "selected_factors": "Selected Factors",
+        "factor_count_suffix": "",
+        "ic_calculation": "IC Calculation",
+        "backtest": "Backtest",
+        "ml_model": "ML Model",
+        "portfolio_optimization": "Portfolio Optimization",
+        "completed": "Completed",
+        "no_results": "No workflow results yet",
+        "back_home": "Back to Home",
+        "start_new_workflow": "Start New Workflow"
+      }
+    },
+    "indicators": {
+      "reference": {
+        "search_placeholder": "Search indicators...",
+        "copy_dsl_title": "Click to copy DSL expression",
+        "copied": "Copied",
+        "dsl_syntax_title": "DSL Syntax Reference",
+        "dsl_comparison": "Comparison:",
+        "dsl_crossover": "Crossover:",
+        "dsl_logic": "Logic:",
+        "dsl_temporal": "Temporal:",
+        "dsl_price": "Price:"
+      },
+      "picker": {
+        "title": "Technical Indicator Selection",
+        "selected_count_suffix": "",
+        "search_placeholder": "Search indicator name or description...",
+        "clear_search_aria": "Clear search",
+        "edit_params_title": "Edit parameters",
+        "remove_aria": "Remove {{name}}",
+        "params_label": "Parameters",
+        "selected_badge": "Selected",
+        "no_indicators": "No indicators"
+      },
+      "preview": {
+        "title": "Indicator Preview",
+        "select_hint": "Please select a technical indicator first",
+        "indicator_count_suffix": "indicators",
+        "data_points": "Data points:",
+        "indicator_columns": "Indicator columns:"
+      }
     }
   },
   "page": {

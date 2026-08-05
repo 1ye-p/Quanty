@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import type { WorkflowStep } from '../../stores/workflowStore';
 import { WorkflowSummary } from './WorkflowSummary';
 
@@ -12,6 +13,7 @@ interface WorkflowBarProps {
 }
 
 export function WorkflowBar({ steps, currentStep, onPrev, onNext, onReset }: WorkflowBarProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [showSummary, setShowSummary] = useState(false);
   const currentIndex = steps.findIndex(s => s.id === currentStep);
@@ -38,13 +40,13 @@ export function WorkflowBar({ steps, currentStep, onPrev, onNext, onReset }: Wor
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onPrev} disabled={currentIndex === 0} className="btn-secondary disabled:opacity-50">上一步</button>
+          <button onClick={onPrev} disabled={currentIndex === 0} className="btn-secondary disabled:opacity-50">{t('component.workflow.bar.prev_step')}</button>
           {allCompleted ? (
-            <button onClick={() => setShowSummary(true)} className="btn-primary">查看摘要</button>
+            <button onClick={() => setShowSummary(true)} className="btn-primary">{t('component.workflow.bar.view_summary')}</button>
           ) : (
-            <button onClick={() => onNext()} disabled={currentIndex === steps.length - 1} className="btn-primary disabled:opacity-50">下一步</button>
+            <button onClick={() => onNext()} disabled={currentIndex === steps.length - 1} className="btn-primary disabled:opacity-50">{t('component.workflow.bar.next_step')}</button>
           )}
-          <button onClick={onReset} className="btn-secondary text-red-500">重置</button>
+          <button onClick={onReset} className="btn-secondary text-red-500">{t('component.workflow.bar.reset')}</button>
         </div>
       </div>
       {showSummary && <WorkflowSummary onClose={() => setShowSummary(false)} />}

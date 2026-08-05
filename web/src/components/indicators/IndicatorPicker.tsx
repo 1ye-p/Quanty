@@ -6,6 +6,7 @@
  */
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { indicatorsApi, type IndicatorInfo } from '@/lib/api'
 import { DataState } from '@/components/ui/DataState'
 
@@ -24,6 +25,7 @@ export interface IndicatorPickerProps {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function IndicatorPicker({ selected, onChange }: IndicatorPickerProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [editingParams, setEditingParams] = useState<string | null>(null)
@@ -152,9 +154,9 @@ export function IndicatorPicker({ selected, onChange }: IndicatorPickerProps) {
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">技术指标选择</h3>
+        <h3 className="font-semibold text-gray-900">{t('component.indicators.picker.title')}</h3>
         {selected.length > 0 && (
-          <span className="text-xs text-gray-500">已选 {selected.length} 个</span>
+          <span className="text-xs text-gray-500">{selected.length} {t('component.indicators.picker.selected_count_suffix')}</span>
         )}
       </div>
 
@@ -164,7 +166,7 @@ export function IndicatorPicker({ selected, onChange }: IndicatorPickerProps) {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索指标名称或描述..."
+          placeholder={t('component.indicators.picker.search_placeholder')}
           className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm
                      focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
         />
@@ -172,7 +174,7 @@ export function IndicatorPicker({ selected, onChange }: IndicatorPickerProps) {
           <button
             onClick={() => setSearch('')}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            aria-label="清除搜索"
+            aria-label={t('component.indicators.picker.clear_search_aria')}
           >
             x
           </button>
@@ -197,7 +199,7 @@ export function IndicatorPicker({ selected, onChange }: IndicatorPickerProps) {
                       setEditingParams(editingParams === s.name ? null : s.name)
                     }}
                     className="ml-0.5 text-blue-400 hover:text-blue-600"
-                    title="编辑参数"
+                    title={t('component.indicators.picker.edit_params_title')}
                   >
                     *
                   </button>
@@ -208,7 +210,7 @@ export function IndicatorPicker({ selected, onChange }: IndicatorPickerProps) {
                     removeIndicator(s.name)
                   }}
                   className="ml-0.5 text-blue-400 hover:text-blue-600"
-                  aria-label={`移除 ${s.name}`}
+                  aria-label={t('component.indicators.picker.remove_aria', { name: s.name })}
                 >
                   x
                 </button>
@@ -225,7 +227,7 @@ export function IndicatorPicker({ selected, onChange }: IndicatorPickerProps) {
         if (!sel || !info || info.params.length === 0) return null
         return (
           <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-2">
-            <div className="text-xs font-medium text-gray-700">{editingParams} 参数</div>
+            <div className="text-xs font-medium text-gray-700">{editingParams} {t('component.indicators.picker.params_label')}</div>
             {info.params.map((p: { name: string; type: string; default: number }) => (
               <div key={p.name} className="flex items-center gap-2">
                 <label className="text-xs text-gray-600 w-24 truncate" title={p.name}>
@@ -249,7 +251,7 @@ export function IndicatorPicker({ selected, onChange }: IndicatorPickerProps) {
       })()}
 
       {/* Indicator list grouped by category */}
-      <DataState isLoading={isLoading} error={error} isEmpty={categoryCount === 0} emptyText="暂无指标">
+      <DataState isLoading={isLoading} error={error} isEmpty={categoryCount === 0} emptyText={t('component.indicators.picker.no_indicators')}>
         <div className="max-h-96 overflow-y-auto space-y-1">
           {Object.entries(filteredGrouped).map(([category, indicators]) => {
             const isExpanded = expandedCategories.has(category)
@@ -288,7 +290,7 @@ export function IndicatorPicker({ selected, onChange }: IndicatorPickerProps) {
                               {ind.name}
                             </span>
                             {isSelected && (
-                              <span className="text-xs text-blue-500">已选</span>
+                              <span className="text-xs text-blue-500">{t('component.indicators.picker.selected_badge')}</span>
                             )}
                           </div>
                           <div className="text-xs text-gray-500 mt-0.5">{ind.description}</div>
