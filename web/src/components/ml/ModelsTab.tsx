@@ -4,6 +4,7 @@
  */
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { mlApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 
@@ -16,6 +17,7 @@ interface ModelInfo {
 }
 
 export function ModelsTab() {
+  const { t } = useTranslation()
   const { data: modelsCatalog, isLoading } = useQuery({
     queryKey: extendedQueryKeys.ml.modelsCatalog(),
     queryFn: () => mlApi.modelsCatalog(),
@@ -27,7 +29,7 @@ export function ModelsTab() {
     const groups: Record<string, ModelInfo[]> = {}
     const order = ['Traditional', 'Deep Learning', 'Ensemble', 'Linear', 'Online', 'Specialized']
     for (const info of Object.values(modelsCatalog) as ModelInfo[]) {
-      const label = info.category_label || 'Other'
+      const label = info.category_label || t('component.ml.models_tab.other')
       if (!groups[label]) groups[label] = []
       groups[label].push(info)
     }
@@ -39,9 +41,9 @@ export function ModelsTab() {
           .filter(([label]) => !order.includes(label))
           .map(([label, models]) => ({ label, models }))
       )
-  }, [modelsCatalog])
+  }, [modelsCatalog, t])
 
-  if (isLoading) return <p className="text-gray-400">Loading model catalog...</p>
+  if (isLoading) return <p className="text-gray-400">{t('component.ml.models_tab.loading')}</p>
 
   return (
     <div className="space-y-4">

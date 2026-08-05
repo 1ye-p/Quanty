@@ -3,6 +3,7 @@
  * Displays pairwise correlations as a colored matrix.
  */
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { factorAnalyticsApi } from '@/lib/api'
 
 interface CorrelationTabProps {
@@ -18,6 +19,7 @@ function corrColor(v: number | null): string {
 }
 
 export function CorrelationTab({ selectedFactors, featureSetVersion }: CorrelationTabProps) {
+  const { t } = useTranslation()
   const { data: corrMatrix, isFetching, refetch } = useQuery({
     queryKey: ['factors', 'correlation', selectedFactors, featureSetVersion],
     queryFn: () => factorAnalyticsApi.computeFactorCorrelation({
@@ -30,7 +32,7 @@ export function CorrelationTab({ selectedFactors, featureSetVersion }: Correlati
   if (selectedFactors.length < 2) {
     return (
       <div className="card">
-        <p className="text-sm text-gray-400">Select at least 2 factors to compute correlation.</p>
+        <p className="text-sm text-gray-400">{t('component.factors.correlation_tab.empty_min')}</p>
       </div>
     )
   }
@@ -38,13 +40,13 @@ export function CorrelationTab({ selectedFactors, featureSetVersion }: Correlati
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-800">Factor Correlation Matrix</h3>
+        <h3 className="font-semibold text-gray-800">{t('component.factors.correlation_tab.title')}</h3>
         {!corrMatrix ? (
           <button className="btn-secondary text-xs" onClick={() => refetch()}>
-            Compute Correlation
+            {t('component.factors.correlation_tab.btn_compute')}
           </button>
         ) : isFetching ? (
-          <span className="text-xs text-gray-400">Computing...</span>
+          <span className="text-xs text-gray-400">{t('component.factors.correlation_tab.computing')}</span>
         ) : null}
       </div>
       {corrMatrix && corrMatrix.factors.length > 0 && (
@@ -85,7 +87,7 @@ export function CorrelationTab({ selectedFactors, featureSetVersion }: Correlati
             </tbody>
           </table>
           <p className="text-xs text-gray-400 mt-2 text-center">
-            Blue = positive correlation, orange-red = negative. Deeper color = stronger correlation.
+            {t('component.factors.correlation_tab.legend')}
           </p>
         </div>
       )}

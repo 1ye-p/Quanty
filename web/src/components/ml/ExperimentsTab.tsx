@@ -3,6 +3,7 @@
  */
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { mlApi } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -25,6 +26,7 @@ export function ExperimentsTab({
   onToggleCompare,
   onCreateStrategy,
 }: ExperimentsTabProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [diagModelId, setDiagModelId] = useState<string | null>(null)
@@ -64,11 +66,12 @@ export function ExperimentsTab({
     <div>
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <h2 className="font-semibold text-gray-800">
-          Experiments ({filtered.length}
+          {t('component.ml.experiments_tab.title_count', { filtered: filtered.length })}
           {(search || statusFilter !== 'all')
-            ? ` / ${experiments?.items?.length ?? 0} (this page)`
+            ? t('component.ml.experiments_tab.title_page', { count: experiments?.items?.length ?? 0 })
             : filtered.length !== (experiments?.total ?? 0)
-              ? ` / ${experiments?.total ?? 0}` : ''})
+              ? t('component.ml.experiments_tab.title_total', { total: experiments?.total ?? 0 }) : ''}
+          )
         </h2>
         <div className="ml-auto flex items-center gap-2">
           <select
@@ -76,16 +79,16 @@ export function ExperimentsTab({
             onChange={e => setStatusFilter(e.target.value)}
             className="text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
-            <option value="all">All Status</option>
-            <option value="completed">Completed</option>
-            <option value="running">Running</option>
-            <option value="error">Failed</option>
-            <option value="pending">Pending</option>
+            <option value="all">{t('component.ml.experiments_tab.status_all')}</option>
+            <option value="completed">{t('component.ml.experiments_tab.status_completed')}</option>
+            <option value="running">{t('component.ml.experiments_tab.status_running')}</option>
+            <option value="error">{t('component.ml.experiments_tab.status_failed')}</option>
+            <option value="pending">{t('component.ml.experiments_tab.status_pending')}</option>
           </select>
           <div className="relative">
             <input
               type="text"
-              placeholder="Search run_id / trainer / target..."
+              placeholder={t('component.ml.experiments_tab.ph_search')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-6 pr-6 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-brand-500 w-48"
@@ -99,20 +102,20 @@ export function ExperimentsTab({
         </div>
       </div>
 
-      {isLoading && <p className="text-gray-400">Loading...</p>}
+      {isLoading && <p className="text-gray-400">{t('component.ml.experiments_tab.loading')}</p>}
       <div className="card p-0 overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              {['', 'Run ID', 'Trainer', 'Target', 'Status', 'RMSE', 'Sharpe', 'Started', 'Actions'].map(h => (
-                <th key={h} className="table-th">{h}</th>
+              {['', t('component.ml.experiments_tab.th_run_id'), t('component.ml.experiments_tab.th_trainer'), t('component.ml.experiments_tab.th_target'), t('component.ml.experiments_tab.th_status'), t('component.ml.experiments_tab.th_rmse'), t('component.ml.experiments_tab.th_sharpe'), t('component.ml.experiments_tab.th_started'), t('component.ml.experiments_tab.th_actions')].map((h, i) => (
+                <th key={i} className="table-th">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {!filtered.length && (
               <tr><td colSpan={9} className="table-td text-center text-gray-400 py-8">
-                {search || statusFilter !== 'all' ? 'No matching experiments' : 'No experiment records'}
+                {search || statusFilter !== 'all' ? t('component.ml.experiments_tab.empty_filtered') : t('component.ml.experiments_tab.empty_default')}
               </td></tr>
             )}
             {filtered.map(r => (
@@ -149,7 +152,7 @@ export function ExperimentsTab({
                         className="text-xs text-brand-600 hover:text-brand-800 hover:underline"
                         onClick={() => setDiagModelId(diagModelId === r.model_id ? null : r.model_id!)}
                       >
-                        {diagModelId === r.model_id ? 'Hide Diagnostics' : 'Diagnostics'}
+                        {diagModelId === r.model_id ? t('component.ml.experiments_tab.diag_hide') : t('component.ml.experiments_tab.diag_show')}
                       </button>
                     )}
                     {(r.status === 'completed' || r.status === 'done') && r.model_id && onCreateStrategy && (
@@ -157,7 +160,7 @@ export function ExperimentsTab({
                         className="btn-secondary text-xs"
                         onClick={() => onCreateStrategy(r.run_id, r.model_id!)}
                       >
-                        Create Strategy
+                        {t('component.ml.experiments_tab.btn_create_strategy')}
                       </button>
                     )}
                   </div>
@@ -173,19 +176,19 @@ export function ExperimentsTab({
         <div className="card mt-3 p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-gray-800">
-              Diagnostics &mdash; <span className="font-mono text-sm text-gray-500">{diagModelId}</span>
+              {t('component.ml.experiments_tab.diag_title')} &mdash; <span className="font-mono text-sm text-gray-500">{diagModelId}</span>
             </h3>
             <button
               className="text-gray-400 hover:text-gray-600 text-lg leading-none"
               onClick={() => setDiagModelId(null)}
-              title="Close"
+              title={t('component.ml.experiments_tab.close')}
             >
               &#x2715;
             </button>
           </div>
 
           {diagLoading && (
-            <p className="text-gray-400 text-sm py-8 text-center">Loading diagnostics...</p>
+            <p className="text-gray-400 text-sm py-8 text-center">{t('component.ml.experiments_tab.diag_loading')}</p>
           )}
 
           {!diagLoading && diagnostics && (
@@ -199,11 +202,11 @@ export function ExperimentsTab({
           )}
 
           {!diagLoading && diagError && (
-            <p className="text-red-500 text-sm py-8 text-center">加载诊断数据失败: {(diagError as Error).message}</p>
+            <p className="text-red-500 text-sm py-8 text-center">{t('component.ml.experiments_tab.diag_failed', { message: (diagError as Error).message })}</p>
           )}
 
           {!diagLoading && !diagnostics && !diagError && (
-            <p className="text-gray-400 text-sm py-8 text-center">No diagnostics data available.</p>
+            <p className="text-gray-400 text-sm py-8 text-center">{t('component.ml.experiments_tab.diag_empty')}</p>
           )}
         </div>
       )}

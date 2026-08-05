@@ -2,6 +2,7 @@
  * Individual factor display card.
  * Shows factor name, category tags, description, and IC alert indicator.
  */
+import { useTranslation } from 'react-i18next'
 import { type FactorDefinition } from '@/lib/types'
 
 interface FactorCardProps {
@@ -14,6 +15,7 @@ interface FactorCardProps {
 }
 
 export function FactorCard({ factor, selected, hasAlert, alertMessage, onClick, onAlertClick }: FactorCardProps) {
+  const { t } = useTranslation()
   return (
     <div
       onClick={onClick}
@@ -26,8 +28,8 @@ export function FactorCard({ factor, selected, hasAlert, alertMessage, onClick, 
         {hasAlert && (
           <button
             className="ml-1 text-red-500 text-xs"
-            title={alertMessage || 'IC 低于阈值'}
-            aria-label={`${factor.name} IC 告警`}
+            title={alertMessage || t('component.factors.factor_card.ic_alert_default')}
+            aria-label={t('component.factors.factor_card.alert_aria', { name: factor.name })}
             onClick={(e) => {
               e.stopPropagation()
               onAlertClick?.()
@@ -37,14 +39,14 @@ export function FactorCard({ factor, selected, hasAlert, alertMessage, onClick, 
           </button>
         )}
       </div>
-      <div className="text-xs text-gray-500 mb-2">{factor.description || '无描述'}</div>
+      <div className="text-xs text-gray-500 mb-2">{factor.description || t('component.factors.factor_card.no_desc')}</div>
       <div className="flex flex-wrap gap-1">
-        {factor.tags.map(t => (
-          <span key={t} className="badge bg-blue-50 text-blue-700">{t}</span>
+        {factor.tags.map(tag => (
+          <span key={tag} className="badge bg-blue-50 text-blue-700">{tag}</span>
         ))}
       </div>
       {factor.source === 'custom' && (
-        <span className="mt-1 text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded inline-block">🔧 自定义</span>
+        <span className="mt-1 text-xs px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded inline-block">{t('component.factors.factor_card.custom_tag')}</span>
       )}
     </div>
   )

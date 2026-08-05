@@ -3,6 +3,7 @@
  * over epochs with overfitting detection.
  */
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -15,6 +16,7 @@ interface TrainingCurveProps {
 }
 
 export function TrainingCurve({ data }: TrainingCurveProps) {
+  const { t } = useTranslation()
   const { bestEpoch, isOverfitting } = useMemo(() => {
     if (!data.length) return { bestEpoch: null, isOverfitting: false }
 
@@ -59,29 +61,29 @@ export function TrainingCurve({ data }: TrainingCurveProps) {
   if (!data.length) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400 text-sm bg-gray-50 rounded-lg">
-        No training curve data
+        {t('component.ml.training_curve.empty')}
       </div>
     )
   }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">
-      <h3 className="font-semibold text-gray-700 mb-2">Training Curve</h3>
+      <h3 className="font-semibold text-gray-700 mb-2">{t('component.ml.training_curve.title')}</h3>
 
       <div className="flex items-center gap-3 mb-3">
         <div className="flex items-center gap-1.5 text-xs">
           <span className="w-3 h-0.5 bg-blue-500 inline-block rounded" />
-          <span className="text-gray-500">train_loss</span>
+          <span className="text-gray-500">{t('component.ml.training_curve.train_loss')}</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs">
           <span className="w-3 h-0.5 bg-orange-500 inline-block rounded" />
-          <span className="text-gray-500">valid_loss</span>
+          <span className="text-gray-500">{t('component.ml.training_curve.valid_loss')}</span>
         </div>
       </div>
 
       {isOverfitting && (
         <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-          Potential overfitting detected: validation loss is increasing while training loss continues to decrease.
+          {t('component.ml.training_curve.overfitting_warn')}
         </div>
       )}
 
@@ -93,7 +95,7 @@ export function TrainingCurve({ data }: TrainingCurveProps) {
           <Tooltip
             formatter={(value: number, name: string) => [
               formatNum(value),
-              name === 'train_loss' ? 'Train Loss' : 'Valid Loss',
+              name === 'train_loss' ? t('component.ml.training_curve.tooltip_train') : t('component.ml.training_curve.tooltip_valid'),
             ]}
           />
           {bestEpoch != null && (
@@ -102,7 +104,7 @@ export function TrainingCurve({ data }: TrainingCurveProps) {
               stroke="#10b981"
               strokeDasharray="4 4"
               label={{
-                value: `Best (ep ${bestEpoch})`,
+                value: t('component.ml.training_curve.ref_best', { epoch: bestEpoch }),
                 position: 'top',
                 fill: '#10b981',
                 fontSize: 10,

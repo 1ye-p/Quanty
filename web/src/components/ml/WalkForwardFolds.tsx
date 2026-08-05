@@ -3,6 +3,7 @@
  * walk-forward folds.
  */
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, ReferenceLine,
@@ -15,6 +16,7 @@ interface WalkForwardFoldsProps {
 }
 
 export function WalkForwardFolds({ folds }: WalkForwardFoldsProps) {
+  const { t } = useTranslation()
   const summary = useMemo(() => {
     if (!folds.length) return null
     const meanIc = folds.reduce((s, f) => s + f.ic, 0) / folds.length
@@ -26,19 +28,19 @@ export function WalkForwardFolds({ folds }: WalkForwardFoldsProps) {
   if (!folds.length) {
     return (
       <div className="flex items-center justify-center h-48 text-gray-400 text-sm bg-gray-50 rounded-lg">
-        No walk-forward fold data
+        {t('component.ml.walk_forward_folds.empty')}
       </div>
     )
   }
 
   const chartData = folds.map(f => ({
-    fold: `Fold ${f.fold_id}`,
+    fold: t('component.ml.walk_forward_folds.fold_label', { id: f.fold_id }),
     IC: f.ic,
   }))
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">
-      <h3 className="font-semibold text-gray-700 mb-3">Walk-Forward Stability</h3>
+      <h3 className="font-semibold text-gray-700 mb-3">{t('component.ml.walk_forward_folds.title')}</h3>
 
       {/* Bar chart — IC by fold */}
       <ResponsiveContainer width="100%" height={220}>
@@ -46,7 +48,7 @@ export function WalkForwardFolds({ folds }: WalkForwardFoldsProps) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
           <XAxis dataKey="fold" tick={{ fontSize: 10 }} />
           <YAxis tick={{ fontSize: 10 }} />
-          <Tooltip formatter={(value: number) => [formatNum(value, 4), 'IC']} />
+          <Tooltip formatter={(value: number) => [formatNum(value, 4), t('component.ml.walk_forward_folds.tooltip_metric')]} />
           <ReferenceLine y={0} stroke="#9ca3af" />
           <Bar dataKey="IC" radius={[2, 2, 0, 0]}>
             {chartData.map((entry, idx) => (
@@ -64,10 +66,10 @@ export function WalkForwardFolds({ folds }: WalkForwardFoldsProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-gray-500">
-              <th className="py-2 pr-4 font-medium">Fold</th>
-              <th className="py-2 pr-4 font-medium text-right">IC</th>
-              <th className="py-2 pr-4 font-medium text-right">Sharpe</th>
-              <th className="py-2 font-medium text-right">Win Rate</th>
+              <th className="py-2 pr-4 font-medium">{t('component.ml.walk_forward_folds.th_fold')}</th>
+              <th className="py-2 pr-4 font-medium text-right">{t('component.ml.walk_forward_folds.th_ic')}</th>
+              <th className="py-2 pr-4 font-medium text-right">{t('component.ml.walk_forward_folds.th_sharpe')}</th>
+              <th className="py-2 font-medium text-right">{t('component.ml.walk_forward_folds.th_win_rate')}</th>
             </tr>
           </thead>
           <tbody>
@@ -89,7 +91,7 @@ export function WalkForwardFolds({ folds }: WalkForwardFoldsProps) {
           {summary && (
             <tfoot>
               <tr className="border-t-2 font-medium text-gray-800">
-                <td className="py-2 pr-4">Mean</td>
+                <td className="py-2 pr-4">{t('component.ml.walk_forward_folds.footer_mean')}</td>
                 <td className={`py-2 pr-4 text-right font-mono ${summary.meanIc >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatNum(summary.meanIc)}
                 </td>

@@ -1,6 +1,7 @@
 /**
  * IC decay chart showing how IC decays over different lags.
  */
+import { useTranslation } from 'react-i18next'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts'
 
 interface ICDecayTabProps {
@@ -8,11 +9,12 @@ interface ICDecayTabProps {
 }
 
 export function ICDecayTab({ rankIcDecay }: ICDecayTabProps) {
+  const { t } = useTranslation()
   if (!rankIcDecay || rankIcDecay.length === 0) return null
 
   return (
     <div className="card">
-      <h3 className="font-semibold text-gray-800 mb-3 text-sm">Rank IC Decay (lag 1-10)</h3>
+      <h3 className="font-semibold text-gray-800 mb-3 text-sm">{t('component.factors.ic_decay_tab.title')}</h3>
       <ResponsiveContainer width="100%" height={180}>
         <LineChart data={rankIcDecay} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
           <XAxis dataKey="lag" tick={{ fontSize: 11 }} label={{ value: 'Lag', position: 'insideRight', fontSize: 11 }} />

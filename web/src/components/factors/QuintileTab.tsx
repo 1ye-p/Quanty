@@ -3,6 +3,7 @@
  * Includes cumulative return chart and long-short spread chart.
  */
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ResponsiveContainer, BarChart, Bar, Cell,
   XAxis, YAxis, Tooltip, ReferenceLine,
@@ -24,6 +25,7 @@ const QUINTILE_COLORS = {
 } as const
 
 export function QuintileTab({ quantileReturns, cumulativeReturns }: QuintileTabProps) {
+  const { t } = useTranslation()
   if (!quantileReturns || quantileReturns.length === 0) return null
 
   // Compute long-short spread data (Q1 - Q5)
@@ -65,7 +67,7 @@ export function QuintileTab({ quantileReturns, cumulativeReturns }: QuintileTabP
     <div className="space-y-4">
       {/* Mean Return Bar Chart */}
       <div className="bg-white rounded-xl shadow-sm border p-4">
-        <h3 className="font-semibold text-gray-800 mb-3 text-sm">Quantile Returns (5 groups)</h3>
+        <h3 className="font-semibold text-gray-800 mb-3 text-sm">{t('component.factors.quintile_tab.title_quantile')}</h3>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={quantileReturns} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
             <XAxis dataKey="quantile" tick={{ fontSize: 11 }} tickFormatter={(v: number) => `Q${v}`} />
@@ -84,7 +86,7 @@ export function QuintileTab({ quantileReturns, cumulativeReturns }: QuintileTabP
       {/* Cumulative Return Chart */}
       {cumData.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border p-4">
-          <h3 className="font-semibold text-gray-800 mb-3 text-sm">Cumulative Quintile Returns</h3>
+          <h3 className="font-semibold text-gray-800 mb-3 text-sm">{t('component.factors.quintile_tab.title_cumulative')}</h3>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={cumData} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
               <XAxis
@@ -98,7 +100,7 @@ export function QuintileTab({ quantileReturns, cumulativeReturns }: QuintileTabP
               />
               <Tooltip
                 formatter={(v: number) => `${(v * 100).toFixed(2)}%`}
-                labelFormatter={(label: string) => `Date: ${label}`}
+                labelFormatter={(label: string) => t('component.factors.quintile_tab.tooltip_date', { date: label })}
               />
               <Legend verticalAlign="top" height={32} />
               <ReferenceLine y={0} stroke="#e5e7eb" />
@@ -121,7 +123,7 @@ export function QuintileTab({ quantileReturns, cumulativeReturns }: QuintileTabP
       {spreadData.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-800 text-sm">Long-Short Spread (Q1 - Q5)</h3>
+            <h3 className="font-semibold text-gray-800 text-sm">{t('component.factors.quintile_tab.title_spread')}</h3>
             {finalSpread !== null && (
               <span className={`text-sm font-medium ${finalSpread >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {(finalSpread * 100).toFixed(2)}%
@@ -141,7 +143,7 @@ export function QuintileTab({ quantileReturns, cumulativeReturns }: QuintileTabP
               />
               <Tooltip
                 formatter={(v: number) => `${(v * 100).toFixed(2)}%`}
-                labelFormatter={(label: string) => `Date: ${label}`}
+                labelFormatter={(label: string) => t('component.factors.quintile_tab.tooltip_date', { date: label })}
               />
               <ReferenceLine y={0} stroke="#e5e7eb" />
               <Area
