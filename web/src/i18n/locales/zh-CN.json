@@ -1668,6 +1668,125 @@
         "title": "模型对比（{{count}} 个）"
       },
       "empty": "暂无数据"
+    },
+    "advisor": {
+      "title": "AI 分析助手",
+      "subtitle": "仅限离线研究 · 不执行真实交易 · 多智能体 RAG",
+      "session": {
+        "history_title": "历史会话",
+        "new": "+ 新建",
+        "new_title": "新建会话",
+        "empty": "暂无历史会话",
+        "turns": "{{turns}} 轮 · {{time}}"
+      },
+      "agent": {
+        "research": "📊 Research",
+        "risk": "⚠️ Risk",
+        "debate": "🔴 Debate",
+        "analyzing": "分析中…",
+        "waiting": "等待中"
+      },
+      "report": {
+        "subject_placeholder": "报告主题",
+        "btn_title": "生成投研报告",
+        "btn_generating": "生成中…",
+        "btn_idle": "📄 报告",
+        "writer_title": "📄 Report Writer",
+        "copy": "复制报告",
+        "generating": "生成中…",
+        "toast_success": "报告已生成并下载",
+        "toast_failed": "报告生成失败: {{message}}"
+      },
+      "mode": {
+        "panel": "多角色面板",
+        "chat": "单次对话",
+        "chat_empty_hint": "单次对话模式，直接问答",
+        "panel_empty_new": "输入问题后，多个 Agent 并行分析",
+        "panel_empty_resume": "继续历史会话——输入新问题"
+      },
+      "rag": {
+        "context_prefix": "📚 RAG 上下文："
+      },
+      "session_label": "Session: ",
+      "input": {
+        "placeholder": "提问… (Enter 发送, Shift+Enter 换行)",
+        "send": "发送"
+      },
+      "chat_error": "错误: {{message}}"
+    },
+    "trading": {
+      "title": "交易中心",
+      "subtitle": "下单 · 持仓 · 订单管理",
+      "broker": {
+        "label": "券商:",
+        "paper": "Paper Trading",
+        "qmt": "QMT (迅投)"
+      },
+      "tab": {
+        "order": "下单",
+        "algo": "算法下单",
+        "account": "账户",
+        "orders": "订单历史",
+        "trades": "成交回报"
+      },
+      "quote": {
+        "section_title": "行情查询",
+        "placeholder": "输入股票代码 (600036)",
+        "querying": "查询中...",
+        "last_price": "最新价",
+        "change_pct": "涨跌幅",
+        "volume": "成交量",
+        "amount": "成交额",
+        "open": "开盘",
+        "high": "最高",
+        "low": "最低",
+        "prev_close": "昨收",
+        "volume_unit_wan": "万",
+        "amount_unit_yi": "亿"
+      },
+      "algo": {
+        "active_title": "活跃算法订单",
+        "active_empty": "暂无活跃算法订单",
+        "completed_title": "已完成订单",
+        "column_order_id": "订单 ID",
+        "column_type": "类型",
+        "column_symbol": "标的",
+        "column_side": "方向",
+        "column_filled": "成交量",
+        "column_avg_price": "均价",
+        "column_status": "状态",
+        "side_buy": "买入",
+        "side_sell": "卖出",
+        "status_completed": "已完成",
+        "status_cancelled": "已取消",
+        "status_failed": "失败",
+        "status_dash": "—"
+      }
+    },
+    "pipeline": {
+      "title": "自动化回测管道",
+      "subtitle": "端到端自动化：数据准备 → 因子计算 → 模型训练 → 回测验证 → 组合优化",
+      "tab": {
+        "dag": "DAG 编辑",
+        "history": "执行历史"
+      },
+      "node": {
+        "data": "数据准备",
+        "factor": "因子计算",
+        "model": "模型训练",
+        "backtest": "回测验证",
+        "optimize": "组合优化"
+      },
+      "dag": {
+        "title": "管道 DAG",
+        "edit_mode": "编辑模式",
+        "exit_edit": "退出编辑",
+        "run": "运行管道",
+        "run_title": "管道在后台异步运行，可重复触发"
+      },
+      "toast": {
+        "config_saved": "节点配置已保存"
+      }
     }
   }
 }

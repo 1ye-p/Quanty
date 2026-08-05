@@ -5,6 +5,7 @@
  * 数据准备 → 因子计算 → 模型训练 → 回测验证 → 组合优化
  */
 import { useState, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { pipelineApi } from '@/lib/api'
@@ -24,7 +25,7 @@ const DEFAULT_NODES: Node<PipelineNodeData>[] = [
     type: 'dagNode',
     position: { x: 250, y: 0 },
     data: {
-      label: '数据准备',
+      label: 'data',
       nodeType: 'data',
       status: 'pending',
       config: { source: 'tdx', start_date: '2024-01-01', end_date: '2025-12-31' },
@@ -35,7 +36,7 @@ const DEFAULT_NODES: Node<PipelineNodeData>[] = [
     type: 'dagNode',
     position: { x: 250, y: 120 },
     data: {
-      label: '因子计算',
+      label: 'factor',
       nodeType: 'factor',
       status: 'pending',
       config: { factor_set: 'alpha158', universe: 'hs300' },
@@ -46,7 +47,7 @@ const DEFAULT_NODES: Node<PipelineNodeData>[] = [
     type: 'dagNode',
     position: { x: 250, y: 240 },
     data: {
-      label: '模型训练',
+      label: 'model',
       nodeType: 'model',
       status: 'pending',
       config: { model_name: 'lightgbm', n_folds: 5 },
@@ -57,7 +58,7 @@ const DEFAULT_NODES: Node<PipelineNodeData>[] = [
     type: 'dagNode',
     position: { x: 250, y: 360 },
     data: {
-      label: '回测验证',
+      label: 'backtest',
       nodeType: 'backtest',
       status: 'pending',
       config: { strategy_type: 'top_n', top_n: 10 },
@@ -68,7 +69,7 @@ const DEFAULT_NODES: Node<PipelineNodeData>[] = [
     type: 'dagNode',
     position: { x: 250, y: 480 },
     data: {
-      label: '组合优化',
+      label: 'optimize',
       nodeType: 'optimize',
       status: 'pending',
       config: { method: 'mvo', max_weight: 0.1 },
@@ -86,8 +87,8 @@ const DEFAULT_EDGES: Edge[] = [
 // ── Tab definitions ─────────────────────────────────────────────────────────
 
 const tabs = [
-  { id: 'dag', label: 'DAG 编辑' },
-  { id: 'history', label: '执行历史' },
+  { id: 'dag' },
+  { id: 'history' },
 ] as const
 
 type PipelineTab = typeof tabs[number]['id']
@@ -95,6 +96,7 @@ type PipelineTab = typeof tabs[number]['id']
 // ── Page component ──────────────────────────────────────────────────────────
 
 export function PipelinePage() {
+  const { t } = useTranslation()
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [nodeConfigs, setNodeConfigs] = useState<Record<string, Record<string, unknown>>>({})
   const [editable, setEditable] = useState(false)
@@ -108,7 +110,9 @@ export function PipelinePage() {
     refetchInterval: 10_000,
   })
 
-  // Build nodes with merged configs and live status
+  // Build nodes with merged configs and live status. The default `label` is the
+  // node-type key (id); we translate it here so the DAG renders a localized name
+  // without PipelineDAG needing its own i18n wiring.
   const nodes: Node<PipelineNodeData>[] = useMemo(() => {
     const stageStatus = (pipelineStatus as Record<string, unknown>)?.stages as Record<string, { status?: string }> | undefined
     return DEFAULT_NODES.map((n) => {
@@ -117,12 +121,13 @@ export function PipelinePage() {
         ...n,
         data: {
           ...n.data,
+          label: t(`page.pipeline.node.${n.data.label}`),
           status: (liveStatus as PipelineNodeData['status']) ?? n.data.status,
           config: { ...n.data.config, ...nodeConfigs[n.id] },
         },
       }
     })
-  }, [nodeConfigs, pipelineStatus])
+  }, [nodeConfigs, pipelineStatus, t])
 
   const edges = DEFAULT_EDGES
 
@@ -135,17 +140,17 @@ export function PipelinePage() {
   const handleSaveConfig = useCallback((nodeId: string, config: Record<string, unknown>) => {
     setNodeConfigs((prev) => ({ ...prev, [nodeId]: config }))
     setSelectedNodeId(null)
-    toast.success('节点配置已保存')
-  }, [])
+    toast.success(t('page.pipeline.toast.config_saved'))
+  }, [t])
 
   // Selected node data for config panel
   const selectedNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : undefined
 
   return (
     <div>
-      <h1 className="page-title">自动化回测管道</h1>
+      <h1 className="page-title">{t('page.pipeline.title')}</h1>
       <p className="page-subtitle">
-        端到端自动化：数据准备 → 因子计算 → 模型训练 → 回测验证 → 组合优化
+        {t('page.pipeline.subtitle')}
       </p>
 
       {/* Tab navigation */}
@@ -160,7 +165,7 @@ export function PipelinePage() {
             }`}
             onClick={() => setActiveTab(tab.id)}
           >
-            {tab.label}
+            {t(`page.pipeline.tab.${tab.id}`)}
           </button>
         ))}
       </div>
@@ -175,20 +180,20 @@ export function PipelinePage() {
           {/* Toolbar */}
           <div className="card p-4 mb-4">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-gray-700">管道 DAG</div>
+              <div className="text-sm font-medium text-gray-700">{t('page.pipeline.dag.title')}</div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setEditable((v) => !v)}
                   className={`btn-secondary text-sm ${editable ? 'ring-2 ring-indigo-400' : ''}`}
                 >
-                  {editable ? '退出编辑' : '编辑模式'}
+                  {editable ? t('page.pipeline.dag.exit_edit') : t('page.pipeline.dag.edit_mode')}
                 </button>
                 <button
                   onClick={() => setShowRunDialog(true)}
                   className="btn-primary text-sm"
-                  title="管道在后台异步运行，可重复触发"
+                  title={t('page.pipeline.dag.run_title')}
                 >
-                  运行管道
+                  {t('page.pipeline.dag.run')}
                 </button>
               </div>
             </div>

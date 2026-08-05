@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAdvisorStream } from '@/hooks/useAdvisorStream'
 import { advisorApi } from '@/lib/api'
 import { toast } from 'sonner'
@@ -177,21 +178,22 @@ function SessionSidebar({
   onSelect: (id: string) => void
   onNew: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <aside className="w-52 flex-shrink-0 flex flex-col border-r border-gray-200 bg-white">
       <div className="px-3 py-3 border-b border-gray-100 flex items-center justify-between">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">历史会话</span>
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('page.advisor.session.history_title')}</span>
         <button
           onClick={onNew}
           className="text-xs text-brand-600 hover:text-brand-700 font-medium"
-          title="新建会话"
+          title={t('page.advisor.session.new_title')}
         >
-          + 新建
+          {t('page.advisor.session.new')}
         </button>
       </div>
       <div className="flex-1 overflow-y-auto py-1">
         {sessions.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-4 px-2">暂无历史会话</p>
+          <p className="text-xs text-gray-400 text-center py-4 px-2">{t('page.advisor.session.empty')}</p>
         )}
         {sessions.map(s => (
           <button
@@ -202,7 +204,7 @@ function SessionSidebar({
             }`}
           >
             <div className="text-xs font-medium text-gray-800 truncate">{s.preview}</div>
-            <div className="text-xs text-gray-400 mt-0.5">{s.turns} 轮 · {s.createdAt}</div>
+            <div className="text-xs text-gray-400 mt-0.5">{t('page.advisor.session.turns', { turns: s.turns, time: s.createdAt })}</div>
           </button>
         ))}
       </div>
@@ -219,8 +221,13 @@ const AGENT_CONFIG: Record<string, { border: string; color: string }> = {
 }
 
 function AgentCard({ role, content, isActive }: { role: string; content?: string; isActive: boolean }) {
+  const { t } = useTranslation()
   const cfg = AGENT_CONFIG[role] ?? { border: 'border-gray-300', color: 'text-gray-600' }
-  const labels: Record<string, string> = { research: '📊 Research', risk: '⚠️ Risk', debate: '🔴 Debate' }
+  const labels: Record<string, string> = {
+    research: t('page.advisor.agent.research'),
+    risk: t('page.advisor.agent.risk'),
+    debate: t('page.advisor.agent.debate'),
+  }
   return (
     <div className={`agent-card ${cfg.border}`}>
       <div className={`text-xs font-bold uppercase tracking-wide mb-2 ${cfg.color}`}>
@@ -228,7 +235,7 @@ function AgentCard({ role, content, isActive }: { role: string; content?: string
       </div>
       {isActive && !content && (
         <div className="flex items-center gap-2 text-gray-400 text-sm">
-          <span className="animate-spin inline-block">⟳</span> 分析中…
+          <span className="animate-spin inline-block">⟳</span> {t('page.advisor.agent.analyzing')}
         </div>
       )}
       {content && (
@@ -236,7 +243,7 @@ function AgentCard({ role, content, isActive }: { role: string; content?: string
           <RichContent content={content} />
         </div>
       )}
-      {!content && !isActive && <p className="text-sm text-gray-300">等待中</p>}
+      {!content && !isActive && <p className="text-sm text-gray-300">{t('page.advisor.agent.waiting')}</p>}
     </div>
   )
 }
@@ -244,6 +251,7 @@ function AgentCard({ role, content, isActive }: { role: string; content?: string
 const MAX_SESSIONS = 20
 
 export function AdvisorPage() {
+  const { t } = useTranslation()
   const [sessions, setSessions] = useState<SessionEntry[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>()
   const [usePanel, setUsePanel] = useState(true)
@@ -267,9 +275,9 @@ export function AdvisorPage() {
       a.download = `cquant-report-${new Date().toISOString().slice(0, 10)}.md`
       a.click()
       URL.revokeObjectURL(url)
-      toast.success('报告已生成并下载')
+      toast.success(t('page.advisor.report.toast_success'))
     } catch (e: unknown) {
-      toast.error(`报告生成失败: ${(e as Error).message}`)
+      toast.error(t('page.advisor.report.toast_failed', { message: (e as Error).message }))
     } finally {
       setGeneratingReport(false)
     }
@@ -337,7 +345,7 @@ export function AdvisorPage() {
         setChatHistory(h => [...h, { role: 'assistant', content: resp.response }])
         setTimeout(() => chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       } catch (e) {
-        setChatHistory(h => [...h, { role: 'assistant', content: `错误: ${e}` }])
+        setChatHistory(h => [...h, { role: 'assistant', content: t('page.advisor.chat_error', { message: String(e) }) }])
       } finally {
         setChatLoading(false)
       }
@@ -358,13 +366,13 @@ export function AdvisorPage() {
       <div className="flex-1 flex flex-col p-6 overflow-hidden">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">AI 分析助手</h1>
-            <p className="text-xs text-gray-400">仅限离线研究 · 不执行真实交易 · 多智能体 RAG</p>
+            <h1 className="text-xl font-bold text-gray-900">{t('page.advisor.title')}</h1>
+            <p className="text-xs text-gray-400">{t('page.advisor.subtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
             {activeSessionId && (
               <span className="text-xs text-gray-400 font-mono">
-                Session: {activeSessionId.slice(0, 8)}…
+                {t('page.advisor.session_label')}{activeSessionId.slice(0, 8)}…
               </span>
             )}
             <div className="flex items-center gap-1.5">
@@ -372,7 +380,7 @@ export function AdvisorPage() {
                 type="text"
                 value={reportSubject}
                 onChange={e => setReportSubject(e.target.value)}
-                placeholder="报告主题"
+                placeholder={t('page.advisor.report.subject_placeholder')}
                 className="input text-xs w-40"
                 onKeyDown={e => { if (e.key === 'Enter') void handleGenerateReport() }}
               />
@@ -380,9 +388,9 @@ export function AdvisorPage() {
                 onClick={() => void handleGenerateReport()}
                 disabled={!reportSubject.trim() || generatingReport}
                 className="text-xs text-green-600 hover:text-green-700 font-medium px-2 py-1 rounded border border-green-300 hover:bg-green-50 disabled:opacity-40"
-                title="生成投研报告"
+                title={t('page.advisor.report.btn_title')}
               >
-                {generatingReport ? '生成中…' : '📄 报告'}
+                {generatingReport ? t('page.advisor.report.btn_generating') : t('page.advisor.report.btn_idle')}
               </button>
             </div>
             <button
@@ -393,7 +401,7 @@ export function AdvisorPage() {
                   : 'bg-white text-gray-600 border-gray-200'
               }`}
             >
-              {usePanel ? '多角色面板' : '单次对话'}
+              {usePanel ? t('page.advisor.mode.panel') : t('page.advisor.mode.chat')}
             </button>
           </div>
         </div>
@@ -403,7 +411,7 @@ export function AdvisorPage() {
           <div className="flex-1 overflow-y-auto space-y-4 pb-4">
             {stream.ragPreview && (
               <div className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2">
-                📚 RAG 上下文：{stream.ragPreview}
+                {t('page.advisor.rag.context_prefix')}{stream.ragPreview}
               </div>
             )}
 
@@ -423,20 +431,20 @@ export function AdvisorPage() {
                 {(stream.report || stream.status === 'done') && (
                   <div className="card border-l-4 border-gray-200">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold uppercase tracking-wide text-gray-400">📄 Report Writer</span>
+                      <span className="text-xs font-bold uppercase tracking-wide text-gray-400">{t('page.advisor.report.writer_title')}</span>
                       {stream.report && (
                         <button
                           className="text-xs text-blue-500 hover:underline"
                           onClick={() => navigator.clipboard.writeText(stream.report)}
                         >
-                          复制报告
+                          {t('page.advisor.report.copy')}
                         </button>
                       )}
                     </div>
                     <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                       {stream.report
                         ? <RichContent content={stream.report} />
-                        : <span className="text-gray-300">生成中…</span>
+                        : <span className="text-gray-300">{t('page.advisor.report.generating')}</span>
                       }
                     </div>
                   </div>
@@ -454,7 +462,7 @@ export function AdvisorPage() {
               <div className="text-center text-gray-400 mt-16">
                 <div className="text-4xl mb-3">🤖</div>
                 <div className="text-sm">
-                  {activeSessionId ? '继续历史会话——输入新问题' : '输入问题后，多个 Agent 并行分析'}
+                  {activeSessionId ? t('page.advisor.mode.panel_empty_resume') : t('page.advisor.mode.panel_empty_new')}
                 </div>
               </div>
             )}
@@ -467,7 +475,7 @@ export function AdvisorPage() {
             {chatHistory.length === 0 && (
               <div className="text-center text-gray-400 mt-16">
                 <div className="text-4xl mb-3">💬</div>
-                <div className="text-sm">单次对话模式，直接问答</div>
+                <div className="text-sm">{t('page.advisor.mode.chat_empty_hint')}</div>
               </div>
             )}
             {chatHistory.map((m, i) => (
@@ -484,7 +492,7 @@ export function AdvisorPage() {
             {chatLoading && (
               <div className="flex justify-start">
                 <div className="bg-white border border-gray-100 rounded-2xl rounded-bl-sm px-4 py-3 text-gray-400 text-sm shadow-sm">
-                  分析中…
+                  {t('page.advisor.agent.analyzing')}
                 </div>
               </div>
             )}
@@ -504,7 +512,7 @@ export function AdvisorPage() {
               }
             }}
             rows={3}
-            placeholder="提问… (Enter 发送, Shift+Enter 换行)"
+            placeholder={t('page.advisor.input.placeholder')}
             className="input flex-1 resize-none"
             disabled={stream.status === 'streaming' || chatLoading}
           />
@@ -513,7 +521,7 @@ export function AdvisorPage() {
             disabled={!input.trim() || stream.status === 'streaming' || chatLoading}
             className="btn-primary self-end"
           >
-            发送
+            {t('page.advisor.input.send')}
           </button>
         </div>
       </div>

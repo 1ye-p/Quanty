@@ -1668,6 +1668,125 @@
         "title": "Model Comparison ({{count}})"
       },
       "empty": "No data"
+    },
+    "advisor": {
+      "title": "AI Research Assistant",
+      "subtitle": "Offline research only · no live trading · multi-agent RAG",
+      "session": {
+        "history_title": "Session History",
+        "new": "+ New",
+        "new_title": "New session",
+        "empty": "No sessions yet",
+        "turns": "{{turns}} turns · {{time}}"
+      },
+      "agent": {
+        "research": "📊 Research",
+        "risk": "⚠️ Risk",
+        "debate": "🔴 Debate",
+        "analyzing": "Analyzing…",
+        "waiting": "Waiting"
+      },
+      "report": {
+        "subject_placeholder": "Report subject",
+        "btn_title": "Generate research report",
+        "btn_generating": "Generating…",
+        "btn_idle": "📄 Report",
+        "writer_title": "📄 Report Writer",
+        "copy": "Copy report",
+        "generating": "Generating…",
+        "toast_success": "Report generated and downloaded",
+        "toast_failed": "Report generation failed: {{message}}"
+      },
+      "mode": {
+        "panel": "Multi-agent panel",
+        "chat": "Single-turn chat",
+        "chat_empty_hint": "Single-turn chat mode, ask directly",
+        "panel_empty_new": "Ask a question and multiple agents analyze in parallel",
+        "panel_empty_resume": "Continue session — ask a new question"
+      },
+      "rag": {
+        "context_prefix": "📚 RAG context: "
+      },
+      "session_label": "Session: ",
+      "input": {
+        "placeholder": "Ask… (Enter to send, Shift+Enter for newline)",
+        "send": "Send"
+      },
+      "chat_error": "Error: {{message}}"
+    },
+    "trading": {
+      "title": "Trading Center",
+      "subtitle": "Orders · Positions · Order management",
+      "broker": {
+        "label": "Broker:",
+        "paper": "Paper Trading",
+        "qmt": "QMT (Xuntou)"
+      },
+      "tab": {
+        "order": "Place Order",
+        "algo": "Algo Order",
+        "account": "Account",
+        "orders": "Order History",
+        "trades": "Trade History"
+      },
+      "quote": {
+        "section_title": "Quote Lookup",
+        "placeholder": "Enter symbol (e.g. 600036)",
+        "querying": "Loading…",
+        "last_price": "Last Price",
+        "change_pct": "Change %",
+        "volume": "Volume",
+        "amount": "Amount",
+        "open": "Open",
+        "high": "High",
+        "low": "Low",
+        "prev_close": "Prev Close",
+        "volume_unit_wan": "0k",
+        "amount_unit_yi": "00M"
+      },
+      "algo": {
+        "active_title": "Active Algo Orders",
+        "active_empty": "No active algo orders",
+        "completed_title": "Completed Orders",
+        "column_order_id": "Order ID",
+        "column_type": "Type",
+        "column_symbol": "Symbol",
+        "column_side": "Side",
+        "column_filled": "Filled",
+        "column_avg_price": "Avg Price",
+        "column_status": "Status",
+        "side_buy": "Buy",
+        "side_sell": "Sell",
+        "status_completed": "Completed",
+        "status_cancelled": "Cancelled",
+        "status_failed": "Failed",
+        "status_dash": "—"
+      }
+    },
+    "pipeline": {
+      "title": "Automated Backtest Pipeline",
+      "subtitle": "End-to-end automation: Data → Factor → Model → Backtest → Optimization",
+      "tab": {
+        "dag": "DAG Editor",
+        "history": "Execution History"
+      },
+      "node": {
+        "data": "Data Preparation",
+        "factor": "Factor Computation",
+        "model": "Model Training",
+        "backtest": "Backtest Validation",
+        "optimize": "Portfolio Optimization"
+      },
+      "dag": {
+        "title": "Pipeline DAG",
+        "edit_mode": "Edit Mode",
+        "exit_edit": "Exit Edit",
+        "run": "Run Pipeline",
+        "run_title": "Pipeline runs asynchronously in the background; can be triggered repeatedly"
+      },
+      "toast": {
+        "config_saved": "Node config saved"
+      }
     }
   }
 }
