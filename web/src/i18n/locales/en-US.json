@@ -1330,6 +1330,127 @@
         "th_win_rate": "Win Rate",
         "footer_mean": "Mean"
       }
+    },
+    "trading": {
+      "shared": {
+        "side_buy": "Buy",
+        "side_sell": "Sell",
+        "col_asset": "Asset",
+        "col_qty": "Qty",
+        "col_filled_price": "Fill Price",
+        "col_status": "Status",
+        "col_time": "Time",
+        "col_symbol": "Symbol",
+        "col_side": "Side",
+        "col_filled_qty": "Filled",
+        "col_commission": "Commission",
+        "loading_failed": "Load failed",
+        "dash": "—"
+      },
+      "account_info": {
+        "title": "Account Info",
+        "nav": "Total Assets",
+        "cash": "Available Cash",
+        "positions_count": "Positions",
+        "daily_pnl": "Today P&L"
+      },
+      "algo_order_form": {
+        "title": "Algo Order",
+        "symbol": "Symbol",
+        "total_qty": "Total Qty (shares)",
+        "order_type": "Order Type",
+        "type_market": "Market",
+        "type_limit": "Limit",
+        "limit_price": "Limit Price",
+        "start_time": "Start Time",
+        "end_time": "End Time",
+        "num_slices": "Number of Slices",
+        "lookback_days": "Lookback Days",
+        "lookback_hint": "Used to compute historical volume profile and determine per-slot order size",
+        "submitting": "Submitting...",
+        "place_failed": "Order failed",
+        "submitted": "Algo order submitted: {{order_id}}"
+      },
+      "algo_order_monitor": {
+        "loading": "Loading...",
+        "load_failed": "Failed to load order status",
+        "title": "Algo Order {{id}}",
+        "summary": "{{type}} | {{symbol}} | {{side}} {{qty}} shares",
+        "progress": "Progress",
+        "slices_unit": "{{completed}} / {{total}} slices",
+        "filled_qty": "Filled Qty",
+        "avg_price": "Avg Fill Price",
+        "slippage": "Slippage",
+        "col_slice_id": "Slice ID",
+        "col_scheduled_time": "Scheduled",
+        "col_filled_price": "Fill Price",
+        "col_filled_qty": "Filled",
+        "cancel": "Cancel Algo Order",
+        "cancelling": "Cancelling...",
+        "cancel_failed": "Cancel failed",
+        "slice_status": {
+          "pending": "Pending",
+          "filled": "Filled",
+          "cancelled": "Cancelled",
+          "failed": "Failed"
+        },
+        "order_status": {
+          "active": "Active",
+          "completed": "Completed",
+          "cancelled": "Cancelled",
+          "failed": "Failed"
+        }
+      },
+      "order_book": {
+        "loading": "Loading orders...",
+        "title": "Orders",
+        "empty": "No orders",
+        "col_id": "ID",
+        "col_action": "Action",
+        "cancel": "Cancel",
+        "status": {
+          "filled": "Filled",
+          "rejected": "Rejected",
+          "cancelled": "Cancelled",
+          "submitted": "Submitted",
+          "pending": "Pending",
+          "partial_filled": "Partial Fill"
+        }
+      },
+      "order_form": {
+        "title": "Place Order",
+        "symbol": "Symbol",
+        "qty": "Quantity (shares)",
+        "type_market": "Market",
+        "type_limit": "Limit",
+        "limit_price": "Limit Price",
+        "submitting": "Submitting...",
+        "place_failed": "Order failed",
+        "submitted": "Order submitted: {{order_id}} ({{status}})"
+      },
+      "order_history": {
+        "title": "Order History",
+        "col_order_qty": "Order Qty",
+        "status": {
+          "pending": "Pending",
+          "filled": "Filled",
+          "partial": "Partial",
+          "cancelled": "Cancelled",
+          "rejected": "Rejected"
+        }
+      },
+      "position_table": {
+        "loading": "Loading positions...",
+        "title": "Positions",
+        "empty": "No positions",
+        "col_cost": "Cost",
+        "col_market_value": "Market Value",
+        "col_pnl": "P&L"
+      },
+      "trade_history": {
+        "title": "Trade Fills",
+        "empty": "No trade records"
+      }
     }
   },
   "page": {

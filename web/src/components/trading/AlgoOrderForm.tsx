@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { tradingApi, type AlgoOrderParams } from '@/lib/api/trading'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 import { detectExchange } from '@/lib/utils'
@@ -12,6 +13,7 @@ interface AlgoOrderFormProps {
 }
 
 export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormProps) {
+  const { t } = useTranslation()
   const [symbol, setSymbol] = useState('')
   const [side, setSide] = useState<'buy' | 'sell'>('buy')
   const [qty, setQty] = useState('1000')
@@ -73,12 +75,12 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">
-      <h2 className="font-semibold text-gray-800 mb-4">算法下单</h2>
+      <h2 className="font-semibold text-gray-800 mb-4">{t('component.trading.algo_order_form.title')}</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Symbol */}
         <div>
-          <label className="block text-sm text-gray-600 mb-1">股票代码</label>
+          <label className="block text-sm text-gray-600 mb-1">{t('component.trading.algo_order_form.symbol')}</label>
           <input
             type="text"
             value={symbol}
@@ -99,7 +101,7 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            买入
+            {t('component.trading.shared.side_buy')}
           </button>
           <button
             type="button"
@@ -110,13 +112,13 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            卖出
+            {t('component.trading.shared.side_sell')}
           </button>
         </div>
 
         {/* Quantity */}
         <div>
-          <label className="block text-sm text-gray-600 mb-1">总数量（股）</label>
+          <label className="block text-sm text-gray-600 mb-1">{t('component.trading.algo_order_form.total_qty')}</label>
           <input
             type="number"
             value={qty}
@@ -129,7 +131,7 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
 
         {/* Order Type */}
         <div>
-          <label className="block text-sm text-gray-600 mb-1">订单类型</label>
+          <label className="block text-sm text-gray-600 mb-1">{t('component.trading.algo_order_form.order_type')}</label>
           <div className="grid grid-cols-4 gap-2">
             {(['market', 'limit', 'twap', 'vwap'] as OrderType[]).map(type => (
               <button
@@ -142,7 +144,11 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {type === 'market' ? '市价' : type === 'limit' ? '限价' : type.toUpperCase()}
+                {type === 'market'
+                  ? t('component.trading.algo_order_form.type_market')
+                  : type === 'limit'
+                    ? t('component.trading.algo_order_form.type_limit')
+                    : type.toUpperCase()}
               </button>
             ))}
           </div>
@@ -151,7 +157,7 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
         {/* Limit Price */}
         {orderType === 'limit' && (
           <div>
-            <label className="block text-sm text-gray-600 mb-1">限价</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('component.trading.algo_order_form.limit_price')}</label>
             <input
               type="number"
               value={limitPrice}
@@ -167,7 +173,7 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
         {isAlgoType && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">开始时间</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('component.trading.algo_order_form.start_time')}</label>
               <input
                 type="datetime-local"
                 value={startTime}
@@ -176,7 +182,7 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-1">结束时间</label>
+              <label className="block text-sm text-gray-600 mb-1">{t('component.trading.algo_order_form.end_time')}</label>
               <input
                 type="datetime-local"
                 value={endTime}
@@ -190,7 +196,7 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
         {/* TWAP: Number of slices */}
         {orderType === 'twap' && (
           <div>
-            <label className="block text-sm text-gray-600 mb-1">分片数量</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('component.trading.algo_order_form.num_slices')}</label>
             <input
               type="number"
               value={numSlices}
@@ -205,7 +211,7 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
         {/* VWAP: Lookback days */}
         {orderType === 'vwap' && (
           <div>
-            <label className="block text-sm text-gray-600 mb-1">回溯天数</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('component.trading.algo_order_form.lookback_days')}</label>
             <input
               type="number"
               value={lookbackDays}
@@ -215,7 +221,7 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
               className="input w-full"
             />
             <p className="text-xs text-gray-400 mt-1">
-              用于计算历史成交量分布，决定每个时段的下单量
+              {t('component.trading.algo_order_form.lookback_hint')}
             </p>
           </div>
         )}
@@ -231,23 +237,23 @@ export function AlgoOrderForm({ broker = 'paper', onSubmitted }: AlgoOrderFormPr
           } disabled:opacity-50`}
         >
           {orderMutation.isPending
-            ? '提交中...'
+            ? t('component.trading.algo_order_form.submitting')
             : side === 'buy'
-              ? '买入'
-              : '卖出'}
+              ? t('component.trading.shared.side_buy')
+              : t('component.trading.shared.side_sell')}
         </button>
 
         {/* Error */}
         {orderMutation.isError && (
           <div className="text-red-500 text-sm mt-2">
-            {orderMutation.error?.message || '下单失败'}
+            {orderMutation.error?.message || t('component.trading.algo_order_form.place_failed')}
           </div>
         )}
 
         {/* Success */}
         {orderMutation.isSuccess && (
           <div className="text-green-600 text-sm mt-2">
-            算法订单已提交: {orderMutation.data.order_id}
+            {t('component.trading.algo_order_form.submitted', { order_id: orderMutation.data.order_id })}
           </div>
         )}
       </form>

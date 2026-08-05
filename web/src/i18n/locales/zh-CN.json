@@ -1330,6 +1330,127 @@
         "th_win_rate": "胜率",
         "footer_mean": "均值"
       }
+    },
+    "trading": {
+      "shared": {
+        "side_buy": "买入",
+        "side_sell": "卖出",
+        "col_asset": "资产",
+        "col_qty": "数量",
+        "col_filled_price": "成交价",
+        "col_status": "状态",
+        "col_time": "时间",
+        "col_symbol": "标的",
+        "col_side": "方向",
+        "col_filled_qty": "成交量",
+        "col_commission": "手续费",
+        "loading_failed": "加载失败",
+        "dash": "—"
+      },
+      "account_info": {
+        "title": "账户信息",
+        "nav": "总资产",
+        "cash": "可用资金",
+        "positions_count": "持仓数",
+        "daily_pnl": "今日盈亏"
+      },
+      "algo_order_form": {
+        "title": "算法下单",
+        "symbol": "股票代码",
+        "total_qty": "总数量（股）",
+        "order_type": "订单类型",
+        "type_market": "市价",
+        "type_limit": "限价",
+        "limit_price": "限价",
+        "start_time": "开始时间",
+        "end_time": "结束时间",
+        "num_slices": "分片数量",
+        "lookback_days": "回溯天数",
+        "lookback_hint": "用于计算历史成交量分布，决定每个时段的下单量",
+        "submitting": "提交中...",
+        "place_failed": "下单失败",
+        "submitted": "算法订单已提交: {{order_id}}"
+      },
+      "algo_order_monitor": {
+        "loading": "加载中...",
+        "load_failed": "无法加载订单状态",
+        "title": "算法订单 {{id}}",
+        "summary": "{{type}} | {{symbol}} | {{side}} {{qty}} 股",
+        "progress": "执行进度",
+        "slices_unit": "{{completed}} / {{total}} 片",
+        "filled_qty": "已成交数量",
+        "avg_price": "成交均价",
+        "slippage": "滑点",
+        "col_slice_id": "分片 ID",
+        "col_scheduled_time": "计划时间",
+        "col_filled_price": "成交价",
+        "col_filled_qty": "成交量",
+        "cancel": "取消算法订单",
+        "cancelling": "取消中...",
+        "cancel_failed": "取消失败",
+        "slice_status": {
+          "pending": "待执行",
+          "filled": "已成交",
+          "cancelled": "已取消",
+          "failed": "失败"
+        },
+        "order_status": {
+          "active": "执行中",
+          "completed": "已完成",
+          "cancelled": "已取消",
+          "failed": "失败"
+        }
+      },
+      "order_book": {
+        "loading": "Loading orders...",
+        "title": "订单",
+        "empty": "暂无订单",
+        "col_id": "ID",
+        "col_action": "操作",
+        "cancel": "撤单",
+        "status": {
+          "filled": "已成交",
+          "rejected": "已拒绝",
+          "cancelled": "已撤销",
+          "submitted": "已提交",
+          "pending": "待处理",
+          "partial_filled": "部分成交"
+        }
+      },
+      "order_form": {
+        "title": "下单",
+        "symbol": "股票代码",
+        "qty": "数量（股）",
+        "type_market": "市价",
+        "type_limit": "限价",
+        "limit_price": "限价",
+        "submitting": "提交中...",
+        "place_failed": "下单失败",
+        "submitted": "订单已提交: {{order_id}} ({{status}})"
+      },
+      "order_history": {
+        "title": "订单历史",
+        "col_order_qty": "委托量",
+        "status": {
+          "pending": "待成交",
+          "filled": "已成交",
+          "partial": "部分成交",
+          "cancelled": "已撤单",
+          "rejected": "已拒绝"
+        }
+      },
+      "position_table": {
+        "loading": "Loading positions...",
+        "title": "持仓",
+        "empty": "暂无持仓",
+        "col_cost": "成本",
+        "col_market_value": "市值",
+        "col_pnl": "盈亏"
+      },
+      "trade_history": {
+        "title": "成交回报",
+        "empty": "暂无成交记录"
+      }
     }
   },
   "page": {

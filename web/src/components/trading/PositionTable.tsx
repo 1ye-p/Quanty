@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { tradingApi, type TradePosition } from '@/lib/api'
 import { extendedQueryKeys } from '@/lib/queryKeys'
 
@@ -7,6 +8,7 @@ interface PositionTableProps {
 }
 
 export function PositionTable({ broker = 'paper' }: PositionTableProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: extendedQueryKeys.trading.positions(broker),
     queryFn: () => tradingApi.positions(broker),
@@ -14,14 +16,14 @@ export function PositionTable({ broker = 'paper' }: PositionTableProps) {
   })
 
   if (isLoading) {
-    return <div className="card text-gray-400">Loading positions...</div>
+    return <div className="card text-gray-400">{t('component.trading.position_table.loading')}</div>
   }
 
   if (!data || data.items.length === 0) {
     return (
       <div className="card">
-        <h2 className="font-semibold text-gray-800 mb-2">持仓</h2>
-        <p className="text-gray-400 text-sm">暂无持仓</p>
+        <h2 className="font-semibold text-gray-800 mb-2">{t('component.trading.position_table.title')}</h2>
+        <p className="text-gray-400 text-sm">{t('component.trading.position_table.empty')}</p>
       </div>
     )
   }
@@ -29,18 +31,18 @@ export function PositionTable({ broker = 'paper' }: PositionTableProps) {
   return (
     <div className="card">
       <h2 className="font-semibold text-gray-800 mb-4">
-        持仓 <span className="text-sm font-normal text-gray-400">({data.total})</span>
+        {t('component.trading.position_table.title')} <span className="text-sm font-normal text-gray-400">({data.total})</span>
       </h2>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500 border-b">
-              <th className="pb-2 pr-4">资产</th>
-              <th className="pb-2 pr-4 text-right">数量</th>
-              <th className="pb-2 pr-4 text-right">成本</th>
-              <th className="pb-2 pr-4 text-right">市值</th>
-              <th className="pb-2 text-right">盈亏</th>
+              <th className="pb-2 pr-4">{t('component.trading.shared.col_asset')}</th>
+              <th className="pb-2 pr-4 text-right">{t('component.trading.shared.col_qty')}</th>
+              <th className="pb-2 pr-4 text-right">{t('component.trading.position_table.col_cost')}</th>
+              <th className="pb-2 pr-4 text-right">{t('component.trading.position_table.col_market_value')}</th>
+              <th className="pb-2 text-right">{t('component.trading.position_table.col_pnl')}</th>
             </tr>
           </thead>
           <tbody>
