@@ -1543,6 +1543,74 @@
         "volume_unit_lot": "0k lots",
         "amount_unit": "0B"
       }
+    },
+    "scoring": {
+      "title": "Cross-Sectional Scoring",
+      "subtitle": "Factor-combo based cross-sectional scoring and history comparison",
+      "tab": {
+        "current": "Current Score",
+        "history": "History"
+      },
+      "section": {
+        "config": "Scoring Plan Configuration",
+        "factor_weights": "Factor Weights",
+        "advanced": "Advanced Configuration",
+        "neutralize": "Neutralization",
+        "result": "Scoring Result",
+        "distribution": "Score Distribution",
+        "snapshots": "Historical Scoring Records"
+      },
+      "label": {
+        "plan_name": "Plan Name",
+        "feature_set": "Feature Set",
+        "winsorize_lower": "Winsorize Lower",
+        "winsorize_upper": "Winsorize Upper",
+        "fill_null": "Fill Missing Value",
+        "status": "Status",
+        "name": "Name",
+        "time_range": "Time Range",
+        "created_at": "Created At",
+        "select_factor": "Select factor",
+        "market_cap_neutralize": "Market Cap Neutralize",
+        "market_cap_neutralize_hint": "Regress out market cap factor effect to avoid large/small cap bias",
+        "industry_neutralize": "Industry Neutralize",
+        "industry_neutralize_hint": "Regress out industry factor effect for industry-neutral stock selection"
+      },
+      "column": {
+        "factor": "Factor",
+        "weight": "Weight",
+        "direction": "Direction",
+        "action": "Action",
+        "date": "Date",
+        "symbol": "Symbol",
+        "score": "Score",
+        "rank": "Rank"
+      },
+      "option": {
+        "direction_long": "long (higher is better)",
+        "direction_short": "short (lower is better)",
+        "fill_median": "Median",
+        "fill_mean": "Mean",
+        "fill_zero": "Zero",
+        "all_dates": "All Dates"
+      },
+      "btn": {
+        "add_factor": "+ Add Factor",
+        "run": "Run Scoring",
+        "running": "Submitting...",
+        "export_csv": "↓ CSV (current page)",
+        "run_backtest": "→ Run Backtest",
+        "prev_page": "← Prev",
+        "next_page": "Next →"
+      },
+      "empty": "No scoring results",
+      "distribution": {
+        "asset_count": "Asset Count",
+        "score_label": "Score≈{{score}}"
+      },
+      "computing": "Computing, please wait…",
+      "pagination": "{{total}} records, page {{page}} / {{totalPages}}",
+      "run_failed": "Scoring failed: {{message}}"
     }
   }
 }

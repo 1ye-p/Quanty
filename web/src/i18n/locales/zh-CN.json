@@ -1543,6 +1543,74 @@
         "volume_unit_lot": "万手",
         "amount_unit": "亿"
       }
+    },
+    "scoring": {
+      "title": "截面打分",
+      "subtitle": "基于因子组合的横截面打分与历史对比",
+      "tab": {
+        "current": "当前打分",
+        "history": "历史对比"
+      },
+      "section": {
+        "config": "评分方案配置",
+        "factor_weights": "因子权重",
+        "advanced": "高级配置",
+        "neutralize": "中性化处理",
+        "result": "打分结果",
+        "distribution": "得分分布",
+        "snapshots": "历史打分记录"
+      },
+      "label": {
+        "plan_name": "方案名称",
+        "feature_set": "Feature Set",
+        "winsorize_lower": "缩尾下界",
+        "winsorize_upper": "缩尾上界",
+        "fill_null": "缺失值填充",
+        "status": "状态",
+        "name": "名称",
+        "time_range": "时间范围",
+        "created_at": "创建时间",
+        "select_factor": "选择因子",
+        "market_cap_neutralize": "市值中性化",
+        "market_cap_neutralize_hint": "回归去除市值因子影响，避免大/小盘偏差",
+        "industry_neutralize": "行业中性化",
+        "industry_neutralize_hint": "回归去除行业因子影响，实现行业中性选股"
+      },
+      "column": {
+        "factor": "因子",
+        "weight": "权重",
+        "direction": "方向",
+        "action": "操作",
+        "date": "日期",
+        "symbol": "标的",
+        "score": "得分",
+        "rank": "排名"
+      },
+      "option": {
+        "direction_long": "long (越大越好)",
+        "direction_short": "short (越小越好)",
+        "fill_median": "中位数",
+        "fill_mean": "均值",
+        "fill_zero": "零",
+        "all_dates": "全部日期"
+      },
+      "btn": {
+        "add_factor": "+ 添加因子",
+        "run": "执行打分",
+        "running": "提交中...",
+        "export_csv": "↓ CSV（当前页）",
+        "run_backtest": "→ 运行回测",
+        "prev_page": "← 上一页",
+        "next_page": "下一页 →"
+      },
+      "empty": "暂无打分结果",
+      "distribution": {
+        "asset_count": "资产数",
+        "score_label": "分数≈{{score}}"
+      },
+      "computing": "计算中，请稍候…",
+      "pagination": "共 {{total}} 条，第 {{page}} / {{totalPages}} 页",
+      "run_failed": "评分失败: {{message}}"
     }
   }
 }

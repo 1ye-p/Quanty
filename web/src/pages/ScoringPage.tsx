@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { keepPreviousData } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -19,6 +20,7 @@ const PAGE_SIZE = 50
 type TabKey = 'current' | 'history'
 
 export function ScoringPage() {
+  const { t } = useTranslation()
   const location = useLocation()
   const [activeTab, setActiveTab] = useState<TabKey>('current')
   const [name, setName] = useState('momentum_value_v1')
@@ -107,7 +109,7 @@ export function ScoringPage() {
         ...(industryNeutralize ? ['industry'] : []),
       ],
     }, {
-      onError: (error) => toast.error('评分失败: ' + (error as Error).message),
+      onError: (error) => toast.error(t('page.scoring.run_failed', { message: (error as Error).message })),
     })
   }
 
@@ -131,7 +133,7 @@ export function ScoringPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">截面打分</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{t('page.scoring.title')}</h1>
         <div className="flex bg-gray-100 rounded-lg p-1">
           <button
             onClick={() => setActiveTab('current')}
@@ -141,7 +143,7 @@ export function ScoringPage() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            当前打分
+            {t('page.scoring.tab.current')}
           </button>
           <button
             onClick={() => setActiveTab('history')}
@@ -151,7 +153,7 @@ export function ScoringPage() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            历史对比
+            {t('page.scoring.tab.history')}
           </button>
         </div>
       </div>
@@ -162,25 +164,25 @@ export function ScoringPage() {
         <>
           {/* 配置区 */}
       <div className="card">
-        <h2 className="font-semibold text-gray-800 mb-4">评分方案配置</h2>
+        <h2 className="font-semibold text-gray-800 mb-4">{t('page.scoring.section.config')}</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">方案名称</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('page.scoring.label.plan_name')}</label>
             <input value={name} onChange={e => setName(e.target.value)}
               className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Feature Set</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('page.scoring.label.feature_set')}</label>
             <input value={featureSetVersion} onChange={e => setFeatureSetVersion(e.target.value)}
               placeholder="silver_v3" className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">开始日期</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('common.start_date')}</label>
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
               className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">结束日期</label>
+            <label className="block text-sm text-gray-600 mb-1">{t('common.end_date')}</label>
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
               className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
@@ -188,14 +190,14 @@ export function ScoringPage() {
 
         {/* 因子权重表 */}
         <div className="mt-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">因子权重</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-2">{t('page.scoring.section.factor_weights')}</h3>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b">
-                <th className="py-2">因子</th>
-                <th className="py-2 w-24">权重</th>
-                <th className="py-2 w-28">方向</th>
-                <th className="py-2 w-16">操作</th>
+                <th className="py-2">{t('page.scoring.column.factor')}</th>
+                <th className="py-2 w-24">{t('page.scoring.column.weight')}</th>
+                <th className="py-2 w-28">{t('page.scoring.column.direction')}</th>
+                <th className="py-2 w-16">{t('page.scoring.column.action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -204,7 +206,7 @@ export function ScoringPage() {
                   <td className="py-2">
                     <select value={f.factor_name} onChange={e => updateFactor(idx, 'factor_name', e.target.value)}
                       className="w-full border rounded px-2 py-1 text-sm">
-                      <option value="">选择因子</option>
+                      <option value="">{t('page.scoring.label.select_factor')}</option>
                       {factorDefs?.items?.map(fd => (
                         <option key={fd.name} value={fd.name}>{fd.name} — {fd.description}</option>
                       ))}
@@ -218,13 +220,13 @@ export function ScoringPage() {
                   <td className="py-2">
                     <select value={f.direction} onChange={e => updateFactor(idx, 'direction', e.target.value)}
                       className="w-full border rounded px-2 py-1 text-sm">
-                      <option value="long">long (越大越好)</option>
-                      <option value="short">short (越小越好)</option>
+                      <option value="long">{t('page.scoring.option.direction_long')}</option>
+                      <option value="short">{t('page.scoring.option.direction_short')}</option>
                     </select>
                   </td>
                   <td className="py-2">
                     <button onClick={() => removeFactor(idx)} className="text-red-500 hover:text-red-700 text-sm">
-                      删除
+                      {t('common.delete')}
                     </button>
                   </td>
                 </tr>
@@ -232,38 +234,38 @@ export function ScoringPage() {
             </tbody>
           </table>
           <button onClick={addFactor} className="mt-2 text-sm text-brand-600 hover:text-brand-700">
-            + 添加因子
+            {t('page.scoring.btn.add_factor')}
           </button>
         </div>
 
         {/* 高级配置 */}
         <details className="mt-4">
-          <summary className="text-sm text-gray-600 cursor-pointer">高级配置</summary>
+          <summary className="text-sm text-gray-600 cursor-pointer">{t('page.scoring.section.advanced')}</summary>
           <div className="grid grid-cols-3 gap-4 mt-2">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">缩尾下界</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('page.scoring.label.winsorize_lower')}</label>
               <input type="number" value={winsorize[0]} step={0.01} min={0} max={0.5}
                 onChange={e => setWinsorize([Number(e.target.value), winsorize[1]])}
                 className="w-full border rounded px-2 py-1 text-sm" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">缩尾上界</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('page.scoring.label.winsorize_upper')}</label>
               <input type="number" value={winsorize[1]} step={0.01} min={0.5} max={1}
                 onChange={e => setWinsorize([winsorize[0], Number(e.target.value)])}
                 className="w-full border rounded px-2 py-1 text-sm" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">缺失值填充</label>
+              <label className="block text-xs text-gray-500 mb-1">{t('page.scoring.label.fill_null')}</label>
               <select value={fillNull} onChange={e => setFillNull(e.target.value)}
                 className="w-full border rounded px-2 py-1 text-sm">
-                <option value="median">中位数</option>
-                <option value="mean">均值</option>
-                <option value="zero">零</option>
+                <option value="median">{t('page.scoring.option.fill_median')}</option>
+                <option value="mean">{t('page.scoring.option.fill_mean')}</option>
+                <option value="zero">{t('page.scoring.option.fill_zero')}</option>
               </select>
             </div>
           </div>
           <div className="mt-4">
-            <h4 className="text-xs text-gray-500 mb-2">中性化处理</h4>
+            <h4 className="text-xs text-gray-500 mb-2">{t('page.scoring.section.neutralize')}</h4>
             <div className="flex gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -272,8 +274,8 @@ export function ScoringPage() {
                   onChange={e => setMarketCapNeutralize(e.target.checked)}
                   className="rounded border-gray-300"
                 />
-                <span className="text-sm text-gray-700">市值中性化</span>
-                <span className="text-xs text-gray-400" title="回归去除市值因子影响，避免大/小盘偏差">ⓘ</span>
+                <span className="text-sm text-gray-700">{t('page.scoring.label.market_cap_neutralize')}</span>
+                <span className="text-xs text-gray-400" title={t('page.scoring.label.market_cap_neutralize_hint')}>ⓘ</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -282,8 +284,8 @@ export function ScoringPage() {
                   onChange={e => setIndustryNeutralize(e.target.checked)}
                   className="rounded border-gray-300"
                 />
-                <span className="text-sm text-gray-700">行业中性化</span>
-                <span className="text-xs text-gray-400" title="回归去除行业因子影响，实现行业中性选股">ⓘ</span>
+                <span className="text-sm text-gray-700">{t('page.scoring.label.industry_neutralize')}</span>
+                <span className="text-xs text-gray-400" title={t('page.scoring.label.industry_neutralize_hint')}>ⓘ</span>
               </label>
             </div>
           </div>
@@ -291,7 +293,7 @@ export function ScoringPage() {
 
         <button onClick={handleRun} disabled={runMutation.isPending}
           className="mt-4 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 text-sm">
-          {runMutation.isPending ? '提交中...' : '执行打分'}
+          {runMutation.isPending ? t('page.scoring.btn.running') : t('page.scoring.btn.run')}
         </button>
       </div>
 
@@ -300,9 +302,9 @@ export function ScoringPage() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-800">
-              打分结果
+              {t('page.scoring.section.result')}
               <span className="ml-2 text-sm font-normal text-gray-500">
-                状态: <span className={result.run.status === 'completed' ? 'text-green-600' : result.run.status === 'error' ? 'text-red-500' : 'text-yellow-600'}>
+                {t('page.scoring.label.status')}: <span className={result.run.status === 'completed' ? 'text-green-600' : result.run.status === 'error' ? 'text-red-500' : 'text-yellow-600'}>
                   {result.run.status}
                 </span>
               </span>
@@ -314,7 +316,7 @@ export function ScoringPage() {
                   onChange={e => { setSelectedDate(e.target.value); setPage(0) }}
                   className="text-xs border rounded px-2 py-1"
                 >
-                  <option value="">全部日期</option>
+                  <option value="">{t('page.scoring.option.all_dates')}</option>
                   {result.available_dates.map(d => (
                     <option key={d} value={d}>{d}</option>
                   ))}
@@ -325,7 +327,7 @@ export function ScoringPage() {
                 disabled={!result.results?.length}
                 className="btn-secondary text-xs disabled:opacity-40"
               >
-                ↓ CSV（当前页）
+                {t('page.scoring.btn.export_csv')}
               </button>
               {result?.run?.status === 'completed' && (
                 <button
@@ -347,7 +349,7 @@ export function ScoringPage() {
                   }}
                   className="btn-primary text-xs"
                 >
-                  → 运行回测
+                  {t('page.scoring.btn.run_backtest')}
                 </button>
               )}
             </div>
@@ -356,15 +358,15 @@ export function ScoringPage() {
           {/* 得分分布直方图 */}
           {result.score_distribution && result.score_distribution.length > 0 && (
             <div className="mb-4">
-              <h3 className="text-sm text-gray-600 mb-2">得分分布</h3>
+              <h3 className="text-sm text-gray-600 mb-2">{t('page.scoring.section.distribution')}</h3>
               <ResponsiveContainer width="100%" height={100}>
                 <BarChart data={result.score_distribution} margin={{ top: 0, right: 8, left: -30, bottom: 0 }}>
                   <XAxis dataKey="breakpoint" tick={{ fontSize: 10 }}
                     tickFormatter={(v: number) => v?.toFixed(2) ?? ''} />
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip
-                    formatter={(v: number) => [v, '资产数']}
-                    labelFormatter={(l: number) => `分数≈${l?.toFixed(2)}`}
+                    formatter={(v: number) => [v, t('page.scoring.distribution.asset_count')]}
+                    labelFormatter={(l: number) => t('page.scoring.distribution.score_label', { score: l?.toFixed(2) })}
                   />
                   <Bar dataKey="count" fill="#3b82f6" radius={[2, 2, 0, 0]} />
                 </BarChart>
@@ -375,7 +377,7 @@ export function ScoringPage() {
           {result.run.status === 'running' && (
             <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
               <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              计算中，请稍候…
+              {t('page.scoring.computing')}
             </div>
           )}
 
@@ -384,31 +386,31 @@ export function ScoringPage() {
               <DataTable
                 data={result.results}
                 columns={[
-                  { key: 'trade_date', label: '日期', sortable: true },
-                  { key: 'asset_id', label: '标的', searchable: true },
-                  { key: 'score', label: '得分', sortable: true, render: (v) => typeof v === 'number' ? v.toFixed(4) : String(v ?? '—') },
-                  { key: 'rank', label: '排名', sortable: true },
+                  { key: 'trade_date', label: t('page.scoring.column.date'), sortable: true },
+                  { key: 'asset_id', label: t('page.scoring.column.symbol'), searchable: true },
+                  { key: 'score', label: t('page.scoring.column.score'), sortable: true, render: (v) => typeof v === 'number' ? v.toFixed(4) : String(v ?? '—') },
+                  { key: 'rank', label: t('page.scoring.column.rank'), sortable: true },
                 ]}
                 rowKey={(r) => `${r.asset_id}_${r.trade_date}`}
               />
 
               {result.total > PAGE_SIZE && (
                 <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
-                  <span>共 {result.total} 条，第 {page + 1} / {Math.ceil(result.total / PAGE_SIZE)} 页</span>
+                  <span>{t('page.scoring.pagination', { total: result.total, page: page + 1, totalPages: Math.ceil(result.total / PAGE_SIZE) })}</span>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setPage(p => Math.max(0, p - 1))}
                       disabled={page === 0}
                       className="btn-secondary text-xs disabled:opacity-40"
                     >
-                      ← 上一页
+                      {t('page.scoring.btn.prev_page')}
                     </button>
                     <button
                       onClick={() => setPage(p => p + 1)}
                       disabled={(page + 1) * PAGE_SIZE >= result.total}
                       className="btn-secondary text-xs disabled:opacity-40"
                     >
-                      下一页 →
+                      {t('page.scoring.btn.next_page')}
                     </button>
                   </div>
                 </div>
@@ -421,15 +423,15 @@ export function ScoringPage() {
       {/* 历史快照 */}
       {snapshots && snapshots.items.length > 0 && (
         <div className="card">
-          <h2 className="font-semibold text-gray-800 mb-4">历史打分记录</h2>
+          <h2 className="font-semibold text-gray-800 mb-4">{t('page.scoring.section.snapshots')}</h2>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b">
-                <th className="py-2">名称</th>
-                <th className="py-2">Feature Set</th>
-                <th className="py-2">时间范围</th>
-                <th className="py-2">状态</th>
-                <th className="py-2">创建时间</th>
+                <th className="py-2">{t('page.scoring.label.name')}</th>
+                <th className="py-2">{t('page.scoring.label.feature_set')}</th>
+                <th className="py-2">{t('page.scoring.label.time_range')}</th>
+                <th className="py-2">{t('page.scoring.label.status')}</th>
+                <th className="py-2">{t('page.scoring.label.created_at')}</th>
               </tr>
             </thead>
             <tbody>
