@@ -7,6 +7,7 @@ globalThis.ResizeObserver = class ResizeObserver {
   disconnect() {}
 }
 import { render, screen, waitFor } from '@testing-library/react'
+import '../../test-utils'  // initializes global i18n singleton (zh-CN) for useTranslation()
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
