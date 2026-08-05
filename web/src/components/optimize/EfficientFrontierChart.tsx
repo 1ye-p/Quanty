@@ -8,6 +8,7 @@
  * - Individual assets (gray small dots with labels)
  */
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ScatterChart,
   Scatter,
@@ -56,6 +57,7 @@ interface ScatterTooltipPayload {
 }
 
 function FrontierTooltip({ active, payload }: TooltipProps<number, string>) {
+  const { t } = useTranslation()
   if (!active || !payload?.length) return null
   const point = (payload[0] as unknown as ScatterTooltipPayload)?.payload
   if (!point) return null
@@ -67,15 +69,15 @@ function FrontierTooltip({ active, payload }: TooltipProps<number, string>) {
       )}
       <div className="space-y-1">
         <div className="flex justify-between">
-          <span className="text-gray-500">Expected Return</span>
+          <span className="text-gray-500">{t('component.optimize.efficient_frontier.tooltip_expected_return')}</span>
           <span className="text-gray-800 font-medium">{formatPct(point.expected_return)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500">Volatility</span>
+          <span className="text-gray-500">{t('component.optimize.efficient_frontier.tooltip_volatility')}</span>
           <span className="text-gray-800 font-medium">{formatPct(point.volatility)}</span>
         </div>
         <div className="flex justify-between border-t border-gray-100 pt-1 mt-1">
-          <span className="text-gray-500">Sharpe</span>
+          <span className="text-gray-500">{t('component.optimize.efficient_frontier.tooltip_sharpe')}</span>
           <span className="text-blue-700 font-semibold">{point.sharpe.toFixed(3)}</span>
         </div>
       </div>
@@ -84,6 +86,7 @@ function FrontierTooltip({ active, payload }: TooltipProps<number, string>) {
 }
 
 function AssetTooltip({ active, payload }: TooltipProps<number, string>) {
+  const { t } = useTranslation()
   if (!active || !payload?.length) return null
   const asset = (payload[0] as unknown as ScatterTooltipPayload)?.payload
   if (!asset) return null
@@ -93,11 +96,11 @@ function AssetTooltip({ active, payload }: TooltipProps<number, string>) {
       <p className="font-semibold text-gray-800 mb-1">{asset.asset}</p>
       <div className="space-y-1">
         <div className="flex justify-between">
-          <span className="text-gray-500">Expected Return</span>
+          <span className="text-gray-500">{t('component.optimize.efficient_frontier.tooltip_expected_return')}</span>
           <span className="text-gray-800 font-medium">{formatPct(asset.expected_return)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-500">Volatility</span>
+          <span className="text-gray-500">{t('component.optimize.efficient_frontier.tooltip_volatility')}</span>
           <span className="text-gray-800 font-medium">{formatPct(asset.volatility)}</span>
         </div>
       </div>
@@ -150,6 +153,7 @@ export function EfficientFrontierChart({
   individualAssets,
   onPointClick,
 }: EfficientFrontierChartProps) {
+  const { t } = useTranslation()
   const chartData = useMemo(() => {
     const frontier: ChartDataPoint[] = frontierPoints.map((p, i) => ({
       ...p,
@@ -188,23 +192,23 @@ export function EfficientFrontierChart({
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800">Efficient Frontier</h3>
+        <h3 className="font-semibold text-gray-800">{t('component.optimize.efficient_frontier.title')}</h3>
         <div className="flex items-center gap-4 text-xs text-gray-600">
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full bg-blue-500" />
-            <span>Frontier</span>
+            <span>{t('component.optimize.efficient_frontier.legend_frontier')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full bg-red-500" />
-            <span>Max Sharpe</span>
+            <span>{t('component.optimize.efficient_frontier.legend_max_sharpe')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full bg-emerald-500" />
-            <span>Min Variance</span>
+            <span>{t('component.optimize.efficient_frontier.legend_min_variance')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full bg-gray-400" />
-            <span>Assets</span>
+            <span>{t('component.optimize.efficient_frontier.legend_assets')}</span>
           </div>
         </div>
       </div>
@@ -220,7 +224,7 @@ export function EfficientFrontierChart({
             axisLine={{ stroke: '#e5e7eb' }}
             tickFormatter={(v: number) => `${(v * 100).toFixed(1)}%`}
           >
-            <Label value="Volatility (%)" position="bottom" offset={5} style={{ fill: '#6b7280', fontSize: 12 }} />
+            <Label value={t('component.optimize.efficient_frontier.axis_volatility')} position="bottom" offset={5} style={{ fill: '#6b7280', fontSize: 12 }} />
           </XAxis>
           <YAxis
             dataKey="expected_return"
@@ -230,7 +234,7 @@ export function EfficientFrontierChart({
             axisLine={{ stroke: '#e5e7eb' }}
             tickFormatter={(v: number) => `${(v * 100).toFixed(1)}%`}
           >
-            <Label value="Expected Return (%)" angle={-90} position="left" offset={5} style={{ fill: '#6b7280', fontSize: 12 }} />
+            <Label value={t('component.optimize.efficient_frontier.axis_expected_return')} angle={-90} position="left" offset={5} style={{ fill: '#6b7280', fontSize: 12 }} />
           </YAxis>
           <ZAxis dataKey="size" range={[40, 120]} />
           <Tooltip content={<FrontierTooltip />} cursor={false} />
@@ -263,8 +267,12 @@ export function EfficientFrontierChart({
       {/* Max Sharpe label */}
       <div className="flex justify-center mt-2">
         <div className="text-xs text-gray-600 bg-red-50 px-3 py-1 rounded-full">
-          Max Sharpe: <span className="font-semibold text-red-700">
-            {formatPct(optimalPoint.expected_return)} / {formatPct(optimalPoint.volatility)} (Sharpe: {optimalPoint.sharpe.toFixed(3)})
+          <span className="font-semibold text-red-700">
+            {t('component.optimize.efficient_frontier.max_sharpe_summary', {
+              ret: formatPct(optimalPoint.expected_return),
+              vol: formatPct(optimalPoint.volatility),
+              sharpe: optimalPoint.sharpe.toFixed(3),
+            })}
           </span>
         </div>
       </div>
@@ -272,7 +280,7 @@ export function EfficientFrontierChart({
       {/* Individual assets chart */}
       {individualAssets.length > 0 && (
         <div className="mt-6 pt-4 border-t border-gray-100">
-          <h4 className="text-sm font-medium text-gray-700 mb-3">Individual Assets vs Frontier</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-3">{t('component.optimize.efficient_frontier.assets_vs_frontier')}</h4>
           <ResponsiveContainer width="100%" height={200}>
             <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />

@@ -2,6 +2,7 @@
  * Advanced constraints configuration for portfolio optimization.
  * Includes per-asset bounds, sector limits, factor exposure limits, and tracking error.
  */
+import { useTranslation } from 'react-i18next'
 
 interface SectorEntry {
   label: string
@@ -51,6 +52,7 @@ export function ConstraintsTab({
   sectorEntries, onSectorEntriesChange,
   factorEntries, onFactorEntriesChange,
 }: ConstraintsTabProps) {
+  const { t } = useTranslation()
   const assets = covResult ? Object.keys(covResult) : []
 
   const addSector = () => onSectorEntriesChange([...sectorEntries, { label: '', assets: '', min: '0', max: '30' }])
@@ -76,13 +78,13 @@ export function ConstraintsTab({
       {/* Turnover */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Max Turnover (%)</label>
+          <label className="block text-xs text-gray-600 mb-1">{t('component.optimize.constraints.max_turnover')}</label>
           <input type="number" value={maxTurnover} onChange={e => onMaxTurnoverChange(e.target.value)}
-            className="input w-full" placeholder="Unlimited" min={0} max={200} step={5} />
-          <p className="text-xs text-gray-400 mt-0.5">Leave empty for no limit</p>
+            className="input w-full" placeholder={t('component.optimize.shared.unlimited')} min={0} max={200} step={5} />
+          <p className="text-xs text-gray-400 mt-0.5">{t('component.optimize.shared.no_limit_hint')}</p>
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Turnover Penalty</label>
+          <label className="block text-xs text-gray-600 mb-1">{t('component.optimize.constraints.turnover_penalty')}</label>
           <input type="number" value={turnoverPenalty} onChange={e => onTurnoverPenaltyChange(e.target.value)}
             className="input w-full" min={0} max={0.01} step={0.0001} />
         </div>
@@ -91,13 +93,13 @@ export function ConstraintsTab({
       {/* Per-Asset Bounds */}
       {assets.length > 0 && (
         <div>
-          <label className="block text-xs text-gray-600 mb-1.5">Per-Asset Weight Bounds (%)</label>
+          <label className="block text-xs text-gray-600 mb-1.5">{t('component.optimize.constraints.per_asset_bounds')}</label>
           <table className="w-full text-xs">
             <thead>
               <tr className="text-gray-500">
-                <th className="text-left py-1 pr-2">Asset</th>
-                <th className="text-left py-1 pr-2 w-24">Min Weight</th>
-                <th className="text-left py-1 w-24">Max Weight</th>
+                <th className="text-left py-1 pr-2">{t('component.optimize.shared.asset')}</th>
+                <th className="text-left py-1 pr-2 w-24">{t('component.optimize.constraints.col_min_weight')}</th>
+                <th className="text-left py-1 w-24">{t('component.optimize.constraints.col_max_weight')}</th>
               </tr>
             </thead>
             <tbody>
@@ -132,32 +134,32 @@ export function ConstraintsTab({
       {/* Sector Limits */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-xs text-gray-600">Sector Exposure Limits</label>
+          <label className="block text-xs text-gray-600">{t('component.optimize.constraints.sector_limits')}</label>
           <button type="button" onClick={addSector}
-            className="text-xs text-blue-600 hover:underline">+ Add Sector</button>
+            className="text-xs text-blue-600 hover:underline">{t('component.optimize.constraints.add_sector')}</button>
         </div>
         {sectorEntries.length === 0 && (
-          <p className="text-xs text-gray-400">No sector limits. Click above to add.</p>
+          <p className="text-xs text-gray-400">{t('component.optimize.constraints.no_sector')}</p>
         )}
         {sectorEntries.map((entry, idx) => (
           <div key={idx} className="flex items-end gap-2 mb-2 p-2 bg-white rounded border border-gray-200">
             <div className="flex-1">
-              <label className="text-[10px] text-gray-500 block">Sector Name</label>
+              <label className="text-[10px] text-gray-500 block">{t('component.optimize.constraints.sector_name')}</label>
               <input value={entry.label} onChange={e => updateSector(idx, 'label', e.target.value)}
                 className="input w-full text-xs" placeholder="Banking" />
             </div>
             <div className="flex-[2]">
-              <label className="text-[10px] text-gray-500 block">Assets (comma-separated)</label>
+              <label className="text-[10px] text-gray-500 block">{t('component.optimize.constraints.assets_comma')}</label>
               <input value={entry.assets} onChange={e => updateSector(idx, 'assets', e.target.value)}
                 className="input w-full text-xs" placeholder="601398.SSE, 601288.SSE" />
             </div>
             <div className="w-20">
-              <label className="text-[10px] text-gray-500 block">Min (%)</label>
+              <label className="text-[10px] text-gray-500 block">{t('component.optimize.shared.min')} (%)</label>
               <input type="number" value={entry.min} onChange={e => updateSector(idx, 'min', e.target.value)}
                 className="input w-full text-xs" min={0} max={100} step={1} />
             </div>
             <div className="w-20">
-              <label className="text-[10px] text-gray-500 block">Max (%)</label>
+              <label className="text-[10px] text-gray-500 block">{t('component.optimize.shared.max')} (%)</label>
               <input type="number" value={entry.max} onChange={e => updateSector(idx, 'max', e.target.value)}
                 className="input w-full text-xs" min={0} max={100} step={1} />
             </div>
@@ -170,28 +172,28 @@ export function ConstraintsTab({
       {/* Factor Exposure Limits */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="block text-xs text-gray-600">Factor Exposure Limits</label>
+          <label className="block text-xs text-gray-600">{t('component.optimize.constraints.factor_limits')}</label>
           <button type="button" onClick={addFactor}
-            className="text-xs text-blue-600 hover:underline">+ Add Factor</button>
+            className="text-xs text-blue-600 hover:underline">{t('component.optimize.constraints.add_factor')}</button>
         </div>
         {factorEntries.length === 0 && (
-          <p className="text-xs text-gray-400">No factor limits. Click above to add.</p>
+          <p className="text-xs text-gray-400">{t('component.optimize.constraints.no_factor')}</p>
         )}
         {factorEntries.map((entry, idx) => (
           <div key={idx} className="mb-2 p-2 bg-white rounded border border-gray-200">
             <div className="flex items-end gap-2 mb-2">
               <div className="flex-1">
-                <label className="text-[10px] text-gray-500 block">Factor Name</label>
+                <label className="text-[10px] text-gray-500 block">{t('component.optimize.constraints.factor_name')}</label>
                 <input value={entry.name} onChange={e => updateFactor(idx, 'name', e.target.value)}
                   className="input w-full text-xs" placeholder="momentum" />
               </div>
               <div className="w-24">
-                <label className="text-[10px] text-gray-500 block">Min Exposure</label>
+                <label className="text-[10px] text-gray-500 block">{t('component.optimize.constraints.min_exposure')}</label>
                 <input type="number" value={entry.min} onChange={e => updateFactor(idx, 'min', e.target.value)}
                   className="input w-full text-xs" step={0.1} />
               </div>
               <div className="w-24">
-                <label className="text-[10px] text-gray-500 block">Max Exposure</label>
+                <label className="text-[10px] text-gray-500 block">{t('component.optimize.constraints.max_exposure')}</label>
                 <input type="number" value={entry.max} onChange={e => updateFactor(idx, 'max', e.target.value)}
                   className="input w-full text-xs" step={0.1} />
               </div>
@@ -201,7 +203,7 @@ export function ConstraintsTab({
             {assets.length > 0 && (
               <div>
                 <label className="text-[10px] text-gray-500 block mb-1">
-                  Factor Loadings (per-asset exposure to this factor)
+                  {t('component.optimize.constraints.factor_loadings')}
                 </label>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                   {assets.map(asset => (
@@ -225,31 +227,31 @@ export function ConstraintsTab({
       {/* Max Tracking Error */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Max Tracking Error (annualized)</label>
+          <label className="block text-xs text-gray-600 mb-1">{t('component.optimize.constraints.max_tracking_error')}</label>
           <input type="number" value={maxTrackingError}
             onChange={e => onMaxTrackingErrorChange(e.target.value)}
-            className="input w-full" placeholder="Unlimited" min={0} max={1} step={0.005} />
-          <p className="text-xs text-gray-400 mt-0.5">Leave empty for no limit, e.g. 0.05 = 5%</p>
+            className="input w-full" placeholder={t('component.optimize.shared.unlimited')} min={0} max={1} step={0.005} />
+          <p className="text-xs text-gray-400 mt-0.5">{t('component.optimize.constraints.max_te_hint')}</p>
         </div>
       </div>
 
       {/* Asset Exclusion */}
       <div>
-        <label className="block text-xs text-gray-600 mb-1.5">Asset Exclusion</label>
+        <label className="block text-xs text-gray-600 mb-1.5">{t('component.optimize.constraints.asset_exclusion')}</label>
         <div className="flex items-center gap-4 mb-2">
           <label className="flex items-center gap-1.5 text-xs text-gray-700">
             <input type="checkbox" checked={excludeST}
               onChange={e => onExcludeSTChange(e.target.checked)} />
-            Exclude ST / *ST stocks
+            {t('component.optimize.constraints.exclude_st')}
           </label>
           <label className="flex items-center gap-1.5 text-xs text-gray-700">
             <input type="checkbox" checked={excludeSuspended}
               onChange={e => onExcludeSuspendedChange(e.target.checked)} />
-            Exclude suspended stocks
+            {t('component.optimize.constraints.exclude_suspended')}
           </label>
         </div>
         <div>
-          <label className="text-[10px] text-gray-500 block">Custom exclusion list (comma-separated asset IDs)</label>
+          <label className="text-[10px] text-gray-500 block">{t('component.optimize.constraints.exclusion_list')}</label>
           <input value={excludeAssetsText}
             onChange={e => onExcludeAssetsTextChange(e.target.value)}
             className="input w-full text-xs"

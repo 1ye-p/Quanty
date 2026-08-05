@@ -2,6 +2,7 @@
  * Risk budget configuration for risk parity optimization.
  * Displays current risk allocation if available.
  */
+import { useTranslation } from 'react-i18next'
 
 interface RiskBudgetTabProps {
   resultWeights?: Record<string, number>
@@ -9,14 +10,15 @@ interface RiskBudgetTabProps {
 }
 
 export function RiskBudgetTab({ resultWeights, covariance }: RiskBudgetTabProps) {
+  const { t } = useTranslation()
   const assets = resultWeights ? Object.keys(resultWeights) : covariance ? Object.keys(covariance) : []
 
   if (assets.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-3">Risk Budget</h3>
+        <h3 className="font-semibold text-gray-800 mb-3">{t('component.optimize.risk_budget.title')}</h3>
         <p className="text-sm text-gray-400">
-          Compute covariance first, then run risk_parity optimization to see risk contribution breakdown.
+          {t('component.optimize.risk_budget.empty_hint')}
         </p>
       </div>
     )
@@ -51,14 +53,14 @@ export function RiskBudgetTab({ resultWeights, covariance }: RiskBudgetTabProps)
 
     return (
       <div className="card">
-        <h3 className="font-semibold text-gray-800 mb-3">Risk Contribution</h3>
+        <h3 className="font-semibold text-gray-800 mb-3">{t('component.optimize.risk_budget.risk_contribution')}</h3>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500 border-b">
-              <th className="py-1">Asset</th>
-              <th className="py-1 text-right">Weight</th>
-              <th className="py-1 text-right">Risk Contrib</th>
-              <th className="py-1 text-right">% of Total</th>
+              <th className="py-1">{t('component.optimize.shared.asset')}</th>
+              <th className="py-1 text-right">{t('component.optimize.shared.weight')}</th>
+              <th className="py-1 text-right">{t('component.optimize.risk_budget.col_risk_contrib')}</th>
+              <th className="py-1 text-right">{t('component.optimize.risk_budget.col_pct_total')}</th>
             </tr>
           </thead>
           <tbody>
@@ -82,16 +84,16 @@ export function RiskBudgetTab({ resultWeights, covariance }: RiskBudgetTabProps)
 
   return (
     <div className="card">
-      <h3 className="font-semibold text-gray-800 mb-3">Risk Budget</h3>
+      <h3 className="font-semibold text-gray-800 mb-3">{t('component.optimize.risk_budget.title')}</h3>
       <p className="text-sm text-gray-400">
-        Run risk_parity optimization to see risk contribution breakdown.
+        {t('component.optimize.risk_budget.empty_run_hint')}
       </p>
       <div className="mt-3">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500 border-b">
-              <th className="py-1">Asset</th>
-              <th className="py-1 text-right">Variance</th>
+              <th className="py-1">{t('component.optimize.shared.asset')}</th>
+              <th className="py-1 text-right">{t('component.optimize.risk_budget.col_variance')}</th>
             </tr>
           </thead>
           <tbody>

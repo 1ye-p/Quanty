@@ -4,6 +4,7 @@
  * Allows the user to specify investor views (absolute or relative)
  * and the tau uncertainty parameter for the Black-Litterman model.
  */
+import { useTranslation } from 'react-i18next'
 import type { ViewSpec } from '@/lib/api'
 
 interface BlackLittermanTabProps {
@@ -38,14 +39,16 @@ export function BlackLittermanTab({
 
   const isRelative = (v: ViewSpec) => v.against !== undefined && v.against !== ''
 
+  const { t } = useTranslation()
+
   return (
     <div className="bg-white rounded-xl shadow-sm border p-4 space-y-4">
-      <h3 className="font-semibold text-gray-800">Black-Litterman 观点</h3>
+      <h3 className="font-semibold text-gray-800">{t('component.optimize.black_litterman.title')}</h3>
 
       {/* Tau slider */}
       <div className="flex items-center gap-4">
         <label className="text-xs text-gray-500 whitespace-nowrap">
-          tau (不确定性系数)
+          {t('component.optimize.black_litterman.tau_label')}
         </label>
         <input
           type="range"
@@ -73,7 +76,7 @@ export function BlackLittermanTab({
       {/* Views table */}
       {assets.length === 0 ? (
         <p className="text-sm text-gray-500">
-          请先完成协方差矩阵计算以获取资产列表。
+          {t('component.optimize.black_litterman.cov_first_hint')}
         </p>
       ) : (
         <>
@@ -81,11 +84,11 @@ export function BlackLittermanTab({
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="table-th text-left">资产</th>
-                  <th className="table-th text-left">类型</th>
-                  <th className="table-th text-left">Against</th>
-                  <th className="table-th text-right">预期收益 (%)</th>
-                  <th className="table-th text-right">置信度 (%)</th>
+                  <th className="table-th text-left">{t('component.optimize.black_litterman.col_asset')}</th>
+                  <th className="table-th text-left">{t('component.optimize.black_litterman.col_type')}</th>
+                  <th className="table-th text-left">{t('component.optimize.black_litterman.col_against')}</th>
+                  <th className="table-th text-right">{t('component.optimize.black_litterman.col_expected_return')}</th>
+                  <th className="table-th text-right">{t('component.optimize.black_litterman.col_confidence')}</th>
                   <th className="table-th w-10" />
                 </tr>
               </thead>
@@ -93,7 +96,7 @@ export function BlackLittermanTab({
                 {views.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-3 py-4 text-center text-gray-400 text-xs">
-                      暂无观点，点击下方按钮添加
+                      {t('component.optimize.black_litterman.empty_views')}
                     </td>
                   </tr>
                 ) : (
@@ -125,8 +128,8 @@ export function BlackLittermanTab({
                           }}
                           className="input w-full text-xs"
                         >
-                          <option value="absolute">绝对</option>
-                          <option value="relative">相对</option>
+                          <option value="absolute">{t('component.optimize.black_litterman.type_absolute')}</option>
+                          <option value="relative">{t('component.optimize.black_litterman.type_relative')}</option>
                         </select>
                       </td>
 
@@ -186,7 +189,7 @@ export function BlackLittermanTab({
                           type="button"
                           onClick={() => removeView(idx)}
                           className="text-red-400 hover:text-red-600 text-xs"
-                          title="删除"
+                          title={t('component.optimize.black_litterman.confirm_delete')}
                         >
                           x
                         </button>
@@ -203,7 +206,7 @@ export function BlackLittermanTab({
             onClick={addView}
             className="text-xs text-brand-600 hover:underline"
           >
-            + 添加观点
+            {t('component.optimize.black_litterman.add_view')}
           </button>
         </>
       )}
@@ -212,12 +215,16 @@ export function BlackLittermanTab({
       {views.length > 0 && (
         <div className="text-xs text-gray-500 space-y-1 pt-2 border-t">
           <p>
-            共 {views.length} 条观点：
-            {views.filter(v => !isRelative(v)).length} 条绝对，
-            {views.filter(v => isRelative(v)).length} 条相对。
+            {t('component.optimize.black_litterman.summary_total', {
+              total: views.length,
+              absolute: views.filter(v => !isRelative(v)).length,
+              relative: views.filter(v => isRelative(v)).length,
+            })}
           </p>
           <p>
-            平均置信度：{Math.round((views.reduce((s, v) => s + v.confidence, 0) / views.length) * 100)}%
+            {t('component.optimize.black_litterman.summary_avg_confidence', {
+              value: Math.round((views.reduce((s, v) => s + v.confidence, 0) / views.length) * 100),
+            })}
           </p>
         </div>
       )}

@@ -2,6 +2,7 @@
  * Optimization results display with weights table and pie chart.
  */
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import type { OptimizeResult } from '@/lib/api'
 
@@ -17,6 +18,7 @@ interface ResultsTabProps {
 
 export function ResultsTab({ result, optimizer }: ResultsTabProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const pieData = Object.entries(result.weights)
     .filter(([, w]) => w > 0.001)
@@ -24,22 +26,22 @@ export function ResultsTab({ result, optimizer }: ResultsTabProps) {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-5 space-y-4">
-      <h2 className="font-semibold text-gray-800">Optimization Result</h2>
+      <h2 className="font-semibold text-gray-800">{t('component.optimize.results.title')}</h2>
       <div className="grid grid-cols-3 gap-4 text-center">
         <div className="bg-blue-50 rounded-lg p-3">
-          <div className="text-xs text-gray-500">Expected Return</div>
+          <div className="text-xs text-gray-500">{t('component.optimize.results.expected_return')}</div>
           <div className="text-lg font-bold text-blue-700">
             {(result.expected_return * 100).toFixed(2)}%
           </div>
         </div>
         <div className="bg-green-50 rounded-lg p-3">
-          <div className="text-xs text-gray-500">Expected Volatility</div>
+          <div className="text-xs text-gray-500">{t('component.optimize.results.expected_volatility')}</div>
           <div className="text-lg font-bold text-green-700">
             {(result.expected_volatility * 100).toFixed(2)}%
           </div>
         </div>
         <div className="bg-purple-50 rounded-lg p-3">
-          <div className="text-xs text-gray-500">Sharpe Ratio</div>
+          <div className="text-xs text-gray-500">{t('common.metric.sharpe_ratio')}</div>
           <div className="text-lg font-bold text-purple-700">
             {result.sharpe_ratio.toFixed(3)}
           </div>
@@ -48,18 +50,18 @@ export function ResultsTab({ result, optimizer }: ResultsTabProps) {
 
       {result?.metadata?.turnover != null && Number(result.metadata.turnover) > 0 && (
         <div className="text-xs text-gray-500 mt-1">
-          Turnover: <span className="font-mono">{(Number(result.metadata.turnover) * 100).toFixed(1)}%</span>
+          {t('component.optimize.results.turnover')}: <span className="font-mono">{(Number(result.metadata.turnover) * 100).toFixed(1)}%</span>
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Weight Allocation</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-2">{t('component.optimize.results.weight_allocation')}</h3>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b">
-                <th className="py-1">Asset</th>
-                <th className="py-1 text-right">Weight</th>
+                <th className="py-1">{t('component.optimize.shared.asset')}</th>
+                <th className="py-1 text-right">{t('component.optimize.shared.weight')}</th>
               </tr>
             </thead>
             <tbody>
@@ -76,7 +78,7 @@ export function ResultsTab({ result, optimizer }: ResultsTabProps) {
         </div>
 
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Weight Distribution</h3>
+          <h3 className="text-sm font-medium text-gray-700 mb-2">{t('component.optimize.results.weight_distribution')}</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -111,7 +113,7 @@ export function ResultsTab({ result, optimizer }: ResultsTabProps) {
           })
         }}
       >
-        Run backtest with these weights
+        {t('component.optimize.results.run_backtest')}
       </button>
     </div>
   )

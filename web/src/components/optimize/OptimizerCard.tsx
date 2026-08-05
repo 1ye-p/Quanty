@@ -3,6 +3,7 @@
  * expected returns table, and the optimize button.
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ViewSpec } from '@/lib/api'
 import { BlackLittermanTab } from './BlackLittermanTab'
 
@@ -52,42 +53,43 @@ export function OptimizerCard({
   children,
 }: OptimizerCardProps) {
   const [returnsText, setReturnsText] = useState('')
+  const { t } = useTranslation()
 
   return (
     <div className="bg-white rounded-xl shadow-sm border p-5 space-y-4">
-      <h2 className="font-semibold text-gray-800">优化器配置</h2>
+      <h2 className="font-semibold text-gray-800">{t('component.optimize.optimizer.title')}</h2>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">优化器类型</label>
+          <label className="text-xs text-gray-500 mb-1 block">{t('component.optimize.optimizer.optimizer_type')}</label>
           <select className="input w-full" value={optimizer} onChange={e => onOptimizerChange(e.target.value as any)}>
-            <option value="mean_variance">mean_variance — 均值方差</option>
-            <option value="risk_parity">risk_parity — 风险平价</option>
-            <option value="cost_aware">cost_aware — 成本感知</option>
-            <option value="black_litterman">black_litterman — Black-Litterman</option>
+            <option value="mean_variance">{t('component.optimize.optimizer.type_mean_variance')}</option>
+            <option value="risk_parity">{t('component.optimize.optimizer.type_risk_parity')}</option>
+            <option value="cost_aware">{t('component.optimize.optimizer.type_cost_aware')}</option>
+            <option value="black_litterman">{t('component.optimize.optimizer.type_black_litterman')}</option>
           </select>
         </div>
         <div className="flex items-end gap-4">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={longOnly} onChange={e => onLongOnlyChange(e.target.checked)} />
-            仅做多 (Long Only)
+            {t('component.optimize.optimizer.long_only')}
           </label>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="text-xs text-gray-500 mb-1 block">无风险利率</label>
+          <label className="text-xs text-gray-500 mb-1 block">{t('component.optimize.optimizer.risk_free_rate')}</label>
           <input type="number" className="input w-full" value={riskFreeRate}
             onChange={e => onRiskFreeRateChange(e.target.value)} step={0.001} />
         </div>
         {optimizer === 'cost_aware' && (
           <>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">交易成本率</label>
+              <label className="text-xs text-gray-500 mb-1 block">{t('component.optimize.optimizer.cost_rate')}</label>
               <input type="number" className="input w-full" value={costRate}
                 onChange={e => onCostRateChange(e.target.value)} step={0.0001} min={0} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">换手惩罚</label>
+              <label className="text-xs text-gray-500 mb-1 block">{t('component.optimize.optimizer.turnover_penalty')}</label>
               <input type="number" className="input w-full" value={turnoverPenalty}
                 onChange={e => onTurnoverPenaltyChange(e.target.value)} step={0.0001} min={0} />
             </div>
@@ -113,11 +115,11 @@ export function OptimizerCard({
       {optimizer !== 'black_litterman' && (hasCovResult && Object.keys(expectedReturnsMap).length > 0 ? (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700">预期年化收益率（%）</label>
+            <label className="text-sm font-medium text-gray-700">{t('component.optimize.optimizer.expected_returns_title')}</label>
             <div className="flex items-center gap-2">
               <button type="button"
                 onClick={() => {
-                  const input = prompt('批量填充预期收益率（%）:', '10')
+                  const input = prompt(t('component.optimize.optimizer.bulk_fill_prompt'), '10')
                   if (input === null) return
                   const val = Number(input)
                   if (!isNaN(val)) {
@@ -128,15 +130,15 @@ export function OptimizerCard({
                 }}
                 className="text-xs text-brand-600 hover:underline"
               >
-                批量填充
+                {t('component.optimize.optimizer.bulk_fill')}
               </button>
               <button type="button"
                 onClick={onImportMl}
                 disabled={mlFetching || !mlPredictions?.predictions || !Object.keys(mlPredictions.predictions).length}
-                title={mlPredictions?.date ? `来自 ${mlPredictions.date}` : '无 ML 预测数据'}
+                title={mlPredictions?.date ? t('component.optimize.optimizer.import_ml_tooltip_date', { date: mlPredictions.date }) : t('component.optimize.optimizer.import_ml_tooltip_empty')}
                 className="text-xs text-purple-600 hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {mlFetching ? '加载…' : '导入 ML 预测'}
+                {mlFetching ? t('component.optimize.optimizer.import_ml_loading') : t('component.optimize.optimizer.import_ml')}
               </button>
               <button type="button"
                 onClick={() => onExpectedReturnsMapChange(
@@ -144,7 +146,7 @@ export function OptimizerCard({
                 )}
                 className="text-xs text-gray-400 hover:text-gray-600"
               >
-                清零
+                {t('component.optimize.optimizer.reset_zero')}
               </button>
             </div>
           </div>
@@ -152,8 +154,8 @@ export function OptimizerCard({
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="table-th text-left">资产代码</th>
-                  <th className="table-th text-right">预期年化收益率 (%)</th>
+                  <th className="table-th text-left">{t('component.optimize.optimizer.col_asset_code')}</th>
+                  <th className="table-th text-right">{t('component.optimize.optimizer.col_expected_annual_return')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -178,7 +180,7 @@ export function OptimizerCard({
             </table>
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            risk_parity 优化器不使用预期收益，均值方差优化器需要设置。
+            {t('component.optimize.optimizer.expected_returns_hint')}
           </p>
           <details className="mt-2"
             onToggle={e => {
@@ -192,7 +194,7 @@ export function OptimizerCard({
             }}
           >
             <summary className="text-xs text-gray-400 cursor-pointer">
-              高级：文本模式输入（编辑后将覆盖表格中对应资产的值）
+              {t('component.optimize.optimizer.advanced_text_mode')}
             </summary>
             <textarea rows={4} value={returnsText}
               onChange={e => {
@@ -208,21 +210,21 @@ export function OptimizerCard({
                   )
                 )
               }}
-              placeholder="asset_id, expected_return (小数形式，如 0.10 表示10%)"
+              placeholder={t('component.optimize.optimizer.textarea_placeholder')}
               className="mt-1 w-full font-mono text-xs border rounded p-2 focus:outline-none"
             />
           </details>
         </div>
       ) : (
         <div className="p-3 bg-gray-50 border rounded-lg text-sm text-gray-500">
-          请先完成上方的协方差矩阵计算，资产列表将自动填入预期收益表格。
+          {t('component.optimize.optimizer.cov_first_hint')}
         </div>
       )
       )}
 
       <button className="btn-primary" onClick={onOptimize}
         disabled={isOptimizing || !hasCovResult}>
-        {isOptimizing ? '优化中...' : '运行优化'}
+        {isOptimizing ? t('component.optimize.optimizer.optimizing') : t('component.optimize.optimizer.run_optimize')}
       </button>
       {optError && (
         <div className="text-red-600 text-sm">{String(optError)}</div>
