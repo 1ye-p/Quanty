@@ -42,9 +42,10 @@ def test_persist_predictions_with_fold_id():
 
     persist_predictions(artifact, features, predictions, catalog, horizon="5d", fold_id="fold0")
 
-    # Verify executemany was called with rows containing composite model_version
-    exec_call = conn.executemany.call_args
-    rows = exec_call[0][1]  # second arg is the rows list
+    # persist_predictions calls catalog.upsert(table, columns, rows, conflict_keys).
+    # Verify rows contain composite model_version (first field of each row).
+    upsert_call = catalog.upsert.call_args
+    rows = upsert_call.args[2]  # 3rd positional arg is the rows list
     model_versions = [row[0] for row in rows]  # model_version is first column
     assert all(v == "lgbm-abc_fold0" for v in model_versions), (
         f"Expected 'lgbm-abc_fold0', got {model_versions}"
@@ -63,9 +64,9 @@ def test_persist_predictions_without_fold_id():
 
     persist_predictions(artifact, features, predictions, catalog, horizon="5d")
 
-    # Verify executemany was called with rows using original model_id
-    exec_call = conn.executemany.call_args
-    rows = exec_call[0][1]
+    # Verify upsert was called with rows using original model_id
+    upsert_call = catalog.upsert.call_args
+    rows = upsert_call.args[2]
     model_versions = [row[0] for row in rows]
     assert all(v == "lgbm-abc" for v in model_versions)
 

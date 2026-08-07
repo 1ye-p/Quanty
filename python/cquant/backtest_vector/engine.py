@@ -621,8 +621,12 @@ class VectorBacktestEngine:
             for aid in committed_weights:
                 price = self._get_price_on_date(aid, td, date_to_idx, price_matrix)
                 if price is not None:
-                    current_peak = trailing_state["peak_prices"].get(aid, price)
-                    if price > current_peak:
+                    # Initialise peak on first sighting, then track running max.
+                    # (Using .get(aid, price) + `>` alone never records the peak
+                    #  because price > price is always False on the first call.)
+                    if aid not in trailing_state["peak_prices"]:
+                        trailing_state["peak_prices"][aid] = price
+                    elif price > trailing_state["peak_prices"][aid]:
                         trailing_state["peak_prices"][aid] = price
 
             # Forced exit check (runs every day, not just rebalance days)

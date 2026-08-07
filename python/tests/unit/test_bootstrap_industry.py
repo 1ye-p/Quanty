@@ -25,27 +25,27 @@ def test_enriches_matching_assets():
     assert result == 3
 
     # Verify staged UPDATE pattern: CREATE TEMP → DELETE → executemany INSERT → UPDATE → DROP
-    conn = catalog._get_conn.return_value
-    assert conn.execute.call_count == 4  # CREATE, DELETE, UPDATE, DROP
-    assert conn.executemany.call_count == 1  # INSERT
+    # Implementation calls catalog.execute / catalog.executemany directly.
+    assert catalog.execute.call_count == 4  # CREATE, DELETE, UPDATE, DROP
+    assert catalog.executemany.call_count == 1  # INSERT
 
     # First call: CREATE TEMP TABLE
-    create_sql = conn.execute.call_args_list[0][0][0]
+    create_sql = catalog.execute.call_args_list[0][0][0]
     assert "CREATE TEMP TABLE" in create_sql
     assert "_industry_lookup_stage" in create_sql
 
     # Second call: DELETE FROM temp table
-    delete_sql = conn.execute.call_args_list[1][0][0]
+    delete_sql = catalog.execute.call_args_list[1][0][0]
     assert "DELETE FROM _industry_lookup_stage" in delete_sql
 
     # Third call: UPDATE silver_assets
-    update_sql = conn.execute.call_args_list[2][0][0]
+    update_sql = catalog.execute.call_args_list[2][0][0]
     assert "UPDATE" in update_sql
     assert "industry" in update_sql
     assert "_industry_lookup_stage" in update_sql
 
     # Fourth call: DROP temp table
-    drop_sql = conn.execute.call_args_list[3][0][0]
+    drop_sql = catalog.execute.call_args_list[3][0][0]
     assert "DROP TABLE" in drop_sql
     assert "_industry_lookup_stage" in drop_sql
 
@@ -78,6 +78,5 @@ def test_no_matching_assets_returns_zero():
 
     result = enrich_industry_from_lookup(catalog, lookup)
     assert result == 0
-    # No conn.execute call because nothing matched
-    conn = catalog._get_conn.return_value
-    conn.execute.assert_not_called()
+    # No catalog.execute call because nothing matched
+    catalog.execute.assert_not_called()
