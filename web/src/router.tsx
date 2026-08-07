@@ -21,7 +21,6 @@ const BacktestOverfittingTab = named(() => import('@/pages/backtest-tabs/Backtes
 const BacktestFillsTab = named(() => import('@/pages/backtest-tabs/BacktestFillsTab'), 'BacktestFillsTab')
 const BacktestWalkForwardTab = named(() => import('@/pages/backtest-tabs/BacktestWalkForwardTab'), 'BacktestWalkForwardTab')
 const BacktestTcaTab = named(() => import('@/pages/backtest-tabs/BacktestTcaTab'), 'BacktestTcaTab')
-const BacktestAttributionTab = named(() => import('@/pages/backtest-tabs/BacktestAttributionTab'), 'BacktestAttributionTab')
 const BacktestRiskTab = named(() => import('@/pages/backtest-tabs/BacktestRiskTab'), 'BacktestRiskTab')
 const BacktestCalendarTab = named(() => import('@/pages/backtest-tabs/BacktestCalendarTab'), 'BacktestCalendarTab')
 const BacktestAdvancedTab = named(() => import('@/pages/backtest-tabs/BacktestAdvancedTab'), 'BacktestAdvancedTab')
@@ -73,7 +72,6 @@ export const router = createBrowserRouter([
               { path: 'fills', element: <BacktestFillsTab /> },
               { path: 'walkforward', element: <BacktestWalkForwardTab /> },
               { path: 'tca', element: <BacktestTcaTab /> },
-              { path: 'attribution', element: <BacktestAttributionTab /> },
               { path: 'risk', element: <BacktestRiskTab /> },
               { path: 'calendar', element: <BacktestCalendarTab /> },
               { path: 'advanced', element: <BacktestAdvancedTab /> },

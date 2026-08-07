@@ -20,7 +20,7 @@ export function OrderForm({ broker = 'paper', onOrderPlaced }: OrderFormProps) {
   const queryClient = useQueryClient()
 
   const orderMutation = useMutation({
-    mutationFn: tradingApi.placeOrder,
+    mutationFn: (body: Parameters<typeof tradingApi.placeOrder>[0]) => tradingApi.placeOrder(body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: extendedQueryKeys.trading.orders(broker) })
       queryClient.invalidateQueries({ queryKey: extendedQueryKeys.trading.positions(broker) })

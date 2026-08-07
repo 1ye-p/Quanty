@@ -93,9 +93,6 @@ export const backtestsApi = {
   getTca: (id: string, config?: RequestConfig) =>
     api.get<Record<string, unknown>>(`/backtests/${id}/tca`, config),
 
-  getAttribution: (id: string, config?: RequestConfig) =>
-    api.get<Record<string, unknown>>(`/backtests/${id}/attribution`, config),
-
   getRiskRolling: (id: string, window = 60, config?: RequestConfig) =>
     api.get<Record<string, unknown>>(
       `/backtests/${id}/risk-rolling?window=${window}`,

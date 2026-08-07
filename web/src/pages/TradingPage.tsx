@@ -30,8 +30,8 @@ export function TradingPage() {
   const [showLookup, setShowLookup] = useState(false)
   const queryClient = useQueryClient()
 
-  // Account data
-  const { data: account } = useQuery({
+  // Account data (pre-fetch for cache; AccountInfo fetches its own view)
+  useQuery({
     queryKey: extendedQueryKeys.trading.account(broker),
     queryFn: () => tradingApi.account(broker),
     refetchInterval: 5000,

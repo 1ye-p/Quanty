@@ -46,7 +46,6 @@ export type {
   MLJob,
   TrainingCurvePoint,
   PredictionBin,
-  WalkForwardFold,
   DiagnosticsData,
 } from './api/ml'
 

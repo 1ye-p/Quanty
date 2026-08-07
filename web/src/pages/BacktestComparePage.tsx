@@ -36,7 +36,7 @@ export const BacktestComparePage: React.FC = () => {
   const navCurves = apiData?.runs?.map(run => ({
     backtest_id: run.run_id,
     strategy_name: run.strategy_id,
-    data: run.nav_series?.map(p => ({ date: p.date, nav: p.nav })) ?? [],
+    data: run.nav_series?.map(p => ({ date: p.date, value: p.nav })) ?? [],
   }));
 
   const backtestNames = Object.fromEntries(

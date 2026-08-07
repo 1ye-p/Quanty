@@ -60,7 +60,7 @@ export function ScoringPage() {
   })
 
   const runMutation = useMutation({
-    mutationFn: scoringApi.run,
+    mutationFn: (body: Parameters<typeof scoringApi.run>[0]) => scoringApi.run(body),
     onSuccess: (data) => setActiveRunId(data.run_id),
   })
 
@@ -384,7 +384,7 @@ export function ScoringPage() {
           {result.results && result.results.length > 0 && (
             <>
               <DataTable
-                data={result.results}
+                data={result.results as unknown as Record<string, unknown>[]}
                 columns={[
                   { key: 'trade_date', label: t('page.scoring.column.date'), sortable: true },
                   { key: 'asset_id', label: t('page.scoring.column.symbol'), searchable: true },

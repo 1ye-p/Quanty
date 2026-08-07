@@ -67,7 +67,7 @@ export function ScoreHistory() {
     if (!snapshotScores || snapshotScores.length === 0) return []
     const assetSet = new Set<string>()
     for (const ss of snapshotScores) {
-      for (const assetId of ss.scores.keys()) {
+      for (const assetId of Object.keys(ss.scores)) {
         assetSet.add(assetId)
       }
     }

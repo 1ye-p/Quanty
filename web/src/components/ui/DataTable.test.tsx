@@ -3,7 +3,7 @@ import '../../test-utils'  // initializes global i18n singleton (zh-CN) for useT
 import { describe, it, expect } from 'vitest'
 import { DataTable, type Column } from './DataTable'
 
-interface User { id: string; name: string; status: string; age: number }
+interface User { [key: string]: unknown; id: string; name: string; status: string; age: number }
 
 const columns: Column<User>[] = [
   { key: 'name', label: 'Name', sortable: true, searchable: true },

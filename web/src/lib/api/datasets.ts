@@ -140,5 +140,5 @@ export const datasetsApi = {
         version_b: { min: number; max: number; mean: number; null_rate: number }
         change: { mean_diff: number; mean_pct_change: number }
       }[]
-    }>('/datasets/compare', { ...config, params: { version_a: versionA, version_b: versionB, ...config?.params } }),
+    }>(`/datasets/compare?version_a=${encodeURIComponent(versionA)}&version_b=${encodeURIComponent(versionB)}`, config),
 }

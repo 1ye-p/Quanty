@@ -19,7 +19,6 @@ export const queryKeys = {
     fills: (id: string, offset: number, limit: number) => ['backtests', id, 'fills', offset, limit] as const,
     walkForward: (id: string) => ['backtests', id, 'walk-forward-folds'] as const,
     tca: (id: string) => ['backtests', id, 'tca'] as const,
-    attribution: (id: string) => ['backtests', id, 'attribution'] as const,
     riskRolling: (id: string, window: number) => ['backtests', id, 'risk-rolling', window] as const,
     drawdowns: (id: string) => ['backtests', id, 'drawdowns'] as const,
     drawdownTimeseries: (id: string) => ['backtests', id, 'drawdown-timeseries'] as const,
@@ -107,5 +106,6 @@ export const extendedQueryKeys = {
   },
   pipeline: {
     executions: () => ['pipeline', 'executions'] as const,
+    status: () => ['pipeline', 'status'] as const,
   },
 } as const

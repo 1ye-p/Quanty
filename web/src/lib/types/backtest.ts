@@ -69,6 +69,7 @@ export const BacktestFillSchema = z.object({
   stamp_duty: z.number(),
   slippage: z.number(),
   total_cost: z.number(),
+  order_idx: z.number().optional(),
 })
 
 export type BacktestFill = z.infer<typeof BacktestFillSchema>

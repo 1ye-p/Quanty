@@ -114,7 +114,7 @@ export function PipelinePage() {
   // node-type key (id); we translate it here so the DAG renders a localized name
   // without PipelineDAG needing its own i18n wiring.
   const nodes: Node<PipelineNodeData>[] = useMemo(() => {
-    const stageStatus = (pipelineStatus as Record<string, unknown>)?.stages as Record<string, { status?: string }> | undefined
+    const stageStatus = pipelineStatus?.stages as Record<string, { status?: string }> | undefined
     return DEFAULT_NODES.map((n) => {
       const liveStatus = stageStatus?.[n.id]?.status
       return {

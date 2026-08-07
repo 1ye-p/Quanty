@@ -56,7 +56,7 @@ export function RiskPage() {
   }, [portfolioRisk?.positions])
 
   const checkMutation = useMutation({
-    mutationFn: riskApi.check,
+    mutationFn: (body: Parameters<typeof riskApi.check>[0]) => riskApi.check(body),
     onSuccess: (data) => setCheckResult(data),
   })
 

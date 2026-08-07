@@ -4,7 +4,7 @@
  * Lets users build conditions without writing DSL manually.
  * Supports AND/OR logic, parentheses grouping, and real-time DSL preview.
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { indicatorsApi, type IndicatorInfo } from '@/lib/api'

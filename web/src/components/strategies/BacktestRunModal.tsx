@@ -128,7 +128,7 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
   })
 
   const runMutation = useMutation({
-    mutationFn: backtestsApi.create,
+    mutationFn: (body: Parameters<typeof backtestsApi.create>[0]) => backtestsApi.create(body),
     onSuccess: (data) => {
       if (data.warning) {
         setScoringWarning(data.warning as string)

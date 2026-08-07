@@ -75,7 +75,7 @@ export function OptimizePage() {
 
   // ── Mutations ─────────────────────────────────────────────────────────
   const covMutation = useMutation({
-    mutationFn: optimizeApi.covariance,
+    mutationFn: (body: Parameters<typeof optimizeApi.covariance>[0]) => optimizeApi.covariance(body),
     onSuccess: (data) => {
       setCovResult(data.covariance)
       setPerAssetBounds({})
@@ -89,7 +89,7 @@ export function OptimizePage() {
   })
 
   const optMutation = useMutation({
-    mutationFn: optimizeApi.optimize,
+    mutationFn: (body: Parameters<typeof optimizeApi.optimize>[0]) => optimizeApi.optimize(body),
     onSuccess: (data) => {
       setOptResult(data)
       setActiveTab('results')
@@ -106,7 +106,7 @@ export function OptimizePage() {
   })
 
   const frontierMutation = useMutation({
-    mutationFn: optimizeApi.getFrontier,
+    mutationFn: (body: Parameters<typeof optimizeApi.getFrontier>[0]) => optimizeApi.getFrontier(body),
     onSuccess: (data) => {
       setFrontierResult(data)
     },

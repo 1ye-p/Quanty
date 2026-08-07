@@ -45,7 +45,7 @@ export function BacktestOverviewTab() {
   })
 
   const deployMutation = useMutation({
-    mutationFn: liveApi.deploy,
+    mutationFn: (body: Parameters<typeof liveApi.deploy>[0]) => liveApi.deploy(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['live', 'deployed'] })
       setShowDeployWizard(false)

@@ -10,9 +10,9 @@ import { SilenceRules } from '@/components/alerts/SilenceRules'
 
 function severityBadge(severity: string, t: (key: string) => string) {
   const map: Record<string, { bg: string; text: string; label: string }> = {
-    critical: { bg: 'bg-red-100', text: 'text-red-700', label: t('alerts.severity.critical') },
-    warning:  { bg: 'bg-orange-100', text: 'text-orange-700', label: t('alerts.severity.warning') },
-    info:     { bg: 'bg-blue-100', text: 'text-blue-700', label: t('alerts.severity.info') },
+    critical: { bg: 'bg-red-100', text: 'text-red-700', label: t('page.alerts.severity.critical') },
+    warning:  { bg: 'bg-orange-100', text: 'text-orange-700', label: t('page.alerts.severity.warning') },
+    info:     { bg: 'bg-blue-100', text: 'text-blue-700', label: t('page.alerts.severity.info') },
   }
   const s = map[severity] ?? map.warning
   return (
@@ -51,7 +51,7 @@ export function AlertsPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: alertsApi.createRule,
+    mutationFn: (body: Parameters<typeof alertsApi.createRule>[0]) => alertsApi.createRule(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['alerts', 'rules'] })
       setShowCreateForm(false)
@@ -60,7 +60,7 @@ export function AlertsPage() {
     onError: (e: Error) => toast.error(`创建失败: ${e.message}`),
   })
   const deleteMutation = useMutation({
-    mutationFn: alertsApi.deleteRule,
+    mutationFn: (ruleId: string) => alertsApi.deleteRule(ruleId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['alerts', 'rules'] })
       setDeleteTarget(null)
@@ -78,7 +78,7 @@ export function AlertsPage() {
     onError: (e: Error) => toast.error(`更新失败: ${e.message}`),
   })
   const markReadMutation = useMutation({
-    mutationFn: alertsApi.markAllRead,
+    mutationFn: () => alertsApi.markAllRead(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['alerts', 'history'] })
       qc.invalidateQueries({ queryKey: ['alerts', 'unread-count'] })
@@ -86,7 +86,7 @@ export function AlertsPage() {
     onError: (e: Error) => toast.error(`标记已读失败: ${e.message}`),
   })
   const checkMutation = useMutation({
-    mutationFn: alertsApi.check,
+    mutationFn: () => alertsApi.check(),
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ['alerts', 'history'] })
       qc.invalidateQueries({ queryKey: ['alerts', 'unread-count'] })
@@ -125,9 +125,9 @@ export function AlertsPage() {
   const paramFields = PARAM_FORMS[newRuleType] ?? []
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: 'rules', label: t('alerts.tabs.rules') },
-    { key: 'history', label: t('alerts.tabs.history') },
-    { key: 'channels', label: t('alerts.tabs.channels') },
+    { key: 'rules', label: t('page.alerts.tabs.rules') },
+    { key: 'history', label: t('page.alerts.tabs.history') },
+    { key: 'channels', label: t('page.alerts.tabs.channels') },
   ]
 
   function handleEditChannel(ch: NotificationChannel) {
@@ -145,18 +145,18 @@ export function AlertsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="page-title">{t('alerts.center')}</h1>
+          <h1 className="page-title">{t('page.alerts.center')}</h1>
           {history?.unread_count ? (
-            <p className="page-subtitle text-red-500">{history.unread_count} {t('alerts.unread_count')}</p>
+            <p className="page-subtitle text-red-500">{history.unread_count} {t('page.alerts.unread_count')}</p>
           ) : (
-            <p className="page-subtitle">{t('alerts.no_unread')}</p>
+            <p className="page-subtitle">{t('page.alerts.no_unread')}</p>
           )}
         </div>
         <div className="flex gap-2">
           <button onClick={() => checkMutation.mutate()} disabled={checkMutation.isPending}
-            className="btn-secondary text-sm">{t('alerts.check_now')}</button>
+            className="btn-secondary text-sm">{t('page.alerts.check_now')}</button>
           {(history?.unread_count ?? 0) > 0 && (
-            <button onClick={() => markReadMutation.mutate()} className="btn-secondary text-sm">{t('alerts.mark_all_read')}</button>
+            <button onClick={() => markReadMutation.mutate()} className="btn-secondary text-sm">{t('page.alerts.mark_all_read')}</button>
           )}
         </div>
       </div>
@@ -184,15 +184,15 @@ export function AlertsPage() {
       {activeTab === 'rules' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <button onClick={() => setShowCreateForm(true)} className="btn-primary text-sm">+ {t('alerts.new_rule')}</button>
+            <button onClick={() => setShowCreateForm(true)} className="btn-primary text-sm">+ {t('page.alerts.new_rule')}</button>
           </div>
 
           {showCreateForm && (
             <div className="card">
-              <h3 className="font-semibold text-gray-800 mb-4">{t('alerts.new_alert_rule')}</h3>
+              <h3 className="font-semibold text-gray-800 mb-4">{t('page.alerts.new_alert_rule')}</h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">{t('alerts.rule_type')}</label>
+                  <label className="block text-xs text-gray-600 mb-1">{t('page.alerts.rule_type')}</label>
                   <select value={newRuleType} onChange={e => { setNewRuleType(e.target.value); setNewParams({}) }}
                     className="input w-full text-sm">
                     {rules?.rule_types.map(rt => (
@@ -245,7 +245,7 @@ export function AlertsPage() {
           )}
 
           <div className="card">
-            <h2 className="font-semibold text-gray-800 mb-3">{t('alerts.rules')}（{rules?.items.length ?? 0}）</h2>
+            <h2 className="font-semibold text-gray-800 mb-3">{t('page.alerts.rules')}（{rules?.items.length ?? 0}）</h2>
             {(rules?.items.length ?? 0) > 0 ? (
               <table className="w-full text-sm">
                 <thead><tr className="text-left text-gray-500 border-b">
@@ -278,7 +278,7 @@ export function AlertsPage() {
                 </tbody>
               </table>
             ) : (
-              <p className="text-sm text-gray-400">{t('alerts.no_rules_hint')}</p>
+              <p className="text-sm text-gray-400">{t('page.alerts.no_rules_hint')}</p>
             )}
           </div>
         </div>
@@ -287,7 +287,7 @@ export function AlertsPage() {
       {/* Tab: History */}
       {activeTab === 'history' && (
         <div className="card">
-          <h2 className="font-semibold text-gray-800 mb-3">{t('alerts.history')}</h2>
+          <h2 className="font-semibold text-gray-800 mb-3">{t('page.alerts.history')}</h2>
           {(history?.items.length ?? 0) > 0 ? (
             <ul className="space-y-2">
               {history!.items.map(a => (
@@ -307,7 +307,7 @@ export function AlertsPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-gray-400">{t('alerts.no_history')}</p>
+            <p className="text-sm text-gray-400">{t('page.alerts.no_history')}</p>
           )}
         </div>
       )}
@@ -327,7 +327,7 @@ export function AlertsPage() {
               <div className="card">
                 <div className="flex justify-end mb-3">
                   <button onClick={() => setShowChannelForm(true)} className="btn-primary text-sm">
-                    + {t('alerts.new_channel')}
+                    + {t('page.alerts.new_channel')}
                   </button>
                 </div>
               </div>
@@ -344,12 +344,12 @@ export function AlertsPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="font-semibold text-gray-900">{t('alerts.edit_rule')}</h2>
+              <h2 className="font-semibold text-gray-900">{t('page.alerts.edit_rule')}</h2>
               <button onClick={() => setEditTarget(null)} className="text-gray-400 hover:text-gray-600">&times;</button>
             </div>
             <div className="p-4 space-y-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">{t('alerts.rule_type')}</label>
+                <label className="block text-xs text-gray-600 mb-1">{t('page.alerts.rule_type')}</label>
                 <div className="font-mono text-sm bg-gray-50 px-2 py-1.5 rounded">{editTarget.rule_type_label}</div>
               </div>
               {(PARAM_FORMS[editTarget.rule_type] ?? []).map(f => (
@@ -407,8 +407,8 @@ export function AlertsPage() {
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title={t('alerts.confirm_delete_rule')}
-        message={t('alerts.confirm_delete_message')}
+        title={t('page.alerts.confirm_delete_rule')}
+        message={t('page.alerts.confirm_delete_message')}
         confirmLabel={t('common.delete')}
         variant="danger"
         onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget) }}

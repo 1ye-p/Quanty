@@ -199,7 +199,7 @@ export function DatasetsPage() {
   })
 
   const triggerMutation = useMutation({
-    mutationFn: datasetsApi.triggerIngest,
+    mutationFn: () => datasetsApi.triggerIngest(),
     onSuccess: () => {
       refetchSchedule()
     },

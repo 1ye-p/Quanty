@@ -16,14 +16,12 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [description, setDescription] = useState('')
-  const [progress, setProgress] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const qc = useQueryClient()
 
   const uploadMutation = useMutation({
     mutationFn: () => {
       if (!file) throw new Error(t('component.knowledge.doc_upload.no_file_error'))
-      setProgress(10)
       return knowledgeApi.upload(file, { tags, description })
     },
     onSuccess: () => {
@@ -32,12 +30,10 @@ export function DocumentUpload({ onSuccess }: DocumentUploadProps) {
       setFile(null)
       setTags([])
       setDescription('')
-      setProgress(0)
       onSuccess?.()
     },
     onError: (err: Error) => {
       toast.error(t('component.knowledge.doc_upload.upload_failed', { message: err.message }))
-      setProgress(0)
     },
   })
 

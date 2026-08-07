@@ -38,19 +38,19 @@ export async function createShareLink(params: {
   /** TTL in hours; null = never expires */
   expiresInHours?: number | null
 }): Promise<ShareLink> {
-  const res = await api.post('/share', {
+  const res = await api.post<ShareLink>('/share', {
     type: params.type,
     id: params.id,
     permissions: params.permissions ?? { showConfig: true, showResults: true },
     expires_in_hours: params.expiresInHours ?? null,
   })
-  return res.data as ShareLink
+  return res
 }
 
 /**
  * Fetch shared content by share ID (public endpoint).
  */
 export async function getShareContent(shareId: string): Promise<ShareContent> {
-  const res = await api.get(`/share/${shareId}`)
-  return res.data as ShareContent
+  const res = await api.get<ShareContent>(`/share/${shareId}`)
+  return res
 }

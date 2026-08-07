@@ -9,7 +9,6 @@ import type {
   MLJob,
   TrainParams,
   DiagnosticsData,
-  WalkForwardConfig,
   TrainingCurvePoint,
   PredictionBin,
 } from '../types'

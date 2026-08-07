@@ -62,7 +62,7 @@ function DAGNode({ data }: NodeProps<Node<PipelineNodeData>>) {
   const { t } = useTranslation()
   const { label, nodeType, status } = data
   const typeDef = getNodeTypeDef(nodeType)
-  const colors = typeDef ? { bg: typeDef.bgColor, border: typeDef.color, text: typeDef.color } : TYPE_COLORS.data
+  const colors = typeDef ? typeDef.color : TYPE_COLORS.data
   const icon = STATUS_ICON[status ?? 'pending'] ?? STATUS_ICON.pending
   const displayLabel = nodeType
     ? t(`component.pipeline.node_label.${nodeType}`, { defaultValue: label })
