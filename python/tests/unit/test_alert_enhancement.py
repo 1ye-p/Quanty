@@ -56,7 +56,7 @@ class TestRuleTypes:
 
     def test_all_expected_types_present(self):
         from cquant.api_server.alert_checker import RULE_TYPES
-        expected = {"data_stale", "factor_ic_low", "pnl_drawdown", "risk_breach"}
+        expected = {"data_stale", "factor_ic_low", "pnl_drawdown", "risk_breach", "news_sentiment"}
         assert set(RULE_TYPES.keys()) == expected
 
 
