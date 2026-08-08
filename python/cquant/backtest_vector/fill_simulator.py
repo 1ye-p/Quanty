@@ -70,7 +70,7 @@ class AShareFillSimulator:
     ) -> None:
         self._cost_model = cost_model or CostModel.for_cn()
         self._market = market
-        self._adj_type = adj_type
+        self._adj_type = adj_type  # DEPRECATED: stored but unused; raw_close now captures unadjusted price
         self._catalog = catalog
         self._max_volume_pct = max(0.01, min(1.0, max_volume_pct))
         self._rules = None
@@ -230,6 +230,7 @@ class AShareFillSimulator:
                 "close": float(row.get("close", 0) or 0),
                 "volume": float(row.get("volume", 0) or 0),
                 "is_suspended": bool(row.get(suspension_col, False)),
+                "adj_factor": float(row.get("adj_factor", 1.0) or 1.0),
             }
 
         # Second pass: compute prev_close from actual previous day's close
@@ -500,6 +501,11 @@ class AShareFillSimulator:
         slippage = base_slippage + volume_slippage
         total_cost = commission + stamp_duty + slippage
 
+        # raw_close: unadjusted execution price (price is the adjusted close,
+        # so raw_close = price / adj_factor recovers the true traded price).
+        adj_factor = self._get_price(td, asset_id, lookup, "adj_factor") or 1.0
+        raw_close = price / adj_factor if adj_factor > 0 else price
+
         return {
             "trade_date": td,
             "asset_id": asset_id,
@@ -511,6 +517,7 @@ class AShareFillSimulator:
             "stamp_duty": stamp_duty,
             "slippage": slippage,
             "total_cost": total_cost,
+            "raw_close": raw_close,
         }
 
     def _execute_buy(
@@ -537,6 +544,11 @@ class AShareFillSimulator:
         slippage = base_slippage + volume_slippage
         total_cost = commission + stamp_duty + slippage
 
+        # raw_close: unadjusted execution price (price is the adjusted close,
+        # so raw_close = price / adj_factor recovers the true traded price).
+        adj_factor = self._get_price(td, asset_id, lookup, "adj_factor") or 1.0
+        raw_close = price / adj_factor if adj_factor > 0 else price
+
         return {
             "trade_date": td,
             "asset_id": asset_id,
@@ -548,6 +560,7 @@ class AShareFillSimulator:
             "stamp_duty": stamp_duty,
             "slippage": slippage,
             "total_cost": total_cost,
+            "raw_close": raw_close,
         }
 
     def _empty_fills(self) -> pl.DataFrame:
@@ -563,6 +576,7 @@ class AShareFillSimulator:
             "stamp_duty": pl.Float64,
             "slippage": pl.Float64,
             "total_cost": pl.Float64,
+            "raw_close": pl.Float64,
         })
 
     def _empty_snapshots(self) -> pl.DataFrame:

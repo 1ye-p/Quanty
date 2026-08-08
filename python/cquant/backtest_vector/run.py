@@ -1131,12 +1131,14 @@ class BacktestRunner:
                 float(row.get("stamp_duty", 0) or 0),
                 float(row.get("slippage", 0) or 0),
                 float(row.get("total_cost", 0) or 0),
+                float(row.get("raw_close") or 0) or None,
             ))
         try:
             self._catalog.upsert(
                 "gold_fills",
                 ["fill_id", "run_id", "trade_date", "asset_id", "side", "qty",
-                 "price", "notional", "commission", "stamp_duty", "slippage", "total_cost"],
+                 "price", "notional", "commission", "stamp_duty", "slippage",
+                 "total_cost", "raw_close"],
                 rows,
                 ["fill_id"],
             )

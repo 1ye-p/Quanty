@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS gold_fills (
     stamp_duty          DOUBLE DEFAULT 0,
     slippage            DOUBLE DEFAULT 0,
     total_cost          DOUBLE DEFAULT 0,
+    raw_close           DOUBLE,                 -- unadjusted execution price (= adjusted close / adj_factor)
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
