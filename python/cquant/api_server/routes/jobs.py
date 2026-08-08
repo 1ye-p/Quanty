@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from cquant.api_server.deps import CatalogDep
+from cquant.api_server.deps import CatalogDep, job_queue_stats
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -77,3 +77,15 @@ async def delete_job(job_id: str, catalog: CatalogDep) -> dict:
         [job_id],
     )
     return {"job_id": job_id, "status": "deleted"}
+
+
+@router.get("/queue")
+async def get_queue_status() -> dict:
+    """Return heavy-job queue concurrency state for frontend display.
+
+    Exposes the global ``JOB_SEMAPHORE`` capacity plus how many heavy jobs are
+    currently waiting vs. running, and lifetime submit/complete totals. Poll
+    this to render a queue-position / concurrency indicator in the UI.
+    """
+    return {"queue": job_queue_stats.snapshot()}
+

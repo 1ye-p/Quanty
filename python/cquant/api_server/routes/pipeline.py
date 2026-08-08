@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks
 
-from cquant.api_server.deps import CatalogDep
+from cquant.api_server.deps import CatalogDep, run_job_async
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
@@ -65,7 +65,7 @@ async def run_pipeline(catalog: CatalogDep, background_tasks: BackgroundTasks) -
             }
         _is_running = True
 
-    background_tasks.add_task(_run_pipeline_bg, catalog)
+    background_tasks.add_task(run_job_async, _run_pipeline_bg, catalog)
     return {"status": "started", "detail": "Pipeline started in background."}
 
 

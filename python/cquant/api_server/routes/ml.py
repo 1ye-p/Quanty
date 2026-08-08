@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
 
-from cquant.api_server.deps import CatalogDep
+from cquant.api_server.deps import CatalogDep, run_job_async
 from cquant.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -249,7 +249,7 @@ async def submit_ml_job(
     )
 
     background_tasks.add_task(
-        _run_ml_job, job_id, body, catalog
+        run_job_async, _run_ml_job, job_id, body, catalog
     )
     return {"job_id": job_id, "status": "submitted"}
 

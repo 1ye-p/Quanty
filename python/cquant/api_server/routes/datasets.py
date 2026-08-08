@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from cquant.api_server.deps import CatalogDep
+from cquant.api_server.deps import CatalogDep, run_job_async
 from cquant.api_server.schemas.common import UniverseCreateBody
 
 logger = logging.getLogger(__name__)
@@ -214,7 +214,7 @@ async def trigger_ingest(background_tasks: BackgroundTasks, catalog: CatalogDep)
         return {"status": "already_running"}
     # Set running BEFORE enqueuing to prevent TOCTOU race on concurrent requests
     mark_scheduler_running()
-    background_tasks.add_task(run_incremental_ingest, catalog)
+    background_tasks.add_task(run_job_async, run_incremental_ingest, catalog)
     return {"status": "triggered"}
 
 

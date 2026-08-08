@@ -17,7 +17,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
-from cquant.api_server.deps import CatalogDep
+from cquant.api_server.deps import CatalogDep, run_job_async
 
 _ARTIFACTS_BASE = pathlib.Path("data/backtest_artifacts").resolve()
 _UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
@@ -501,7 +501,7 @@ async def create_backtest(
             logger.exception("Backtest job %s failed", job_id)
             _save_job(catalog, job_id, "backtest", "failed", error=f"Backtest failed: {str(exc)[:200]}")
 
-    background_tasks.add_task(_run_job)
+    background_tasks.add_task(run_job_async, _run_job)
     return {"job_id": job_id, "strategy_id": body.strategy_id, "status": "running", "warning": scoring_date_warning}
 
 
@@ -920,7 +920,7 @@ async def trigger_analysis(
             logger.exception("Analysis job %s failed", job_id)
             _save_job(catalog, job_id, "analysis", "failed", error=f"Analysis failed: {str(exc)[:200]}")
 
-    background_tasks.add_task(_run_analysis)
+    background_tasks.add_task(run_job_async, _run_analysis)
     return {"job_id": job_id, "run_id": run_id, "status": "running"}
 
 
@@ -1413,30 +1413,6 @@ async def get_backtest_tca(run_id: str, catalog: CatalogDep) -> dict:
     return result
 
 
-@router.get("/{run_id}/attribution")
-async def get_backtest_attribution(run_id: str, catalog: CatalogDep) -> dict:
-    """Get Brinson attribution for a backtest run."""
-    df = catalog.query(
-        "SELECT * FROM gold_bt_attribution WHERE analysis_run_id IN "
-        "(SELECT analysis_run_id FROM gold_bt_analysis_runs WHERE backtest_run_id = ? "
-        "ORDER BY created_at DESC LIMIT 1)",
-        [run_id],
-    )
-    if df.is_empty():
-        raise HTTPException(status_code=404, detail=f"No attribution data for run '{run_id}'")
-    row = df.to_dicts()[0]
-    if row.get("daily_json"):
-        row["daily"] = json.loads(row.pop("daily_json"))
-    else:
-        row["daily"] = []
-        row.pop("daily_json", None)
-    if row.get("sector_details_json"):
-        row["sector_details"] = json.loads(row.pop("sector_details_json"))
-    else:
-        row["sector_details"] = {}
-        row.pop("sector_details_json", None)
-    return row
-
 
 # ── HTML Report SVG helpers ───────────────────────────────────────────────────
 
@@ -1782,46 +1758,6 @@ def _tca_pie_svg(tca: dict, width: int = 400, height: int = 300) -> str:
     return ''.join(parts)
 
 
-def _attribution_bar_svg(attribution: dict, width: int = 600, height: int = 200) -> str:
-    """Render Brinson attribution as inline SVG bar chart.
-
-    Args:
-        attribution: dict with keys like 'allocation_effect', 'selection_effect', 'interaction_effect'.
-        width: SVG width in pixels.
-        height: SVG height in pixels.
-    """
-    effects = [
-        ("配置效应", float(attribution.get("allocation_effect", 0)), "#3b82f6"),
-        ("选择效应", float(attribution.get("selection_effect", 0)), "#16a34a"),
-        ("交互效应", float(attribution.get("interaction_effect", 0)), "#f59e0b"),
-    ]
-    PL, PR, PT, PB = 80, 20, 16, 36
-    cw, ch = width - PL - PR, height - PT - PB
-
-    max_abs = max(abs(e[1]) for e in effects) or 0.01
-    zero_y = PT + ch / 2
-    scale = ch / 2 / max_abs
-    n = len(effects)
-    bar_w = max(12, cw / n * 0.45)
-    gap = cw / n
-
-    parts: list[str] = [
-        f'<svg viewBox="0 0 {width} {height}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">',
-        f'<line x1="{PL}" y1="{zero_y:.0f}" x2="{PL + cw}" y2="{zero_y:.0f}" stroke="#e2e8f0"/>',
-    ]
-    for i, (label, val, color) in enumerate(effects):
-        cx_bar = PL + gap * i + gap / 2
-        bh = abs(val) * scale
-        by = zero_y - bh if val >= 0 else zero_y
-        parts += [
-            f'<rect x="{cx_bar - bar_w / 2:.1f}" y="{by:.1f}" width="{bar_w:.1f}" height="{bh:.1f}" fill="{color}" rx="3"/>',
-            f'<text x="{cx_bar:.0f}" y="{PT + ch + 14}" text-anchor="middle" font-size="10" fill="#64748b">{label}</text>',
-            f'<text x="{cx_bar:.0f}" y="{(by - 4 if val >= 0 else by + bh + 13):.0f}" text-anchor="middle" font-size="10" fill="{color}" font-weight="600">{val * 100:.2f}%</text>',
-        ]
-    parts.append('</svg>')
-    return ''.join(parts)
-
-
 @router.get("/{run_id}/export")
 async def export_backtest_report(
     run_id: str,
@@ -1958,27 +1894,6 @@ async def export_backtest_report(
         tca_data = tca_df.to_dicts()[0]
         tca_data["implementation_shortfall"] = _compute_implementation_shortfall(catalog, run_id)
 
-    # 11. 加载归因数据
-    attribution_data: dict = {}
-    attr_df = catalog.query(
-        "SELECT * FROM gold_bt_attribution WHERE analysis_run_id IN "
-        "(SELECT analysis_run_id FROM gold_bt_analysis_runs WHERE backtest_run_id = ? "
-        "ORDER BY created_at DESC LIMIT 1)",
-        [run_id],
-    )
-    if not attr_df.is_empty():
-        row = attr_df.to_dicts()[0]
-        if row.get("daily_json"):
-            row["daily"] = json.loads(row.pop("daily_json"))
-        else:
-            row["daily"] = []
-            row.pop("daily_json", None)
-        if row.get("sector_details_json"):
-            row["sector_details"] = json.loads(row.pop("sector_details_json"))
-        else:
-            row["sector_details"] = {}
-            row.pop("sector_details_json", None)
-        attribution_data = row
 
     # 12. 生成服务端 SVG 图表（无外部依赖，离线可用）
     nav_svg = _nav_to_svg(nav_dates, nav_values, bm_values=bm_values or None)
@@ -1989,7 +1904,6 @@ async def export_backtest_report(
     rolling_vol_svg = _rolling_vol_to_svg(rolling_risk)
     return_dist_svg = _return_dist_to_svg(returns_list)
     tca_svg = _tca_pie_svg(tca_data)
-    attribution_svg = _attribution_bar_svg(attribution_data)
 
     # 13. 渲染 HTML（启用 autoescape 防止 XSS）
     tmpl_dir = pathlib.Path(__file__).parent.parent / "templates"
@@ -2024,9 +1938,6 @@ async def export_backtest_report(
         tca_svg=tca_svg,
         tca_data=tca_data,
         has_tca=bool(tca_data),
-        attribution_svg=attribution_svg,
-        attribution_data=attribution_data,
-        has_attribution=bool(attribution_data),
     )
 
     # 9. 文件大小守护（PRD: < 2MB）
@@ -2674,7 +2585,7 @@ async def run_sensitivity_analysis(
             _save_job(catalog, job_id, "sensitivity", "failed",
                       run_id=run_id, error=f"Sensitivity failed: {str(e)[:300]}")
 
-    background_tasks.add_task(_run_sensitivity)
+    background_tasks.add_task(run_job_async, _run_sensitivity)
     return {"job_id": job_id, "run_id": run_id, "status": "running"}
 
 

@@ -12,7 +12,7 @@ import re
 
 from pydantic import BaseModel, Field, field_validator
 
-from cquant.api_server.deps import CatalogDep
+from cquant.api_server.deps import CatalogDep, run_job_async
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/factors", tags=["factors"])
@@ -126,7 +126,7 @@ async def compute_ic_matrix(
         "VALUES (?, ?, ?, ?, 'pending', ?)",
         [job_id, "__matrix__:" + ",".join(body.factor_names), body.feature_set_version, body.horizon_days, now],
     )
-    background_tasks.add_task(_compute_ic_matrix, job_id, body, catalog)
+    background_tasks.add_task(run_job_async, _compute_ic_matrix, job_id, body, catalog)
     return {"job_id": job_id, "status": "submitted"}
 
 
@@ -285,7 +285,7 @@ async def compute_ic_analytics(
         "VALUES (?, ?, ?, ?, 'pending', ?)",
         [job_id, body.factor_name, body.feature_set_version, body.horizon_days, now],
     )
-    background_tasks.add_task(_compute_ic, job_id, body, catalog)
+    background_tasks.add_task(run_job_async, _compute_ic, job_id, body, catalog)
     return {"job_id": job_id, "status": "submitted"}
 
 

@@ -10,7 +10,7 @@ from datetime import datetime
 from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel
 
-from cquant.api_server.deps import CatalogDep
+from cquant.api_server.deps import CatalogDep, run_job_async
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/scoring", tags=["scoring"])
@@ -148,7 +148,7 @@ async def run_scoring(
          body.start_date, body.end_date, datetime.now().isoformat()],
     )
 
-    background_tasks.add_task(_run_scoring_task, run_id, body, catalog)
+    background_tasks.add_task(run_job_async, _run_scoring_task, run_id, body, catalog)
     return {"run_id": run_id, "status": "pending"}
 
 
