@@ -24,6 +24,20 @@ CREATE TABLE IF NOT EXISTS gold_factor_values (
 CREATE INDEX IF NOT EXISTS idx_gold_factor_values_date_factor
     ON gold_factor_values (trade_date, factor_name);
 
+-- ── Factor materialization cache ──────────────────────────────────────────────
+-- Records the content fingerprint of silver_prices_1d under which a
+-- feature_set_version was materialized. A run recomputes the fingerprint (a
+-- digest of OHLCV/adj_factor aggregates over the date range) and, if it matches
+-- the cached value, reuses the existing factor values instead of recomputing.
+-- Auto-invalidates whenever silver_prices_1d content changes (corrections,
+-- backfills, adj_factor updates).
+CREATE TABLE IF NOT EXISTS gold_factor_cache_meta (
+    feature_set_version VARCHAR NOT NULL,
+    data_fingerprint    VARCHAR,
+    materialized_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (feature_set_version)
+);
+
 -- ── Signals ────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS gold_signals (
     signal_set_version  VARCHAR NOT NULL,

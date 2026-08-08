@@ -5,6 +5,7 @@ Reads from silver_prices_1d, runs FeaturePipeline, writes to gold_factor_values.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass
 from datetime import date
@@ -51,8 +52,41 @@ class FactorMaterializer:
         self._pipeline = FeaturePipeline(registry)
 
     def run(self, spec: FactorMaterializationSpec) -> str:
-        """Compute factors and write to gold_factor_values. Returns feature_set_version."""
+        """Compute factors and write to gold_factor_values. Returns feature_set_version.
+
+        Uses a content-based data fingerprint over silver_prices_1d in the requested
+        date range as a cache key. When the fingerprint matches a previous
+        materialization for the same factor set + date range, the existing factor
+        values are reused and the run returns without recomputing. Any change to the
+        underlying prices (corrections, backfills, adj_factor updates) alters the
+        fingerprint and auto-invalidates the cache for the affected range.
+        """
         self._catalog.initialize()
+
+        # Data fingerprint = deterministic digest of silver_prices_1d content over
+        # the date range. Any re-ingestion or correction that changes a row's OHLCV
+        # / adj_factor / membership alters the digest, invalidating the cache for
+        # this feature set. (silver_prices_1d has no per-row updated_at, so the
+        # fingerprint is computed from actual content rather than a timestamp.)
+        fingerprint = self._compute_data_fingerprint(spec)
+
+        # Deterministic cache key = factor set + date range + universe + data fingerprint.
+        # Stable across runs with identical inputs → reusable feature_set_version.
+        feature_set_version = self._derive_cache_key(spec, fingerprint)
+
+        # Cache hit: fingerprint unchanged → reuse existing materialized factors.
+        cached = self._catalog.query(
+            "SELECT data_fingerprint FROM gold_factor_cache_meta "
+            "WHERE feature_set_version = ?",
+            [feature_set_version],
+        )
+        if not cached.is_empty() and cached["data_fingerprint"][0] == fingerprint:
+            logger.info(
+                "Cache hit (fingerprint=%s) — skipping materialization for "
+                "feature_set_version=%s",
+                fingerprint, feature_set_version,
+            )
+            return feature_set_version
 
         prices = self._load_prices(spec)
         if prices.is_empty():
@@ -83,12 +117,96 @@ class FactorMaterializer:
         if feature_set.data.is_empty():
             raise FactorComputeError("Feature pipeline returned empty result")
 
+        # Pin the feature_set to the deterministic cache key so cached and freshly
+        # computed rows share the same feature_set_version.
+        feature_set.version_id = feature_set_version
+
         self._write_factor_values(feature_set)
+        self._record_cache_meta(feature_set_version, fingerprint)
+
         logger.info(
-            "Materialized %d factors, %d rows → feature_set_version=%s",
-            feature_set.factor_count, feature_set.row_count, feature_set.version_id,
+            "Materialized %d factors, %d rows → feature_set_version=%s "
+            "(fingerprint=%s)",
+            feature_set.factor_count, feature_set.row_count,
+            feature_set_version, fingerprint,
         )
-        return feature_set.version_id
+        return feature_set_version
+
+    def _compute_data_fingerprint(self, spec: FactorMaterializationSpec) -> str:
+        """Deterministic content digest of silver_prices_1d over the date range.
+
+        Combines a row count with order-independent sums of the OHLCV and adj_factor
+        values so the digest changes on any data correction, backfill, or
+        adj_factor update — while being insensitive to row insertion order. The
+        digest is computed inside DuckDB (a single cheap aggregation scan) rather
+        than shipping the full price frame to Python. silver_prices_1d has no
+        per-row ``updated_at`` column, so the fingerprint is derived from actual
+        content rather than a modification timestamp.
+        """
+        try:
+            df = self._catalog.query(
+                """
+                SELECT
+                    COUNT(*)                                     AS row_count,
+                    SUM(CAST(close AS DOUBLE))                   AS sum_close,
+                    SUM(CAST(open  AS DOUBLE))                   AS sum_open,
+                    SUM(CAST(high  AS DOUBLE))                   AS sum_high,
+                    SUM(CAST(low   AS DOUBLE))                   AS sum_low,
+                    SUM(CAST(volume AS DOUBLE))                  AS sum_volume,
+                    SUM(COALESCE(CAST(adj_factor AS DOUBLE), 0)) AS sum_adj
+                FROM silver_prices_1d
+                WHERE trade_date >= ? AND trade_date <= ?
+                """,
+                [spec.start_date.isoformat(), spec.end_date.isoformat()],
+            )
+        except Exception as exc:  # table missing or query error → never serve stale
+            logger.warning("Could not compute data fingerprint: %s", exc)
+            return "unknown"
+
+        if df.is_empty():
+            return "empty"
+
+        # Polars returns the aggregates; render a compact, stable signature.
+        r = df.row(0, named=True)
+        parts = [f"{k}={r.get(k)}" for k in
+                 ("row_count", "sum_close", "sum_open", "sum_high",
+                  "sum_low", "sum_volume", "sum_adj")]
+        return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:16]
+
+    @staticmethod
+    def _derive_cache_key(
+        spec: FactorMaterializationSpec, fingerprint: str
+    ) -> str:
+        """Deterministic feature_set_version from factor set + range + fingerprint.
+
+        Sorting the factor names makes the key order-independent, so reordering
+        spec.factor_names does not spuriously miss the cache.
+        """
+        factors_sig = ",".join(sorted(spec.factor_names))
+        payload = "|".join([
+            spec.dataset_version,
+            factors_sig,
+            spec.universe_id,
+            spec.start_date.isoformat(),
+            spec.end_date.isoformat(),
+            fingerprint,
+        ])
+        digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+        return f"fsv_{digest}"
+
+    def _record_cache_meta(self, feature_set_version: str, fingerprint: str) -> None:
+        """Upsert the data fingerprint for this feature_set_version."""
+        try:
+            self._catalog.upsert(
+                "gold_factor_cache_meta",
+                ["feature_set_version", "data_fingerprint"],
+                [(feature_set_version, fingerprint)],
+                ["feature_set_version"],
+            )
+        except Exception as exc:
+            # Cache bookkeeping failure must not poison a successful materialization;
+            # the next run will simply recompute (safe over-caching of stale data).
+            logger.warning("Could not record cache meta for %s: %s", feature_set_version, exc)
 
     def _load_prices(self, spec: FactorMaterializationSpec) -> pl.DataFrame:
         """Load price data from silver_prices_1d with dynamic lookback."""
