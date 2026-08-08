@@ -1,13 +1,17 @@
 """cquant.scheduler.data_scheduler — APScheduler-based data pipeline scheduler.
 
-Runs seven recurring jobs:
-  1. Price ingest        — daily at 16:35 CST
-  2. Fundamentals update — daily at 17:00 CST
-  3. Valuation daily     — daily at 17:30 CST
-  4. Alert check         — daily at 18:00 CST
-  5. Health check        — daily at 08:00 CST
-  6. Daily prediction    — daily at 18:05 CST
-  7. Weekly retrain      — Sunday 20:00 CST (full ML pipeline)
+Runs recurring jobs (all times CST):
+  1.  price_ingest             — daily at 16:35
+  2.  fundamentals             — daily at 17:00
+  3.  valuation_daily          — daily at 17:30
+  4.  alerts                   — daily at 18:00
+  5.  health                   — daily at 08:00
+  6.  daily_prediction         — daily at 18:05
+  7.  weekly_retrain           — Sunday 20:00 (full ML pipeline)
+  8.  gold_cleanup             — daily at 03:00
+  9.  daily_prices             — daily at 18:00 (post-close price ingest)
+  10. daily_valuation          — daily at 18:30 (post-close valuation update)
+  11. quarterly_fundamentals   — daily at 19:00 (end-of-day fundamentals refresh)
 """
 
 from __future__ import annotations
@@ -388,9 +392,36 @@ class DataScheduler:
             replace_existing=True,
         )
 
+        # 9. Daily prices — daily at 18:00 (post-close incremental ingest)
+        sched.add_job(
+            self._run_daily_prices,
+            CronTrigger(hour=18, minute=0, timezone=self._tz),
+            id="daily_prices",
+            name="Daily Prices Ingest",
+            replace_existing=True,
+        )
+
+        # 10. Daily valuation — daily at 18:30 (post-close valuation refresh)
+        sched.add_job(
+            self._run_daily_valuation,
+            CronTrigger(hour=18, minute=30, timezone=self._tz),
+            id="daily_valuation",
+            name="Daily Valuation Update",
+            replace_existing=True,
+        )
+
+        # 11. Quarterly fundamentals — daily at 19:00 (end-of-day fundamentals refresh)
+        sched.add_job(
+            self._run_quarterly_fundamentals,
+            CronTrigger(hour=19, minute=0, timezone=self._tz),
+            id="quarterly_fundamentals",
+            name="Quarterly Fundamentals Update",
+            replace_existing=True,
+        )
+
         self._scheduler = sched
         self._running = True
-        logger.info("DataScheduler started with 8 jobs (tz=%s)", self._tz)
+        logger.info("DataScheduler started with 11 jobs (tz=%s)", self._tz)
 
         try:
             sched.start()
@@ -437,6 +468,9 @@ class DataScheduler:
             "daily-prediction": self._run_daily_prediction,
             "weekly-retrain": self._run_weekly_retrain,
             "gold-cleanup": self._run_gold_cleanup,
+            "daily-prices": self._run_daily_prices,
+            "daily-valuation": self._run_daily_valuation,
+            "quarterly-fundamentals": self._run_quarterly_fundamentals,
         }
         fn = dispatch.get(task_name)
         if fn is None:
@@ -519,6 +553,36 @@ class DataScheduler:
         except Exception as exc:
             logger.error("Gold cleanup failed after retries: %s", exc)
             self._record_run("gold_cleanup", "failure")
+
+    def _run_daily_prices(self) -> None:
+        """Post-close daily price ingest — reuses the price-ingest pipeline."""
+        logger.info("Running daily prices ingest ...")
+        try:
+            _with_retry(_job_price_ingest, self._catalog)
+            self._record_run("daily_prices")
+        except Exception as exc:
+            logger.error("Daily prices ingest failed after retries: %s", exc)
+            self._record_run("daily_prices", "failure")
+
+    def _run_daily_valuation(self) -> None:
+        """Post-close daily valuation update — reuses the valuation pipeline."""
+        logger.info("Running daily valuation update ...")
+        try:
+            _with_retry(_job_valuation_daily, self._catalog)
+            self._record_run("daily_valuation")
+        except Exception as exc:
+            logger.error("Daily valuation update failed after retries: %s", exc)
+            self._record_run("daily_valuation", "failure")
+
+    def _run_quarterly_fundamentals(self) -> None:
+        """End-of-day fundamentals refresh — reuses the fundamentals pipeline."""
+        logger.info("Running quarterly fundamentals update ...")
+        try:
+            _with_retry(_job_fundamentals, self._catalog)
+            self._record_run("quarterly_fundamentals")
+        except Exception as exc:
+            logger.error("Quarterly fundamentals update failed after retries: %s", exc)
+            self._record_run("quarterly_fundamentals", "failure")
 
     def _record_run(self, job_id: str, status: str = "success") -> None:
         """Persist last-run metadata into the catalog (best-effort)."""
