@@ -265,14 +265,14 @@ class CrossSectionScorer:
         """
         parts: list[pl.DataFrame] = []
 
-        # Load market cap from silver_fundamentals (latest as of each trade_date)
+        # Load market cap from silver_valuation_daily (trade_date-aligned, PIT-correct)
         if "market_cap" in neutralize:
             try:
                 mktcap_df = self.catalog.query(
                     """
-                    SELECT asset_id, report_date AS trade_date, market_cap
-                    FROM silver_fundamentals
-                    WHERE report_date >= ? AND report_date <= ?
+                    SELECT asset_id, trade_date, market_cap
+                    FROM silver_valuation_daily
+                    WHERE trade_date >= ? AND trade_date <= ?
                       AND market_cap IS NOT NULL AND market_cap > 0
                     """,
                     [start_date, end_date],
@@ -283,7 +283,7 @@ class CrossSectionScorer:
                     ).drop("market_cap")
                     parts.append(mktcap_df)
             except Exception as exc:
-                logger.warning("Failed to load market_cap from silver_fundamentals: %s", exc)
+                logger.warning("Failed to load market_cap from silver_valuation_daily: %s", exc)
 
         # Load industry from silver_assets
         if "industry" in neutralize:
