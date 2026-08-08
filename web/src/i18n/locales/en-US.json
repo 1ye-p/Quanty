@@ -2400,6 +2400,14 @@
         "label": "IC Half-Life",
         "value": "{{days}} days",
         "hint": "Periods for IC to halve (exponential decay fit)"
+      },
+      "net_ic": {
+        "title": "Net IC (turnover-adjusted)",
+        "hint": "Effective IC after transaction costs",
+        "raw_ic": "Raw IC",
+        "turnover": "Turnover",
+        "net_ic": "Net IC",
+        "penalty": "Turnover cost penalty: −{{delta}}"
       }
     },
     "datasets": {

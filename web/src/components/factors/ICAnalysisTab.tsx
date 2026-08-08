@@ -157,6 +157,44 @@ export function ICAnalysisTab({ selectedFactor, featureSetVersion }: ICAnalysisT
               </div>
             </div>
           )}
+
+          {icSummary.net_ic != null && icSummary.factor_turnover != null && (
+            <div className="mb-4 p-3 border border-gray-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-700">
+                  {t('page.factors.net_ic.title')}
+                </h3>
+                <span className="text-xs text-gray-400">{t('page.factors.net_ic.hint')}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <div className="text-gray-500">{t('page.factors.net_ic.raw_ic')}</div>
+                  <div className="font-semibold text-gray-900">
+                    {icSummary.mean_ic != null ? icSummary.mean_ic.toFixed(4) : '--'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-500">{t('page.factors.net_ic.turnover')}</div>
+                  <div className="font-semibold text-gray-900">
+                    {`${(icSummary.factor_turnover * 100).toFixed(1)}%`}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-500">{t('page.factors.net_ic.net_ic')}</div>
+                  <div className="font-semibold text-brand-600">
+                    {icSummary.net_ic.toFixed(4)}
+                  </div>
+                </div>
+              </div>
+              {icSummary.mean_ic != null && (
+                <p className="mt-2 text-xs text-gray-400">
+                  {t('page.factors.net_ic.penalty', {
+                    delta: (icSummary.mean_ic - icSummary.net_ic).toFixed(4),
+                  })}
+                </p>
+              )}
+            </div>
+          )}
         </>
       )}
 

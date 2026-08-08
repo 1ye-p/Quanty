@@ -81,6 +81,29 @@ class FactorEvaluator:
         """Mean IC across all evaluated dates."""
         return float(self.ic_series(factors, returns)["ic"].mean())
 
+    def net_ic(
+        self,
+        factors: pl.DataFrame,
+        returns: pl.DataFrame,
+        cost_rate: float = 0.003,
+    ) -> float:
+        """Net IC = mean_ic - cost_rate × factor_turnover.
+
+        Penalizes the raw IC by the expected transaction-cost drag from
+        factor turnover. High-turnover factors show a net IC noticeably
+        below their raw IC; low-turnover factors stay close to raw IC.
+
+        Parameters
+        ----------
+        cost_rate:
+            Round-trip cost per unit of turnover (default 30 bps). The
+            turnover fraction is in [0, 1], so the penalty is
+            ``cost_rate * turnover`` in IC units.
+        """
+        raw_ic = self.mean_ic(factors, returns)
+        turnover = self.factor_turnover(factors)
+        return raw_ic - cost_rate * turnover
+
     def ic_ir(self, factors: pl.DataFrame, returns: pl.DataFrame) -> float:
         """IC Information Ratio: mean(IC) / std(IC)."""
         ic = self.ic_series(factors, returns)["ic"].to_numpy()

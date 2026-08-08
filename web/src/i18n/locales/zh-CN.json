@@ -2400,6 +2400,14 @@
         "label": "IC 半衰期",
         "value": "{{days}} 天",
         "hint": "IC 衰减到一半所需的期数（基于指数衰减拟合）"
+      },
+      "net_ic": {
+        "title": "净 IC（换手成本调整）",
+        "hint": "扣除交易成本后的有效 IC",
+        "raw_ic": "原始 IC",
+        "turnover": "换手率",
+        "net_ic": "净 IC",
+        "penalty": "换手成本惩罚：−{{delta}}"
       }
     },
     "datasets": {

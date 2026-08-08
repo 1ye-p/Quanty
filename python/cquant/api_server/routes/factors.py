@@ -456,6 +456,14 @@ def _compute_ic(job_id: str, body: ICComputeBody, catalog: CatalogDep) -> None:
         summary["quantile_returns"] = quantile_returns
         summary["factor_turnover"] = factor_turnover
 
+        # ── 净 IC（线性换手惩罚）─────────────────────────────────
+        # net_ic = mean_ic - cost_rate × factor_turnover
+        # 惩罚高换手因子的交易成本拖累。默认 30bps 单边费率。
+        net_cost_rate = 0.003
+        summary["net_ic"] = round(
+            float(summary["mean_ic"]) - net_cost_rate * factor_turnover, 6
+        )
+
         # ── IC 显著性检验（Newey-West HAC）+ 半衰期 ──────────────
         try:
             from cquant.factorlab.evaluation import FactorEvaluator

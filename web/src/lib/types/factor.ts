@@ -35,6 +35,7 @@ export const ICSummarySchema = z.object({
     .array(z.object({ quantile: z.number(), mean_return: z.number() }))
     .optional(),
   factor_turnover: z.number().optional(),
+  net_ic: z.number().optional(),
   ic_ttest: z
     .object({
       t_stat: z.number().nullable().optional(),
