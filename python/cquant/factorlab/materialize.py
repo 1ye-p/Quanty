@@ -103,14 +103,17 @@ class FactorMaterializer:
             dataset_version=spec.dataset_version,
         )
 
-        # Load fundamentals + daily valuation for the period into ctx.extra
+        # Load fundamentals + daily valuation + corporate actions into ctx.extra
         fundamentals = self._load_fundamentals(spec)
         valuation = self._load_valuation(spec)
+        corporate_actions = self._load_corporate_actions(spec)
         extra = {}
         if not fundamentals.is_empty():
             extra["fundamentals"] = fundamentals
         if not valuation.is_empty():
             extra["valuation"] = valuation
+        if not corporate_actions.is_empty():
+            extra["corporate_actions"] = corporate_actions
 
         feature_set = self._pipeline.run(prices, pipeline_spec, extra=extra)
 
@@ -259,6 +262,32 @@ class FactorMaterializer:
         except Exception as exc:
             logger.warning("Could not load silver_valuation_daily: %s", exc)
             return pl.DataFrame()
+        return df
+
+    def _load_corporate_actions(self, spec: FactorMaterializationSpec) -> pl.DataFrame:
+        """加载已实施分红事件，按 ex_date <= spec.end_date 截断，天然 PIT。
+
+        供分红事件因子（DividendYield12M / DividendMomentum）消费。事件型数据，
+        一行一次分红，需在因子内部按 trade_date 窗口聚合。
+        """
+        try:
+            df = self._catalog.query(
+                """
+                SELECT asset_id, ex_date, cash_amount, ratio
+                FROM silver_corporate_actions
+                WHERE action_type = 'dividend' AND ex_date <= ?
+                """,
+                [spec.end_date.isoformat()],
+            )
+        except Exception as exc:
+            logger.warning("Could not load silver_corporate_actions: %s", exc)
+            return pl.DataFrame()
+        if df.is_empty():
+            return df
+        if df["ex_date"].dtype == pl.Utf8:
+            df = df.with_columns(pl.col("ex_date").str.to_date())
+        elif df["ex_date"].dtype != pl.Date:
+            df = df.with_columns(pl.col("ex_date").cast(pl.Date))
         return df
 
     def _load_fundamentals(self, spec: FactorMaterializationSpec) -> pl.DataFrame:

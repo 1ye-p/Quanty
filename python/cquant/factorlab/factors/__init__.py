@@ -57,6 +57,11 @@ from cquant.factorlab.factors.size import (
     MarketCap,
     LogMarketCap,
 )
+from cquant.factorlab.factors.dividend import (
+    DividendYield12M,
+    DividendMomentum,
+    DIVIDEND_FACTORS,
+)
 
 BUILTIN_FACTORS = [
     # Momentum
@@ -78,6 +83,8 @@ BUILTIN_FACTORS = [
     RevenueGrowth(), EarningsGrowth(),
     # Size
     MarketCap(), LogMarketCap(),
+    # Dividend event factors
+    DividendYield12M(), DividendMomentum(),
     # Alpha158 KBAR
     *KBAR_FACTORS,
     # Alpha158 Rolling
@@ -101,6 +108,7 @@ __all__ = [
     "ROE", "ROA", "GrossMargin",
     "RevenueGrowth", "EarningsGrowth",
     "MarketCap", "LogMarketCap",
+    "DividendYield12M", "DividendMomentum", "DIVIDEND_FACTORS",
     "KMID", "KLEN", "KMID2", "KUP", "KUP2", "KLOW", "KLOW2", "KSFT", "KSFT2", "KBAR_FACTORS",
     "ROC5", "ROC10", "ROC20", "ROC30",
     "MA5", "MA10", "MA20", "MA30",

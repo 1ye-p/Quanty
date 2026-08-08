@@ -116,6 +116,71 @@ class TushareConnector(DataConnector):
         ])
         return df
 
+    def fetch_dividend(self, ts_code: str) -> list[dict]:
+        """从 pro.dividend 取分红事件，映射到 silver_corporate_actions 列结构。
+
+        仅保留已实施（``div_proc == '实施'``）的分红方案，否则会重复计入预案/
+        年报等草案。``div_proc`` 全流程包含 ``预案/股东大会通过/停止实施/实施``，
+        一家公司每年可能有多条历史草案，只取 ``实施`` 行可避免 ex_date 聚合时的
+        多重计数。
+
+        Parameters
+        ----------
+        ts_code
+            Tushare 代码，如 ``'000001.SZ'``。
+
+        Returns
+        -------
+        list[dict]
+            每条 dict 与 ``silver_corporate_actions`` 列结构一致（``action_id`` /
+            ``asset_id`` / ``action_type`` / ``ex_date`` / ``record_date`` /
+            ``pay_date`` / ``cash_amount`` / ``ratio`` / ``source``）。
+        """
+        pro = self._get_pro()
+        df_pd = pro.dividend(  # type: ignore[union-attr]
+            ts_code=ts_code,
+            fields="ts_code,div_proc,ex_date,record_date,ann_date,cash_div,stk_div",
+        )
+        df = pl.from_pandas(df_pd)
+
+        # 仅保留已实施的分红方案，过滤掉预案/停止实施/股东大会通过等草案
+        if "div_proc" in df.columns:
+            df = df.filter(pl.col("div_proc") == "实施")
+        if df.is_empty():
+            return []
+
+        records: list[dict] = []
+        for row in df.to_dicts():
+            ex_date = _parse(row.get("ex_date"))
+            if ex_date is None:
+                # 无除权日的事件无法在时间轴上对齐，跳过
+                continue
+            asset_id = _to_asset_id(row["ts_code"])
+            ex_str = ex_date.strftime("%Y%m%d")
+            cash_div = row.get("cash_div")
+            stk_div = row.get("stk_div")
+            # action_id: asset_id + ex_date + type，唯一标识一条已实施分红
+            action_id = f"{asset_id}:{ex_str}:dividend"
+
+            # stk_div (每股送转股) 映射到 ratio 列；cash_div 映射到 cash_amount 列
+            ratio = float(stk_div) if stk_div is not None else None
+            cash_amount = float(cash_div) if cash_div is not None else None
+
+            records.append({
+                "action_id": action_id,
+                "asset_id": asset_id,
+                "action_type": "dividend",
+                "ex_date": ex_date,
+                "record_date": _parse(row.get("record_date")),
+                "pay_date": None,  # pro.dividend 未单独提供派息日，留空
+                "ratio": ratio,
+                "cash_amount": cash_amount,
+                "currency": "CNY",
+                "description": None,
+                "source": "tushare",
+            })
+        return records
+
     def fetch_fundamentals(self, ts_code: str, period: str) -> list[dict]:
         """从 pro.fina_indicator 取财报指标，f_ann_date 优先（决策 5-B）。"""
         pro = self._get_pro()
