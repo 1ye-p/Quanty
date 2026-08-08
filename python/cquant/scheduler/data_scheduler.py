@@ -223,6 +223,37 @@ def _job_health(catalog: Any) -> None:
     logger.info("DataScheduler: health check completed")
 
 
+def _job_gold_cleanup(catalog: Any) -> None:
+    """Daily gold-layer retention cleanup.
+
+    - Cascade-delete run-scoped gold data older than the retention window
+      (default 90 days), keyed off ``gold_backtest_runs.completed_at``.
+    - Evict the oldest ``feature_set_version`` slices from the shared factor
+      cache (gold_factor_values), keeping the N newest.
+    """
+    from cquant.scheduler.cleanup import GoldTableCleaner
+
+    cleaner = GoldTableCleaner(catalog)
+
+    run_summary = cleaner.cleanup_run_scoped(retention_days=90)
+    if run_summary.get("_expired_runs", 0) > 0:
+        logger.info(
+            "DataScheduler: gold run-scoped cleanup — %s",
+            {k: v for k, v in run_summary.items() if not k.startswith("_")},
+        )
+    else:
+        logger.info("DataScheduler: gold run-scoped cleanup — no expired runs")
+
+    cache_summary = cleaner.cleanup_factor_cache(keep_versions=10)
+    if cache_summary.get("versions_evicted", 0) > 0:
+        logger.info(
+            "DataScheduler: gold factor-cache cleanup — evicted %d versions, %d rows",
+            cache_summary["versions_evicted"], cache_summary["rows_deleted"],
+        )
+    else:
+        logger.info("DataScheduler: gold factor-cache cleanup — nothing evicted")
+
+
 def _job_weekly_retrain(catalog: Any) -> None:
     """Weekly retrain: run the full automated ML pipeline."""
     logger.info("DataScheduler: weekly retrain started")
@@ -348,9 +379,18 @@ class DataScheduler:
             replace_existing=True,
         )
 
+        # 8. Gold-layer cleanup — daily at 03:00 (off-peak retention sweep)
+        sched.add_job(
+            self._run_gold_cleanup,
+            CronTrigger(hour=3, minute=0, timezone=self._tz),
+            id="gold_cleanup",
+            name="Gold Table Cleanup",
+            replace_existing=True,
+        )
+
         self._scheduler = sched
         self._running = True
-        logger.info("DataScheduler started with 7 jobs (tz=%s)", self._tz)
+        logger.info("DataScheduler started with 8 jobs (tz=%s)", self._tz)
 
         try:
             sched.start()
@@ -396,6 +436,7 @@ class DataScheduler:
             "health": self._run_health,
             "daily-prediction": self._run_daily_prediction,
             "weekly-retrain": self._run_weekly_retrain,
+            "gold-cleanup": self._run_gold_cleanup,
         }
         fn = dispatch.get(task_name)
         if fn is None:
@@ -469,6 +510,15 @@ class DataScheduler:
         except Exception as exc:
             logger.error("Weekly retrain failed after retries: %s", exc)
             self._record_run("weekly_retrain", "failure")
+
+    def _run_gold_cleanup(self) -> None:
+        logger.info("Running gold-layer cleanup ...")
+        try:
+            _with_retry(_job_gold_cleanup, self._catalog)
+            self._record_run("gold_cleanup")
+        except Exception as exc:
+            logger.error("Gold cleanup failed after retries: %s", exc)
+            self._record_run("gold_cleanup", "failure")
 
     def _record_run(self, job_id: str, status: str = "success") -> None:
         """Persist last-run metadata into the catalog (best-effort)."""
