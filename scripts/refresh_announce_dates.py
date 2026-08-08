@@ -63,6 +63,9 @@ def refresh(catalog, connector) -> int:
     errors = 0
     logger.info("Refreshing announce_date for %d distinct (asset_id, report_date) pairs ...", total)
 
+    # Collect all updates first, then apply in a single transaction
+    updates: list[tuple] = []
+
     for i, row in enumerate(rows.to_dicts(), 1):
         asset_id: str = row["asset_id"]
         report_date = row["report_date"]
@@ -80,16 +83,21 @@ def refresh(catalog, connector) -> int:
         for rec in records:
             ann = rec.get("announce_date")
             if ann is not None:
-                # rec["announce_date"] is already a datetime from _parse()
-                catalog.execute(
-                    "UPDATE silver_fundamentals SET announce_date = ? "
-                    "WHERE asset_id = ? AND report_date = ?",
-                    [ann, asset_id, report_date],
-                )
-                updated += 1
+                updates.append((ann, asset_id, report_date))
 
         if i % 200 == 0 or i == total:
-            logger.info("Progress: %d / %d processed, %d updated, %d errors", i, total, updated, errors)
+            logger.info("Progress: %d / %d processed, %d pending updates, %d errors", i, total, len(updates), errors)
+
+    # Apply all updates in a single transaction
+    if updates:
+        logger.info("Applying %d updates ...", len(updates))
+        for ann, asset_id, report_date in updates:
+            catalog.execute(
+                "UPDATE silver_fundamentals SET announce_date = ? "
+                "WHERE asset_id = ? AND report_date = ?",
+                [ann, asset_id, report_date],
+            )
+        updated = len(updates)
 
     logger.info(
         "Refresh complete — %d rows updated, %d errors out of %d pairs.",
