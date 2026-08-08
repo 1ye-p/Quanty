@@ -2384,6 +2384,22 @@
       "error": {
         "quintile_failed": "Quintile computation failed: {{message}}",
         "ic_failed": "IC computation failed: {{message}}"
+      },
+      "ic_ttest": {
+        "title": "IC Significance Test (Newey-West HAC)",
+        "t_stat": "t-Statistic",
+        "p_value": "p-Value",
+        "ci_95": "95% Confidence Interval",
+        "sample_size": "Sample Size (periods)",
+        "significant_yes": "✓ Significant",
+        "significant_no": "✗ Not significant",
+        "insufficient_sample": "Insufficient sample",
+        "insufficient_sample_hint": "Fewer than 30 periods — significance result is indicative only."
+      },
+      "half_life": {
+        "label": "IC Half-Life",
+        "value": "{{days}} days",
+        "hint": "Periods for IC to halve (exponential decay fit)"
       }
     },
     "datasets": {

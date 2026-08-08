@@ -35,6 +35,17 @@ export const ICSummarySchema = z.object({
     .array(z.object({ quantile: z.number(), mean_return: z.number() }))
     .optional(),
   factor_turnover: z.number().optional(),
+  ic_ttest: z
+    .object({
+      t_stat: z.number().nullable().optional(),
+      p_value: z.number().nullable().optional(),
+      ci_lower: z.number().nullable().optional(),
+      ci_upper: z.number().nullable().optional(),
+      n: z.number(),
+      significant: z.boolean().optional(),
+    })
+    .optional(),
+  ic_half_life: z.number().nullable().optional(),
 })
 
 export type ICSummary = z.infer<typeof ICSummarySchema>

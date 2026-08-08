@@ -456,6 +456,32 @@ def _compute_ic(job_id: str, body: ICComputeBody, catalog: CatalogDep) -> None:
         summary["quantile_returns"] = quantile_returns
         summary["factor_turnover"] = factor_turnover
 
+        # ── IC 显著性检验（Newey-West HAC）+ 半衰期 ──────────────
+        try:
+            from cquant.factorlab.evaluation import FactorEvaluator
+
+            ic_arr = np.asarray(ic_values, dtype=float)
+            ttest = FactorEvaluator.ic_ttest(ic_arr)
+            summary["ic_ttest"] = {
+                "t_stat": round(float(ttest["t_stat"]), 4) if np.isfinite(ttest["t_stat"]) else None,
+                "p_value": round(float(ttest["p_value"]), 4) if np.isfinite(ttest["p_value"]) else None,
+                "ci_lower": round(float(ttest["ci_lower"]), 6) if np.isfinite(ttest["ci_lower"]) else None,
+                "ci_upper": round(float(ttest["ci_upper"]), 6) if np.isfinite(ttest["ci_upper"]) else None,
+                "n": int(ttest["n"]),
+                "significant": bool(
+                    ttest["n"] >= 30
+                    and np.isfinite(ttest["p_value"])
+                    and ttest["p_value"] < 0.05
+                ),
+            }
+            decay_ics_arr = np.asarray(
+                [d["ic"] for d in rank_ic_decay], dtype=float
+            )
+            hl = FactorEvaluator.half_life(decay_ics_arr)
+            summary["ic_half_life"] = round(float(hl), 2) if hl is not None else None
+        except Exception:
+            logger.debug("IC t-test / half-life computation skipped", exc_info=True)
+
         catalog.execute(
             "UPDATE meta_factor_analytics SET status = 'done', series_json = ?, summary_json = ?, completed_at = ? WHERE job_id = ?",
             [json.dumps(series), json.dumps(summary), datetime.now(tz=timezone.utc).isoformat(), job_id],

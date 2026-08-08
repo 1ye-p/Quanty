@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import polars as pl
-from scipy.stats import pearsonr, spearmanr
+from scipy import stats
+from scipy.stats import pearsonr, spearmanr, t as student_t
 
 
 @dataclass
@@ -95,6 +96,152 @@ class FactorEvaluator:
         if len(ic) == 0:
             return 0.0
         return float(np.mean(ic > 0) * 100)
+
+    @staticmethod
+    def _newey_west_se(x: np.ndarray, max_lag: int | None = None) -> float:
+        """Newey-West HAC standard error of the mean of ``x``.
+
+        Corrects for autocorrelation in the IC series — a naive standard
+        error underestimates variance (and thus overstates significance)
+        when IC is persistent over time.
+        """
+        x = np.asarray(x, dtype=float)
+        n = len(x)
+        if n < 2:
+            return float("nan")
+        if max_lag is None:
+            # Newey-West rule of thumb.
+            max_lag = int(4 * (n / 100) ** (2 / 9))
+            max_lag = max(1, min(max_lag, n - 1))
+
+        x_demean = x - x.mean()
+        # Gamma_0 term (n * sample variance of the mean).
+        omega = float(np.sum(x_demean ** 2)) / n
+        # Weighted autocovariance terms (Bartlett kernel).
+        for lag in range(1, max_lag + 1):
+            weight = 1.0 - lag / (max_lag + 1)
+            gamma = float(np.sum(x_demean[lag:] * x_demean[:-lag])) / n
+            omega += 2.0 * weight * gamma
+
+        se = float(np.sqrt(omega / n))
+        return se if se > 0 else float("nan")
+
+    def ic_ttest(
+        self,
+        ic_series: pl.DataFrame | np.ndarray,
+        max_lag: int | None = None,
+    ) -> dict:
+        """t-test for mean(IC) ≠ 0 with Newey-West HAC standard errors.
+
+        Parameters
+        ----------
+        ic_series:
+            Either a Polars DataFrame with an ``ic`` column (as produced by
+            :meth:`ic_series`) or a 1-D numpy array of per-date IC values.
+        max_lag:
+            Maximum lag for the Bartlett kernel. Defaults to the Newey-West
+            rule of thumb ``int(4 * (n/100) ** (2/9))``.
+
+        Returns
+        -------
+        dict with keys ``t_stat``, ``p_value``, ``ci_lower``, ``ci_upper``,
+        ``n``. ``p_value`` uses a two-sided test against the Student-t
+        distribution with ``n - 1`` degrees of freedom.
+        """
+        if isinstance(ic_series, pl.DataFrame):
+            ic = ic_series["ic"].to_numpy()
+        else:
+            ic = np.asarray(ic_series, dtype=float)
+        ic = ic[~np.isnan(ic)]
+
+        n = len(ic)
+        if n == 0:
+            return {
+                "t_stat": float("nan"),
+                "p_value": float("nan"),
+                "ci_lower": float("nan"),
+                "ci_upper": float("nan"),
+                "n": 0,
+            }
+
+        mean_ic = float(np.mean(ic))
+        se = self._newey_west_se(ic, max_lag=max_lag)
+        if not np.isfinite(se):
+            return {
+                "t_stat": float("nan"),
+                "p_value": float("nan"),
+                "ci_lower": float("nan"),
+                "ci_upper": float("nan"),
+                "n": n,
+            }
+
+        t_stat = mean_ic / se
+        df = n - 1
+        p_value = float(2 * (1 - stats.t.cdf(abs(t_stat), df)))
+        # 95% confidence interval on the mean.
+        t_crit = float(student_t.ppf(0.975, df))
+        return {
+            "t_stat": float(t_stat),
+            "p_value": p_value,
+            "ci_lower": mean_ic - t_crit * se,
+            "ci_upper": mean_ic + t_crit * se,
+            "n": n,
+        }
+
+    def ic_significant(
+        self,
+        ic_series: pl.DataFrame | np.ndarray,
+        alpha: float = 0.05,
+    ) -> bool:
+        """Whether mean(IC) is statistically significant.
+
+        True when ``p_value < alpha`` **and** ``n >= 30`` (the n>=30 guard
+        ensures the CLT-based inference is trustworthy).
+        """
+        res = self.ic_ttest(ic_series)
+        if res["n"] < 30:
+            return False
+        p = res["p_value"]
+        return bool(np.isfinite(p) and p < alpha)
+
+    def half_life(
+        self,
+        ic_series: pl.DataFrame | np.ndarray,
+    ) -> float | None:
+        """Half-life of IC decay in periods (days).
+
+        Fits ``IC(lag) = IC0 * exp(-k * lag)`` via linear regression on
+        ``ln(IC(lag))`` and returns ``ln(2) / k``. Requires at least two
+        strictly positive decay IC points; returns ``None`` if it cannot
+        be estimated.
+
+        Note: callers must pass the *decay* IC series (IC measured at
+        increasing forward lags), not the raw per-date IC series. See
+        :meth:`rank_ic_decay`.
+        """
+        if isinstance(ic_series, pl.DataFrame):
+            arr = ic_series["ic"].to_numpy()
+        else:
+            arr = np.asarray(ic_series, dtype=float)
+        arr = arr[np.isfinite(arr)]
+        # Keep strictly positive ICs (log requires positivity).
+        positive = arr[arr > 0]
+        if len(positive) < 3:
+            # polyfit on 2 points is unstable; need a meaningful trend.
+            return None
+
+        lags = np.arange(1, len(positive) + 1, dtype=float)
+        log_ic = np.log(positive)
+        # Linear fit: log(IC) = a + b*lag  =>  k = -b
+        slope, _intercept = np.polyfit(lags, log_ic, 1)
+        # slope >= 0 means non-decaying (or growing) IC — half-life
+        # undefined. Use a small negative tolerance to reject flat / noisy
+        # series that would otherwise produce an absurdly large half-life.
+        if slope >= -1e-9:
+            return None
+        k = -slope
+        return float(np.log(2) / k)
+
 
     def summary(self, factors: pl.DataFrame, returns: pl.DataFrame) -> dict:
         """Return a summary dict with all evaluation metrics."""
