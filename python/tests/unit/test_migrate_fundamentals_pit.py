@@ -4,6 +4,10 @@ from __future__ import annotations
 from datetime import date
 
 
+import importlib.util
+import sys
+from pathlib import Path
+
 from cquant.datahub.backends.duckdb_backend import DuckDBBackend
 from cquant.datahub.catalog import Catalog
 
@@ -44,7 +48,10 @@ class TestTierCorrectness:
         cat.execute(
             "INSERT INTO silver_fundamentals VALUES ('SSE:600036', DATE '2024-12-31', NULL, 100.0)"
         )
-        from scripts.migrate_fundamentals_pit import migrate
+        spec = importlib.util.spec_from_file_location("migrate_fundamentals_pit", Path(__file__).resolve().parents[3] / "scripts" / "migrate_fundamentals_pit.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        migrate = mod.migrate
 
         migrate(cat)
 
@@ -57,7 +64,10 @@ class TestTierCorrectness:
         cat.execute(
             "INSERT INTO silver_fundamentals VALUES ('SSE:600036', DATE '2024-03-31', NULL, 100.0)"
         )
-        from scripts.migrate_fundamentals_pit import migrate
+        spec = importlib.util.spec_from_file_location("migrate_fundamentals_pit", Path(__file__).resolve().parents[3] / "scripts" / "migrate_fundamentals_pit.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        migrate = mod.migrate
 
         migrate(cat)
 
@@ -70,7 +80,10 @@ class TestTierCorrectness:
         cat.execute(
             "INSERT INTO silver_fundamentals VALUES ('SSE:600036', DATE '2024-06-30', NULL, 100.0)"
         )
-        from scripts.migrate_fundamentals_pit import migrate
+        spec = importlib.util.spec_from_file_location("migrate_fundamentals_pit", Path(__file__).resolve().parents[3] / "scripts" / "migrate_fundamentals_pit.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        migrate = mod.migrate
 
         migrate(cat)
 
@@ -83,7 +96,10 @@ class TestTierCorrectness:
         cat.execute(
             "INSERT INTO silver_fundamentals VALUES ('SSE:600036', DATE '2024-09-30', NULL, 100.0)"
         )
-        from scripts.migrate_fundamentals_pit import migrate
+        spec = importlib.util.spec_from_file_location("migrate_fundamentals_pit", Path(__file__).resolve().parents[3] / "scripts" / "migrate_fundamentals_pit.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        migrate = mod.migrate
 
         migrate(cat)
 
@@ -110,7 +126,10 @@ class TestIdempotency:
             "INSERT INTO silver_fundamentals VALUES ('SZSE:000001', DATE '2024-03-31', NULL, 200.0)"
         )
 
-        from scripts.migrate_fundamentals_pit import migrate
+        spec = importlib.util.spec_from_file_location("migrate_fundamentals_pit", Path(__file__).resolve().parents[3] / "scripts" / "migrate_fundamentals_pit.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        migrate = mod.migrate
 
         migrate(cat)
         migrate(cat)  # second call — idempotency check
@@ -134,7 +153,10 @@ class TestIdempotency:
             "INSERT INTO silver_fundamentals VALUES ('SZSE:000001', DATE '2024-09-30', NULL, 200.0)"
         )
 
-        from scripts.migrate_fundamentals_pit import migrate
+        spec = importlib.util.spec_from_file_location("migrate_fundamentals_pit", Path(__file__).resolve().parents[3] / "scripts" / "migrate_fundamentals_pit.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        migrate = mod.migrate
 
         migrate(cat)
 
@@ -151,7 +173,10 @@ class TestIdempotency:
             "INSERT INTO silver_fundamentals VALUES ('SSE:600036', DATE '2024-12-31', DATE '2025-04-30', 100.0)"
         )
 
-        from scripts.migrate_fundamentals_pit import migrate
+        spec = importlib.util.spec_from_file_location("migrate_fundamentals_pit", Path(__file__).resolve().parents[3] / "scripts" / "migrate_fundamentals_pit.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        migrate = mod.migrate
 
         migrate(cat)  # should not raise
 
