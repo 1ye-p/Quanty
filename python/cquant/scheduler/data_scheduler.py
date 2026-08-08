@@ -1,11 +1,13 @@
 """cquant.scheduler.data_scheduler — APScheduler-based data pipeline scheduler.
 
-Runs five recurring jobs:
-  1. Price ingest       — daily at 16:35 CST
+Runs seven recurring jobs:
+  1. Price ingest        — daily at 16:35 CST
   2. Fundamentals update — daily at 17:00 CST
-  3. Alert check        — hourly
-  4. Health check       — daily at 08:00 CST
-  5. Weekly retrain     — Sunday 20:00 CST (full ML pipeline)
+  3. Valuation daily     — daily at 17:30 CST
+  4. Alert check         — daily at 18:00 CST
+  5. Health check        — daily at 08:00 CST
+  6. Daily prediction    — daily at 18:05 CST
+  7. Weekly retrain      — Sunday 20:00 CST (full ML pipeline)
 """
 
 from __future__ import annotations
@@ -109,6 +111,34 @@ def _job_fundamentals(catalog: Any) -> None:
 
     count = update_fundamentals(catalog, source="akshare")
     logger.info("DataScheduler: fundamentals updated (%d rows)", count)
+
+
+def _job_valuation_daily(catalog: Any) -> None:
+    """Update silver_valuation_daily for all assets (latest trade date)."""
+    from datetime import date
+
+    from cquant.datahub.connectors.tushare_connector import TushareConnector
+    from cquant.datahub.pipelines.valuation_daily_updater import ValuationDailyUpdater
+
+    asset_ids = _load_asset_ids(catalog)
+    if not asset_ids:
+        logger.info("DataScheduler: no assets found, skipping valuation daily update")
+        return
+
+    connector = TushareConnector()
+    updater = ValuationDailyUpdater(catalog, connector)
+    trade_date = date.today().isoformat()
+    count = updater.update(asset_ids, trade_date)
+    logger.info("DataScheduler: valuation daily updated (%d assets)", count)
+
+
+def _load_asset_ids(catalog: Any) -> list[str]:
+    """Load all asset IDs from silver_assets."""
+    try:
+        df = catalog.query("SELECT DISTINCT asset_id FROM silver_assets LIMIT 5000")
+        return df["asset_id"].to_list() if not df.is_empty() else []
+    except Exception:
+        return []
 
 
 def _job_alerts(catalog: Any) -> None:
@@ -273,7 +303,16 @@ class DataScheduler:
             replace_existing=True,
         )
 
-        # 3. Alerts — daily at 18:00 (placeholder: logging only until riskguard integration)
+        # 3. Valuation daily — daily at 17:30 (after fundamentals)
+        sched.add_job(
+            self._run_valuation_daily,
+            CronTrigger(hour=17, minute=30, timezone=self._tz),
+            id="valuation_daily",
+            name="Valuation Daily Update",
+            replace_existing=True,
+        )
+
+        # 4. Alerts — daily at 18:00 (placeholder: logging only until riskguard integration)
         sched.add_job(
             self._run_alerts,
             CronTrigger(hour=18, minute=0, timezone=self._tz),
@@ -282,7 +321,7 @@ class DataScheduler:
             replace_existing=True,
         )
 
-        # 4. Health — daily at 08:00
+        # 5. Health — daily at 08:00
         sched.add_job(
             self._run_health,
             CronTrigger(hour=8, minute=0, timezone=self._tz),
@@ -291,7 +330,7 @@ class DataScheduler:
             replace_existing=True,
         )
 
-        # 5. Daily Prediction — daily at 18:05 (after market close + data ingest)
+        # 6. Daily Prediction — daily at 18:05 (after market close + data ingest)
         sched.add_job(
             self._run_daily_prediction,
             CronTrigger(hour=18, minute=5, timezone=self._tz),
@@ -300,7 +339,7 @@ class DataScheduler:
             replace_existing=True,
         )
 
-        # 6. Weekly Retrain — Sunday 20:00 (full ML pipeline)
+        # 7. Weekly Retrain — Sunday 20:00 (full ML pipeline)
         sched.add_job(
             self._run_weekly_retrain,
             CronTrigger(day_of_week="sun", hour=20, minute=0, timezone=self._tz),
@@ -311,7 +350,7 @@ class DataScheduler:
 
         self._scheduler = sched
         self._running = True
-        logger.info("DataScheduler started with 6 jobs (tz=%s)", self._tz)
+        logger.info("DataScheduler started with 7 jobs (tz=%s)", self._tz)
 
         try:
             sched.start()
@@ -352,6 +391,7 @@ class DataScheduler:
         dispatch = {
             "price-ingest": self._run_price_ingest,
             "fundamentals": self._run_fundamentals,
+            "valuation-daily": self._run_valuation_daily,
             "alerts": self._run_alerts,
             "health": self._run_health,
             "daily-prediction": self._run_daily_prediction,
@@ -384,6 +424,15 @@ class DataScheduler:
         except Exception as exc:
             logger.error("Fundamentals update failed after retries: %s", exc)
             self._record_run("fundamentals", "failure")
+
+    def _run_valuation_daily(self) -> None:
+        logger.info("Running valuation daily update ...")
+        try:
+            _with_retry(_job_valuation_daily, self._catalog)
+            self._record_run("valuation_daily")
+        except Exception as exc:
+            logger.error("Valuation daily update failed after retries: %s", exc)
+            self._record_run("valuation_daily", "failure")
 
     def _run_alerts(self) -> None:
         logger.info("Running alert check ...")
