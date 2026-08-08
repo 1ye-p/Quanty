@@ -194,7 +194,7 @@ export function FactorCorrelationHint({
 
       {/* Orthogonalization benefit preview: pairs that would be decoupled */}
       {orthogonalizeEnabled && baseFactors.length > 0 && factorNames.length > 0 && (() => {
-        const targetFactors = factors.filter(f => !baseFactors.includes(f))
+        const targetFactors = factorNames.filter(f => !baseFactors.includes(f))
         // high-corr pairs where at least one side is a target (would benefit)
         const benefitPairs = highCorrPairs.filter(
           p => targetFactors.includes(p.a) || targetFactors.includes(p.b),

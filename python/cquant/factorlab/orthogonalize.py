@@ -113,7 +113,7 @@ def orthogonalize(
                 continue
 
             orth[valid] = resid
-            # 非法位置（缺失）保留原值，便于下游识别
+            # y 非法位置保留原值（y 有限但 x 非法的位置无法计算残差，保持 NaN）
             orth[~finite_y] = y[~finite_y]
             orth_cols[fcol] = orth
 
