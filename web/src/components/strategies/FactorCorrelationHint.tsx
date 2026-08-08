@@ -14,9 +14,24 @@ import { factorsApi } from '@/lib/api/factors'
 interface FactorCorrelationHintProps {
   factors: string[]
   onRemoveFactor?: (factor: string) => void
+  /** Whether orthogonalization is enabled. */
+  orthogonalizeEnabled?: boolean
+  /** Called when the orthogonalization toggle changes. */
+  onOrthogonalizeChange?: (enabled: boolean) => void
+  /** Currently selected base factors for orthogonalization. */
+  baseFactors?: string[]
+  /** Called when the base factor selection changes. */
+  onBaseFactorsChange?: (base: string[]) => void
 }
 
-export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrelationHintProps) {
+export function FactorCorrelationHint({
+  factors,
+  onRemoveFactor,
+  orthogonalizeEnabled = false,
+  onOrthogonalizeChange,
+  baseFactors = [],
+  onBaseFactorsChange,
+}: FactorCorrelationHintProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
@@ -111,6 +126,82 @@ export function FactorCorrelationHint({ factors, onRemoveFactor }: FactorCorrela
         return negPairs.length > 0 ? (
           <div className="text-xs text-blue-700 mt-1">
             {t('component.strategies.factor_correlation.negative_note', { count: negPairs.length })}
+          </div>
+        ) : null
+      })()}
+
+      {/* Orthogonalization toggle + base selector */}
+      {onOrthogonalizeChange && (
+        <div className="mt-3 border-t border-amber-200 pt-2 space-y-2">
+          <label className="flex items-center gap-2 text-xs text-amber-800 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={orthogonalizeEnabled}
+              onChange={e => onOrthogonalizeChange(e.target.checked)}
+              className="rounded border-amber-300"
+            />
+            <span className="font-medium">{t('component.strategies.orthogonalize.toggle_label')}</span>
+            <span className="text-amber-600 font-normal">{t('component.strategies.orthogonalize.toggle_hint')}</span>
+          </label>
+
+          {orthogonalizeEnabled && (
+            <div className="pl-5 space-y-1">
+              <div className="text-xs text-amber-700 font-medium">
+                {t('component.strategies.orthogonalize.base_label')}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {factors.map(f => {
+                  const selected = baseFactors.includes(f)
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => {
+                        if (!onBaseFactorsChange) return
+                        onBaseFactorsChange(
+                          selected ? baseFactors.filter(b => b !== f) : [...baseFactors, f],
+                        )
+                      }}
+                      className={`text-xs px-2 py-0.5 rounded transition-colors max-w-[120px] truncate ${
+                        selected
+                          ? 'bg-amber-500 text-white hover:bg-amber-600'
+                          : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                      }`}
+                      title={f}
+                    >
+                      {f}
+                    </button>
+                  )
+                })}
+              </div>
+              {baseFactors.length === 0 && (
+                <div className="text-xs text-amber-600">
+                  {t('component.strategies.orthogonalize.base_empty_hint')}
+                </div>
+              )}
+              {baseFactors.length > 0 && (
+                <div className="text-xs text-amber-600">
+                  {t('component.strategies.orthogonalize.target_count', {
+                    count: factors.length - baseFactors.length,
+                    total: factors.length,
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Orthogonalization benefit preview: pairs that would be decoupled */}
+      {orthogonalizeEnabled && baseFactors.length > 0 && factorNames.length > 0 && (() => {
+        const targetFactors = factors.filter(f => !baseFactors.includes(f))
+        // high-corr pairs where at least one side is a target (would benefit)
+        const benefitPairs = highCorrPairs.filter(
+          p => targetFactors.includes(p.a) || targetFactors.includes(p.b),
+        )
+        return benefitPairs.length > 0 ? (
+          <div className="mt-2 text-xs text-green-700">
+            {t('component.strategies.orthogonalize.benefit_preview', { count: benefitPairs.length })}
           </div>
         ) : null
       })()}

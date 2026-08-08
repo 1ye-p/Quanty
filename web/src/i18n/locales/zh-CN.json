@@ -346,6 +346,14 @@
         "fill_median": "填中位数 — 缺失值填充为截面中位数",
         "exclude": "排除 — 缺失因子的股票不参与排名",
         "risk_penalty": "风险扣分 — 缺失因子的股票扣分（数据不完整惩罚）"
+      },
+      "orthogonalize": {
+        "toggle_label": "对非基准因子做正交化",
+        "toggle_hint": "（去除基准因子的线性信息）",
+        "base_label": "选择基准因子：",
+        "base_empty_hint": "请至少选择一个基准因子，其余因子将对其正交化。",
+        "target_count": "{{count}} / {{total}} 个因子将被正交化。",
+        "benefit_preview": "正交化后可降低 {{count}} 对因子的高相关性。"
       }
     },
     "risk": {
