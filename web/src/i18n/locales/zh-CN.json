@@ -784,12 +784,17 @@
         "latest_risk_snapshot": "最新风险快照",
         "analysis_summary": "分析摘要",
         "drawdown_curve": "回撤曲线",
-        "rolling_metrics": "滚动指标"
+        "rolling_metrics": "滚动指标",
+        "net_fee_curve": "净费收益曲线"
       },
       "series": {
         "drawdown": "回撤",
         "rolling_sharpe": "滚动夏普",
-        "rolling_volatility": "滚动波动率"
+        "rolling_volatility": "滚动波动率",
+        "gross_nav": "毛收益 NAV",
+        "net_nav": "净费 NAV",
+        "gross": "毛收益",
+        "net": "净费"
       },
       "label": {
         "rolling_window": "滚动窗口：",

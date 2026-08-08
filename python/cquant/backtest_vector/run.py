@@ -1425,6 +1425,12 @@ class BacktestRunner:
         result.portfolio_returns.write_parquet(nav_path)
         logger.info("Persisted NAV series → %s", nav_path)
 
+        # Persist net-of-fee series when a fee model was applied.
+        if not result.net_returns.is_empty():
+            net_path = artifact_dir / f"{run_id}_net_returns.parquet"
+            result.net_returns.write_parquet(net_path)
+            logger.info("Persisted net-fee series → %s", net_path)
+
     def _persist_pretrade_decisions(self, result, run_id: str) -> None:
         """Write pre-trade risk decisions to gold_pretrade_decisions."""
         if not result.pretrade_decisions:

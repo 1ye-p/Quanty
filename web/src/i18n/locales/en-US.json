@@ -784,12 +784,17 @@
         "latest_risk_snapshot": "Latest Risk Snapshot",
         "analysis_summary": "Analysis Summary",
         "drawdown_curve": "Drawdown Curve",
-        "rolling_metrics": "Rolling Metrics"
+        "rolling_metrics": "Rolling Metrics",
+        "net_fee_curve": "Net-of-fee Return"
       },
       "series": {
         "drawdown": "Drawdown",
         "rolling_sharpe": "Rolling Sharpe",
-        "rolling_volatility": "Rolling Volatility"
+        "rolling_volatility": "Rolling Volatility",
+        "gross_nav": "Gross NAV",
+        "net_nav": "Net NAV",
+        "gross": "Gross",
+        "net": "Net"
       },
       "label": {
         "rolling_window": "Rolling Window:",

@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from cquant.backtest_vector.costs import CostModel
+from cquant.backtest_vector.fees import FeeModel, apply_fee_model
 from cquant.backtest_vector.fill_simulator import AShareFillSimulator
 from cquant.backtest_vector.metrics import BacktestMetrics, compute_metrics
 from cquant.backtest_vector.strategy import Strategy, StrategyContext
@@ -53,6 +54,7 @@ class BacktestSpec:
     end_date: date
     initial_cash: Decimal = Decimal("1_000_000")
     cost_model: CostModel = field(default_factory=CostModel.for_cn)
+    fee_model: FeeModel | None = None
     sizer: "PositionSizer | None" = None
     risk_policies: list["RiskPolicy"] = field(default_factory=list)
     rebalance_frequency: str = "1d"   # '1d', '1w', '1mo'
@@ -74,6 +76,7 @@ class BacktestResult:
     spec: BacktestSpec
     metrics: BacktestMetrics
     portfolio_returns: pl.DataFrame   # [trade_date, portfolio_return, nav]
+    net_returns: pl.DataFrame         # [trade_date, portfolio_return, net_return, net_nav]; empty when no fee_model
     positions: pl.DataFrame           # [trade_date, asset_id, weight, quantity, market_value]
     fills: pl.DataFrame               # [trade_date, asset_id, side, qty, price, commission, stamp_duty, total_cost]
     started_at: datetime
@@ -306,6 +309,7 @@ class VectorBacktestEngine:
                 spec=spec,
                 metrics=empty_metrics,
                 portfolio_returns=pl.DataFrame(),
+                net_returns=pl.DataFrame(),
                 positions=pl.DataFrame(),
                 fills=pl.DataFrame(),
                 started_at=started_at,
@@ -781,6 +785,9 @@ class VectorBacktestEngine:
 
         completed_at = datetime.now(tz=timezone.utc)
 
+        # Apply net-of-fee model if configured (default None = gross returns).
+        net_returns = self._build_net_returns(port_returns, spec)
+
         return BacktestResult(
             run_id=run_id,
             engine=EngineType.VECTOR,
@@ -788,6 +795,7 @@ class VectorBacktestEngine:
             spec=spec,
             metrics=metrics,
             portfolio_returns=port_returns,
+            net_returns=net_returns,
             positions=weights_df,
             fills=fills_df,
             started_at=started_at,
@@ -948,6 +956,43 @@ class VectorBacktestEngine:
             "trade_date": dates,
             "portfolio_return": returns,
             "nav": navs,
+        })
+
+    @staticmethod
+    def _build_net_returns(
+        port_returns: pl.DataFrame,
+        spec: "BacktestSpec",
+    ) -> pl.DataFrame:
+        """Apply the spec's fee model to gross portfolio returns.
+
+        Returns a DataFrame ``[trade_date, portfolio_return, net_return,
+        net_nav]`` where ``net_return``/``net_nav`` are the net-of-fee series.
+        Returns an empty DataFrame (matching the gross schema) when no
+        ``fee_model`` is set, preserving the gross-only behaviour for
+        existing backtests.
+        """
+        empty = pl.DataFrame(schema={
+            "trade_date": pl.Date,
+            "portfolio_return": pl.Float64,
+            "net_return": pl.Float64,
+            "net_nav": pl.Float64,
+        })
+
+        if spec.fee_model is None or port_returns.is_empty():
+            return empty
+
+        net_ret = apply_fee_model(port_returns["portfolio_return"], spec.fee_model)
+
+        # Compound net returns into a NAV path starting at 1.0
+        net_navs: list[float] = [1.0]
+        for r in net_ret.to_list()[1:]:
+            net_navs.append(net_navs[-1] * (1.0 + r))
+
+        return pl.DataFrame({
+            "trade_date": port_returns["trade_date"],
+            "portfolio_return": port_returns["portfolio_return"],
+            "net_return": net_ret,
+            "net_nav": net_navs,
         })
 
     def _build_risk_context(

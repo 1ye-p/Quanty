@@ -107,6 +107,9 @@ export function BacktestOverviewTab() {
   const benchmarkLabel = String(tearsheet?.benchmark_asset_id ?? 'Benchmark')
   const rebalanceDates = (tearsheet?.rebalance_dates as string[] ?? [])
 
+  // Net-of-fee NAV series (only present when a fee model was configured)
+  const netNavSeries = (tearsheet?.net_nav as { date: string; nav: number }[] ?? [])
+
   // Transform drawdown timeseries data
   const drawdownChart = Array.isArray(drawdownTimeseriesData)
     ? (drawdownTimeseriesData as { date: string; drawdown: number }[]).map(d => ({
@@ -117,6 +120,22 @@ export function BacktestOverviewTab() {
 
   // Rolling metrics state
   const [rollingWindow, setRollingWindow] = useState(60)
+
+  // Net-fee display mode: 'both' overlays gross + net; 'net' shows net only
+  const [feeView, setFeeView] = useState<'both' | 'net'>('both')
+
+  // Merged gross/net NAV series for the net-fee chart
+  const netFeeChartData = useMemo(() => {
+    if (netNavSeries.length === 0) return []
+    // Gross NAV keyed by date for O(1) lookup
+    const grossMap = new Map(strategyNav.map(d => [d.date, d.nav]))
+    // Use net dates as the index (net is a subset when fee model present)
+    return netNavSeries.map(d => ({
+      date: d.date,
+      gross: grossMap.get(d.date) ?? null,
+      net: d.nav,
+    }))
+  }, [strategyNav, netNavSeries])
 
   // Compute rolling Sharpe and Volatility from strategy NAV
   const rollingOverviewData = useMemo(() => {
@@ -459,6 +478,70 @@ export function BacktestOverviewTab() {
                   stroke="#ef4444"
                   fill="#ef4444"
                   fillOpacity={0.3}
+                  strokeWidth={1.5}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Net-of-fee comparison (gross vs net NAV) */}
+      {netFeeChartData.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">{t('component.backtest_overview.section.net_fee_curve')}</h3>
+            <div className="flex gap-1 text-xs">
+              <button
+                onClick={() => setFeeView('both')}
+                className={`px-2 py-1 rounded ${feeView === 'both' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >
+                {t('component.backtest_overview.series.gross')}/{t('component.backtest_overview.series.net')}
+              </button>
+              <button
+                onClick={() => setFeeView('net')}
+                className={`px-2 py-1 rounded ${feeView === 'net' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >
+                {t('component.backtest_overview.series.net')}
+              </button>
+            </div>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={netFeeChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickFormatter={(v: string) => v.slice(5)}
+                  interval="preserveStartEnd"
+                />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                  formatter={(value: number, name: string) => [
+                    Number(value).toFixed(4),
+                    name === 'gross' ? t('component.backtest_overview.series.gross_nav') : t('component.backtest_overview.series.net_nav'),
+                  ]}
+                  labelFormatter={(label: string) => `${t('component.backtest_overview.label.date')}: ${label}`}
+                />
+                <ReferenceLine y={1} stroke="#cbd5e1" strokeWidth={1} />
+                {feeView === 'both' && (
+                  <Area
+                    type="monotone"
+                    dataKey="gross"
+                    stroke="#3b82f6"
+                    fill="#3b82f6"
+                    fillOpacity={0.1}
+                    strokeWidth={1.5}
+                  />
+                )}
+                <Area
+                  type="monotone"
+                  dataKey="net"
+                  stroke="#ef4444"
+                  fill="#ef4444"
+                  fillOpacity={0.1}
                   strokeWidth={1.5}
                 />
               </AreaChart>

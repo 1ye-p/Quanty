@@ -2043,6 +2043,22 @@ async def get_tearsheet(run_id: str, catalog: CatalogDep) -> dict:
     except Exception as e:
         logger.warning("Failed to load rebalance dates for %s: %s", run_id, e)
 
+    # Load net-of-fee NAV series (only present when a fee_model was configured)
+    net_nav: list[dict] = []
+    try:
+        from pathlib import Path
+        import polars as _pl
+        net_path = Path("data/backtest_artifacts") / f"{run_id}_net_returns.parquet"
+        if net_path.exists():
+            net_df = _pl.read_parquet(net_path)
+            if not net_df.is_empty() and "net_nav" in net_df.columns:
+                net_nav = [
+                    {"date": str(r["trade_date"]), "nav": float(r["net_nav"])}
+                    for r in net_df.select(["trade_date", "net_nav"]).to_dicts()
+                ]
+    except Exception as e:
+        logger.warning("Failed to load net-fee series for %s: %s", run_id, e)
+
     return {
         "run": run_df.to_dicts()[0],
         "analysis": analysis,
@@ -2052,6 +2068,7 @@ async def get_tearsheet(run_id: str, catalog: CatalogDep) -> dict:
         "benchmark_asset_id": benchmark_asset_id,
         "benchmark_nav": benchmark_nav,
         "rebalance_dates": rebalance_dates,
+        "net_nav": net_nav,
     }
 
 
