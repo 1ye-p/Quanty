@@ -68,9 +68,14 @@ class FactorMaterializer:
             dataset_version=spec.dataset_version,
         )
 
-        # Load fundamentals for the period into ctx.extra
+        # Load fundamentals + daily valuation for the period into ctx.extra
         fundamentals = self._load_fundamentals(spec)
-        extra = {"fundamentals": fundamentals} if not fundamentals.is_empty() else {}
+        valuation = self._load_valuation(spec)
+        extra = {}
+        if not fundamentals.is_empty():
+            extra["fundamentals"] = fundamentals
+        if not valuation.is_empty():
+            extra["valuation"] = valuation
 
         feature_set = self._pipeline.run(prices, pipeline_spec, extra=extra)
 
@@ -119,19 +124,34 @@ class FactorMaterializer:
 
         return df
 
+    def _load_valuation(self, spec: FactorMaterializationSpec) -> pl.DataFrame:
+        """加载逐日估值，按 trade_date 精确匹配，天然 PIT。"""
+        try:
+            df = self._catalog.query(
+                """
+                SELECT asset_id, trade_date, pe_ttm, pb, ps_ttm, market_cap,
+                       turnover_rate, dividend_yield
+                FROM silver_valuation_daily
+                WHERE trade_date <= ?
+                """,
+                [spec.end_date.isoformat()],
+            )
+        except Exception as exc:
+            logger.warning("Could not load silver_valuation_daily: %s", exc)
+            return pl.DataFrame()
+        return df
+
     def _load_fundamentals(self, spec: FactorMaterializationSpec) -> pl.DataFrame:
-        """Load latest fundamental values per asset as of spec.end_date."""
+        """Load latest-disclosed fundamentals per asset as of spec.end_date (PIT-correct)."""
         try:
             df = self._catalog.query(
                 """
                 SELECT DISTINCT ON (asset_id)
-                    asset_id, report_date, pe_ttm, pb, ps_ttm, ev_ebitda,
-                    dividend_yield, roe, roa, gross_margin, net_margin,
-                    revenue_growth_yoy, earnings_growth_yoy, market_cap,
-                    total_assets, total_debt
+                    asset_id, announce_date, report_date, roe, roa, gross_margin,
+                    net_margin, revenue_growth_yoy, earnings_growth_yoy
                 FROM silver_fundamentals
-                WHERE report_date <= ?
-                ORDER BY asset_id, report_date DESC
+                WHERE announce_date <= ?
+                ORDER BY asset_id, announce_date DESC
                 """,
                 [spec.end_date.isoformat()],
             )
