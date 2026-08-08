@@ -3,9 +3,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import duckdb
-import polars as pl
-import pytest
 
 from cquant.datahub.backends.duckdb_backend import DuckDBBackend
 from cquant.datahub.catalog import Catalog
