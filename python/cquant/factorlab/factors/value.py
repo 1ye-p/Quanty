@@ -1,11 +1,15 @@
-"""Built-in value factors: PE-TTM, PB, Dividend Yield."""
+"""Built-in value factors: PE-TTM, PB, Dividend Yield.
+
+These read from ``ctx.extra['valuation']`` (silver_valuation_daily) which is
+per-(asset_id, trade_date) and naturally PIT.
+"""
 
 from __future__ import annotations
 
-from cquant.factorlab.factors._fundamental import FundamentalFactor
+from cquant.factorlab.factors._fundamental import ValuationFactor
 
 
-class PETTM(FundamentalFactor):
+class PETTM(ValuationFactor):
     """Price-to-Earnings (trailing twelve months)."""
 
     _column = "pe_ttm"
@@ -23,7 +27,7 @@ class PETTM(FundamentalFactor):
         return ["fundamental", "value"]
 
 
-class PB(FundamentalFactor):
+class PB(ValuationFactor):
     """Price-to-Book ratio."""
 
     _column = "pb"
@@ -41,7 +45,7 @@ class PB(FundamentalFactor):
         return ["fundamental", "value"]
 
 
-class DividendYield(FundamentalFactor):
+class DividendYield(ValuationFactor):
     """Dividend yield (annual dividend / price)."""
 
     _column = "dividend_yield"

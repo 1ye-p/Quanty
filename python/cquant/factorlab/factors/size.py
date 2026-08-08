@@ -1,4 +1,8 @@
-"""Built-in size factors: Market Cap, Log Market Cap."""
+"""Built-in size factors: Market Cap, Log Market Cap.
+
+These read from ``ctx.extra['valuation']`` (silver_valuation_daily) which is
+per-(asset_id, trade_date) and naturally PIT.
+"""
 
 from __future__ import annotations
 
@@ -7,10 +11,10 @@ import math
 import polars as pl
 
 from cquant.factorlab.factor import FactorContext
-from cquant.factorlab.factors._fundamental import FundamentalFactor
+from cquant.factorlab.factors._fundamental import ValuationFactor
 
 
-class MarketCap(FundamentalFactor):
+class MarketCap(ValuationFactor):
     """Raw market capitalization."""
 
     _column = "market_cap"
@@ -28,7 +32,7 @@ class MarketCap(FundamentalFactor):
         return ["fundamental", "size"]
 
 
-class LogMarketCap(FundamentalFactor):
+class LogMarketCap(ValuationFactor):
     """Natural log of market capitalization (size proxy)."""
 
     _column = "market_cap"
@@ -46,12 +50,9 @@ class LogMarketCap(FundamentalFactor):
         return ["fundamental", "size"]
 
     def compute(self, frame: pl.DataFrame, ctx: FactorContext) -> pl.Series:
-        fund = ctx.extra.get("fundamentals")
-        if fund is None or fund.is_empty() or self._column not in fund.columns:
-            return pl.Series(name=self.name, values=[None] * len(frame))
-
-        lookup = dict(zip(fund["asset_id"].to_list(), fund[self._column].to_list()))
-        return frame["asset_id"].map_elements(
-            lambda x: math.log(lookup[x]) if x in lookup else None,
+        # Reuse the valuation join from the base class, then apply log transform.
+        raw = super().compute(frame, ctx)
+        return raw.map_elements(
+            lambda x: math.log(x) if x is not None and x > 0 else None,
             return_dtype=pl.Float64,
         ).alias(self.name)
