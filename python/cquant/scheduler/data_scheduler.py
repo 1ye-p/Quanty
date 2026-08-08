@@ -392,36 +392,9 @@ class DataScheduler:
             replace_existing=True,
         )
 
-        # 9. Daily prices — daily at 18:00 (post-close incremental ingest)
-        sched.add_job(
-            self._run_daily_prices,
-            CronTrigger(hour=18, minute=0, timezone=self._tz),
-            id="daily_prices",
-            name="Daily Prices Ingest",
-            replace_existing=True,
-        )
-
-        # 10. Daily valuation — daily at 18:30 (post-close valuation refresh)
-        sched.add_job(
-            self._run_daily_valuation,
-            CronTrigger(hour=18, minute=30, timezone=self._tz),
-            id="daily_valuation",
-            name="Daily Valuation Update",
-            replace_existing=True,
-        )
-
-        # 11. Quarterly fundamentals — daily at 19:00 (end-of-day fundamentals refresh)
-        sched.add_job(
-            self._run_quarterly_fundamentals,
-            CronTrigger(hour=19, minute=0, timezone=self._tz),
-            id="quarterly_fundamentals",
-            name="Quarterly Fundamentals Update",
-            replace_existing=True,
-        )
-
         self._scheduler = sched
         self._running = True
-        logger.info("DataScheduler started with 11 jobs (tz=%s)", self._tz)
+        logger.info("DataScheduler started with %d jobs (tz=%s)", len(sched.get_jobs()), self._tz)
 
         try:
             sched.start()
