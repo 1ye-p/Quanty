@@ -244,6 +244,11 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
               <option value="SSE:000001">{t('component.backtest_run_modal.option.benchmark_sse')}</option>
               <option value="SZSE:399001">{t('component.backtest_run_modal.option.benchmark_szse')}</option>
             </select>
+            {!benchmarkId && (
+              <div className="text-xs text-amber-600 mt-1">
+                ⚠ {t('component.backtest_run_modal.hint.no_benchmark')}
+              </div>
+            )}
           </div>
 
           {/* ML Model Config */}

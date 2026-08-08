@@ -898,7 +898,8 @@
         "auto_train_walkforward": "Will auto-train the model and run the backtest; Walk-Forward {{folds}}-fold rolling evaluation",
         "scoring_locked_range": "Date range is locked to the scoring data coverage interval",
         "scoring_using": "📊 Using cross-sectional scoring result: ",
-        "no_completed_experiments": "No completed experiments yet. Please train a model on the \"Machine Learning\" page first."
+        "no_completed_experiments": "No completed experiments yet. Please train a model on the \"Machine Learning\" page first.",
+        "no_benchmark": "No benchmark selected — relative metrics (Alpha/Beta/IR/TE) will be empty"
       },
       "btn": {
         "run": "Run Backtest",
@@ -2154,7 +2155,8 @@
         "feature-importance": "Feature Importance",
         "model-diagnostics": "Model Diagnostics",
         "trade-analysis": "Trade Analysis"
-      }
+      },
+      "no_benchmark_hint": "No benchmark set"
     },
     "knowledge": {
       "title": "Knowledge Base",

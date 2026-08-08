@@ -337,7 +337,9 @@ export function BacktestOverviewTab() {
                 value={detail.metrics.information_ratio != null
                   ? detail.metrics.information_ratio.toFixed(3)
                   : '—'}
-                sub={t("component.backtest_overview.metric.ir_needs_benchmark")}
+                sub={detail.metrics.information_ratio == null
+                  ? t('page.backtest.no_benchmark_hint')
+                  : t("component.backtest_overview.metric.ir_needs_benchmark")}
                 warn={detail.metrics.information_ratio != null && detail.metrics.information_ratio < 0}
               />
               <MetricCard
@@ -345,14 +347,18 @@ export function BacktestOverviewTab() {
                 value={detail.metrics.tracking_error != null
                   ? `${(detail.metrics.tracking_error * 100).toFixed(2)}%`
                   : '—'}
-                sub={t("component.backtest_overview.metric.te_annualized")}
+                sub={detail.metrics.tracking_error == null
+                  ? t('page.backtest.no_benchmark_hint')
+                  : t("component.backtest_overview.metric.te_annualized")}
               />
               <MetricCard
                 label={t("common.metric.alpha")}
                 value={detail.metrics.alpha != null
                   ? `${(detail.metrics.alpha * 100).toFixed(2)}%`
                   : '—'}
-                sub={t('component.backtest_overview.metric.jensen_alpha')}
+                sub={detail.metrics.alpha == null
+                  ? t('page.backtest.no_benchmark_hint')
+                  : t('component.backtest_overview.metric.jensen_alpha')}
                 warn={detail.metrics.alpha != null && detail.metrics.alpha < 0}
               />
               <MetricCard

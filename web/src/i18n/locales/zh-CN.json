@@ -898,7 +898,8 @@
         "auto_train_walkforward": "将自动训练模型并运行回测，Walk-Forward {{folds}} 折滚动评估",
         "scoring_locked_range": "日期范围已限定为打分数据覆盖区间",
         "scoring_using": "📊 使用截面打分结果：",
-        "no_completed_experiments": "暂无已完成实验，请先在\"机器学习\"页面训练模型"
+        "no_completed_experiments": "暂无已完成实验，请先在\"机器学习\"页面训练模型",
+        "no_benchmark": "未设置基准，相对指标（Alpha/Beta/IR/TE）将为空"
       },
       "btn": {
         "run": "执行回测",
@@ -2154,7 +2155,8 @@
         "feature-importance": "特征重要性",
         "model-diagnostics": "模型诊断",
         "trade-analysis": "交易分析"
-      }
+      },
+      "no_benchmark_hint": "未设置基准"
     },
     "knowledge": {
       "title": "知识库",
