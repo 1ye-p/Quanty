@@ -820,16 +820,19 @@ class BacktestRunner:
         return compute_win_rates_from_fills(fills, min_trades=min_trades)
 
     def _load_prices(self, spec: BacktestRunSpec) -> pl.DataFrame:
+        from cquant.backtest_vector.prices import adjusted_ohlc_sql
         from cquant.backtest_vector.universe import resolve_universe
 
         universe_id = getattr(spec, 'universe_id', None) or "all"
         asset_ids = resolve_universe(self._catalog, universe_id)
 
+        # Shared helper returns fully-adjusted OHLC (close = adj_close or
+        # close × adj_factor). Engine still reads values="close", but that
+        # column is now the adjusted close, so backtests are split/dividend
+        # safe without any engine change.
         query = (
-            "SELECT asset_id, trade_date, open, high, low, close, volume, amount, "
-            "adj_factor, adj_close, is_suspended "
-            "FROM silver_prices_1d "
-            "WHERE trade_date >= ? AND trade_date <= ?"
+            adjusted_ohlc_sql()
+            + " WHERE trade_date >= ? AND trade_date <= ?"
         )
         params: list = [spec.start_date.isoformat(), spec.end_date.isoformat()]
 

@@ -11,6 +11,7 @@ from datetime import date
 
 import polars as pl
 
+from cquant.backtest_vector.prices import adjusted_ohlc_sql
 from cquant.core.errors import FactorComputeError
 from cquant.datahub.catalog import Catalog
 from cquant.factorlab.factor import FactorRegistry
@@ -104,14 +105,15 @@ class FactorMaterializer:
 
         lookback_start = spec.start_date - timedelta(days=max_lookback)
 
+        # Shared helper: fully-adjusted OHLC so factors see the same
+        # adjustment convention as the backtest path.
+        query = (
+            adjusted_ohlc_sql()
+            + " WHERE trade_date >= ? AND trade_date <= ?"
+            " ORDER BY asset_id, trade_date"
+        )
         df = self._catalog.query(
-            """
-            SELECT asset_id, trade_date, open, high, low, close, volume, amount,
-                   adj_factor, adj_close, is_suspended
-            FROM silver_prices_1d
-            WHERE trade_date >= ? AND trade_date <= ?
-            ORDER BY asset_id, trade_date
-            """,
+            query,
             [lookback_start.isoformat(), spec.end_date.isoformat()],
         )
         if df.is_empty():

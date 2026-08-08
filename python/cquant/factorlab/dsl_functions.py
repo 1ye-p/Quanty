@@ -75,6 +75,7 @@ FUNCTIONS: dict[str, tuple[Callable, int, int, str]] = {
     "cov":     (_cov,     3, 3, "滚动协方差: cov(close, volume, 10)"),
 }
 
+# NOTE: DSL `close`/`open`/`high`/`low` 为复权价（adj_factor 缩放后）
 AVAILABLE_COLUMNS = {"close", "open", "high", "low", "volume", "amount", "turnover"}
 
 
