@@ -118,20 +118,127 @@ def _update_from_akshare(
         symbol = asset_id.split(":")[-1] if ":" in asset_id else asset_id
         try:
             df = ak.stock_financial_abstract(symbol=symbol)
-            if df is not None and not df.empty:
-                records.append({
-                    "asset_id": asset_id,
-                    "report_date": report_date,
-                    "source": "akshare",
-                    "updated_at": updated_at,
-                })
         except Exception:
             continue
+        if df is None or df.empty:
+            continue
+        row = _parse_akshare_financial(df, report_date)
+        if not row:
+            continue
+        row["asset_id"] = asset_id
+        row["report_date"] = report_date
+        row["source"] = "akshare"
+        # akshare 的 stock_financial_abstract 不返回实际披露日 (ann_date)，
+        # 保守地用 report_date 充当 announce_date，保证 PIT 列非 NULL。
+        row["announce_date"] = report_date
+        records.append(row)
 
     if not records:
         return 0
 
     return _upsert_records(catalog, records, updated_at)
+
+
+def _parse_akshare_financial(df, report_date: str) -> dict | None:
+    """解析 akshare ``stock_financial_abstract`` 返回的财务摘要 DataFrame。
+
+    akshare 该接口（新浪财经源）返回长表，列为 ``item``（中文指标名）和
+    ``value``（指标值，字符串，可能含 ``%`` / ``亿`` / ``万`` 单位）。本函数
+    将其映射到 silver_fundamentals 列结构。
+
+    Parameters
+    ----------
+    df
+        akshare 返回的 DataFrame，预期包含 ``item``/``value`` 两列。
+    report_date
+        报告期（由上层传入），写入 ``report_date`` 字段。
+
+    Returns
+    -------
+    dict | None
+        与 silver_fundamentals 列结构一致的 dict；无法提取任何数值时返回 None。
+    """
+    import pandas as pd  # noqa: PLC0415
+
+    if df is None or getattr(df, "empty", True):
+        return None
+
+    # 兼容宽表（字段在列名）与长表（item/value 两列）两种布局
+    if "item" in df.columns and "value" in df.columns:
+        lookup = dict(zip(df["item"].astype(str), df["value"]))
+    else:  # 宽表：直接以列名作为指标名
+        lookup = {str(c): df[c].iloc[0] for c in df.columns}
+
+    def _pick(*keywords: str):
+        """返回第一个指标名包含任一关键字的原始值。"""
+        for name, raw in lookup.items():
+            if any(kw in name for kw in keywords):
+                return raw
+        return None
+
+    def _ratio(*keywords: str) -> float | None:
+        """提取百分比类指标（毛利率/净利率/ROE/增长率），统一化为小数。"""
+        return _to_float(_pick(*keywords), is_percent=True)
+
+    def _amount(*keywords: str) -> float | None:
+        """提取金额类指标（总资产/总负债），按 亿/万 还原为元。"""
+        return _to_float(_pick(*keywords))
+
+    row = {
+        "report_date": report_date,
+        "roe": _ratio("净资产收益率", "ROE", "净资产报酬率"),
+        "roa": _ratio("总资产收益率", "总资产报酬率", "ROA", "资产回报率"),
+        "gross_margin": _ratio("毛利率"),
+        "net_margin": _ratio("净利率", "销售净利率", "净利润率"),
+        "revenue_growth_yoy": _ratio("营业收入同比增长", "营业总收入同比增长", "营收同比增长"),
+        "earnings_growth_yoy": _ratio("净利润同比增长", "归属母公司净利润同比增长", "净利同比增长"),
+        "total_assets": _amount("总资产", "资产总计"),
+        "total_debt": _amount("总负债", "负债合计"),
+    }
+
+    # 全部为 NULL 时视为解析失败，避免写入空 metadata 行
+    if not any(v is not None for k, v in row.items() if k != "report_date"):
+        return None
+
+    # 静默消除未使用导入告警（pd 仅用于类型探测，保留以便扩展）
+    _ = pd
+    return row
+
+
+def _to_float(value, is_percent: bool = False) -> float | None:
+    """将 akshare 字符串指标值安全转换为 float。
+
+    处理 ``%``、``亿``、``万``、``--``、空白与千分位逗号；解析失败返回 None。
+    百分比模式 (``is_percent=True``) 下 ``12.3%`` / ``12.3`` → ``0.123``。
+    金额模式下 ``1.23亿`` → ``1.23e8``，``4.5万`` → ``45000``。
+    """
+    if value is None:
+        return None
+    text = str(value).strip().replace(",", "")
+    if not text or text in {"--", "---", "null", "None", "NaN", "nan"}:
+        return None
+
+    percent = is_percent
+    multiplier = 1.0
+    if text.endswith("%"):
+        percent = True
+        text = text[:-1].strip()
+    elif text.endswith("亿"):
+        multiplier = 1e8
+        text = text[:-1].strip()
+    elif text.endswith("万"):
+        multiplier = 1e4
+        text = text[:-1].strip()
+
+    try:
+        num = float(text)
+    except (TypeError, ValueError):
+        return None
+
+    num *= multiplier
+    if percent:
+        num /= 100.0
+    return num
 
 
 def _upsert_records(catalog: "Catalog", records: list[dict], updated_at: str) -> int:
@@ -147,9 +254,9 @@ def _upsert_records(catalog: "Catalog", records: list[dict], updated_at: str) ->
                 INSERT OR REPLACE INTO silver_fundamentals
                     (asset_id, report_date, pe_ttm, pb, ps_ttm, ev_ebitda, dividend_yield,
                      roe, roa, gross_margin, net_margin, revenue_growth_yoy,
-                     earnings_growth_yoy, market_cap, total_assets, total_debt,
-                     source, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     earnings_growth_yoy, market_cap, announce_date, total_assets,
+                     total_debt, source, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     rec.get("asset_id"),
@@ -166,6 +273,7 @@ def _upsert_records(catalog: "Catalog", records: list[dict], updated_at: str) ->
                     rec.get("revenue_growth_yoy"),
                     rec.get("earnings_growth_yoy"),
                     rec.get("market_cap"),
+                    rec.get("announce_date"),
                     rec.get("total_assets"),
                     rec.get("total_debt"),
                     rec.get("source", "unknown"),
