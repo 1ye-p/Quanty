@@ -116,3 +116,28 @@ CREATE TABLE IF NOT EXISTS silver_fundamentals (
 
 CREATE INDEX IF NOT EXISTS idx_silver_fundamentals_asset
     ON silver_fundamentals (asset_id, report_date DESC);
+
+-- PIT migration: add announce_date, deprecate market_cap
+ALTER TABLE silver_fundamentals ADD COLUMN announce_date DATE;
+CREATE INDEX idx_silver_fundamentals_announce
+    ON silver_fundamentals (asset_id, announce_date DESC);
+
+-- market_cap deprecated: PIT-incorrect; use silver_valuation_daily.market_cap
+COMMENT ON COLUMN silver_fundamentals.market_cap IS 'DEPRECATED: PIT-incorrect; use silver_valuation_daily.market_cap';
+
+CREATE TABLE IF NOT EXISTS silver_valuation_daily (
+    asset_id        VARCHAR NOT NULL,
+    trade_date      DATE NOT NULL,
+    pe_ttm          DOUBLE,
+    pb              DOUBLE,
+    ps_ttm          DOUBLE,
+    market_cap      DOUBLE,
+    turnover_rate   DOUBLE,
+    dividend_yield  DOUBLE,
+    source          VARCHAR DEFAULT 'tushare',
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (asset_id, trade_date)
+);
+
+CREATE INDEX idx_silver_valuation_daily_date
+    ON silver_valuation_daily (trade_date);
