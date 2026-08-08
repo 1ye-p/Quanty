@@ -100,6 +100,45 @@ class TushareConnector(DataConnector):
         df_pd = pro.trade_cal(exchange=exchange, start_date=start_date, end_date=end_date)  # type: ignore[union-attr]
         return pl.from_pandas(df_pd)
 
+    def fetch_valuation_daily(self, ts_code: str, start: str, end: str) -> pl.DataFrame:
+        """从 pro.daily_basic 取逐日估值（PE/PB/PS/市值/换手率/股息率）。
+        天然 PIT：trade_date 即数据可用日。
+        """
+        pro = self._get_pro()
+        df_pd = pro.daily_basic(  # type: ignore[union-attr]
+            ts_code=ts_code, start_date=start, end_date=end,
+            fields="ts_code,trade_date,pe_ttm,pb,ps_ttm,total_mv,turnover_rate,dv_ttm",
+        )
+        df = pl.from_pandas(df_pd)
+        df = df.with_columns([
+            (pl.col("total_mv") * 1e4).alias("market_cap"),  # 万元 → 元
+            pl.col("dv_ttm").alias("dividend_yield"),
+        ])
+        return df
+
+    def fetch_fundamentals(self, ts_code: str, period: str) -> list[dict]:
+        """从 pro.fina_indicator 取财报指标，f_ann_date 优先（决策 5-B）。"""
+        pro = self._get_pro()
+        df_pd = pro.fina_indicator(  # type: ignore[union-attr]
+            ts_code=ts_code, period=period,
+            fields="ts_code,ann_date,f_ann_date,end_date,roe,roa,grossprofit_margin,"
+                   "netprofit_margin,dt_profprofit_growth_rate,or_yoy,q_profit_yoy",
+        )
+        df = pl.from_pandas(df_pd)
+        records: list[dict] = []
+        for row in df.to_dicts():
+            announce_raw = row.get("f_ann_date") or row.get("ann_date")  # f_ann_date 优先
+            records.append({
+                "asset_id": _to_asset_id(row["ts_code"]),
+                "report_date": _parse(row["end_date"]),
+                "announce_date": _parse(announce_raw),
+                "roe": row.get("roe"),
+                "roa": row.get("roa"),
+                "gross_margin": row.get("grossprofit_margin"),
+                "net_margin": row.get("netprofit_margin"),
+            })
+        return records
+
 
 def _to_tushare_code(asset_id: str) -> str:
     """Convert cQuant asset_id (e.g. 'SSE:600036') to Tushare code ('600036.SH')."""
@@ -108,3 +147,23 @@ def _to_tushare_code(asset_id: str) -> str:
     exchange, symbol = asset_id.split(":", 1)
     suffix = {"SSE": "SH", "SZSE": "SZ"}.get(exchange, exchange)
     return f"{symbol}.{suffix}"
+
+
+def _to_asset_id(ts_code: str) -> str:
+    """Convert Tushare code (e.g. '600036.SH') to cQuant asset_id ('SSE:600036')."""
+    if "." not in ts_code:
+        return ts_code
+    symbol, suffix = ts_code.split(".", 1)
+    exchange = {"SH": "SSE", "SZ": "SZSE"}.get(suffix, suffix)
+    return f"{exchange}:{symbol}"
+
+
+def _parse(date_str: str | None) -> datetime | None:
+    """Parse a Tushare date string (YYYYMMDD or YYYY-MM-DD) into a datetime."""
+    if not date_str:
+        return None
+    clean = date_str.replace("-", "")
+    try:
+        return datetime.strptime(clean, "%Y%m%d")
+    except (ValueError, TypeError):
+        return None
