@@ -136,7 +136,7 @@ def apply_fee_model(returns: "pl.Series | list[float]", fee: FeeModel) -> pl.Ser
                 # Effective hurdle for this period relative to prev_net:
                 hurdle_threshold = prev_net * (1.0 + daily_hurdle)
                 # Chargeable base = amount candidate exceeds max(peak, hurdle_threshold)
-                base = max(candidate, peak_nav, hurdle_threshold)
+                base = max(peak_nav, hurdle_threshold)
                 chargeable = candidate - base
                 if chargeable > 0:
                     perf_charge = chargeable * fee.perf_fee
@@ -152,9 +152,9 @@ def apply_fee_model(returns: "pl.Series | list[float]", fee: FeeModel) -> pl.Ser
                 # Simple daily hurdle: charge perf_fee on return above hurdle/252.
                 excess = gross_r - daily_hurdle
                 if excess > 0:
-                    # Performance fee reduces today's net return by perf_fee * excess
-                    net_r = (1.0 + gross_r) * (1.0 - daily_mgmt) - fee.perf_fee * excess
-                    net_nav[i] = prev_net * net_r
+                    # Apply perf fee as NAV deduction (consistent with HWM path)
+                    perf_charge = prev_net * (1.0 + gross_r) * fee.perf_fee * excess
+                    net_nav[i] = after_mgmt - perf_charge
                 else:
                     net_nav[i] = after_mgmt
         else:
