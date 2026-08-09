@@ -31,6 +31,115 @@ logger = logging.getLogger(__name__)
 _schema_ensured_for: set[int] = set()
 
 
+def _forward_fill_long_prices(prices: pl.DataFrame) -> pl.DataFrame:
+    """Forward-fill ``close`` per asset across missing trade dates.
+
+    The silver layer only returns rows that physically exist, so an asset that
+    skipped a trade date (suspended mid-window, vendor gap) is simply *absent*
+    for that date — the long DataFrame has no NULL cell to fill. To recover the
+    missing day we first reindex each asset onto the full union of trade dates
+    (so the gap becomes a NULL ``close`` cell), then forward-fill within each
+    asset group.
+
+    Behaviour contract:
+
+    - Internal gaps are filled (asset skipped a date that other assets have).
+    - The first day of an asset is **not** back-filled: a leading NULL stays
+      NULL (no earlier observation to carry forward).
+    - Delisted assets are **not** tail-filled: an asset whose last observation
+      is before the backtest end keeps NULL cells from its last valid date
+      onward. We capture each asset's *original* last-valid date before filling
+      and drop any reindexed row beyond it, so a carried-forward value never
+      leaks past the asset's real data span. See :func:`_handle_delisting` for
+      the explicit delisting policy.
+
+    Returns the original DataFrame (sorted) when it is empty or lacks the
+    required columns, so the caller is always safe.
+    """
+    if prices.is_empty():
+        return prices
+    if "close" not in prices.columns or "asset_id" not in prices.columns:
+        return prices
+
+    # Capture each asset's ORIGINAL data span from its real rows (regardless of
+    # NULL close) BEFORE reindexing — this anchors the asset's true presence so
+    # a carried-forward value cannot leak past the last observed row (delisting)
+    # and cannot precede the first observed row (no leading back-fill). A real
+    # first-day NULL close is preserved as NULL because forward-fill has no
+    # earlier value to carry.
+    span = (
+        prices.group_by("asset_id")
+        .agg(
+            pl.col("trade_date").min().alias("_first_row_date"),
+            pl.col("trade_date").max().alias("_last_row_date"),
+        )
+    )
+
+    # Union of all trade dates observed across the universe.
+    all_dates = prices.get_column("trade_date").unique(maintain_order=False).to_frame()
+    assets = prices.get_column("asset_id").unique(maintain_order=False).to_frame()
+
+    # Reindex: full (asset × all_dates) grid. Missing rows become NULL close.
+    grid = assets.join(all_dates, how="cross")
+    reindexed = grid.join(
+        prices.select(["asset_id", "trade_date", "close"]),
+        on=["asset_id", "trade_date"],
+        how="left",
+    )
+
+    # Forward-fill internal gaps within each asset's real data span, then trim
+    # to [first_row_date, last_row_date] so neither leading NULLs nor trailing
+    # gaps (delisting) survive as synthetic data.
+    filled = (
+        reindexed.sort(["asset_id", "trade_date"])
+        .join(span, on="asset_id", how="left")
+        .with_columns(pl.col("close").forward_fill().over("asset_id"))
+        .filter(
+            (pl.col("trade_date") >= pl.col("_first_row_date"))
+            & (pl.col("trade_date") <= pl.col("_last_row_date"))
+        )
+        .drop("_first_row_date", "_last_row_date")
+    )
+    return filled
+
+
+def _handle_delisting(
+    prices: pl.DataFrame, end_date: date | None = None
+) -> pl.DataFrame:
+    """Drop tail-filled rows for delisted assets after their last valid date.
+
+    An asset whose final observation precedes the backtest ``end_date`` is
+    considered delisted. :func:`_forward_fill_long_prices` already leaves such
+    trailing cells NULL (no row to carry forward), but this helper makes the
+    contract explicit and trims any stray tail-filled rows defensively: it
+    keeps, for each asset, only rows up to and including the asset's last
+    non-NULL ``close``.
+
+    Delisted stocks are therefore **not** tail-filled — once their last valid
+    price is reached, the asset simply disappears from the price stream, which
+    surfaces as a 0.0 lookup (no-trade) in the FillSimulator, matching the
+    intended "settle at last valid price then drop" semantics without
+    inventing synthetic prices.
+    """
+    if prices.is_empty() or "close" not in prices.columns:
+        return prices
+
+    # Last valid (non-NULL) trade date per asset.
+    last_valid = (
+        prices.filter(pl.col("close").is_not_null())
+        .sort(["asset_id", "trade_date"])
+        .group_by("asset_id", maintain_order=True)
+        .agg(pl.col("trade_date").last().alias("_last_valid_date"))
+    )
+
+    # Keep rows on/before each asset's last valid date (drops any trailing
+    # synthetic rows; no-op when forward-fill left them NULL).
+    trimmed = prices.join(last_valid, on="asset_id", how="left").filter(
+        pl.col("trade_date") <= pl.col("_last_valid_date")
+    )
+    return trimmed.drop("_last_valid_date").sort(["asset_id", "trade_date"])
+
+
 def _ensure_run_schema_extensions(catalog: Catalog) -> None:
     """Add optional columns to gold_backtest_runs once per catalog."""
     cat_id = id(catalog)
@@ -106,6 +215,8 @@ class BacktestRunSpec:
     # MultiFactor missing-factor handling
     missing_factor_strategy: str = "fill_0"
     penalty_per_missing: float = 0.5
+    # BreakoutPullback params
+    breakout_config: dict = field(default_factory=dict)
 
 
 class StaticTopNStrategy(Strategy):
@@ -847,6 +958,13 @@ class BacktestRunner:
         df = self._catalog.query(query, params)
         if not df.is_empty() and df["trade_date"].dtype == pl.Utf8:
             df = df.with_columns(pl.col("trade_date").str.to_date())
+
+        # Forward-fill missing trade dates per asset before the price matrix
+        # and FillSimulator share this DataFrame (one fix covers both). Internal
+        # gaps are filled; first-day NULL and delisted tails are preserved.
+        if not df.is_empty():
+            df = _forward_fill_long_prices(df)
+            df = _handle_delisting(df, spec.end_date)
         return df
 
     def _load_features(self, spec: BacktestRunSpec) -> pl.DataFrame | None:
@@ -953,6 +1071,17 @@ class BacktestRunner:
                 exit_conditions=spec.exit_conditions,
                 indicators=spec.indicator_specs,
                 max_positions=spec.top_n,
+            )
+        if spec.strategy_type == "BreakoutPullback":
+            from cquant.backtest_vector.strategies.breakout_pullback import (
+                BreakoutPullbackConfig,
+                BreakoutPullbackStrategy,
+            )
+            cfg = BreakoutPullbackConfig(**spec.breakout_config) if spec.breakout_config else BreakoutPullbackConfig()
+            cfg.max_positions = spec.top_n
+            return BreakoutPullbackStrategy(
+                strategy_id=spec.strategy_id,
+                config=cfg,
             )
         return StaticTopNStrategy(
             strategy_id=spec.strategy_id,
