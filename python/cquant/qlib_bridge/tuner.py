@@ -73,8 +73,16 @@ def _generate_grid(param_grid: dict[str, list[Any]]) -> list[dict[str, Any]]:
 def _generate_random(
     param_ranges: dict[str, list[Any]],
     n_trials: int,
+    seed: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Sample random param combinations from ranges."""
+    """Sample random param combinations from ranges.
+
+    Uses a LOCAL :class:`random.Random` instance seeded with *seed* so that
+    sampling does not touch the global :mod:`random` state.  Same seed → same
+    sampled trials, which keeps tuning reproducible and concurrent runs
+    isolated from one another.
+    """
+    rng = random.Random(seed)
     trials = []
     for _ in range(n_trials):
         trial = {}
@@ -82,12 +90,12 @@ def _generate_random(
             if isinstance(values, list) and len(values) == 2 and all(isinstance(v, (int, float)) for v in values):
                 # Continuous range [min, max]
                 if isinstance(values[0], int):
-                    trial[key] = random.randint(values[0], values[1])
+                    trial[key] = rng.randint(values[0], values[1])
                 else:
-                    trial[key] = random.uniform(values[0], values[1])
+                    trial[key] = rng.uniform(values[0], values[1])
             elif isinstance(values, list):
                 # Discrete choices
-                trial[key] = random.choice(values)
+                trial[key] = rng.choice(values)
             else:
                 trial[key] = values
         trials.append(trial)
@@ -125,6 +133,7 @@ class HyperparameterTuner:
         metric: str = "rmse",
         n_trials: int = 20,
         higher_is_better: bool | None = None,
+        seed: int | None = None,
     ):
         if model_name not in QLIB_MODELS:
             raise KeyError(f"Unknown model: {model_name!r}")
@@ -134,6 +143,9 @@ class HyperparameterTuner:
         self.method = method
         self.metric = metric
         self.n_trials = n_trials
+        # Local RNG seed — when provided, random/bayesian search becomes
+        # reproducible without polluting the global ``random`` state.
+        self.seed = seed
 
         if higher_is_better is not None:
             self.higher_is_better = higher_is_better
@@ -160,13 +172,13 @@ class HyperparameterTuner:
         if self.method == "grid":
             candidates = _generate_grid(self.param_grid)
         elif self.method == "random":
-            candidates = _generate_random(self.param_grid, self.n_trials)
+            candidates = _generate_random(self.param_grid, self.n_trials, seed=self.seed)
         elif self.method == "bayesian":
             # Simple random sampling as fallback (real BO requires optuna)
             logger.warning(
                 "Bayesian optimization not fully implemented; falling back to random search."
             )
-            candidates = _generate_random(self.param_grid, self.n_trials)
+            candidates = _generate_random(self.param_grid, self.n_trials, seed=self.seed)
         else:
             raise ValueError(f"Unknown method: {self.method!r}")
 

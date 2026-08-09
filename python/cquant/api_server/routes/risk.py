@@ -221,6 +221,7 @@ async def portfolio_var(
     horizon_days: int = 1,
     weights_json: str = "",
     nav: float = 1_000_000.0,
+    seed: int | None = 42,
 ) -> dict:
     """Calculate portfolio-level Value at Risk (VaR) and Conditional VaR (CVaR).
 
@@ -266,7 +267,7 @@ async def portfolio_var(
     # Currently uses synthetic data with realistic parameters for demonstration
     n_assets = len(weights)
     n_days = 252  # 1 year of history
-    rng = np.random.default_rng(42)  # Local RNG to avoid global state pollution
+    rng = np.random.default_rng(seed)  # Local RNG to avoid global state pollution
 
     mean_returns = np.full(n_assets, 0.10 / 252)  # Daily mean return ~10% annual
     base_vol = 0.20 / np.sqrt(252)  # Daily vol ~20% annualized
@@ -286,7 +287,7 @@ async def portfolio_var(
     elif method == "historical":
         var_pct, cvar_pct = _historical_var(w, historical_returns, confidence, horizon_days)
     elif method == "monte_carlo":
-        var_pct, cvar_pct = _monte_carlo_var(w, mean_returns, cov_matrix, confidence, horizon_days)
+        var_pct, cvar_pct = _monte_carlo_var(w, mean_returns, cov_matrix, confidence, horizon_days, seed=seed)
     else:
         raise HTTPException(status_code=422, detail=f"Unknown method: {method}")
 
@@ -384,6 +385,7 @@ def _monte_carlo_var(
     confidence: float,
     horizon_days: int,
     n_simulations: int = 10000,
+    seed: int | None = 42,
 ) -> tuple[float, float]:
     """Calculate Monte Carlo VaR.
 
@@ -391,8 +393,10 @@ def _monte_carlo_var(
     2. Compute portfolio returns for each simulation
     3. Take quantile of simulated returns
     """
-    # Simulate daily returns for all assets
-    simulated_daily = np.random.multivariate_normal(mean_returns, cov_matrix, (n_simulations, horizon_days))
+    # Simulate daily returns for all assets using a LOCAL RNG (no global state).
+    # Same seed → same samples → reproducible across concurrent requests.
+    rng = np.random.default_rng(seed)
+    simulated_daily = rng.multivariate_normal(mean_returns, cov_matrix, (n_simulations, horizon_days))
 
     # Sum over horizon for each simulation
     simulated_horizon = np.sum(simulated_daily, axis=1)  # Shape: (n_simulations,)

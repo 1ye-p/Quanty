@@ -64,6 +64,10 @@ class BacktestSpec:
     tags: dict = field(default_factory=dict)
     optimizer: "PortfolioOptimizer | None" = None
     extra: dict = field(default_factory=dict)
+    # Local RNG seed for reproducible, concurrency-safe runs. When ``None``,
+    # any RNG-using components draw from the global state (legacy behaviour).
+    # When set, the same seed yields the same result across runs.
+    random_seed: int | None = None
 
 
 @dataclass

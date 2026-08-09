@@ -217,6 +217,9 @@ class BacktestRunSpec:
     penalty_per_missing: float = 0.5
     # BreakoutPullback params
     breakout_config: dict = field(default_factory=dict)
+    # Local RNG seed — propagated to BacktestSpec.random_seed for reproducible,
+    # concurrency-safe runs (no global seed pollution).
+    random_seed: int | None = None
 
 
 class StaticTopNStrategy(Strategy):
@@ -436,6 +439,7 @@ class BacktestRunner:
             tags=spec.tags,
             risk_policies=spec.risk_policies,
             extra={"catalog": self._catalog},
+            random_seed=spec.random_seed,
         )
 
         result = self._engine.run(bt_spec)
@@ -481,6 +485,7 @@ class BacktestRunner:
             tags=spec.tags,
             risk_policies=spec.risk_policies,
             extra={"catalog": self._catalog},
+            random_seed=spec.random_seed,
         )
 
         # Build refit callback that re-trains ML models per fold
@@ -810,6 +815,7 @@ class BacktestRunner:
             risk_policies=risk_policies or [],
             benchmark_asset_id=benchmark_asset_id,
             tags=tags or {},
+            random_seed=persist_spec.random_seed,
         )
 
         result = self._engine.run(bt_spec)
