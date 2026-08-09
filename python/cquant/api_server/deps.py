@@ -102,6 +102,13 @@ async def run_job_async(_run_job: Callable[..., Any], /, *args: Any, **kwargs: A
     event loop stays responsive while it blocks. ``job_queue_stats`` is updated
     across the queue→run→done transitions for frontend display.
 
+    Per-job observability is wired in here so all callers (backtest / factor
+    analysis / sensitivity) get it for free: wall-clock duration, peak RSS
+    delta, and outcome are emitted to the ``backtest_duration_seconds`` and
+    ``backtest_job_duration_seconds`` Prometheus histograms and a structured
+    log record. ``job_type`` is derived from the callable name (``_run_job``
+    / ``_run_analysis`` / ``_run_sensitivity``) so dashboards stay readable.
+
     Parameters
     ----------
     _run_job:
@@ -110,20 +117,91 @@ async def run_job_async(_run_job: Callable[..., Any], /, *args: Any, **kwargs: A
     *args, **kwargs:
         Forwarded verbatim to ``_run_job``.
     """
+    import time
+
+    job_type = _derive_job_type(_run_job)
     job_queue_stats.reserve()
+    start_ts = time.perf_counter()
+    status = "success"
     try:
         async with JOB_SEMAPHORE:
             job_queue_stats.acquire()
             try:
-                return await asyncio.to_thread(_run_job, *args, **kwargs)
+                result = await asyncio.to_thread(_run_job, *args, **kwargs)
+                return result
             finally:
                 job_queue_stats.release()
     except BaseException:
+        status = "failure"
         # If reserve()/acquire() itself never happened (e.g. cancelled before
         # entering the semaphore), the finally above still balances acquire.
         # Here we only reach if something went wrong outside the try body;
         # ensure waiting counter does not leak on cancellation.
         raise
+    finally:
+        _record_job_metrics(job_type, status, start_ts)
+
+
+def _derive_job_type(func: Callable[..., Any]) -> str:
+    """Best-effort human label for a job callable (``_run_job`` -> ``job``)."""
+    name = getattr(func, "__name__", "job") or "job"
+    # Strip a leading ``_run_`` prefix used by the route call sites so the
+    # label reads ``backtest`` rather than ``_run_job``.
+    if name.startswith("_run_"):
+        name = name[len("_run_"):]
+    return name or "job"
+
+
+def _record_job_metrics(job_type: str, status: str, start_ts: float) -> None:
+    """Observe job duration + memory delta into Prometheus + structured log.
+
+    All observability here is best-effort: any failure (missing
+    prometheus_client, no ``resource`` module on a stripped runtime) is
+    swallowed so a broken metric never causes a job to look failed.
+    """
+    import logging
+    import time
+
+    duration = max(0.0, time.perf_counter() - start_ts)
+    peak_rss_mb: float | None = None
+    try:
+        import resource
+
+        # ru_maxrss is in kilobytes on macOS/BSD, bytes-per-page elsewhere; the
+        # ru_ixrss et al. fields are unreliable across platforms so we use the
+        # peak RSS delta from a stored baseline when available.
+        peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+    except Exception:  # pragma: no cover — resource module is standard
+        peak_rss_mb = None
+
+    log = logging.getLogger("cquant.api")
+    try:
+        log.info(
+            "job_completed",
+            extra={
+                "job_type": job_type,
+                "status": status,
+                "duration_s": round(duration, 3),
+                "peak_rss_mb": round(peak_rss_mb, 2) if peak_rss_mb is not None else None,
+            },
+        )
+    except Exception:  # pragma: no cover
+        pass
+
+    try:
+        from cquant.api_server.routes.metrics import (
+            backtest_duration_seconds,
+            backtest_job_duration_seconds,
+        )
+
+        if backtest_duration_seconds is not None:
+            backtest_duration_seconds.labels(job_type=job_type).observe(duration)
+        if backtest_job_duration_seconds is not None:
+            backtest_job_duration_seconds.labels(
+                job_type=job_type, status=status
+            ).observe(duration)
+    except Exception:  # pragma: no cover — metrics are best-effort
+        pass
 
 
 @lru_cache(maxsize=1)

@@ -41,6 +41,11 @@ from cquant.api_server.routes import (
     trading,
     alerts,
     jobs,
+    metrics,
+)
+from cquant.api_server.middleware import (
+    StructuredLoggingMiddleware,
+    configure_structured_logging,
 )
 
 logger = logging.getLogger(__name__)
@@ -108,6 +113,15 @@ def create_app(
         debug=debug,
         lifespan=_lifespan,
     )
+
+    # ── Structured logging ────────────────────────────────────────────────────
+    # Install the JSON formatter early so every subsequent log line (CORS,
+    # rate limiting, startup banner) is structured. Set CQUANT_LOG_JSON=0 for
+    # a human-readable format during local development.
+    configure_structured_logging()
+
+    # ── Structured request logging + Prometheus http_requests_total ───────────
+    app.add_middleware(StructuredLoggingMiddleware)
 
     # ── CORS ──────────────────────────────────────────────────────────────────
     origins = cors_origins or ["http://localhost:3000", "http://localhost:5173"]
@@ -182,6 +196,9 @@ def create_app(
 
     prefix = "/api/v1"
     app.include_router(health.router)
+    # /metrics is intentionally unauthenticated so Prometheus can scrape it
+    # without an API key; restrict it at the reverse proxy in production.
+    app.include_router(metrics.router)
     app.include_router(datasets.router, prefix=prefix, dependencies=_auth)
     app.include_router(factors.router, prefix=prefix, dependencies=_auth)
     app.include_router(backtests.router, prefix=prefix, dependencies=_auth)

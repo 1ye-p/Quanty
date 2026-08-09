@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterator
 
 import polars as pl
 
@@ -31,6 +33,32 @@ _DDL_FILES = [
     "sql/duckdb/knowledge.sql",
     "sql/duckdb/meta.sql",
 ]
+
+
+@contextmanager
+def _observe_duckdb(operation: str) -> Iterator[None]:
+    """Observe a DuckDB operation's latency into the Prometheus histogram.
+
+    Best-effort: if ``prometheus_client`` or the metrics module is unavailable,
+    or the histogram is disabled, this is a transparent no-op. Lives here in
+    ``catalog.py`` (rather than the metrics route) to avoid importing the API
+    layer from the data layer.
+    """
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        try:
+            from cquant.api_server.routes.metrics import (
+                duckdb_query_duration_seconds,
+            )
+
+            if duckdb_query_duration_seconds is not None:
+                duckdb_query_duration_seconds.labels(operation=operation).observe(
+                    time.perf_counter() - start
+                )
+        except Exception:  # pragma: no cover — metrics are best-effort
+            pass
 
 
 class Catalog:
@@ -83,30 +111,33 @@ class Catalog:
 
     def query(self, sql: str, params: list[Any] | None = None) -> pl.DataFrame:
         """Execute *sql* and return the result as a Polars DataFrame."""
-        try:
-            return self._backend.query(sql, params)
-        except CatalogError:
-            raise
-        except Exception as exc:
-            raise CatalogError(f"Query failed: {exc}\n\nSQL: {sql}") from exc
+        with _observe_duckdb("query"):
+            try:
+                return self._backend.query(sql, params)
+            except CatalogError:
+                raise
+            except Exception as exc:
+                raise CatalogError(f"Query failed: {exc}\n\nSQL: {sql}") from exc
 
     def execute(self, sql: str, params: list[Any] | None = None) -> None:
         """Execute a non-SELECT statement (INSERT, UPDATE, DELETE)."""
-        try:
-            self._backend.execute(sql, params)
-        except CatalogError:
-            raise
-        except Exception as exc:
-            raise CatalogError(f"Execute failed: {exc}\n\nSQL: {sql}") from exc
+        with _observe_duckdb("execute"):
+            try:
+                self._backend.execute(sql, params)
+            except CatalogError:
+                raise
+            except Exception as exc:
+                raise CatalogError(f"Execute failed: {exc}\n\nSQL: {sql}") from exc
 
     def executemany(self, sql: str, rows: list[tuple]) -> None:
         """Execute statement for multiple rows."""
-        try:
-            self._backend.executemany(sql, rows)
-        except CatalogError:
-            raise
-        except Exception as exc:
-            raise CatalogError(f"Executemany failed: {exc}\n\nSQL: {sql}") from exc
+        with _observe_duckdb("executemany"):
+            try:
+                self._backend.executemany(sql, rows)
+            except CatalogError:
+                raise
+            except Exception as exc:
+                raise CatalogError(f"Executemany failed: {exc}\n\nSQL: {sql}") from exc
 
     def upsert(
         self,
