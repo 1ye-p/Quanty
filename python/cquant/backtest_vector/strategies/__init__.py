@@ -1,5 +1,9 @@
 """cquant.backtest_vector.strategies — Concrete strategy implementations."""
 
+from cquant.backtest_vector.strategies.breakout_pullback import (
+    BreakoutPullbackConfig,
+    BreakoutPullbackStrategy,
+)
 from cquant.backtest_vector.strategies.combo import CompositeStrategy
 from cquant.backtest_vector.strategies.custom_weight_strategy import CustomWeightStrategy
 from cquant.backtest_vector.strategies.indicator_signal import IndicatorSignalStrategy
@@ -13,6 +17,8 @@ from cquant.backtest_vector.strategies.position_manager import (
 from cquant.backtest_vector.strategies.sector_rotation import SectorRotationStrategy
 
 __all__ = [
+    "BreakoutPullbackConfig",
+    "BreakoutPullbackStrategy",
     "CompositeStrategy",
     "CustomWeightStrategy",
     "IndicatorSignalStrategy",

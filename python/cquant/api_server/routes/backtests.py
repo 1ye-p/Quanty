@@ -245,6 +245,8 @@ class BacktestCreateBody(BaseModel):
     # MultiFactor missing-factor handling
     missing_factor_strategy: str = "fill_0"
     penalty_per_missing: float = 0.5
+    # BreakoutPullback params
+    breakout_config: dict | None = None
 
 
 def _run_backtest(catalog, spec):
@@ -478,6 +480,7 @@ async def create_backtest(
         scoring_run_id=body.scoring_run_id,
         missing_factor_strategy=missing_factor_strategy,
         penalty_per_missing=penalty_per_missing,
+        breakout_config=body.breakout_config or parsed.get("breakout_config", {}),
     )
 
     _ensure_schema_extensions(catalog)

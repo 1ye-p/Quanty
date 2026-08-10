@@ -545,6 +545,9 @@ export function BacktestRunModal({ strategyId, configText, onClose }: BacktestRu
                 if (parsed.strategy_type === 'CustomWeightStrategy') {
                   body.custom_weights = (parsed as Record<string, unknown>).custom_weights ?? {}
                 }
+                if (parsed.strategy_type === 'BreakoutPullback') {
+                  body.breakout_config = (parsed as Record<string, unknown>).breakout_config ?? {}
+                }
                 // Forward missing factor handling config
                 const mfh = (parsed as Record<string, unknown>).missing_factor_handling
                 if (mfh && mfh !== 'fill_0') {

@@ -81,6 +81,12 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
   const [editorMode, setEditorMode] = useState<'ui' | 'code'>('ui')
   const [showTemplates, setShowTemplates] = useState(false)
   const [indicatorParamOverrides, setIndicatorParamOverrides] = useState<Record<string, Record<string, number>>>({})
+  // BreakoutPullback state
+  const [bpN, setBpN] = useState(String(parsed.breakout_config?.N ?? 10))
+  const [bpStopLossPct, setBpStopLossPct] = useState(String((parsed.breakout_config?.stop_loss_pct ?? 0.08) * 100))
+  const [bpTakeProfitMult, setBpTakeProfitMult] = useState(String(parsed.breakout_config?.take_profit_mult ?? 1.15))
+  const [bpShrinkRatio, setBpShrinkRatio] = useState(String(parsed.breakout_config?.shrink_ratio ?? 0.85))
+  const [bpBigYangGain, setBpBigYangGain] = useState(String((parsed.breakout_config?.big_yang_gain ?? 0.06) * 100))
 
   const { data: policies } = useQuery({
     queryKey: extendedQueryKeys.risk.policies(),
@@ -124,6 +130,15 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
     if (strategyType === 'Combo') {
       config.combo_method = comboMethod
       try { config.sub_strategy_configs = JSON.parse(subStrategyConfigs) } catch { config.sub_strategy_configs = [] }
+    }
+    if (strategyType === 'BreakoutPullback') {
+      config.breakout_config = {
+        N: Number(bpN) || 10,
+        stop_loss_pct: (Number(bpStopLossPct) || 8) / 100,
+        take_profit_mult: Number(bpTakeProfitMult) || 1.15,
+        shrink_ratio: Number(bpShrinkRatio) || 0.85,
+        big_yang_gain: (Number(bpBigYangGain) || 6) / 100,
+      }
     }
     if (strategyType === 'IndicatorSignal') {
       config.entry_conditions = entryConditions.filter(c => c.trim())
@@ -247,6 +262,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           <option value="SectorRotation">SectorRotation — {t('component.strategies.types.SectorRotation')}</option>
           <option value="Combo">Combo — {t('component.strategies.types.Combo')}</option>
           <option value="IndicatorSignal">IndicatorSignal — {t('component.strategies.types.IndicatorSignal')}</option>
+          <option value="BreakoutPullback">BreakoutPullback — 突破回踩选股</option>
         </select>
       </div>
 
@@ -403,6 +419,43 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
             <textarea className="input w-full font-mono text-xs" rows={4}
               value={subStrategyConfigs} onChange={e => setSubStrategyConfigs(e.target.value)}
               placeholder='[{"strategy_type":"StaticTopN","top_n":5,"sort_factor":"ret_20d"},{"strategy_type":"MultiFactor","top_n":5,"sort_factor":"vol_20d"}]' />
+          </div>
+        </div>
+      )}
+
+      {/* BreakoutPullback params */}
+      {strategyType === 'BreakoutPullback' && (
+        <div className="border rounded-lg p-3 bg-blue-50 space-y-3">
+          <div className="text-xs font-medium text-gray-600 mb-2">突破回踩策略参数</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500">回看窗口 N (天)</label>
+              <input type="number" className="input w-full" value={bpN}
+                onChange={e => setBpN(e.target.value)} min={2} max={30} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">缩量阈值 (%)</label>
+              <input type="number" className="input w-full" value={bpShrinkRatio}
+                onChange={e => setBpShrinkRatio(e.target.value)} min={50} max={100} step={1} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">大阳线涨幅 (%)</label>
+              <input type="number" className="input w-full" value={bpBigYangGain}
+                onChange={e => setBpBigYangGain(e.target.value)} min={3} max={15} step={0.5} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">回撤止损 (%)</label>
+              <input type="number" className="input w-full" value={bpStopLossPct}
+                onChange={e => setBpStopLossPct(e.target.value)} min={3} max={20} step={1} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">止盈倍数 (×MA20)</label>
+              <input type="number" className="input w-full" value={bpTakeProfitMult}
+                onChange={e => setBpTakeProfitMult(e.target.value)} min={1.05} max={1.5} step={0.05} />
+            </div>
+          </div>
+          <div className="text-xs text-gray-400 mt-1">
+            完整参数可在 JSON 模式下编辑（参考 configs/defaults/breakout_pullback.toml）
           </div>
         </div>
       )}
