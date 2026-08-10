@@ -46,7 +46,6 @@ from __future__ import annotations
 import argparse
 import cProfile
 import gc
-import io
 import json
 import logging
 import pstats
@@ -179,15 +178,11 @@ def _extract_method_stats(stats: pstats.Stats) -> dict[str, dict]:
     out: dict[str, dict] = {}
     # stats.stats: {(file, line, func): (cc, nc, tt, ct, callers)}
     for (file, _line, func), (cc, nc, tt, ct, _callers) in stats.stats.items():
-        if func in _METHODS_OF_INTEREST or func in out:
-            # 取 fill_simulator 文件内的命中（避免 polars/numpy 同名函数干扰）
-            if "fill_simulator" in file or func in out and file == "":
-                pass
+        # 只保留 fill_simulator.py 内的方法 + 顶层 simulate
         if "fill_simulator" not in file and func != "simulate":
-            # simulate 来自 caller 视角可能不在 fill_simulator 文件——但实际就是。
-            # 只保留 fill_simulator.py 内的方法 + 顶层 simulate。
-            if func != "simulate":
-                continue
+            continue
+        if func not in _METHODS_OF_INTEREST and func not in out:
+            continue
         percall_tot = (tt / nc) if nc else 0.0
         out[func] = {
             "ncalls": nc,
