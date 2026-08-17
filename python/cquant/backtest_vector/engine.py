@@ -35,6 +35,7 @@ from cquant.core.types import OrderIntent, RiskDecision, RiskSnapshot
 from cquant.riskguard.policies.forced_exit import ForcedExit, ForcedExitPolicy
 from cquant.riskguard.policies.stop_loss import TrailingStopLossPolicy
 from cquant.riskguard.policies.atr_stop_loss import ATRStopLossPolicy
+from cquant.riskguard.policies.global_stop import GlobalStopPolicy
 
 if TYPE_CHECKING:
     from cquant.portfolio_opt.base import PortfolioOptimizer
@@ -501,6 +502,7 @@ class VectorBacktestEngine:
         # State dicts for forced exit policies
         trailing_state: dict = {"peak_prices": {}}
         atr_state: dict = {"atr_values": {}}
+        global_stop_state: dict = {"fired_tiers": {}}
 
         for i, td in enumerate(trade_dates):
             prev_date = trade_dates[i - 1] if i > 0 else None
@@ -617,6 +619,9 @@ class VectorBacktestEngine:
                     # Always clear on rebalance, regardless of weights_dict
                     force_exited_assets.clear()
                     pending_force_exits.clear()
+                    # Rebalance fully re-constitutes positions — reset tier
+                    # ladders so re-entered assets start fresh
+                    global_stop_state["fired_tiers"].clear()
 
             # Track entry prices for new positions (O(1) per asset)
             for aid in committed_weights:
@@ -662,6 +667,8 @@ class VectorBacktestEngine:
                         state = trailing_state
                     elif isinstance(policy, ATRStopLossPolicy):
                         state = atr_state
+                    elif isinstance(policy, GlobalStopPolicy):
+                        state = global_stop_state
                     else:
                         state = None
 
@@ -703,6 +710,7 @@ class VectorBacktestEngine:
                                 # Clean up state for force-exited asset
                                 trailing_state["peak_prices"].pop(forced_exit.asset_id, None)
                                 atr_state["atr_values"].pop(forced_exit.asset_id, None)
+                                global_stop_state["fired_tiers"].pop(forced_exit.asset_id, None)
 
             # Track daily returns for risk decisions (approximate NAV removed;
             # real NAV comes from FillSimulator after the loop)
