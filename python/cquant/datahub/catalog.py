@@ -61,6 +61,43 @@ def _observe_duckdb(operation: str) -> Iterator[None]:
             pass
 
 
+def _try_alter_add_column(backend, stmt: str, exc: Exception) -> bool:
+    """Auto-heal: if a DDL statement fails because a column is missing, try ALTER TABLE ADD COLUMN.
+
+    Returns True if the error was resolved (caller should continue), False otherwise.
+    Handles the common case where a stale DuckDB file doesn't have a newly-added column
+    that an INDEX or ALTER depends on.
+    """
+    exc_str = str(exc)
+    if "does not have a column named" not in exc_str:
+        return False
+
+    import re
+
+    # Extract table name and missing column from the error message
+    # Pattern: Table "xxx" does not have a column named "yyy"
+    m = re.search(r'Table "(\w+)" does not have a column named "(\w+)"', exc_str)
+    if not m:
+        return False
+
+    table_name, col_name = m.group(1), m.group(2)
+
+    # Try to find the column definition in the original DDL file
+    # For now, add as nullable DOUBLE (safe default for numeric columns)
+    # If it's a DATE column, we detect from context
+    col_type = "DATE" if "date" in col_name.lower() else "DOUBLE"
+    alter_sql = f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+
+    try:
+        backend.execute(alter_sql)
+        logger.info("Auto-healed: added column %s %s to %s", col_name, col_type, table_name)
+        # Re-try the original statement
+        backend.execute(stmt)
+        return True
+    except Exception:
+        return False
+
+
 class Catalog:
     """Database-agnostic catalog for the cQuant data lake.
 
@@ -106,6 +143,8 @@ class Catalog:
                 try:
                     self._backend.execute(stmt)
                 except Exception as exc:
+                    if _try_alter_add_column(self._backend, stmt, exc):
+                        continue
                     raise CatalogError(f"DDL failed in {ddl_file}: {exc}\n\n{stmt}") from exc
         logger.info("Catalog initialized at %s", self._db_path)
 
