@@ -506,9 +506,18 @@ def _create_policy(name: str, params: dict) -> Any:
     )
 
     registry = {
-        "fixed_stop_loss": lambda p: FixedStopLossPolicy(stop_pct=-abs(p.get("stop_pct", 0.05))),
-        "trailing_stop_loss": lambda p: TrailingStopLossPolicy(trail_pct=-abs(p.get("trailing_pct", 0.08))),
-        "atr_stop_loss": lambda p: ATRStopLossPolicy(n_atr=p.get("n_atr", 2.0)),
+        "fixed_stop_loss": lambda p: FixedStopLossPolicy(
+            stop_pct=-abs(p.get("stop_pct", 0.05)),
+            exit_fraction=p.get("exit_fraction", 1.0),
+        ),
+        "trailing_stop_loss": lambda p: TrailingStopLossPolicy(
+            trail_pct=-abs(p.get("trailing_pct", 0.08)),
+            exit_fraction=p.get("exit_fraction", 1.0),
+        ),
+        "atr_stop_loss": lambda p: ATRStopLossPolicy(
+            n_atr=p.get("n_atr", 2.0),
+            exit_fraction=p.get("exit_fraction", 1.0),
+        ),
         "drawdown_breaker": lambda p: DrawdownBreakerPolicy(max_drawdown=p.get("max_drawdown", -0.10)),
         "position_limit": lambda p: PositionLimitPolicy(max_position_pct=p.get("max_position_pct", 0.10)),
         "sector_limit": lambda p: SectorLimitPolicy(

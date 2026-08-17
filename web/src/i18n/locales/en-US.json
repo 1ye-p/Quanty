@@ -64,7 +64,19 @@
       "global_stop_loss_label": "Global Stop Loss (%)",
       "global_take_profit_label": "Global Take Profit (%)",
       "placeholder_disabled": "Disabled",
-      "select_policies": "Select Risk Policies"
+      "select_policies": "Select Risk Policies",
+      "mode_single": "Single threshold",
+      "mode_tiered": "Tiered exit",
+      "tier_editor_title": "Stop-loss tiers (max 3)",
+      "tier_threshold_label": "Loss threshold (%)",
+      "tier_fraction_label": "Exit fraction (%)",
+      "tier_add": "Add tier",
+      "tier_remove": "Remove tier",
+      "tier_hint": "When loss reaches a threshold, exit that fraction of the position. A fired tier re-arms only after recovery beyond the buffer.",
+      "rearm_buffer_label": "Re-arm buffer (%)",
+      "rearm_buffer_hint": "Hysteresis buffer: a fired tier re-arms only after P&L recovers above threshold + buffer, preventing repeated triggers. Default 0.5%.",
+      "exit_fraction_label": "Exit fraction",
+      "exit_fraction_hint": "Fraction of the position to close when stop-loss triggers. 100% = full exit, below 100% = partial exit."
     },
     "metric": {
       "total_return": "Total Return",

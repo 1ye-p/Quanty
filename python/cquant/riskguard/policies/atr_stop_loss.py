@@ -73,8 +73,16 @@ class ATRStopLossPolicy(RiskPolicy):
         Number of ATR multiples below entry before triggering stop (default 2.0).
     """
 
-    def __init__(self, n_atr: float = 2.0) -> None:
+    def __init__(self, n_atr: float = 2.0, exit_fraction: float = 1.0) -> None:
+        """
+        Args:
+            n_atr: Number of ATR multiples below entry before triggering stop.
+            exit_fraction: Fraction of the position to close when the stop
+                triggers via ``check_exits`` (``1.0`` = full exit,
+                ``0 < f < 1`` = partial exit).
+        """
         self._n_atr = n_atr
+        self._exit_fraction = exit_fraction
 
     @property
     def name(self) -> str:
@@ -152,6 +160,7 @@ class ATRStopLossPolicy(RiskPolicy):
                             asset_id=asset_id,
                             reason=f"atr_stop: price {price:.2f} < stop {stop_price:.2f}",
                             urgency="critical",
+                            exit_fraction=self._exit_fraction,
                         )
                     )
         return exits

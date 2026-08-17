@@ -18,13 +18,17 @@ class FixedStopLossPolicy(RiskPolicy):
     Does not reject sells -- the purpose is to prevent adding to losing positions.
     """
 
-    def __init__(self, stop_pct: float = -0.05) -> None:
+    def __init__(self, stop_pct: float = -0.05, exit_fraction: float = 1.0) -> None:
         """
         Args:
             stop_pct: Maximum allowed loss as a negative float (e.g. -0.05 = -5%).
                       When a position's P&L% falls below this, new buys are rejected.
+            exit_fraction: Fraction of the position to close when the stop
+                      triggers via ``check_exits`` (``1.0`` = full exit,
+                      ``0 < f < 1`` = partial exit).
         """
         self._stop_pct = stop_pct
+        self._exit_fraction = exit_fraction
 
     @property
     def name(self) -> str:
@@ -100,6 +104,7 @@ class FixedStopLossPolicy(RiskPolicy):
                                     f"< -{self._stop_pct:.2%}"
                                 ),
                                 urgency="high",
+                                exit_fraction=self._exit_fraction,
                             )
                         )
         return exits
@@ -121,13 +126,17 @@ class TrailingStopLossPolicy(RiskPolicy):
     Maintains peak prices per asset in memory (resets each session).
     """
 
-    def __init__(self, trail_pct: float = -0.08) -> None:
+    def __init__(self, trail_pct: float = -0.08, exit_fraction: float = 1.0) -> None:
         """
         Args:
             trail_pct: Maximum allowed drop from peak as a negative float
                        (e.g. -0.08 = -8%).
+            exit_fraction: Fraction of the position to close when the stop
+                       triggers via ``check_exits`` (``1.0`` = full exit,
+                       ``0 < f < 1`` = partial exit).
         """
         self._trail_pct = trail_pct
+        self._exit_fraction = exit_fraction
         self._peak_prices: dict[str, float] = {}
 
     @property
@@ -218,6 +227,7 @@ class TrailingStopLossPolicy(RiskPolicy):
                             asset_id=asset_id,
                             reason=f"trailing_stop: drawdown {drawdown:.2%} from peak",
                             urgency="high",
+                            exit_fraction=self._exit_fraction,
                         )
                     )
         return exits

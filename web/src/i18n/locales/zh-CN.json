@@ -64,7 +64,19 @@
       "global_stop_loss_label": "全局止损 (%)",
       "global_take_profit_label": "全局止盈 (%)",
       "placeholder_disabled": "不启用",
-      "select_policies": "选择风控策略"
+      "select_policies": "选择风控策略",
+      "mode_single": "单一阈值",
+      "mode_tiered": "分档平仓",
+      "tier_editor_title": "止损分档（最多 3 档）",
+      "tier_threshold_label": "亏损阈值 (%)",
+      "tier_fraction_label": "平仓比例 (%)",
+      "tier_add": "添加档位",
+      "tier_remove": "删除档位",
+      "tier_hint": "亏损达到阈值时按比例平仓，档位触发一次后需回升超过缓冲值才会重新武装。",
+      "rearm_buffer_label": "重新武装缓冲 (%)",
+      "rearm_buffer_hint": "迟滞缓冲：档位触发后，亏损需回升到阈值+缓冲之上才会重新生效，防止反复触发。默认 0.5%。",
+      "exit_fraction_label": "平仓比例",
+      "exit_fraction_hint": "止损触发时平掉的仓位比例，100% 为全部平仓，小于 100% 为部分平仓。"
     },
     "metric": {
       "total_return": "总收益",

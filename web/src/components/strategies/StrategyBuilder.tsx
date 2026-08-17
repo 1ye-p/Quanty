@@ -61,9 +61,21 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       ? String(parsed.risk_policy_params.drawdown_breaker.max_drawdown_pct * 100)
       : ''
   )
-  const [globalRisk, setGlobalRisk] = useState({
+  const [quickExitFraction, setQuickExitFraction] = useState(
+    parsed.risk_policy_params?.stop_loss?.exit_fraction != null
+      ? String(parsed.risk_policy_params.stop_loss.exit_fraction * 100)
+      : ''
+  )
+  const [globalRisk, setGlobalRisk] = useState<{
+    global_stop_loss_pct: number | null
+    global_take_profit_pct: number | null
+    tiers?: { threshold: number; fraction: number }[] | null
+    tier_rearm_buffer?: number | null
+  }>({
     global_stop_loss_pct: parsed.risk_policy_params?.global_stop?.stop_loss_pct ?? null,
     global_take_profit_pct: parsed.risk_policy_params?.global_stop?.take_profit_pct ?? null,
+    tiers: parsed.risk_policy_params?.global_stop?.tiers ?? null,
+    tier_rearm_buffer: parsed.risk_policy_params?.global_stop?.tier_rearm_buffer ?? null,
   })
   const [market, setMarket] = useState(parsed.market_rule?.market ?? 'CN')
   const [adjType, setAdjType] = useState(parsed.market_rule?.adj_type ?? 'forward')
@@ -190,7 +202,12 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
     if (quickStopLoss && selectedPolicies.includes('stop_loss')) {
       config.risk_policy_params = {
         ...(config.risk_policy_params as Record<string, unknown> ?? {}),
-        stop_loss: { stop_loss_pct: Number(quickStopLoss) / 100 },
+        stop_loss: {
+          stop_loss_pct: Number(quickStopLoss) / 100,
+          ...(quickExitFraction
+            ? { exit_fraction: Math.min(Math.max(Number(quickExitFraction) / 100, 0), 1) }
+            : {}),
+        },
       }
     }
     if (quickDrawdownBreaker && selectedPolicies.includes('drawdown_breaker')) {
@@ -199,18 +216,21 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
         drawdown_breaker: { max_drawdown_pct: Number(quickDrawdownBreaker) / 100 },
       }
     }
-    if (globalRisk.global_stop_loss_pct != null || globalRisk.global_take_profit_pct != null) {
+    const hasTiers = globalRisk.tiers != null && globalRisk.tiers.length > 0
+    if (globalRisk.global_stop_loss_pct != null || globalRisk.global_take_profit_pct != null || hasTiers) {
       config.risk_policy_params = {
         ...(config.risk_policy_params as Record<string, unknown> ?? {}),
         global_stop: {
           ...(globalRisk.global_stop_loss_pct != null ? { stop_loss_pct: globalRisk.global_stop_loss_pct } : {}),
           ...(globalRisk.global_take_profit_pct != null ? { take_profit_pct: globalRisk.global_take_profit_pct } : {}),
+          ...(hasTiers ? { tiers: globalRisk.tiers } : {}),
+          ...(hasTiers && globalRisk.tier_rearm_buffer != null ? { tier_rearm_buffer: globalRisk.tier_rearm_buffer } : {}),
         },
       }
     }
     config.market_rule = { market, adj_type: adjType }
     onChange(JSON.stringify(config, null, 2))
-  }, [strategyType, selectedFactors, factorWeights, missingFactorHandling, penaltyPerMissing, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickDrawdownBreaker, globalRisk, market, adjType, entryConditions, exitConditions, maxPositions, filterST, filterSuspended, filterLimitUpDown, indicatorParamOverrides])
+  }, [strategyType, selectedFactors, factorWeights, missingFactorHandling, penaltyPerMissing, topN, rebalance, sizer, sizerParams, selectedPolicies, policyParams, maxPositionPct, maxLeverage, shortN, topSectors, topNPerSector, comboMethod, subStrategyConfigs, universeId, customAssets, quickStopLoss, quickExitFraction, quickDrawdownBreaker, globalRisk, market, adjType, entryConditions, exitConditions, maxPositions, filterST, filterSuspended, filterLimitUpDown, indicatorParamOverrides])
 
   // Handle template selection — populate entry/exit conditions
   const handleTemplateSelect = (tpl: StrategyTemplate) => {
@@ -743,6 +763,27 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
                   setSelectedPolicies(prev => prev.filter(p => p !== 'stop_loss'))
                 }
               }}
+              className="input w-full text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              {t('common.risk_policy.exit_fraction_label')} (%)
+              <span
+                className="ml-1 text-gray-400 cursor-help"
+                title={t('common.risk_policy.exit_fraction_hint')}
+              >
+                ⓘ
+              </span>
+            </label>
+            <input
+              type="number"
+              step={5}
+              min={1}
+              max={100}
+              placeholder="100"
+              value={quickExitFraction}
+              onChange={e => setQuickExitFraction(e.target.value)}
               className="input w-full text-sm"
             />
           </div>
