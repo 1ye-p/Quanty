@@ -258,6 +258,99 @@ def _job_gold_cleanup(catalog: Any) -> None:
         logger.info("DataScheduler: gold factor-cache cleanup — nothing evicted")
 
 
+def _job_strategy_optimization(catalog: Any) -> None:
+    """Weekly strategy optimization: run StrategyOptimizationJob for every
+    configured strategy and notify via registered channels when a report
+    requires human review. Reports are persisted by the job itself; this
+    scheduler NEVER applies new parameters automatically.
+    """
+    import json as _json
+
+    logger.info("DataScheduler: strategy optimization started")
+    from cquant.scheduler.strategy_optimizer import (
+        STATUS_NEEDS_REVIEW,
+        StrategyOptimizationJob,
+    )
+
+    df = catalog.query(
+        "SELECT strategy_id, parsed_config FROM meta_strategy_configs"
+    )
+    if df.is_empty():
+        logger.info("DataScheduler: no strategies configured, skipping optimization")
+        return
+
+    job = StrategyOptimizationJob(catalog)
+    needs_review: list[str] = []
+    for row in df.to_dicts():
+        strategy_id = row["strategy_id"]
+        raw = row.get("parsed_config")
+        if isinstance(raw, str):
+            try:
+                config = _json.loads(raw)
+            except (TypeError, ValueError):
+                config = {}
+        elif isinstance(raw, dict):
+            config = raw
+        else:
+            config = {}
+        try:
+            report = job.run(strategy_id, config)
+        except Exception as exc:  # defensive: job.run already catches
+            logger.error("Strategy optimization crashed for %s: %s", strategy_id, exc)
+            continue
+        if report.status == STATUS_NEEDS_REVIEW:
+            needs_review.append(strategy_id)
+
+    if needs_review:
+        logger.info(
+            "DataScheduler: %d strategies need optimization review: %s",
+            len(needs_review), ", ".join(needs_review),
+        )
+        _notify_needs_review(catalog, needs_review)
+    else:
+        logger.info("DataScheduler: strategy optimization completed — no reviews needed")
+
+
+def _notify_needs_review(catalog: Any, strategy_ids: list[str]) -> None:
+    """Send an alert through all enabled notification channels (best-effort)."""
+    import json as _json
+
+    from cquant.api_server.notification_channel import get_channel
+
+    try:
+        df = catalog.query(
+            "SELECT channel_type, config_json FROM meta_notification_channels "
+            "WHERE enabled = TRUE"
+        )
+    except Exception:
+        df = None
+
+    channels: list[Any] = []
+    if df is not None and not df.is_empty():
+        for row in df.to_dicts():
+            try:
+                ch = get_channel(row["channel_type"], _json.loads(row["config_json"]))
+                if ch is not None:
+                    channels.append(ch)
+            except Exception:
+                continue
+    if not channels:
+        logger.info("DataScheduler: no notification channels configured, log-only alert")
+        return
+
+    title = "策略优化建议待审核"
+    message = (
+        f"以下 {len(strategy_ids)} 个策略的自动寻优报告需要人工审核：\n"
+        + "\n".join(f"- {sid}" for sid in strategy_ids)
+        + "\n请前往 策略页面 → 优化报告 查看详情并确认是否应用新参数。"
+    )
+    for ch in channels:
+        try:
+            ch.send(title, message, severity="warning")
+        except Exception as exc:
+            logger.warning("Notification via %s failed: %s", ch.channel_type, exc)
+
+
 def _job_weekly_retrain(catalog: Any) -> None:
     """Weekly retrain: run the full automated ML pipeline."""
     logger.info("DataScheduler: weekly retrain started")
@@ -392,6 +485,16 @@ class DataScheduler:
             replace_existing=True,
         )
 
+        # 9. Strategy optimization — Sunday 20:30 (after weekly retrain,
+        #    clear of the 18-19h data-pipeline window)
+        sched.add_job(
+            self._run_strategy_optimization,
+            CronTrigger(day_of_week="sun", hour=20, minute=30, timezone=self._tz),
+            id="strategy_optimization",
+            name="Strategy Optimization",
+            replace_existing=True,
+        )
+
         self._scheduler = sched
         self._running = True
         logger.info("DataScheduler started with %d jobs (tz=%s)", len(sched.get_jobs()), self._tz)
@@ -444,6 +547,7 @@ class DataScheduler:
             "daily-prices": self._run_daily_prices,
             "daily-valuation": self._run_daily_valuation,
             "quarterly-fundamentals": self._run_quarterly_fundamentals,
+            "strategy-optimization": self._run_strategy_optimization,
         }
         fn = dispatch.get(task_name)
         if fn is None:
@@ -556,6 +660,15 @@ class DataScheduler:
         except Exception as exc:
             logger.error("Quarterly fundamentals update failed after retries: %s", exc)
             self._record_run("quarterly_fundamentals", "failure")
+
+    def _run_strategy_optimization(self) -> None:
+        logger.info("Running strategy optimization ...")
+        try:
+            _with_retry(_job_strategy_optimization, self._catalog)
+            self._record_run("strategy_optimization")
+        except Exception as exc:
+            logger.error("Strategy optimization failed after retries: %s", exc)
+            self._record_run("strategy_optimization", "failure")
 
     def _record_run(self, job_id: str, status: str = "success") -> None:
         """Persist last-run metadata into the catalog (best-effort)."""

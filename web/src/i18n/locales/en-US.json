@@ -2147,6 +2147,57 @@
       "title": "Something went wrong",
       "unknown_error": "An unknown error occurred",
       "back_home": "Back to Home"
+    },
+    "optimization_report": {
+      "title": "Strategy Optimization Report",
+      "no_report": "No optimization report yet for this strategy (weekly auto run, Sunday 20:30).",
+      "badge": {
+        "needs_review": "Review",
+        "healthy": "Healthy",
+        "view": "View optimization report"
+      },
+      "status": {
+        "needs_review": "Needs review",
+        "applied": "Applied",
+        "skipped_healthy": "Healthy, skipped",
+        "skipped_no_gain": "No gain, skipped",
+        "failed": "Failed"
+      },
+      "section": {
+        "health": "Health summary (baseline vs recent)",
+        "params": "Suggested parameters",
+        "overfit": "Overfit check (PSR / DSR)",
+        "raw": "Raw report"
+      },
+      "health": {
+        "baseline_sharpe": "Baseline Sharpe",
+        "recent_sharpe": "Recent Sharpe",
+        "baseline_ic": "Baseline IC",
+        "recent_ic": "Recent IC",
+        "reason": "Reason"
+      },
+      "table": {
+        "metric": "Metric",
+        "baseline": "Baseline (current)",
+        "candidate": "Candidate (new)"
+      },
+      "overfit": {
+        "passed": "Passed",
+        "failed": "Failed"
+      },
+      "action": {
+        "apply": "Apply new params",
+        "dismiss": "Dismiss",
+        "view_detail": "View detail",
+        "hide_detail": "Hide detail"
+      },
+      "apply": {
+        "confirm_title": "Apply new parameters",
+        "confirm_message": "This writes the optimized parameters into the strategy config (a new version is created and rollback is possible) and updates the health baseline. Apply now?",
+        "confirm_ok": "Apply",
+        "success": "Applied (version {{version}})",
+        "failed": "Apply failed: {{message}}"
+      }
     }
   },
   "page": {

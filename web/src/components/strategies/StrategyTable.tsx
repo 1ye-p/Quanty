@@ -1,20 +1,25 @@
 import { useTranslation } from 'react-i18next'
 import type { Strategy } from '@/lib/types'
+import { OptimizationBadge } from './OptimizationReportModal'
 
 interface StrategyTableProps {
   strategies: Strategy[]
   isLoading: boolean
+  optimizationStatuses: Record<string, string>
   onEdit: (strategy: Strategy) => void
   onBacktest: (strategy: Strategy) => void
   onDelete: (strategyId: string) => void
+  onViewReport: (strategyId: string) => void
 }
 
 export function StrategyTable({
   strategies,
   isLoading,
+  optimizationStatuses,
   onEdit,
   onBacktest,
   onDelete,
+  onViewReport,
 }: StrategyTableProps) {
   const { t } = useTranslation()
   if (isLoading) {
@@ -35,7 +40,17 @@ export function StrategyTable({
         <div key={s.strategy_id} className="card">
           <div className="flex items-start justify-between">
             <div>
-              <div className="font-semibold text-gray-900">{s.strategy_id}</div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-900">{s.strategy_id}</span>
+                {optimizationStatuses[s.strategy_id] && (
+                  <button
+                    onClick={() => onViewReport(s.strategy_id)}
+                    title={t('component.optimization_report.badge.view')}
+                  >
+                    <OptimizationBadge status={optimizationStatuses[s.strategy_id]} />
+                  </button>
+                )}
+              </div>
               <div className="text-xs text-gray-400 mt-1">
                 {t('component.strategies.strategy_table.updated_at', { date: s.updated_at?.slice(0, 16) ?? '---' })}
               </div>

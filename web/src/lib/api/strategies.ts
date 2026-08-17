@@ -7,6 +7,7 @@ import type {
   Strategy,
   StrategyCreateParams,
   StrategyVersion,
+  OptimizationReport,
 } from '../types'
 
 // ── API ──────────────────────────────────────────────────────────────────────
@@ -44,4 +45,20 @@ export const strategiesApi = {
       version_id: string
       summary: string
     }>(`/strategies/${strategyId}/rollback/${versionId}`, undefined, config),
+
+  optimizationReport: (strategyId: string, config?: RequestConfig) =>
+    api.get<OptimizationReport>(`/strategies/${strategyId}/optimization-report`, config),
+
+  applyOptimization: (
+    strategyId: string,
+    body: { best_params: Record<string, unknown>; confirm: boolean; baseline_run_id?: string },
+    config?: RequestConfig,
+  ) =>
+    api.post<{
+      strategy_id: string
+      status: string
+      version_id: string
+      applied_params: Record<string, unknown>
+      baseline_run_id: string | null
+    }>(`/strategies/${strategyId}/apply-optimization`, body, config),
 }

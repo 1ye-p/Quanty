@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { strategiesApi } from '@/lib/api'
@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { StrategyTable } from '@/components/strategies/StrategyTable'
 import { StrategyForm } from '@/components/strategies/StrategyForm'
 import { BacktestRunModal } from '@/components/strategies/BacktestRunModal'
+import { OptimizationReportModal } from '@/components/strategies/OptimizationReportModal'
 
 const DEFAULT_CONFIG = JSON.stringify({
   strategy_id: "my_strategy",
@@ -36,6 +37,24 @@ export function StrategiesPage() {
   const { data, isLoading } = useQuery({
     queryKey: extendedQueryKeys.strategies.list(),
     queryFn: strategiesApi.list,
+  })
+
+  const [reportStrategyId, setReportStrategyId] = useState<string | null>(null)
+
+  // Fetch latest optimization report status per strategy (badge source).
+  const strategyIds = data?.items.map((s) => s.strategy_id) ?? []
+  const reportQueries = useQueries({
+    queries: strategyIds.map((id) => ({
+      queryKey: extendedQueryKeys.strategies.optimizationReport(id),
+      queryFn: () => strategiesApi.optimizationReport(id),
+      retry: false as const,
+      staleTime: 60_000,
+    })),
+  })
+  const optimizationStatuses: Record<string, string> = {}
+  strategyIds.forEach((id, i) => {
+    const q = reportQueries[i]
+    if (q?.data) optimizationStatuses[id] = q.data.status
   })
 
   // Handle navigation state (from other pages)
@@ -124,12 +143,14 @@ export function StrategiesPage() {
       <StrategyTable
         strategies={data?.items ?? []}
         isLoading={isLoading}
+        optimizationStatuses={optimizationStatuses}
         onEdit={openEdit}
         onBacktest={(s) => {
           setBacktestStrategyId(s.strategy_id)
           setBacktestConfigText(s.config_text)
         }}
         onDelete={(id) => setDeleteTarget(id)}
+        onViewReport={(id) => setReportStrategyId(id)}
       />
 
       {editingId && (
@@ -145,6 +166,13 @@ export function StrategiesPage() {
           strategyId={backtestStrategyId}
           configText={backtestConfigText}
           onClose={() => setBacktestStrategyId(null)}
+        />
+      )}
+
+      {reportStrategyId && (
+        <OptimizationReportModal
+          strategyId={reportStrategyId}
+          onClose={() => setReportStrategyId(null)}
         />
       )}
 

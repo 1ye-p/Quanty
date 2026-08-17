@@ -40,6 +40,9 @@ export type {
   Strategy,
   StrategyCreateParams,
   StrategyVersion,
+  OptimizationHealth,
+  OptimizationOverfitCheck,
+  OptimizationReport,
 } from './strategy'
 
 // ── Factor ─────────────────────────────────────────────────────────────────

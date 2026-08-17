@@ -44,3 +44,35 @@ export const StrategyVersionSchema = z.object({
 })
 
 export type StrategyVersion = z.infer<typeof StrategyVersionSchema>
+
+// ── OptimizationReport (from GET /strategies/{id}/optimization-report) ──────
+
+export interface OptimizationHealth {
+  status?: string
+  reason?: string | null
+  baseline_sharpe?: number | null
+  recent_sharpe?: number | null
+  baseline_ic?: number | null
+  recent_ic?: number | null
+}
+
+export interface OptimizationOverfitCheck {
+  baseline_psr?: number
+  candidate_psr?: number
+  baseline_dsr?: number
+  candidate_dsr?: number
+  tolerance?: number
+  passed?: boolean
+}
+
+export interface OptimizationReport {
+  strategy_id: string
+  generated_at: string
+  status: string // needs_review / skipped_healthy / skipped_no_gain / failed / applied
+  reason?: string | null
+  health?: OptimizationHealth | null
+  best_params?: Record<string, unknown> | null
+  baseline_metrics?: Record<string, number> | null
+  candidate_metrics?: Record<string, number> | null
+  overfit_check?: OptimizationOverfitCheck | null
+}

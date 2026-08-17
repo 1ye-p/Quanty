@@ -234,3 +234,134 @@ async def delete_strategy(strategy_id: str, catalog: CatalogDep) -> dict:
         [strategy_id],
     )
     return {"strategy_id": strategy_id, "status": "deleted"}
+
+
+# ── Optimization report (human review required before applying) ────────────────
+
+def _maybe_json(raw: str | dict | None) -> dict | None:
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    try:
+        return json.loads(str(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+@router.get("/{strategy_id}/optimization-report")
+async def get_optimization_report(strategy_id: str, catalog: CatalogDep) -> dict:
+    """读取策略最新一次自动寻优报告（来自每周调度 StrategyOptimizationJob）。"""
+    df = catalog.query(
+        "SELECT strategy_id, generated_at, status, reason, health_json, "
+        "best_params_json, baseline_metrics_json, candidate_metrics_json, overfit_check_json "
+        "FROM gold_optimization_reports WHERE strategy_id = ? "
+        "ORDER BY generated_at DESC LIMIT 1",
+        [strategy_id],
+    )
+    if df.is_empty():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No optimization report found for strategy '{strategy_id}'",
+        )
+    row = df.to_dicts()[0]
+    return {
+        "strategy_id": row["strategy_id"],
+        "generated_at": str(row["generated_at"]),
+        "status": row["status"],
+        "reason": row["reason"],
+        "health": _maybe_json(row["health_json"]),
+        "best_params": _maybe_json(row["best_params_json"]),
+        "baseline_metrics": _maybe_json(row["baseline_metrics_json"]),
+        "candidate_metrics": _maybe_json(row["candidate_metrics_json"]),
+        "overfit_check": _maybe_json(row["overfit_check_json"]),
+    }
+
+
+class ApplyOptimizationBody(BaseModel):
+    best_params: dict
+    confirm: bool = False
+    baseline_run_id: str | None = None
+
+
+@router.post("/{strategy_id}/apply-optimization")
+async def apply_optimization(
+    strategy_id: str, body: ApplyOptimizationBody, catalog: CatalogDep
+) -> dict:
+    """人工确认应用寻优新参数（安全红线：必须显式 confirm=true）。
+
+    流程：
+      1. 校验 confirm 标志 + 策略存在 + 最新报告处于 needs_review。
+      2. 合并 best_params 进策略配置 → 走版本管理（旧版本快照可回滚）。
+      3. 更新 baseline_run_id（显式传入或回退到报告/现有值）。
+      4. 标记报告 status="applied"。
+    """
+    if not body.confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="Human confirmation required: set confirm=true to apply",
+        )
+
+    existing = catalog.query(
+        "SELECT config_text, config_format FROM meta_strategy_configs "
+        "WHERE strategy_id = ?",
+        [strategy_id],
+    )
+    if existing.is_empty():
+        raise HTTPException(status_code=404, detail=f"Strategy '{strategy_id}' not found")
+
+    # 只允许应用最新且待审核的报告
+    report_df = catalog.query(
+        "SELECT status FROM gold_optimization_reports WHERE strategy_id = ? "
+        "ORDER BY generated_at DESC LIMIT 1",
+        [strategy_id],
+    )
+    if report_df.is_empty():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No optimization report found for strategy '{strategy_id}'",
+        )
+    latest_status = report_df["status"][0]
+    if latest_status not in ("needs_review", "applied"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Latest report status is '{latest_status}', not 'needs_review'",
+        )
+
+    # 合并参数到现有配置（保留未涉及的字段）
+    row = existing.to_dicts()[0]
+    parsed = _parse_config(row["config_text"], row["config_format"]) or {}
+    parsed.update(body.best_params)
+    new_config_text = json.dumps(parsed, ensure_ascii=False, indent=2)
+
+    # 复用版本管理：PUT /strategies/{id} 会快照旧配置并可回滚
+    update_body = StrategyUpdateBody(
+        config_text=new_config_text, config_format="json"
+    )
+    update_result = await update_strategy(strategy_id, update_body, catalog)
+
+    # 更新 baseline_run_id
+    from cquant.scheduler.strategy_health import set_baseline_run_id
+
+    baseline_run_id = body.baseline_run_id
+    if baseline_run_id is None:
+        current = parsed.get("baseline_run_id")
+        if current:
+            baseline_run_id = current
+    if baseline_run_id:
+        set_baseline_run_id(catalog, strategy_id, baseline_run_id)
+
+    # 标记报告已应用
+    catalog.execute(
+        "UPDATE gold_optimization_reports SET status = 'applied' "
+        "WHERE strategy_id = ? AND status = 'needs_review'",
+        [strategy_id],
+    )
+
+    return {
+        "strategy_id": strategy_id,
+        "status": "applied",
+        "version_id": update_result.get("version_id"),
+        "applied_params": body.best_params,
+        "baseline_run_id": baseline_run_id,
+    }

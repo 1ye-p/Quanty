@@ -2147,6 +2147,57 @@
       "title": "页面出错了",
       "unknown_error": "发生了未知错误",
       "back_home": "返回首页"
+    },
+    "optimization_report": {
+      "title": "策略优化报告",
+      "no_report": "该策略暂无优化报告（每周日 20:30 自动寻优）。",
+      "badge": {
+        "needs_review": "待审核",
+        "healthy": "健康",
+        "view": "查看优化报告"
+      },
+      "status": {
+        "needs_review": "待人工审核",
+        "applied": "已应用",
+        "skipped_healthy": "运行健康，跳过",
+        "skipped_no_gain": "无改进，跳过",
+        "failed": "寻优失败"
+      },
+      "section": {
+        "health": "健康检查摘要（基线 vs 近期）",
+        "params": "寻优建议参数",
+        "overfit": "过拟合评分（PSR / DSR）",
+        "raw": "报告原始数据"
+      },
+      "health": {
+        "baseline_sharpe": "基线 Sharpe",
+        "recent_sharpe": "近期 Sharpe",
+        "baseline_ic": "基线 IC",
+        "recent_ic": "近期 IC",
+        "reason": "触发原因"
+      },
+      "table": {
+        "metric": "指标",
+        "baseline": "基线（当前参数）",
+        "candidate": "候选（新参数）"
+      },
+      "overfit": {
+        "passed": "通过",
+        "failed": "未通过"
+      },
+      "action": {
+        "apply": "应用新参数",
+        "dismiss": "忽略",
+        "view_detail": "查看明细",
+        "hide_detail": "收起明细"
+      },
+      "apply": {
+        "confirm_title": "确认应用新参数",
+        "confirm_message": "将把寻优建议参数写入策略配置（自动创建新版本，可回滚），并更新健康检查基线。此操作需要人工确认，确定继续吗？",
+        "confirm_ok": "确认应用",
+        "success": "已应用新参数（版本 {{version}}）",
+        "failed": "应用失败：{{message}}"
+      }
     }
   },
   "page": {
