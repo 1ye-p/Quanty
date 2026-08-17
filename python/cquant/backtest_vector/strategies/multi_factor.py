@@ -29,6 +29,10 @@ class MultiFactorStrategy(Strategy):
         - "fill_0": Fill missing values with 0 (default)
         - "fill_median": Fill missing values with daily median
         - "exclude": Drop assets with missing factors
+        - "risk_penalty": Don't fill; penalise composite score per missing factor
+    penalty_per_missing : float
+        Points subtracted from composite score for each missing factor
+        (only used when missing_factor_strategy == "risk_penalty").
     """
 
     def __init__(
@@ -37,11 +41,13 @@ class MultiFactorStrategy(Strategy):
         factor_weights: dict[str, float],
         top_n: int = 10,
         missing_factor_strategy: str = "fill_0",
+        penalty_per_missing: float = 0.5,
     ) -> None:
         self._strategy_id = strategy_id
         self._factor_weights = factor_weights
         self._top_n = top_n
         self._missing_factor_strategy = missing_factor_strategy
+        self._penalty_per_missing = penalty_per_missing
 
     @property
     def strategy_id(self) -> str:
@@ -67,6 +73,10 @@ class MultiFactorStrategy(Strategy):
             # Only drop on columns that exist; missing ones are filtered later
             cols = [c for c in factor_weights if c in day_features.columns]
             return day_features.drop_nulls(cols) if cols else day_features
+
+        elif self._missing_factor_strategy == "risk_penalty":
+            # Risk penalty: don't fill — return as-is, penalty applied later
+            return day_features
 
         elif self._missing_factor_strategy == "fill_median":
             for col in factor_weights:
@@ -128,7 +138,23 @@ class MultiFactorStrategy(Strategy):
 
         # Sum weighted z-scores into composite
         composite = pl.sum_horizontal([f"_w_{c}" for c in available]).alias("_composite")
-        scored = scored.with_columns(composite).sort("_composite", descending=True).head(self._top_n)
+        scored = scored.with_columns(composite)
+
+        # Risk penalty: subtract penalty_per_missing for each missing factor
+        if self._missing_factor_strategy == "risk_penalty":
+            # Count nulls across all configured factor columns present in the data
+            null_count_exprs = [
+                pl.col(c).is_null().cast(pl.Int32) for c in available
+            ]
+            scored = scored.with_columns(
+                pl.sum_horizontal(null_count_exprs).alias("_null_count")
+            )
+            scored = scored.with_columns(
+                (pl.col("_composite") - pl.col("_null_count") * self._penalty_per_missing)
+                .alias("_composite")
+            ).drop("_null_count")
+
+        scored = scored.sort("_composite", descending=True).head(self._top_n)
 
         if scored.is_empty():
             return empty

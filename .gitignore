@@ -120,3 +120,4 @@ web/blob-report/
 mlruns/
 docs/trading
 node_modules/.vite
+.pytest_tmp
