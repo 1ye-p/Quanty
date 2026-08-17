@@ -44,6 +44,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Minimum remaining weight after a partial forced exit — anything below this
+# is treated as a full exit to avoid dust positions (dust also arises when
+# lot-rounding in FillSimulator would leave zero tradable shares).
+MIN_REMAINING_WEIGHT = 0.01
+
 
 @dataclass
 class BacktestSpec:
@@ -1200,6 +1205,8 @@ class VectorBacktestEngine:
         Partial exit (``0 < exit_fraction < 1``): scales the committed weight
         down by ``(1 - exit_fraction)`` and injects the remaining weight as
         the new target, so FillSimulator sells only the exited fraction.
+        If the remaining weight would fall below ``MIN_REMAINING_WEIGHT``
+        (dust), the exit is escalated to a full exit instead.
 
         Parameters
         ----------
@@ -1231,6 +1238,12 @@ class VectorBacktestEngine:
             all_weights.append({"trade_date": exit_date, "asset_id": asset_id, "target_weight": 0.0})
             return 0.0
         remaining = committed_weights[asset_id] * (1.0 - exit_fraction)
+        if remaining < MIN_REMAINING_WEIGHT:
+            # Dust position — escalate to full exit (also covers lot-rounded
+            # zero-share remainders)
+            del committed_weights[asset_id]
+            all_weights.append({"trade_date": exit_date, "asset_id": asset_id, "target_weight": 0.0})
+            return 0.0
         committed_weights[asset_id] = remaining
         # Inject remaining-weight entry so FillSimulator sells only the fraction
         all_weights.append({"trade_date": exit_date, "asset_id": asset_id, "target_weight": remaining})
