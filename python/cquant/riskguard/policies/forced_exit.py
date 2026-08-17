@@ -13,11 +13,20 @@ class ForcedExit:
         asset_id: Identifier of the asset to close.
         reason: Human-readable explanation for the forced exit.
         urgency: Priority level — ``normal``, ``high``, or ``critical``.
+        exit_fraction: Fraction of the position to close — ``1.0`` = full
+            exit (default, backward compatible), ``0 < f < 1`` = partial exit.
     """
 
     asset_id: str
     reason: str
     urgency: str = "normal"  # normal | high | critical
+    exit_fraction: float = 1.0  # 1.0=全平（默认），0<f<1=部分平仓
+
+    def __post_init__(self):
+        if not (0.0 < self.exit_fraction <= 1.0):
+            raise ValueError(
+                f"exit_fraction must be in (0.0, 1.0], got {self.exit_fraction}"
+            )
 
 
 class ForcedExitPolicy(ABC):
