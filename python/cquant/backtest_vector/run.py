@@ -155,6 +155,18 @@ def _ensure_run_schema_extensions(catalog: Catalog) -> None:
             catalog.execute(ddl)
         except Exception as exc:
             logger.debug("_ensure_run_schema_extensions: %s", exc)
+    # Defensive migration for pre-existing gold_wf_folds tables (created before
+    # OOS metric columns were added to the inline CREATE TABLE definition).
+    for ddl in [
+        "ALTER TABLE gold_wf_folds ADD COLUMN IF NOT EXISTS oos_sharpe DOUBLE",
+        "ALTER TABLE gold_wf_folds ADD COLUMN IF NOT EXISTS oos_return DOUBLE",
+        "ALTER TABLE gold_wf_folds ADD COLUMN IF NOT EXISTS oos_max_drawdown DOUBLE",
+        "ALTER TABLE gold_wf_folds ADD COLUMN IF NOT EXISTS oos_ic DOUBLE",
+    ]:
+        try:
+            catalog.execute(ddl)
+        except Exception as exc:  # table may not exist yet — inline CREATE handles it
+            logger.debug("_ensure_run_schema_extensions wf_folds: %s", exc)
     _schema_ensured_for.add(cat_id)
 
 
@@ -519,6 +531,8 @@ class BacktestRunner:
                 walk_forward=None,  # prevent recursion
             )
             fold_run_id = self._run_single(fold_spec)
+            # Extract per-fold OOS metrics from folds_df (test_* columns)
+            oos_metrics = self._extract_oos_metrics(wf_result.folds_df, fold.fold_id)
             fold_results.append({
                 "fold_id": fold.fold_id,
                 "train_start": fold.train_start.isoformat(),
@@ -526,12 +540,40 @@ class BacktestRunner:
                 "test_start": fold.test_start.isoformat(),
                 "test_end": fold.test_end.isoformat(),
                 "run_id": fold_run_id,
+                **oos_metrics,
             })
 
         # Use WalkForwardRefit aggregated metrics (OOS-based, not just slice)
         aggregated = wf_result.summary()
         run_id = self._persist_walk_forward_result(spec, fold_results, aggregated)
         return run_id
+
+    @staticmethod
+    def _extract_oos_metrics(folds_df: pl.DataFrame, fold_id: int) -> dict:
+        """Extract OOS metrics for one fold from WalkForwardResult.folds_df.
+
+        folds_df stores OOS metrics with a ``test_`` prefix (from
+        FoldResult.test_metrics). Map to the gold_wf_folds oos_* columns.
+        Missing columns / fold rows yield None values.
+        """
+        mapping = {
+            "test_sharpe_ratio": "oos_sharpe",
+            "test_total_return": "oos_return",
+            "test_max_drawdown": "oos_max_drawdown",
+            "test_ic": "oos_ic",
+            "test_information_coefficient": "oos_ic",
+        }
+        result: dict = {col: None for col in mapping.values()}
+        if folds_df is None or folds_df.is_empty() or "fold_id" not in folds_df.columns:
+            return result
+        row = folds_df.filter(pl.col("fold_id") == fold_id)
+        if row.is_empty():
+            return result
+        for src, dst in mapping.items():
+            if src in folds_df.columns:
+                value = row[src][0]
+                result[dst] = float(value) if value is not None else None
+        return result
 
     def _build_refit_callback(
         self, spec: BacktestRunSpec, features: pl.DataFrame | None
@@ -723,19 +765,34 @@ class BacktestRunner:
                 run_id VARCHAR, fold_id INTEGER,
                 train_start VARCHAR, train_end VARCHAR,
                 test_start VARCHAR, test_end VARCHAR,
-                fold_run_id VARCHAR, PRIMARY KEY (run_id, fold_id)
+                fold_run_id VARCHAR,
+                oos_sharpe        DOUBLE,
+                oos_return        DOUBLE,
+                oos_max_drawdown  DOUBLE,
+                oos_ic            DOUBLE,
+                PRIMARY KEY (run_id, fold_id)
             )
         """)
+        # Per-fold OOS metrics (optional: only present when callers enrich
+        # fold_results from WalkForwardResult.folds_df, whose test_* columns
+        # map to oos_* here). Missing keys fall back to None.
         wf_rows = [
-            (run_id, fold["fold_id"], fold["train_start"], fold["train_end"],
-             fold["test_start"], fold["test_end"], fold["run_id"])
+            (
+                run_id, fold["fold_id"], fold["train_start"], fold["train_end"],
+                fold["test_start"], fold["test_end"], fold["run_id"],
+                fold.get("oos_sharpe"),
+                fold.get("oos_return"),
+                fold.get("oos_max_drawdown"),
+                fold.get("oos_ic"),
+            )
             for fold in fold_results
         ]
         if wf_rows:
             self._catalog.upsert(
                 "gold_wf_folds",
                 ["run_id", "fold_id", "train_start", "train_end",
-                 "test_start", "test_end", "fold_run_id"],
+                 "test_start", "test_end", "fold_run_id",
+                 "oos_sharpe", "oos_return", "oos_max_drawdown", "oos_ic"],
                 wf_rows,
                 ["run_id", "fold_id"],
             )
