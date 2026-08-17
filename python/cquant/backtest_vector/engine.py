@@ -495,7 +495,7 @@ class VectorBacktestEngine:
         ]
         forced_exit_log: list[dict] = []
         force_exited_assets: set[str] = set()  # cooldown until next rebalance
-        pending_force_exits: set[str] = set()  # re-inject zero-weight for T+1 blocked sells
+        pending_force_exits: dict[str, float] = {}  # re-inject target weight for T+1 blocked sells (asset_id → remaining weight)
         entry_prices: dict[str, float] = {}  # asset_id -> entry price (first commit)
 
         # State dicts for forced exit policies
@@ -671,14 +671,19 @@ class VectorBacktestEngine:
                     )
                     for forced_exit in exits:
                         if forced_exit.asset_id in committed_weights:
-                            # Execute forced exit: remove from committed weights
-                            self._execute_forced_exit(
+                            # Execute forced exit: full (f=1.0) removes from
+                            # committed weights; partial scales it down.
+                            remaining = self._execute_forced_exit(
                                 forced_exit.asset_id, committed_weights,
                                 all_weights, td,
+                                exit_fraction=getattr(forced_exit, "exit_fraction", 1.0),
                             )
-                            # Add to cooldown set
-                            force_exited_assets.add(forced_exit.asset_id)
-                            pending_force_exits.add(forced_exit.asset_id)
+                            is_full_exit = remaining <= 0.0
+                            # Add to cooldown set (full exit only — partial
+                            # exits keep the remainder tradeable)
+                            if is_full_exit:
+                                force_exited_assets.add(forced_exit.asset_id)
+                            pending_force_exits[forced_exit.asset_id] = remaining
                             # Record the event (read entry price BEFORE popping)
                             ep = entry_prices.get(forced_exit.asset_id, 0)
                             cp = current_prices_map.get(forced_exit.asset_id, 0)
@@ -691,11 +696,13 @@ class VectorBacktestEngine:
                                 "exit_price": cp,
                                 "loss_pct": (cp - ep) / ep if ep else 0,
                             })
-                            # Clean up entry price after logging
-                            entry_prices.pop(forced_exit.asset_id, None)
-                            # Clean up state for force-exited asset
-                            trailing_state["peak_prices"].pop(forced_exit.asset_id, None)
-                            atr_state["atr_values"].pop(forced_exit.asset_id, None)
+                            # Clean up entry price after logging (full exit
+                            # only — partial keeps tracking/ATR baselines)
+                            if is_full_exit:
+                                entry_prices.pop(forced_exit.asset_id, None)
+                                # Clean up state for force-exited asset
+                                trailing_state["peak_prices"].pop(forced_exit.asset_id, None)
+                                atr_state["atr_values"].pop(forced_exit.asset_id, None)
 
             # Track daily returns for risk decisions (approximate NAV removed;
             # real NAV comes from FillSimulator after the loop)
@@ -724,11 +731,11 @@ class VectorBacktestEngine:
                 peak_nav = max(peak_nav, nav_estimate)
                 current_drawdown = (nav_estimate - peak_nav) / peak_nav if peak_nav > 0 else 0.0
 
-            # Re-inject zero-weight for pending force exits (handles T+1 blocked sells)
+            # Re-inject target weight for pending force exits (handles T+1 blocked sells)
             if pending_force_exits and i + 1 < len(trade_dates):
                 next_td = trade_dates[i + 1]
-                for fe_asset in list(pending_force_exits):
-                    all_weights.append({"trade_date": next_td, "asset_id": fe_asset, "target_weight": 0.0})
+                for fe_asset, fe_weight in list(pending_force_exits.items()):
+                    all_weights.append({"trade_date": next_td, "asset_id": fe_asset, "target_weight": fe_weight})
 
             # NEXT-BAR EXECUTION: signal on day T, execute on day T+1
             # Only add weights on rebalance days when new signals were generated
@@ -1170,15 +1177,21 @@ class VectorBacktestEngine:
         committed_weights: dict[str, float],
         all_weights: list[dict],
         exit_date: date,
-    ) -> None:
+        exit_fraction: float = 1.0,
+    ) -> float:
         """Execute a forced exit: remove from committed weights and inject sell order.
 
         Note: static because it doesn't access instance state; it mutates
         the passed-in dicts directly.
 
-        Removes the asset from *committed_weights* so it stops contributing to
-        NAV, and appends a ``target_weight=0`` entry into *all_weights* so
-        FillSimulator will generate a proper sell fill.
+        Full exit (``exit_fraction >= 1.0``, the default): removes the asset
+        from *committed_weights* so it stops contributing to NAV, and appends
+        a ``target_weight=0`` entry into *all_weights* so FillSimulator will
+        generate a proper sell fill.
+
+        Partial exit (``0 < exit_fraction < 1``): scales the committed weight
+        down by ``(1 - exit_fraction)`` and injects the remaining weight as
+        the new target, so FillSimulator sells only the exited fraction.
 
         Parameters
         ----------
@@ -1186,15 +1199,32 @@ class VectorBacktestEngine:
             Identifier of the asset to liquidate.
         committed_weights:
             Mutable mapping ``{asset_id: weight}`` — the entry for
-            *asset_id* is deleted in-place.
+            *asset_id* is deleted (full) or scaled (partial) in-place.
         all_weights:
             Mutable list of weight dicts consumed by FillSimulator.
-            A zero-weight entry is appended for the forced exit.
+            A zero-weight (full) or remaining-weight (partial) entry is
+            appended for the forced exit.
         exit_date:
             Trade date on which the forced exit is executed.
+        exit_fraction:
+            Fraction of the position to close; ``1.0`` = full exit
+            (bit-for-bit identical to legacy behavior).
+
+        Returns
+        -------
+        float
+            Remaining weight after the exit (``0.0`` on full exit).
         """
-        if asset_id in committed_weights:
+        if asset_id not in committed_weights:
+            return 0.0
+        if exit_fraction >= 1.0:
             del committed_weights[asset_id]
             # Inject zero-weight entry so FillSimulator will sell
             all_weights.append({"trade_date": exit_date, "asset_id": asset_id, "target_weight": 0.0})
+            return 0.0
+        remaining = committed_weights[asset_id] * (1.0 - exit_fraction)
+        committed_weights[asset_id] = remaining
+        # Inject remaining-weight entry so FillSimulator sells only the fraction
+        all_weights.append({"trade_date": exit_date, "asset_id": asset_id, "target_weight": remaining})
+        return remaining
 
