@@ -252,6 +252,13 @@ def _maybe_json(raw: str | dict | None) -> dict | None:
 @router.get("/{strategy_id}/optimization-report")
 async def get_optimization_report(strategy_id: str, catalog: CatalogDep) -> dict:
     """读取策略最新一次自动寻优报告（来自每周调度 StrategyOptimizationJob）。"""
+    # Ensure table exists (created by optimizer job, but may not have run yet)
+    catalog.execute(
+        "CREATE TABLE IF NOT EXISTS gold_optimization_reports ("
+        "strategy_id VARCHAR, generated_at TIMESTAMPTZ, status VARCHAR, reason VARCHAR, "
+        "health_json JSON, best_params_json JSON, baseline_metrics_json JSON, "
+        "candidate_metrics_json JSON, overfit_check_json JSON)"
+    )
     df = catalog.query(
         "SELECT strategy_id, generated_at, status, reason, health_json, "
         "best_params_json, baseline_metrics_json, candidate_metrics_json, overfit_check_json "
