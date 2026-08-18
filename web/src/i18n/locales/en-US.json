@@ -76,7 +76,13 @@
       "rearm_buffer_label": "Re-arm buffer (%)",
       "rearm_buffer_hint": "Hysteresis buffer: a fired tier re-arms only after P&L recovers above threshold + buffer, preventing repeated triggers. Default 0.5%.",
       "exit_fraction_label": "Exit fraction",
-      "exit_fraction_hint": "Fraction of the position to close when stop-loss triggers. 100% = full exit, below 100% = partial exit."
+      "exit_fraction_hint": "Fraction of the position to close when stop-loss triggers. 100% = full exit, below 100% = partial exit.",
+      "mode_disabled": "Disabled",
+      "sl_card_title": "Stop Loss (Downside Protection)",
+      "tp_card_title": "Take Profit (Profit Locking)",
+      "tp_tier_threshold_label": "Profit Threshold (%)",
+      "tp_tier_editor_title": "Take-Profit Tiers (max 3)",
+      "tp_tier_hint": "When profit reaches a threshold, close the matching fraction; a tier can re-trigger after price falls back past threshold minus buffer (ratchet-style profit locking)."
     },
     "metric": {
       "total_return": "Total Return",

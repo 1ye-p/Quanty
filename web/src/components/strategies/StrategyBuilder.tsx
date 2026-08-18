@@ -67,14 +67,16 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
       : ''
   )
   const [globalRisk, setGlobalRisk] = useState<{
-    global_stop_loss_pct: number | null
-    global_take_profit_pct: number | null
-    tiers?: { threshold: number; fraction: number }[] | null
+    stop_loss_pct: number | null
+    take_profit_pct: number | null
+    stop_loss_tiers?: { threshold: number; fraction: number }[] | null
+    take_profit_tiers?: { threshold: number; fraction: number }[] | null
     tier_rearm_buffer?: number | null
   }>({
-    global_stop_loss_pct: parsed.risk_policy_params?.global_stop?.stop_loss_pct ?? null,
-    global_take_profit_pct: parsed.risk_policy_params?.global_stop?.take_profit_pct ?? null,
-    tiers: parsed.risk_policy_params?.global_stop?.tiers ?? null,
+    stop_loss_pct: parsed.risk_policy_params?.global_stop?.stop_loss_pct ?? null,
+    take_profit_pct: parsed.risk_policy_params?.global_stop?.take_profit_pct ?? null,
+    stop_loss_tiers: parsed.risk_policy_params?.global_stop?.stop_loss_tiers ?? parsed.risk_policy_params?.global_stop?.tiers ?? null,
+    take_profit_tiers: parsed.risk_policy_params?.global_stop?.take_profit_tiers ?? null,
     tier_rearm_buffer: parsed.risk_policy_params?.global_stop?.tier_rearm_buffer ?? null,
   })
   const [market, setMarket] = useState(parsed.market_rule?.market ?? 'CN')
@@ -216,15 +218,18 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
         drawdown_breaker: { max_drawdown_pct: Number(quickDrawdownBreaker) / 100 },
       }
     }
-    const hasTiers = globalRisk.tiers != null && globalRisk.tiers.length > 0
-    if (globalRisk.global_stop_loss_pct != null || globalRisk.global_take_profit_pct != null || hasTiers) {
+    const hasSlTiers = globalRisk.stop_loss_tiers != null && globalRisk.stop_loss_tiers.length > 0
+    const hasTpTiers = globalRisk.take_profit_tiers != null && globalRisk.take_profit_tiers.length > 0
+    if (globalRisk.stop_loss_pct != null || globalRisk.take_profit_pct != null || hasSlTiers || hasTpTiers) {
+      const hasAnyTiers = hasSlTiers || hasTpTiers
       config.risk_policy_params = {
         ...(config.risk_policy_params as Record<string, unknown> ?? {}),
         global_stop: {
-          ...(globalRisk.global_stop_loss_pct != null ? { stop_loss_pct: globalRisk.global_stop_loss_pct } : {}),
-          ...(globalRisk.global_take_profit_pct != null ? { take_profit_pct: globalRisk.global_take_profit_pct } : {}),
-          ...(hasTiers ? { tiers: globalRisk.tiers } : {}),
-          ...(hasTiers && globalRisk.tier_rearm_buffer != null ? { tier_rearm_buffer: globalRisk.tier_rearm_buffer } : {}),
+          ...(globalRisk.stop_loss_pct != null ? { stop_loss_pct: globalRisk.stop_loss_pct } : {}),
+          ...(globalRisk.take_profit_pct != null ? { take_profit_pct: globalRisk.take_profit_pct } : {}),
+          ...(hasSlTiers ? { stop_loss_tiers: globalRisk.stop_loss_tiers } : {}),
+          ...(hasTpTiers ? { take_profit_tiers: globalRisk.take_profit_tiers } : {}),
+          ...(hasAnyTiers && globalRisk.tier_rearm_buffer != null ? { tier_rearm_buffer: globalRisk.tier_rearm_buffer } : {}),
         },
       }
     }

@@ -76,7 +76,13 @@
       "rearm_buffer_label": "重新武装缓冲 (%)",
       "rearm_buffer_hint": "迟滞缓冲：档位触发后，亏损需回升到阈值+缓冲之上才会重新生效，防止反复触发。默认 0.5%。",
       "exit_fraction_label": "平仓比例",
-      "exit_fraction_hint": "止损触发时平掉的仓位比例，100% 为全部平仓，小于 100% 为部分平仓。"
+      "exit_fraction_hint": "止损触发时平掉的仓位比例，100% 为全部平仓，小于 100% 为部分平仓。",
+      "mode_disabled": "不启用",
+      "sl_card_title": "止损（亏损保护）",
+      "tp_card_title": "止盈（利润锁定）",
+      "tp_tier_threshold_label": "盈利阈值 (%)",
+      "tp_tier_editor_title": "止盈分档（最多 3 档）",
+      "tp_tier_hint": "盈利达到阈值时按比例平仓；回落越过阈值-缓冲后该档位可再次触发（棘轮式锁定利润）。"
     },
     "metric": {
       "total_return": "总收益",
