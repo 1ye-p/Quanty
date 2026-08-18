@@ -748,7 +748,7 @@ async def statistical_test(
     # Load returns for each backtest
     in_ph = ",".join(["?" for _ in body.backtest_ids])
     returns_df = catalog.query(
-        f"SELECT run_id, portfolio_return FROM gold_portfolio_returns "
+        f"SELECT run_id, portfolio_return FROM gold_portfolio_snapshots "
         f"WHERE run_id IN ({in_ph}) ORDER BY run_id, trade_date",
         body.backtest_ids,
     )
@@ -1000,15 +1000,17 @@ async def get_drawdown_timeseries(
 ) -> dict:
     """Get daily underwater drawdown values for charting."""
     df = catalog.query(
-        "SELECT trade_date, portfolio_return FROM gold_portfolio_returns "
+        "SELECT trade_date, nav FROM gold_portfolio_snapshots "
         "WHERE run_id = ? ORDER BY trade_date",
         [run_id],
     )
     if df.is_empty():
         raise HTTPException(status_code=404, detail=f"No return data for run '{run_id}'")
 
-    returns = df["portfolio_return"].to_list()
+    navs = df["nav"].to_list()
     dates = df["trade_date"].to_list()
+    # Compute daily returns from NAV series
+    returns = [0.0] + [(navs[i] - navs[i - 1]) / navs[i - 1] if navs[i - 1] > 0 else 0.0 for i in range(1, len(navs))]
     nav = 1.0
     peak = 1.0
     data = []
@@ -1031,7 +1033,7 @@ async def get_return_distribution(
     import numpy as np
 
     df = catalog.query(
-        "SELECT portfolio_return FROM gold_portfolio_returns WHERE run_id = ? ORDER BY trade_date",
+        "SELECT portfolio_return FROM gold_portfolio_snapshots WHERE run_id = ? ORDER BY trade_date",
         [run_id],
     )
     if df.is_empty():
@@ -1149,7 +1151,7 @@ async def get_stress_test(
 
     # Get portfolio returns with trade dates
     ret_df = catalog.query(
-        "SELECT trade_date, portfolio_return FROM gold_portfolio_returns WHERE run_id = ? ORDER BY trade_date",
+        "SELECT trade_date, portfolio_return FROM gold_portfolio_snapshots WHERE run_id = ? ORDER BY trade_date",
         [run_id],
     )
     if ret_df.is_empty():
@@ -1879,7 +1881,7 @@ async def export_backtest_report(
     # 9. 加载收益率分布
     returns_list: list[float] = []
     ret_df = catalog.query(
-        "SELECT portfolio_return FROM gold_portfolio_returns WHERE run_id = ? ORDER BY trade_date",
+        "SELECT portfolio_return FROM gold_portfolio_snapshots WHERE run_id = ? ORDER BY trade_date",
         [run_id],
     )
     if not ret_df.is_empty():
