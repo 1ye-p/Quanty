@@ -45,10 +45,10 @@ def adjusted_ohlc_sql(table: str = "silver_prices_1d") -> str:
     """
     return f"""
         SELECT asset_id, trade_date,
-            open * adj_factor                              AS open,
-            high * adj_factor                              AS high,
-            low  * adj_factor                              AS low,
-            COALESCE(adj_close, close * adj_factor)        AS close,
+            CAST(open AS DOUBLE) * CAST(adj_factor AS DOUBLE)               AS open,
+            CAST(high AS DOUBLE) * CAST(adj_factor AS DOUBLE)               AS high,
+            CAST(low  AS DOUBLE) * CAST(adj_factor AS DOUBLE)               AS low,
+            COALESCE(adj_close, CAST(close AS DOUBLE) * CAST(adj_factor AS DOUBLE)) AS close,
             volume,
             amount,
             adj_factor, is_suspended
