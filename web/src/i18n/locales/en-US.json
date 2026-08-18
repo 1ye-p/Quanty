@@ -82,7 +82,85 @@
       "tp_card_title": "Take Profit (Profit Locking)",
       "tp_tier_threshold_label": "Profit Threshold (%)",
       "tp_tier_editor_title": "Take-Profit Tiers (max 3)",
-      "tp_tier_hint": "When profit reaches a threshold, close the matching fraction; a tier can re-trigger after price falls back past threshold minus buffer (ratchet-style profit locking)."
+      "tp_tier_hint": "When profit reaches a threshold, close the matching fraction; a tier can re-trigger after price falls back past threshold minus buffer (ratchet-style profit locking).",
+      "fixed_stop_loss": {
+        "name": "Fixed Stop Loss",
+        "desc": "Reject if loss exceeds fixed threshold from entry price"
+      },
+      "trailing_stop_loss": {
+        "name": "Trailing Stop Loss",
+        "desc": "Reject if price drops trailing_pct from peak"
+      },
+      "atr_stop_loss": {
+        "name": "ATR Stop Loss",
+        "desc": "ATR-based stop loss"
+      },
+      "drawdown_breaker_reg": {
+        "name": "Drawdown Breaker",
+        "desc": "Halt trading when portfolio drawdown exceeds threshold"
+      },
+      "position_limit_reg": {
+        "name": "Position Limit",
+        "desc": "Limit single position weight"
+      },
+      "leverage_limit_reg": {
+        "name": "Leverage Limit",
+        "desc": "Limit gross leverage"
+      },
+      "sector_limit": {
+        "name": "Sector Limit",
+        "desc": "Limit sector exposure"
+      },
+      "max_holding_days": {
+        "name": "Max Holding Days",
+        "desc": "Force exit after max holding period"
+      },
+      "factor_exposure_limit": {
+        "name": "Factor Exposure Limit",
+        "desc": "Limit factor exposure"
+      },
+      "param": {
+        "stop_pct": {
+          "name": "Stop Percentage",
+          "desc": "Stop loss percentage (e.g. 0.05 = 5%)"
+        },
+        "trailing_pct": {
+          "name": "Trailing Percentage",
+          "desc": "Trailing stop percentage"
+        },
+        "n_atr": {
+          "name": "ATR Multiplier",
+          "desc": "ATR multiplier for stop distance"
+        },
+        "max_drawdown": {
+          "name": "Max Drawdown",
+          "desc": "Max drawdown (negative, e.g. -0.10)"
+        },
+        "max_position_pct": {
+          "name": "Max Position Weight",
+          "desc": "Max position weight"
+        },
+        "max_gross_leverage": {
+          "name": "Max Gross Leverage",
+          "desc": "Max gross leverage"
+        },
+        "max_sector_pct": {
+          "name": "Max Sector Weight",
+          "desc": "Max sector weight"
+        },
+        "sector_map": {
+          "name": "Sector Map",
+          "desc": "asset_id -> sector mapping"
+        },
+        "max_days": {
+          "name": "Max Holding Days",
+          "desc": "Max holding days"
+        },
+        "factor_limits": {
+          "name": "Factor Limits",
+          "desc": "factor_name -> max_abs_exposure"
+        }
+      }
     },
     "metric": {
       "total_return": "Total Return",
@@ -115,6 +193,54 @@
         "aria_label": "Language",
         "zh-CN": "中文",
         "en-US": "English"
+      }
+    },
+    "sizer": {
+      "equal_weight": {
+        "name": "Equal Weight",
+        "desc": "Equal weight across all selected assets"
+      },
+      "kelly": {
+        "name": "Kelly",
+        "desc": "Kelly criterion based sizing"
+      },
+      "mvo": {
+        "name": "Mean-Variance Optimization",
+        "desc": "Mean-variance optimized weights"
+      },
+      "target_vol": {
+        "name": "Target Volatility",
+        "desc": "Target volatility scaling"
+      },
+      "vol_parity": {
+        "name": "Volatility Parity",
+        "desc": "Inverse volatility weighting (risk parity for positions)"
+      },
+      "black_litterman": {
+        "name": "Black-Litterman",
+        "desc": "Black-Litterman model with market equilibrium + views"
+      },
+      "param": {
+        "fraction": {
+          "name": "Kelly Fraction",
+          "desc": "Kelly fraction (half-Kelly = 0.5)"
+        },
+        "risk_free_rate": {
+          "name": "Risk-Free Rate",
+          "desc": "Risk-free rate"
+        },
+        "long_only": {
+          "name": "Long Only",
+          "desc": "Long-only constraint"
+        },
+        "target_vol": {
+          "name": "Target Volatility",
+          "desc": "Target annualized volatility"
+        },
+        "tau": {
+          "name": "Tau",
+          "desc": "Uncertainty scaling factor"
+        }
       }
     }
   },

@@ -13,6 +13,11 @@ import { MissingFactorConfig } from '@/components/strategies/MissingFactorConfig
 import { GlobalRiskConfig } from '@/components/strategies/GlobalRiskConfig'
 import { FactorCorrelationHint } from '@/components/strategies/FactorCorrelationHint'
 import { IndicatorParamConfig } from '@/components/strategies/IndicatorParamConfig'
+import {
+  sizerDisplayName, sizerDisplayDesc,
+  policyDisplayName, policyDisplayDesc,
+  paramLabel,
+} from '@/lib/i18nRisk'
 
 interface StrategyBuilderProps {
   initialConfig: string
@@ -677,7 +682,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           <label className="text-xs text-gray-500 mb-1 block">{t('component.strategies.builder.sizer_label')}</label>
           <select className="input w-full" value={sizer} onChange={e => { setSizer(e.target.value); setSizerParams({}) }}>
             {sizers?.map(s => (
-              <option key={s.name} value={s.name}>{s.name} — {s.description}</option>
+              <option key={s.name} value={s.name}>{sizerDisplayName(t, s.name, s.name)} — {sizerDisplayDesc(t, s.name, s.description)}</option>
             )) ?? <option value="equal_weight">equal_weight</option>}
           </select>
         </div>
@@ -690,7 +695,7 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
           <div className="grid grid-cols-2 gap-2">
             {selectedSizerInfo.params.map(p => (
               <div key={p.key}>
-                <label className="text-xs text-gray-500">{p.description}</label>
+                <label className="text-xs text-gray-500">{paramLabel('sizer', selectedSizerInfo.name, p.key, t, p.description)}</label>
                 <input className="input w-full" placeholder={String(p.default)}
                   value={sizerParams[p.key] ?? ''}
                   onChange={e => setSizerParams(prev => ({ ...prev, [p.key]: e.target.value }))} />
@@ -852,8 +857,8 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
                   )
                 }} />
               <div>
-                <div className="font-medium text-gray-700">{p.name}</div>
-                <div className="text-xs text-gray-400">{p.description}</div>
+                <div className="font-medium text-gray-700">{policyDisplayName(t, p.name, p.name)}</div>
+                <div className="text-xs text-gray-400">{policyDisplayDesc(t, p.name, p.description)}</div>
               </div>
             </label>
           ))}
@@ -868,11 +873,11 @@ export function StrategyBuilder({ initialConfig, onChange }: StrategyBuilderProp
               if (pName === 'drawdown_breaker' && quickDrawdownBreaker) return null
               return (
                 <div key={pName} className="bg-gray-50 rounded p-2">
-                  <div className="text-xs font-medium text-gray-500 mb-1">{pName}</div>
+                  <div className="text-xs font-medium text-gray-500 mb-1">{policyDisplayName(t, pName, pName)}</div>
                   <div className="grid grid-cols-2 gap-2">
                     {pInfo.params.map(p => (
                       <div key={p.key}>
-                        <label className="text-xs text-gray-400">{p.description}</label>
+                        <label className="text-xs text-gray-400">{paramLabel('policy', pName, p.key, t, p.description)}</label>
                         <input className="input w-full" placeholder={String(p.default)}
                           value={policyParams[pName]?.[p.key] ?? ''}
                           onChange={e => setPolicyParams(prev => ({

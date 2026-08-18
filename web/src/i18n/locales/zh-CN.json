@@ -82,7 +82,85 @@
       "tp_card_title": "止盈（利润锁定）",
       "tp_tier_threshold_label": "盈利阈值 (%)",
       "tp_tier_editor_title": "止盈分档（最多 3 档）",
-      "tp_tier_hint": "盈利达到阈值时按比例平仓；回落越过阈值-缓冲后该档位可再次触发（棘轮式锁定利润）。"
+      "tp_tier_hint": "盈利达到阈值时按比例平仓；回落越过阈值-缓冲后该档位可再次触发（棘轮式锁定利润）。",
+      "fixed_stop_loss": {
+        "name": "固定止损",
+        "desc": "亏损超过入场价固定阈值时拒绝"
+      },
+      "trailing_stop_loss": {
+        "name": "追踪止损",
+        "desc": "价格从峰值回撤超过阈值时拒绝"
+      },
+      "atr_stop_loss": {
+        "name": "ATR 止损",
+        "desc": "基于 ATR 的止损"
+      },
+      "drawdown_breaker_reg": {
+        "name": "回撤熔断",
+        "desc": "组合回撤超过阈值时暂停交易"
+      },
+      "position_limit_reg": {
+        "name": "仓位限制",
+        "desc": "限制单一持仓权重"
+      },
+      "leverage_limit_reg": {
+        "name": "杠杆限制",
+        "desc": "限制总杠杆"
+      },
+      "sector_limit": {
+        "name": "行业限制",
+        "desc": "限制行业敞口"
+      },
+      "max_holding_days": {
+        "name": "最长持有天数",
+        "desc": "超过最长持有期后强制退出"
+      },
+      "factor_exposure_limit": {
+        "name": "因子敞口限制",
+        "desc": "限制因子敞口"
+      },
+      "param": {
+        "stop_pct": {
+          "name": "止损比例",
+          "desc": "止损比例（如 0.05 = 5%）"
+        },
+        "trailing_pct": {
+          "name": "追踪止损比例",
+          "desc": "追踪止损比例"
+        },
+        "n_atr": {
+          "name": "ATR 倍数",
+          "desc": "止损距离的 ATR 倍数"
+        },
+        "max_drawdown": {
+          "name": "最大回撤",
+          "desc": "最大回撤（负值，如 -0.10）"
+        },
+        "max_position_pct": {
+          "name": "最大持仓权重",
+          "desc": "最大持仓权重"
+        },
+        "max_gross_leverage": {
+          "name": "最大总杠杆",
+          "desc": "最大总杠杆"
+        },
+        "max_sector_pct": {
+          "name": "最大行业权重",
+          "desc": "最大行业权重"
+        },
+        "sector_map": {
+          "name": "行业映射",
+          "desc": "asset_id -> 行业映射"
+        },
+        "max_days": {
+          "name": "最长持有天数",
+          "desc": "最长持有天数"
+        },
+        "factor_limits": {
+          "name": "因子限额",
+          "desc": "factor_name -> 最大绝对敞口"
+        }
+      }
     },
     "metric": {
       "total_return": "总收益",
@@ -115,6 +193,54 @@
         "aria_label": "语言",
         "zh-CN": "中文",
         "en-US": "English"
+      }
+    },
+    "sizer": {
+      "equal_weight": {
+        "name": "等权",
+        "desc": "所有入选资产等权重配置"
+      },
+      "kelly": {
+        "name": "凯利",
+        "desc": "基于凯利公式的仓位配置"
+      },
+      "mvo": {
+        "name": "均值-方差优化",
+        "desc": "均值-方差优化权重"
+      },
+      "target_vol": {
+        "name": "目标波动率",
+        "desc": "目标波动率缩放"
+      },
+      "vol_parity": {
+        "name": "波动率平价",
+        "desc": "波动率倒数加权（持仓级风险平价）"
+      },
+      "black_litterman": {
+        "name": "Black-Litterman",
+        "desc": "Black-Litterman 模型（市场均衡 + 主观观点）"
+      },
+      "param": {
+        "fraction": {
+          "name": "凯利比例",
+          "desc": "凯利比例（半凯利 = 0.5）"
+        },
+        "risk_free_rate": {
+          "name": "无风险利率",
+          "desc": "无风险利率"
+        },
+        "long_only": {
+          "name": "仅做多",
+          "desc": "仅做多约束"
+        },
+        "target_vol": {
+          "name": "目标波动率",
+          "desc": "目标年化波动率"
+        },
+        "tau": {
+          "name": "不确定性缩放系数",
+          "desc": "不确定性缩放系数 τ"
+        }
       }
     }
   },
