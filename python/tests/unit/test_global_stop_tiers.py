@@ -32,7 +32,7 @@ class TestTieredGlobalStop:
         assert len(exits) == 1
         assert exits[0].exit_fraction == pytest.approx(0.3)
         assert "A" in state["fired_tiers"]
-        assert 0 in state["fired_tiers"]["A"]  # tier index 0 fired
+        assert 0 in state["fired_tiers"]["A"]["sl"]  # tier index 0 fired
 
         # Days 2..N: -4% persists, tier 1 already fired → no re-fire
         for _ in range(5):
@@ -51,7 +51,7 @@ class TestTieredGlobalStop:
         exits = _check(policy, -0.055, state)
         assert len(exits) == 1
         assert exits[0].exit_fraction == pytest.approx(0.4)
-        assert state["fired_tiers"]["A"] == {0, 1}
+        assert state["fired_tiers"]["A"]["sl"] == {0, 1}
 
         # Continued deep drawdown → nothing re-fires
         assert _check(policy, -0.06, state) == []
@@ -67,11 +67,11 @@ class TestTieredGlobalStop:
         # rearm needs pnl > threshold + buffer = -0.03 + 0.005 = -0.025)
         # -2.9% is above threshold but NOT above threshold+buffer → still armed-off
         assert _check(policy, -0.029, state) == []
-        assert 0 in state["fired_tiers"]["A"]
+        assert 0 in state["fired_tiers"]["A"]["sl"]
 
         # Recover beyond -2.5% → tier re-armed
         _check(policy, -0.02, state)
-        assert 0 not in state["fired_tiers"]["A"]
+        assert 0 not in state["fired_tiers"]["A"]["sl"]
 
         # Now a fresh breach fires tier 1 again
         exits = _check(policy, -0.035, state)

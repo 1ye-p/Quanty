@@ -715,6 +715,8 @@ class VectorBacktestEngine:
                                 # Clean up state for force-exited asset
                                 trailing_state["peak_prices"].pop(forced_exit.asset_id, None)
                                 atr_state["atr_values"].pop(forced_exit.asset_id, None)
+                                # Full exit clears both sides' tier ladders
+                                # (fired_tiers values are {"sl": set, "tp": set})
                                 global_stop_state["fired_tiers"].pop(forced_exit.asset_id, None)
 
             # Track daily returns for risk decisions (approximate NAV removed;

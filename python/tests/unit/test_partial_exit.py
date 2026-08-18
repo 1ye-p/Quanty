@@ -201,13 +201,13 @@ class TestTieredTP:
         exits = _policy_check(policy, -0.035, state)
         assert len(exits) == 1
         assert exits[0].exit_fraction == pytest.approx(0.3)
-        assert state["fired_tiers"]["A"] == {0}
+        assert state["fired_tiers"]["A"]["sl"] == {0}
 
         # Deeper breach → tier 2 fires on top (cumulative 30% + 40%)
         exits = _policy_check(policy, -0.055, state)
         assert len(exits) == 1
         assert exits[0].exit_fraction == pytest.approx(0.4)
-        assert state["fired_tiers"]["A"] == {0, 1}
+        assert state["fired_tiers"]["A"]["sl"] == {0, 1}
 
         # Engine-side cumulative effect: 0.5 → 70% → 15% remaining
         committed = {"A": 0.5}
@@ -257,17 +257,17 @@ class TestRearmOnRecovery:
 
         # Fire tier 1 at -3.5%
         assert len(_policy_check(policy, -0.035, state)) == 1
-        assert 0 in state["fired_tiers"]["A"]
+        assert 0 in state["fired_tiers"]["A"]["sl"]
 
         # Recover above -0.03 + 0.005 = -0.025 → tier re-armed
         _policy_check(policy, -0.02, state)
-        assert 0 not in state["fired_tiers"]["A"]
+        assert 0 not in state["fired_tiers"]["A"]["sl"]
 
         # Fresh breach fires again
         exits = _policy_check(policy, -0.035, state)
         assert len(exits) == 1
         assert exits[0].exit_fraction == pytest.approx(0.3)
-        assert 0 in state["fired_tiers"]["A"]
+        assert 0 in state["fired_tiers"]["A"]["sl"]
 
 
 # ---------------------------------------------------------------------------
