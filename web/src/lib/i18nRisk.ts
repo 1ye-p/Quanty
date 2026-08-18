@@ -10,7 +10,6 @@
 
 export interface ParamLabel {
   labelKey: string
-  descKey?: string
 }
 
 export interface RegistryLabel {
@@ -30,7 +29,6 @@ export const SIZER_LABELS: Record<string, RegistryLabel> = {
     params: {
       fraction: {
         labelKey: 'common.sizer.param.fraction.name',
-        descKey: 'common.sizer.param.fraction.desc',
       },
     },
   },
@@ -40,11 +38,9 @@ export const SIZER_LABELS: Record<string, RegistryLabel> = {
     params: {
       risk_free_rate: {
         labelKey: 'common.sizer.param.risk_free_rate.name',
-        descKey: 'common.sizer.param.risk_free_rate.desc',
       },
       long_only: {
         labelKey: 'common.sizer.param.long_only.name',
-        descKey: 'common.sizer.param.long_only.desc',
       },
     },
   },
@@ -54,7 +50,6 @@ export const SIZER_LABELS: Record<string, RegistryLabel> = {
     params: {
       target_vol: {
         labelKey: 'common.sizer.param.target_vol.name',
-        descKey: 'common.sizer.param.target_vol.desc',
       },
     },
   },
@@ -68,11 +63,9 @@ export const SIZER_LABELS: Record<string, RegistryLabel> = {
     params: {
       tau: {
         labelKey: 'common.sizer.param.tau.name',
-        descKey: 'common.sizer.param.tau.desc',
       },
       risk_free_rate: {
         labelKey: 'common.sizer.param.risk_free_rate.name',
-        descKey: 'common.sizer.param.risk_free_rate.desc',
       },
     },
   },
@@ -85,7 +78,6 @@ export const POLICY_LABELS: Record<string, RegistryLabel> = {
     params: {
       stop_pct: {
         labelKey: 'common.risk_policy.param.stop_pct.name',
-        descKey: 'common.risk_policy.param.stop_pct.desc',
       },
     },
   },
@@ -95,7 +87,6 @@ export const POLICY_LABELS: Record<string, RegistryLabel> = {
     params: {
       trailing_pct: {
         labelKey: 'common.risk_policy.param.trailing_pct.name',
-        descKey: 'common.risk_policy.param.trailing_pct.desc',
       },
     },
   },
@@ -105,7 +96,6 @@ export const POLICY_LABELS: Record<string, RegistryLabel> = {
     params: {
       n_atr: {
         labelKey: 'common.risk_policy.param.n_atr.name',
-        descKey: 'common.risk_policy.param.n_atr.desc',
       },
     },
   },
@@ -115,7 +105,6 @@ export const POLICY_LABELS: Record<string, RegistryLabel> = {
     params: {
       max_drawdown: {
         labelKey: 'common.risk_policy.param.max_drawdown.name',
-        descKey: 'common.risk_policy.param.max_drawdown.desc',
       },
     },
   },
@@ -125,7 +114,6 @@ export const POLICY_LABELS: Record<string, RegistryLabel> = {
     params: {
       max_position_pct: {
         labelKey: 'common.risk_policy.param.max_position_pct.name',
-        descKey: 'common.risk_policy.param.max_position_pct.desc',
       },
     },
   },
@@ -135,7 +123,6 @@ export const POLICY_LABELS: Record<string, RegistryLabel> = {
     params: {
       max_gross_leverage: {
         labelKey: 'common.risk_policy.param.max_gross_leverage.name',
-        descKey: 'common.risk_policy.param.max_gross_leverage.desc',
       },
     },
   },
@@ -145,11 +132,9 @@ export const POLICY_LABELS: Record<string, RegistryLabel> = {
     params: {
       max_sector_pct: {
         labelKey: 'common.risk_policy.param.max_sector_pct.name',
-        descKey: 'common.risk_policy.param.max_sector_pct.desc',
       },
       sector_map: {
         labelKey: 'common.risk_policy.param.sector_map.name',
-        descKey: 'common.risk_policy.param.sector_map.desc',
       },
     },
   },
@@ -159,7 +144,6 @@ export const POLICY_LABELS: Record<string, RegistryLabel> = {
     params: {
       max_days: {
         labelKey: 'common.risk_policy.param.max_days.name',
-        descKey: 'common.risk_policy.param.max_days.desc',
       },
     },
   },
@@ -169,7 +153,6 @@ export const POLICY_LABELS: Record<string, RegistryLabel> = {
     params: {
       factor_limits: {
         labelKey: 'common.risk_policy.param.factor_limits.name',
-        descKey: 'common.risk_policy.param.factor_limits.desc',
       },
     },
   },
