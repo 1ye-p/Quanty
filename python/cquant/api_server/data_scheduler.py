@@ -60,15 +60,56 @@ def run_incremental_ingest(catalog) -> None:
 
         logger.info("DataScheduler: ingesting %s ~ %s", start_date, end_date)
         from cquant.core.enums import Market, Frequency
-        orchestrator = MarketIngestionOrchestrator(catalog, [AKShareConnector()])
-        spec = IngestionSpec(
-            market=Market.CN,
-            symbols=[],
-            start_date=start_date,
-            end_date=end_date,
-            frequency=Frequency.D1,
-        )
-        orchestrator.ingest(spec)
+        import time
+        
+        # 尝试多个数据源，按优先级排序
+        connectors = []
+        
+        # 1. 优先尝试 Tushare（如果配置了 token）
+        try:
+            from cquant.datahub.connectors.tushare_connector import TushareConnector
+            import os
+            if os.environ.get("TUSHARE_TOKEN"):
+                connectors.append(("tushare", TushareConnector()))
+                logger.info("DataScheduler: Tushare connector available")
+        except Exception as e:
+            logger.debug("DataScheduler: Tushare not available: %s", e)
+        
+        # 2. 尝试 AKShare
+        try:
+            from cquant.datahub.connectors.akshare_connector import AKShareConnector
+            connectors.append(("akshare", AKShareConnector()))
+            logger.info("DataScheduler: AKShare connector available")
+        except Exception as e:
+            logger.debug("DataScheduler: AKShare not available: %s", e)
+        
+        if not connectors:
+            raise IngestError("No data connectors available")
+        
+        # 逐个尝试数据源
+        last_error = None
+        for name, connector in connectors:
+            try:
+                logger.info("DataScheduler: trying %s connector", name)
+                orchestrator = MarketIngestionOrchestrator(catalog, [connector])
+                spec = IngestionSpec(
+                    market=Market.CN,
+                    symbols=[],
+                    start_date=start_date,
+                    end_date=end_date,
+                    frequency=Frequency.D1,
+                )
+                orchestrator.ingest(spec)
+                logger.info("DataScheduler: %s connector succeeded", name)
+                break
+            except Exception as e:
+                last_error = e
+                logger.warning("DataScheduler: %s connector failed: %s", name, e)
+                if name != connectors[-1][0]:
+                    logger.info("DataScheduler: waiting 5s before trying next connector...")
+                    time.sleep(5)
+        else:
+            raise IngestError(f"All connectors failed. Last error: {last_error}")
         _SCHEDULER_STATE["last_status"] = "success"
         _SCHEDULER_STATE["last_error"] = None
         logger.info("DataScheduler: ingest completed")
