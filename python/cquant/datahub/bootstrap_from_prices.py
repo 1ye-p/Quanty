@@ -67,12 +67,15 @@ def bootstrap_assets_from_prices(catalog: Catalog) -> int:
         
         try:
             catalog.execute("""
-                INSERT OR REPLACE INTO silver_assets 
+                INSERT INTO silver_assets 
                 (asset_id, symbol, exchange, asset_class, currency, name, name_en, 
                  status, lot_size, tick_size, list_date, delist_date, industry, sector,
                  effective_from, effective_to, updated_at)
                 VALUES (?, ?, ?, 'EQUITY', 'CNY', '', '', 'active', 100, 0.01, 
                         ?, NULL, ?, ?, ?, NULL, NOW())
+                ON CONFLICT (asset_id) DO UPDATE SET
+                    status = 'active',
+                    updated_at = NOW()
             """, [asset_id, symbol, exchange, row["first_trade"], sector, sector, 
                   row["first_trade"]])
             count += 1
