@@ -481,3 +481,16 @@ async def get_universe_stats(
 
     universe = PointInTimeUniverse(catalog)
     return universe.get_universe_stats(start_date, end_date)
+
+
+@router.post("/bootstrap")
+async def bootstrap_assets(catalog: CatalogDep) -> dict:
+    """从 silver_prices_1d 中提取资产列表并填充 silver_assets 表。"""
+    from cquant.datahub.bootstrap_from_prices import bootstrap_assets_from_prices
+    
+    try:
+        count = bootstrap_assets_from_prices(catalog)
+        return {"status": "success", "assets_populated": count}
+    except Exception as exc:
+        logger.exception("Bootstrap failed")
+        raise HTTPException(status_code=500, detail=f"Bootstrap failed: {exc}")

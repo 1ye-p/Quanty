@@ -353,6 +353,14 @@ class MarketIngestionOrchestrator:
             storage_uri="duckdb:silver_prices_1d",
             source="tdx",
         )
+        # Auto-bootstrap silver_assets from ingested data
+        try:
+            from cquant.datahub.bootstrap import bootstrap_assets_from_tdx
+            n_assets = bootstrap_assets_from_tdx(self._catalog, db_path)
+            logger.info("Bootstrap: populated %d assets in silver_assets", n_assets)
+        except Exception as exc:
+            logger.warning("Bootstrap failed (non-blocking): %s", exc)
+
         logger.info(
             "Bulk TDX ingestion complete: %d rows, %d assets → version %s",
             total_rows, len(total_assets), last_version_id,
