@@ -60,12 +60,12 @@ def run_incremental_ingest(catalog) -> None:
 
         logger.info("DataScheduler: ingesting %s ~ %s", start_date, end_date)
         from cquant.core.enums import Market, Frequency
-        import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         
-        # 尝试多个数据源，按优先级排序
+        # 构建可用连接器列表
         connectors = []
         
-        # 1. 优先尝试 Tushare（如果配置了 token）
+        # 1. Tushare（如果配置了 token）
         try:
             from cquant.datahub.connectors.tushare_connector import TushareConnector
             import os
@@ -75,7 +75,7 @@ def run_incremental_ingest(catalog) -> None:
         except Exception as e:
             logger.debug("DataScheduler: Tushare not available: %s", e)
         
-        # 2. 尝试 AKShare
+        # 2. AKShare
         try:
             from cquant.datahub.connectors.akshare_connector import AKShareConnector
             connectors.append(("akshare", AKShareConnector()))
@@ -86,9 +86,9 @@ def run_incremental_ingest(catalog) -> None:
         if not connectors:
             raise IngestError("No data connectors available")
         
-        # 逐个尝试数据源
-        last_error = None
-        for name, connector in connectors:
+        # 并行尝试所有连接器，第一个成功就完成
+        def try_connector(name_connector_tuple):
+            name, connector = name_connector_tuple
             try:
                 logger.info("DataScheduler: trying %s connector", name)
                 orchestrator = MarketIngestionOrchestrator(catalog, [connector])
@@ -101,14 +101,30 @@ def run_incremental_ingest(catalog) -> None:
                 )
                 orchestrator.ingest(spec)
                 logger.info("DataScheduler: %s connector succeeded", name)
-                break
+                return (name, True, None)
             except Exception as e:
-                last_error = e
                 logger.warning("DataScheduler: %s connector failed: %s", name, e)
-                if name != connectors[-1][0]:
-                    logger.info("DataScheduler: waiting 5s before trying next connector...")
-                    time.sleep(5)
-        else:
+                return (name, False, e)
+        
+        # 并行执行所有连接器
+        with ThreadPoolExecutor(max_workers=len(connectors)) as executor:
+            futures = {executor.submit(try_connector, nc): nc for nc in connectors}
+            success = False
+            last_error = None
+            
+            for future in as_completed(futures):
+                name, ok, error = future.result()
+                if ok:
+                    # 成功一个就够了，取消其他任务
+                    success = True
+                    logger.info("DataScheduler: %s connector succeeded, cancelling others", name)
+                    for f in futures:
+                        f.cancel()
+                    break
+                else:
+                    last_error = error
+        
+        if not success:
             raise IngestError(f"All connectors failed. Last error: {last_error}")
         _SCHEDULER_STATE["last_status"] = "success"
         _SCHEDULER_STATE["last_error"] = None
