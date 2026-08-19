@@ -494,3 +494,89 @@ async def bootstrap_assets(catalog: CatalogDep) -> dict:
     except Exception as exc:
         logger.exception("Bootstrap failed")
         raise HTTPException(status_code=500, detail=f"Bootstrap failed: {exc}")
+
+
+@router.get("/{version_id}/preview")
+async def get_dataset_preview(
+    version_id: str, catalog: CatalogDep, offset: int = 0, limit: int = 50
+) -> dict:
+    """获取数据集预览（前 N 行）。"""
+    df = catalog.query(
+        "SELECT asset_id, trade_date, open, high, low, close, volume, amount "
+        "FROM silver_prices_1d ORDER BY trade_date DESC, asset_id LIMIT ? OFFSET ?",
+        [limit, offset],
+    )
+    if df.is_empty():
+        return {"items": [], "total": 0}
+    return {"items": df.to_dicts(), "total": len(df)}
+
+
+@router.get("/{version_id}/field-stats")
+async def get_field_stats(version_id: str, catalog: CatalogDep) -> dict:
+    """获取数据集字段统计信息。"""
+    stats = {}
+    for col in ["open", "high", "low", "close", "volume", "amount"]:
+        try:
+            df = catalog.query(
+                f"SELECT MIN({col}) as min, MAX({col}) as max, AVG({col}) as avg, "
+                f"COUNT({col}) as count, COUNT(*) - COUNT({col}) as null_count FROM silver_prices_1d"
+            )
+            if not df.is_empty():
+                row = df.to_dicts()[0]
+                stats[col] = row
+        except Exception:
+            stats[col] = {"error": "unavailable"}
+    return {"fields": stats}
+
+
+@router.get("/{version_id}/quality-report")
+async def get_quality_report(version_id: str, catalog: CatalogDep) -> dict:
+    """获取数据质量报告。"""
+    try:
+        from cquant.datahub.quality import DataQualityScorer
+        scorer = DataQualityScorer(catalog)
+        # 获取版本信息
+        ver_df = catalog.query(
+            "SELECT start_date, end_date FROM meta_dataset_versions WHERE version_id = ?",
+            [version_id],
+        )
+        if ver_df.is_empty():
+            raise HTTPException(status_code=404, detail="Dataset version not found")
+        row = ver_df.to_dicts()[0]
+        report = scorer.score("silver_prices_1d", row["start_date"], row["end_date"])
+        return {
+            "overall_score": report.overall_score,
+            "completeness": report.completeness.score,
+            "consistency": report.consistency.score,
+            "freshness": report.freshness.score,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+@router.get("/{version_id}/anomalies")
+async def get_anomalies(version_id: str, catalog: CatalogDep, limit: int = 20) -> dict:
+    """获取数据异常标记（涨跌幅 > 25%）。"""
+    df = catalog.query(
+        "SELECT asset_id, trade_date, close, "
+        "LAG(close) OVER (PARTITION BY asset_id ORDER BY trade_date) as prev_close "
+        "FROM silver_prices_1d ORDER BY trade_date DESC LIMIT 10000"
+    )
+    if df.is_empty():
+        return {"items": []}
+    
+    anomalies = []
+    for row in df.to_dicts():
+        if row["prev_close"] and row["close"] and row["prev_close"] > 0:
+            change = abs(row["close"] / row["prev_close"] - 1)
+            if change > 0.25:
+                anomalies.append({
+                    "asset_id": row["asset_id"],
+                    "trade_date": str(row["trade_date"]),
+                    "close": row["close"],
+                    "prev_close": row["prev_close"],
+                    "change_pct": round(change * 100, 2),
+                })
+    return {"items": anomalies[:limit]}
