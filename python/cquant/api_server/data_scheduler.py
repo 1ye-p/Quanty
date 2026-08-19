@@ -88,46 +88,71 @@ def run_incremental_ingest(catalog) -> None:
         if not connectors:
             raise IngestError("No data connectors available")
         
-        # 并行尝试所有连接器，第一个成功就完成
-        def try_connector(name_connector_tuple):
-            name, connector = name_connector_tuple
+        # 获取资产列表
+        try:
+            asset_df = catalog.query(
+                "SELECT asset_id FROM silver_assets WHERE status = 'active' AND exchange IN ('SSE', 'SZSE', 'BSE') ORDER BY asset_id"
+            )
+            all_symbols = asset_df["asset_id"].to_list() if not asset_df.is_empty() else []
+        except Exception:
+            all_symbols = []
+        
+        if not all_symbols:
+            raise IngestError("No symbols found in silver_assets")
+        
+        _SCHEDULER_STATE["progress_total"] = len(all_symbols)
+        
+        # 将股票列表分配给各连接器（不重复）
+        num_connectors = len(connectors)
+        symbols_per_connector = len(all_symbols) // num_connectors
+        remainder = len(all_symbols) % num_connectors
+        
+        symbol_assignments = []
+        start_idx = 0
+        for i, (name, connector) in enumerate(connectors):
+            count = symbols_per_connector + (1 if i < remainder else 0)
+            assigned_symbols = all_symbols[start_idx:start_idx + count]
+            symbol_assignments.append((name, connector, assigned_symbols))
+            start_idx += count
+            logger.info("DataScheduler: %s assigned %d symbols", name, len(assigned_symbols))
+        
+        # 并行执行各连接器（各自负责不同股票）
+        def try_connector_with_symbols(args):
+            name, connector, symbols = args
+            _SCHEDULER_STATE["connectors"][name] = {
+                "status": "running", "current": 0, "total": len(symbols),
+                "last_symbol": "", "error": "",
+            }
             try:
-                logger.info("DataScheduler: trying %s connector", name)
+                logger.info("DataScheduler: %s starting (%d symbols)", name, len(symbols))
+                from cquant.datahub.ingest import MarketIngestionOrchestrator, IngestionSpec
                 orchestrator = MarketIngestionOrchestrator(catalog, [connector])
                 spec = IngestionSpec(
-                    market=Market.CN,
-                    symbols=[],
-                    start_date=start_date,
-                    end_date=end_date,
+                    market=Market.CN, symbols=symbols,
+                    start_date=start_date, end_date=end_date,
                     frequency=Frequency.D1,
                 )
                 orchestrator.ingest(spec)
-                logger.info("DataScheduler: %s connector succeeded", name)
+                _SCHEDULER_STATE["connectors"][name]["status"] = "success"
+                logger.info("DataScheduler: %s completed (%d symbols)", name, len(symbols))
                 return (name, True, None)
             except Exception as e:
-                logger.warning("DataScheduler: %s connector failed: %s", name, e)
+                _SCHEDULER_STATE["connectors"][name]["status"] = "failed"
+                _SCHEDULER_STATE["connectors"][name]["error"] = str(e)[:200]
+                logger.warning("DataScheduler: %s failed: %s", name, e)
                 return (name, False, e)
         
-        # 并行执行所有连接器
-        with ThreadPoolExecutor(max_workers=len(connectors)) as executor:
-            futures = {executor.submit(try_connector, nc): nc for nc in connectors}
-            success = False
-            last_error = None
-            
-            for future in as_completed(futures):
-                name, ok, error = future.result()
-                if ok:
-                    # 成功一个就够了，取消其他任务
-                    success = True
-                    logger.info("DataScheduler: %s connector succeeded, cancelling others", name)
-                    for f in futures:
-                        f.cancel()
-                    break
-                else:
-                    last_error = error
+        with ThreadPoolExecutor(max_workers=num_connectors) as executor:
+            futures = [executor.submit(try_connector_with_symbols, args) for args in symbol_assignments]
+            results = [f.result() for f in as_completed(futures)]
         
-        if not success:
-            raise IngestError(f"All connectors failed. Last error: {last_error}")
+        successes = [r for r in results if r[1]]
+        failures = [r for r in results if not r[1]]
+        
+        if successes:
+            logger.info("DataScheduler: %d/%d connectors succeeded", len(successes), num_connectors)
+        if failures and not successes:
+            raise IngestError(f"All connectors failed. Last error: {failures[0][2]}")
         _SCHEDULER_STATE["last_status"] = "success"
         _SCHEDULER_STATE["last_error"] = None
         logger.info("DataScheduler: ingest completed")
