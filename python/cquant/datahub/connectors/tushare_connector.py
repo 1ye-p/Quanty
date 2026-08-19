@@ -62,12 +62,16 @@ class TushareConnector(DataConnector):
         return self._pro
 
     def fetch(self, spec: DataSpec) -> Iterable[RawBatch]:
+        import time as _time
         pro = self._get_pro()
         fetched_at = datetime.now(tz=timezone.utc).isoformat()
         start_str = spec.start_date.strftime("%Y%m%d")
         end_str = spec.end_date.strftime("%Y%m%d")
 
-        for symbol in spec.symbols:
+        for i, symbol in enumerate(spec.symbols):
+            # Tushare rate limit: 50 requests/minute → sleep 1.2s between calls
+            if i > 0:
+                _time.sleep(1.2)
             # Tushare uses "000001.SZ" format; datahub uses "SZSE:000001"
             ts_code = _to_tushare_code(symbol)
             try:
