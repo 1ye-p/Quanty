@@ -203,10 +203,16 @@ class MarketIngestionOrchestrator:
 
         try:
             market = spec.market.value if hasattr(spec.market, 'value') else str(spec.market)
-            df = self._catalog.query(
-                "SELECT asset_id FROM silver_assets WHERE status = 'active' AND exchange = ? ORDER BY asset_id",
-                [market],
-            )
+            # Market.CN maps to exchanges SSE/SZSE/BSE
+            if market == "CN":
+                df = self._catalog.query(
+                    "SELECT asset_id FROM silver_assets WHERE status = 'active' AND exchange IN ('SSE', 'SZSE', 'BSE') ORDER BY asset_id",
+                )
+            else:
+                df = self._catalog.query(
+                    "SELECT asset_id FROM silver_assets WHERE status = 'active' AND exchange = ? ORDER BY asset_id",
+                    [market],
+                )
         except Exception as exc:
             logger.warning("Failed to resolve symbols from silver_assets: %s", exc)
             return []
