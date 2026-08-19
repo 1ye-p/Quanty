@@ -82,6 +82,11 @@ class TushareConnector(DataConnector):
                     end_date=end_str,
                 )
                 df = pl.from_pandas(df_pd)
+                # 转换 ts_code 为 asset_id 格式 (000001.SZ -> SZSE:000001)
+                if "ts_code" in df.columns:
+                    df = df.with_columns(
+                        pl.col("ts_code").map_elements(_to_asset_id, return_dtype=pl.Utf8).alias("asset_id")
+                    )
                 yield RawBatch(
                     source=self.source_name,
                     dataset="daily_bar",
