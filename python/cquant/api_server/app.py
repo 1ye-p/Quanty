@@ -13,6 +13,15 @@ Usage::
 from __future__ import annotations
 
 
+# Disable system proxy for data fetching
+import os
+os.environ.setdefault("NO_PROXY", "*")
+os.environ.setdefault("no_proxy", "*")
+os.environ.pop("HTTP_PROXY", None)
+os.environ.pop("HTTPS_PROXY", None)
+os.environ.pop("http_proxy", None)
+os.environ.pop("https_proxy", None)
+
 # Load .env file
 try:
     from dotenv import load_dotenv
