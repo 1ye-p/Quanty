@@ -40,6 +40,10 @@ def run_incremental_ingest(catalog) -> None:
     """执行增量摄取：从 silver_prices_1d 找最新日期，拉取到今日。"""
     _SCHEDULER_STATE["last_status"] = "running"
     _SCHEDULER_STATE["last_run"] = datetime.now(tz=timezone.utc).isoformat()
+    _SCHEDULER_STATE["progress_current"] = 0
+    _SCHEDULER_STATE["progress_total"] = 0
+    _SCHEDULER_STATE["progress_symbol"] = ""
+    _SCHEDULER_STATE["progress_connector"] = ""
     try:
         from cquant.datahub.ingest import MarketIngestionOrchestrator, IngestionSpec
         from cquant.datahub.connectors.akshare_connector import AKShareConnector
