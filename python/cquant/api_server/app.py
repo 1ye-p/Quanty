@@ -12,6 +12,13 @@ Usage::
 
 from __future__ import annotations
 
+
+# Load .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 import logging
 from contextlib import asynccontextmanager
 
