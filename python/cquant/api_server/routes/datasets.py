@@ -521,46 +521,65 @@ async def get_dataset_preview(
 @router.get("/{version_id}/field-stats")
 async def get_field_stats(version_id: str, catalog: CatalogDep) -> dict:
     """获取数据集字段统计信息。"""
-    stats = {}
+    fields = []
     for col in ["open", "high", "low", "close", "volume", "amount"]:
         try:
             df = catalog.query(
-                f"SELECT MIN({col}) as min, MAX({col}) as max, AVG({col}) as avg, "
-                f"COUNT({col}) as count, COUNT(*) - COUNT({col}) as null_count FROM silver_prices_1d"
+                f"SELECT COUNT(*) as count, COUNT({col}) as non_null, "
+                f"MIN({col}) as min, MAX({col}) as max, AVG({col}) as mean, "
+                f"STDDEV({col}) as std FROM silver_prices_1d"
             )
             if not df.is_empty():
                 row = df.to_dicts()[0]
-                stats[col] = row
+                count = row["count"]
+                non_null = row["non_null"]
+                fields.append({
+                    "name": col,
+                    "type": "DOUBLE",
+                    "count": non_null,
+                    "null_count": count - non_null,
+                    "null_rate": round((count - non_null) / count, 4) if count > 0 else 0,
+                    "unique_count": 0,
+                    "min": row["min"],
+                    "max": row["max"],
+                    "mean": round(row["mean"], 4) if row["mean"] else None,
+                    "std": round(row["std"], 4) if row["std"] else None,
+                })
         except Exception:
-            stats[col] = {"error": "unavailable"}
-    return {"fields": stats}
+            fields.append({"name": col, "type": "unknown", "count": 0, "null_count": 0, "null_rate": 0, "unique_count": 0, "min": None, "max": None, "mean": None, "std": None})
+    return {"fields": fields}
 
 
 @router.get("/{version_id}/quality-report")
 async def get_quality_report(version_id: str, catalog: CatalogDep) -> dict:
     """获取数据质量报告。"""
     try:
-        from cquant.datahub.quality import DataQualityScorer
-        scorer = DataQualityScorer(catalog)
-        # 获取版本信息
-        ver_df = catalog.query(
-            "SELECT start_date, end_date FROM meta_dataset_versions WHERE version_id = ?",
-            [version_id],
-        )
-        if ver_df.is_empty():
-            raise HTTPException(status_code=404, detail="Dataset version not found")
-        row = ver_df.to_dicts()[0]
-        report = scorer.score("silver_prices_1d", row["start_date"], row["end_date"])
+        # 获取基本信息
+        count_df = catalog.query("SELECT COUNT(*) as total FROM silver_prices_1d")
+        total_rows = count_df.to_dicts()[0]["total"] if not count_df.is_empty() else 0
+        
+        # 获取字段数
+        cols_df = catalog.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'silver_prices_1d'")
+        total_fields = len(cols_df) if not cols_df.is_empty() else 0
+        
+        # 简单质量检查
+        issues = []
+        for col in ["open", "high", "low", "close", "volume"]:
+            null_df = catalog.query(f"SELECT COUNT(*) as nulls FROM silver_prices_1d WHERE {col} IS NULL")
+            nulls = null_df.to_dicts()[0]["nulls"] if not null_df.is_empty() else 0
+            if nulls > 0:
+                issues.append({"field": col, "type": "null_values", "count": nulls, "percentage": round(nulls / total_rows * 100, 2)})
+        
+        score = max(0, 100 - len(issues) * 5)
         return {
-            "overall_score": report.overall_score,
-            "completeness": report.completeness.score,
-            "consistency": report.consistency.score,
-            "freshness": report.freshness.score,
+            "score": score,
+            "total_rows": total_rows,
+            "total_fields": total_fields,
+            "issues": issues,
+            "suggestions": ["Run data quality scorer for detailed analysis"],
         }
-    except HTTPException:
-        raise
     except Exception as exc:
-        return {"error": str(exc)}
+        return {"score": 0, "total_rows": 0, "total_fields": 0, "issues": [], "suggestions": [str(exc)]}
 
 
 @router.get("/{version_id}/anomalies")

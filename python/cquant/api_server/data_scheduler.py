@@ -1,4 +1,5 @@
 """DataScheduler — 每日自动增量摄取行情数据。"""
+from cquant.core.errors import IngestError
 
 from __future__ import annotations
 
