@@ -204,7 +204,7 @@ class MarketIngestionOrchestrator:
         try:
             market = spec.market.value if hasattr(spec.market, 'value') else str(spec.market)
             df = self._catalog.query(
-                "SELECT asset_id FROM silver_assets WHERE status = 'active' AND market = ? ORDER BY asset_id",
+                "SELECT asset_id FROM silver_assets WHERE status = 'active' AND exchange = ? ORDER BY asset_id",
                 [market],
             )
         except Exception as exc:
