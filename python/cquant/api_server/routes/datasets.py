@@ -501,14 +501,21 @@ async def get_dataset_preview(
     version_id: str, catalog: CatalogDep, offset: int = 0, limit: int = 50
 ) -> dict:
     """获取数据集预览（前 N 行）。"""
+    # 获取总数
+    count_df = catalog.query("SELECT COUNT(*) as total FROM silver_prices_1d")
+    total = count_df.to_dicts()[0]["total"] if not count_df.is_empty() else 0
+    
     df = catalog.query(
         "SELECT asset_id, trade_date, open, high, low, close, volume, amount "
         "FROM silver_prices_1d ORDER BY trade_date DESC, asset_id LIMIT ? OFFSET ?",
         [limit, offset],
     )
     if df.is_empty():
-        return {"items": [], "total": 0}
-    return {"items": df.to_dicts(), "total": len(df)}
+        return {"columns": [], "rows": [], "total": 0, "offset": offset, "limit": limit}
+    
+    columns = df.columns
+    rows = df.to_dicts()
+    return {"columns": columns, "rows": rows, "total": total, "offset": offset, "limit": limit}
 
 
 @router.get("/{version_id}/field-stats")
