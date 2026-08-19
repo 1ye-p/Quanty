@@ -5,6 +5,7 @@ Requires: tushare>=1.4 and a valid TUSHARE_TOKEN environment variable.
 """
 
 from __future__ import annotations
+import time as _time
 
 import logging
 import os
@@ -69,9 +70,9 @@ class TushareConnector(DataConnector):
         end_str = spec.end_date.strftime("%Y%m%d")
 
         for i, symbol in enumerate(spec.symbols):
-            # Tushare rate limit: 50 requests/minute → sleep 1.2s between calls
+            # Tushare rate limit: 40 requests/minute → sleep 1.5s between calls
             if i > 0:
-                _time.sleep(1.2)
+                _time.sleep(1.5)
             # Tushare uses "000001.SZ" format; datahub uses "SZSE:000001"
             ts_code = _to_tushare_code(symbol)
             try:
