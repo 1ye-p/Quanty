@@ -48,11 +48,14 @@ def run_incremental_ingest(catalog) -> None:
         from datetime import date
 
         # 找上次摄取的最新日期
-        latest_df = catalog.query("SELECT MAX(trade_date) as last_date FROM silver_prices_1d")
-        if latest_df.is_empty() or latest_df["last_date"][0] is None:
+        try:
+            latest_df = catalog.query("SELECT MAX(trade_date) as last_date FROM silver_prices_1d")
+            if latest_df.is_empty() or "last_date" not in latest_df.columns or latest_df["last_date"][0] is None:
+                start_date = date.today() - timedelta(days=30)
+            else:
+                start_date = latest_df["last_date"][0] + timedelta(days=1)
+        except Exception:
             start_date = date.today() - timedelta(days=30)
-        else:
-            start_date = latest_df["last_date"][0] + timedelta(days=1)
 
         end_date = date.today()
         if start_date > end_date:
